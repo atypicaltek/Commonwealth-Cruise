@@ -150,6 +150,11 @@
     .sr-option.disabled{opacity:.45;pointer-events:none;}
     .so-option{display:flex;align-items:center;gap:8px;font-size:.93rem;cursor:pointer;}
     .so-option input[type=checkbox]{width:16px;height:16px;accent-color:var(--secondary);cursor:pointer;}
+    .inv-card.suite{border-top-color:#d4a017;}
+    .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;padding:20px;}
+    .modal-overlay.open{display:flex;}
+    .modal-box{background:#fff;border-radius:16px;padding:28px 24px;max-width:440px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.25);}
+    .suite-pending-badge{background:#fffbeb;color:#78460a;border:1.5px solid #f6c440;border-radius:7px;padding:4px 10px;font-size:.78rem;font-weight:700;display:inline-block;}
   </style>
 </head>
 <body>
@@ -256,9 +261,27 @@
               <option value="Balcony">Balcony Cabin</option>
               <option value="Ocean View">Ocean View Cabin</option>
               <option value="Interior">Interior Cabin</option>
+              <option value="Suite">Suite ⭐ (Request — Subject to Availability)</option>
             </select>
           </div>
           <div class="cabin-avail" id="cabin-avail-info">Loading availability…</div>
+        </div>
+      </div>
+
+      <!-- SUITE BACKUP SECTION (shows only when Suite is selected) -->
+      <div id="suite-backup-section" style="display:none;">
+        <div class="step-box" style="background:#fffbeb;border-color:#f6c440;">
+          <div style="font-weight:700;color:#78460a;margin-bottom:8px;">⭐ Suite Request Details</div>
+          <p style="font-size:.84rem;color:#78460a;margin-bottom:12px;">Your suite request will be reviewed and confirmed by email. In the meantime, please select a backup cabin — it will be held for you and released once your suite is confirmed.</p>
+          <div class="form-group" style="margin-bottom:10px;"><label>Contact Phone Number *</label><input type="text" id="su-suite-phone" placeholder="e.g. 555-867-5309" autocomplete="off"></div>
+          <div class="form-group" style="margin-bottom:0;"><label>Backup Cabin Type *</label>
+            <select id="su-backup-cabin">
+              <option value="">— Select backup cabin —</option>
+              <option value="Balcony">Balcony Cabin</option>
+              <option value="Ocean View">Ocean View Cabin</option>
+              <option value="Interior">Interior Cabin</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -420,6 +443,7 @@
       <button class="tab-btn" onclick="switchTab('inventory',this)">Inventory</button>
       <button class="tab-btn" onclick="switchTab('cancellations',this)">Cancellations</button>
       <button class="tab-btn" onclick="switchTab('docrequests',this)">Doc Requests</button>
+      <button class="tab-btn" onclick="switchTab('suiterequests',this)">Suite Requests</button>
     </div>
 
     <!-- TRAVELERS -->
@@ -488,6 +512,15 @@
       </div>
     </div>
 
+    <!-- SUITE REQUESTS -->
+    <div id="tab-suiterequests" class="tab-pane">
+      <div class="card">
+        <div class="card-header"><span class="card-title">⭐ Suite Requests</span></div>
+        <p style="font-size:.87rem;color:var(--muted);margin-bottom:12px;">Each requestor has a backup cabin reserved. Confirming a suite releases their backup back to inventory and assigns them a Suite.</p>
+        <div id="admin-suite-requests" class="table-wrap"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
     <!-- DOC REQUESTS -->
     <div id="tab-docrequests" class="tab-pane">
       <div class="card">
@@ -496,6 +529,20 @@
         <div id="admin-docrequests" class="table-wrap"><div class="loading"><div class="spinner"></div></div></div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- SUITE AVAILABILITY MODAL -->
+<div id="suite-modal" class="modal-overlay">
+  <div class="modal-box" style="text-align:center;">
+    <div style="font-size:2.4rem;margin-bottom:10px;">🛳️⭐</div>
+    <h3 style="color:var(--primary);margin-bottom:12px;">Suite Request</h3>
+    <div style="background:#fffbeb;border:2px solid #f6c440;border-radius:10px;padding:16px;font-weight:800;color:#78460a;font-size:1rem;margin-bottom:14px;line-height:1.6;">
+      Subject to Availability<br>Please Await Confirmation by Email
+    </div>
+    <p style="font-size:.87rem;color:var(--muted);margin-bottom:20px;line-height:1.6;">A backup cabin will be reserved for you while your suite request is reviewed. You'll receive an email confirming your cabin type once a decision has been made.</p>
+    <button class="btn btn-primary btn-full" onclick="closeSuiteModal()">I Understand — Continue</button>
+    <button class="btn btn-ghost btn-full" style="margin-top:8px;" onclick="cancelSuiteModal()">Choose a Different Cabin Instead</button>
   </div>
 </div>
 
@@ -575,6 +622,33 @@ function emailPaymentConfirmed(travelerName,travelerEmail,paymentLabel,amountPai
   sendEmail(travelerEmail,travelerName,subject,message);
 }
 
+function emailSuiteRequestReceived(profile,backupCabin,phone){
+  const subject=`${TRIP_NAME} — Suite Request Received (Subject to Availability)`;
+  const message=`Hi ${profile.name},\n\nThank you for signing up for the ${TRIP_NAME}!\n\nYour suite request has been received and is pending confirmation.\n\n⚠️ IMPORTANT — Your cabin type is currently: PENDING\n\nSuite requests are subject to availability. While your request is being reviewed, we have reserved a ${backupCabin} cabin as your backup.\n\n• If your suite is confirmed, you will receive an updated email with your suite assignment.\n• If a suite is not available, your ${backupCabin} cabin will be confirmed.\n\nYour Contact Information on File:\n• Name: ${profile.name}\n• Email: ${profile.email}\n• Phone: ${phone}\n• Backup Cabin: ${backupCabin}\n\nPlease log in to your account to view your payment schedule and add cabin travelers.\n\nQuestions? Contact us at ${ADMIN_EMAIL}`;
+  sendEmail(profile.email,profile.name,subject,message);
+  // Also notify admin
+  const adminMsg=`New Suite Request:\n• Name: ${profile.name}\n• Email: ${profile.email}\n• Phone: ${phone}\n• Backup Cabin: ${backupCabin}\n\nPlease review and confirm or decline in the admin Suite Requests tab.`;
+  sendEmail(ADMIN_EMAIL,'Admin',`${TRIP_NAME} — New Suite Request: ${profile.name}`,adminMsg);
+}
+
+function emailSuiteConfirmed(name,email,cabinNumber){
+  const subject=`${TRIP_NAME} — Suite Confirmed! 🎉`;
+  const message=`Hi ${name},\n\nGreat news! Your suite request for the ${TRIP_NAME} has been confirmed!\n\n${cabinNumber?`Your Suite Cabin Number: ${cabinNumber}\n`:'Your suite cabin number will be sent by a separate email once assigned.\n'}\nYour backup cabin reservation has been released.\n\nPlease continue making payments on your regular payment schedule. Log in to your account at any time to view your payment status.\n\nWe look forward to sailing with you!\n\n${ADMIN_EMAIL}`;
+  sendEmail(email,name,subject,message);
+}
+
+function emailSuiteDeclined(name,email,backupCabin){
+  const subject=`${TRIP_NAME} — Suite Request Update`;
+  const message=`Hi ${name},\n\nThank you for your patience regarding your suite request for the ${TRIP_NAME}.\n\nUnfortunately, suites are not available at this time. Your reservation has been confirmed in a ${backupCabin} cabin.\n\nYour payment schedule remains the same. Please log in to your account to view your updated cabin assignment.\n\nIf you have any questions, please contact us at ${ADMIN_EMAIL}.\n\nWe look forward to sailing with you!`;
+  sendEmail(email,name,subject,message);
+}
+
+function emailDepositComplete(name,email,totalPaid,travelerCount){
+  const subject=`${TRIP_NAME} — Full Deposit Received! 🎉`;
+  const message=`Hi ${name},\n\nFantastic news! Your full deposit for the ${TRIP_NAME} has been received.\n\nDeposit Summary:\n• Travelers in Your Cabin: ${travelerCount}\n• Deposit Per Person: $250.00\n• Total Deposit Received: ${fmt(totalPaid)}\n\nNext Steps:\n1. Your cabin number will be assigned and sent to you by a separate email shortly.\n2. A personalized payment link for all future payments will also be sent to you by email.\n\nThank you for securing your spot on the Commonwealth Cruise 2027! We can't wait to sail with you.\n\nQuestions? Contact us at ${ADMIN_EMAIL}`;
+  sendEmail(email,name,subject,message);
+}
+
 function emailCancellationToTraveler(travelerName,travelerEmail,cabinType,cabinNumber,totalPaid){
   const subject=`${TRIP_NAME} — Reservation Cancellation`;
   const message=`Dear ${travelerName},\n\nThis email confirms that your reservation for the ${TRIP_NAME} has been cancelled.\n\nCancellation Details:\n• Name: ${travelerName}\n• Cabin Type: ${cabinType||'N/A'}\n• Cabin Number: ${cabinNumber||'Not yet assigned'}\n• Total Amount Paid: ${fmt(totalPaid)}\n• Cancellation Date: ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}\n\nIf you paid ${fmt(totalPaid)}, a refund will be processed manually. You will be contacted about the refund process.\n\nIf you believe this cancellation was made in error, please contact the trip organizer immediately at ${ADMIN_EMAIL}.\n\nWe're sorry to see you go.`;
@@ -607,6 +681,9 @@ async function doSignup(){
   const citizenship=document.getElementById('su-citizenship').value;
   const country=document.getElementById('su-country').value.trim();
   const cabinType=document.getElementById('su-cabin-type').value;
+  const isSuite=cabinType==='Suite';
+  const backupCabin=isSuite?document.getElementById('su-backup-cabin').value:'';
+  const suitePhone=isSuite?document.getElementById('su-suite-phone').value.trim():'';
   const pin=getPin('sp');
   const confirm=getPin('cp');
 
@@ -616,6 +693,8 @@ async function doSignup(){
   if(!citizenship)return flash('signup-alert','Please select your citizenship status.');
   if(citizenship==='other'&&!country)return flash('signup-alert','Please enter your country of citizenship.');
   if(!cabinType)return flash('signup-alert','Please select a cabin type.');
+  if(isSuite&&!backupCabin)return flash('signup-alert','Please select a backup cabin type for your suite request.');
+  if(isSuite&&!suitePhone)return flash('signup-alert','Please enter a phone number for your suite request.');
   if(pin.length<6)return flash('signup-alert','Please create a complete 6-digit PIN.');
   if(pin!==confirm)return flash('signup-alert','PINs do not match — please try again.');
 
@@ -623,9 +702,10 @@ async function doSignup(){
   const ackEl=document.getElementById(ackMap[citizenship]);
   if(!ackEl||!ackEl.checked)return flash('signup-alert','Please read and check the acknowledgment box.');
 
-  // Check inventory one more time
-  const{data:inv}=await sb.from('cabin_inventory').select('available_cabins').eq('cabin_type',cabinType).single();
-  if(!inv||inv.available_cabins<=0)return flash('signup-alert',`Sorry, ${cabinType} cabins are sold out. Please select a different cabin type.`);
+  // Check backup/standard cabin inventory
+  const checkCabin=isSuite?backupCabin:cabinType;
+  const{data:inv}=await sb.from('cabin_inventory').select('available_cabins').eq('cabin_type',checkCabin).single();
+  if(!inv||inv.available_cabins<=0)return flash('signup-alert',`Sorry, ${checkCabin} cabins are sold out. Please select a different cabin type.`);
 
   flash('signup-alert','Creating your account…','info');
   const fullName=firstName+' '+lastName;
@@ -638,13 +718,17 @@ async function doSignup(){
     const{error:pErr}=await sb.from('profiles').insert(profileData);
     if(pErr)console.error('Profile error:',pErr.message);
 
-    // Create cabin assignment
-    await sb.from('cabin_assignments').insert({user_id:data.user.id,cabin_type:cabinType});
-    // Decrement inventory
-    await sb.rpc('decrement_cabin',{cabin:cabinType});
-
-    // Send confirmation email
-    emailAccountCreated({...profileData},cabinType);
+    if(isSuite){
+      // Reserve backup cabin and log suite request
+      await sb.from('cabin_assignments').insert({user_id:data.user.id,cabin_type:backupCabin,suite_pending:true});
+      await sb.rpc('decrement_cabin',{cabin:backupCabin});
+      await sb.from('suite_requests').insert({user_id:data.user.id,requestor_name:fullName,requestor_email:email,requestor_phone:suitePhone,backup_cabin_type:backupCabin});
+      emailSuiteRequestReceived({...profileData},backupCabin,suitePhone);
+    } else {
+      await sb.from('cabin_assignments').insert({user_id:data.user.id,cabin_type:cabinType});
+      await sb.rpc('decrement_cabin',{cabin:cabinType});
+      emailAccountCreated({...profileData},cabinType);
+    }
   }
   flash('signup-alert','🎉 Account created! Check your email to confirm, then sign in.','success');
 }
@@ -697,19 +781,27 @@ function updateCabinAvailDisplay(){
     const opt=sel.querySelector(`option[value="${t}"]`);
     if(!opt)return;
     const inv=gInventory[t];
-    if(!inv){opt.textContent=t;return;}
+    if(!inv){opt.textContent=t+' Cabin';return;}
     const avail=inv.available_cabins;
-    if(avail<=0){opt.textContent=`${t} — SOLD OUT`;opt.disabled=true;}
-    else if(avail<=5){opt.textContent=`${t} (${avail} remaining — Almost Full!)`;}
-    else{opt.textContent=`${t} (${avail} remaining)`;}
+    if(avail<=0){opt.textContent=`${t} Cabin — SOLD OUT`;opt.disabled=true;}
+    else if(avail<=5){opt.textContent=`${t} Cabin (${avail} remaining — Almost Full!)`;}
+    else{opt.textContent=`${t} Cabin (${avail} remaining)`;}
   });
+  // Suite option — show pending count from inventory if present
+  const suiteOpt=sel.querySelector('option[value="Suite"]');
+  if(suiteOpt&&gInventory['Suite']){
+    const avail=gInventory['Suite'].available_cabins;
+    suiteOpt.textContent=`Suite ⭐ (${avail} available — Request Required)`;
+  }
   const info=document.getElementById('cabin-avail-info');
   if(info&&Object.keys(gInventory).length>0){
-    const lines=Object.entries(gInventory).map(([t,v])=>{
-      const a=v.available_cabins,tot=v.total_cabins;
-      const cls=a<=0?'out':a<=5?'low':'';
-      return `${t}: <span class="${cls}">${a} of ${tot} available</span>`;
-    });
+    const lines=Object.entries(gInventory)
+      .filter(([t])=>t!=='Suite')
+      .map(([t,v])=>{
+        const a=v.available_cabins,tot=v.total_cabins;
+        const cls=a<=0?'out':a<=5?'low':'';
+        return `${t}: <span class="${cls}">${a} of ${tot} available</span>`;
+      });
     info.innerHTML=lines.join(' &nbsp;·&nbsp; ');
   }
 }
@@ -736,7 +828,26 @@ function onAckChange(){
 
 function onCabinTypeChange(){
   const val=document.getElementById('su-cabin-type').value;
-  document.getElementById('pin-setup-section').style.display=val?'block':'none';
+  const isSuite=val==='Suite';
+  document.getElementById('suite-backup-section').style.display=isSuite?'block':'none';
+  document.getElementById('pin-setup-section').style.display=(val&&!isSuite)?'block':(isSuite?'none':'none');
+  if(isSuite){
+    document.getElementById('suite-modal').classList.add('open');
+  }
+}
+function closeSuiteModal(){
+  document.getElementById('suite-modal').classList.remove('open');
+  // Show pin setup only after backup cabin is selected
+  document.getElementById('pin-setup-section').style.display='none';
+  document.getElementById('su-backup-cabin').onchange=function(){
+    document.getElementById('pin-setup-section').style.display=this.value?'block':'none';
+  };
+}
+function cancelSuiteModal(){
+  document.getElementById('suite-modal').classList.remove('open');
+  document.getElementById('su-cabin-type').value='';
+  document.getElementById('suite-backup-section').style.display='none';
+  document.getElementById('pin-setup-section').style.display='none';
 }
 
 const COUNTRY_LINKS={'mexico':{label:'Mexico',url:'https://help.goccl.com/app/answers/detail/a_id/1405'},'uk':{label:'UK (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'united kingdom':{label:'UK (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'australia':{label:'Australia (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'germany':{label:'Germany (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'france':{label:'France (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'japan':{label:'Japan (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'ireland':{label:'Ireland (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'brazil':{label:'Brazil',url:'https://travel.state.gov/content/travel/en/us-visas.html'},'india':{label:'India',url:'https://travel.state.gov/content/travel/en/us-visas.html'},'china':{label:'China',url:'https://travel.state.gov/content/travel/en/us-visas.html'},'jamaica':{label:'Jamaica',url:'https://help.goccl.com/app/answers/detail/a_id/1405'},'trinidad':{label:'Trinidad & Tobago',url:'https://help.goccl.com/app/answers/detail/a_id/1405'},'barbados':{label:'Barbados',url:'https://help.goccl.com/app/answers/detail/a_id/1405'},'nigeria':{label:'Nigeria',url:'https://travel.state.gov/content/travel/en/us-visas.html'},'ghana':{label:'Ghana',url:'https://travel.state.gov/content/travel/en/us-visas.html'},'new zealand':{label:'New Zealand (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'}};
@@ -954,7 +1065,7 @@ async function deleteCabinTraveler(id){
 
 // ── ADMIN ────────────────────────────────────────────────────
 async function adminInit(){
-  await Promise.all([loadTravelers(),loadAdminMilestones(),loadPaymentFormSelects(),loadAdminPayments(),loadInventoryTab(),loadCancellationsTab(),loadDocRequests()]);
+  await Promise.all([loadTravelers(),loadAdminMilestones(),loadPaymentFormSelects(),loadAdminPayments(),loadInventoryTab(),loadCancellationsTab(),loadDocRequests(),loadSuiteRequests()]);
 }
 function switchTab(name,btn){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
@@ -1091,19 +1202,37 @@ async function savePayment(){
   if(error){flash('payment-alert','Error: '+error.message);return;}
   flash('payment-alert','✅ Payment saved!','success');
 
-  // Send payment confirmation email
-  if(amtPaid>0){
-    const tName=travelerSel.options[travelerSel.selectedIndex].dataset.name;
-    const tEmail=travelerSel.options[travelerSel.selectedIndex].dataset.email;
-    const mLabel=milestoneSel.options[milestoneSel.selectedIndex].dataset.label;
-    if(tEmail){
-      // Get running totals for this traveler
-      const{data:allPayments}=await sb.from('user_payments').select('amount_due,amount_paid').eq('user_id',userId);
-      const totalDue=(allPayments||[]).reduce((s,p)=>s+parseFloat(p.amount_due||0),0);
-      const totalPaid=(allPayments||[]).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
-      emailPaymentConfirmed(tName,tEmail,mLabel,amtPaid,totalPaid,Math.max(0,totalDue-totalPaid));
+  const tName=travelerSel.options[travelerSel.selectedIndex].dataset.name;
+  const tEmail=travelerSel.options[travelerSel.selectedIndex].dataset.email;
+  const mLabel=milestoneSel.options[milestoneSel.selectedIndex].dataset.label;
+
+  // Get running totals
+  const{data:allPayments}=await sb.from('user_payments').select('amount_due,amount_paid').eq('user_id',userId);
+  const totalDue=(allPayments||[]).reduce((s,p)=>s+parseFloat(p.amount_due||0),0);
+  const totalPaid=(allPayments||[]).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+  const remaining=Math.max(0,totalDue-totalPaid);
+
+  if(amtPaid>0&&tEmail){
+    emailPaymentConfirmed(tName,tEmail,mLabel,amtPaid,totalPaid,remaining);
+  }
+
+  // ── Deposit completion check ($250 × number of travelers) ────
+  if(tEmail){
+    const[{data:assignment},{data:cabinTravelers}]=await Promise.all([
+      sb.from('cabin_assignments').select('deposit_email_sent').eq('user_id',userId).single(),
+      sb.from('cabin_travelers').select('id').eq('account_owner_id',userId)
+    ]);
+    if(assignment&&!assignment.deposit_email_sent){
+      const travelerCount=(cabinTravelers?.length||0)+1; // +1 for account holder
+      const depositThreshold=250*travelerCount;
+      if(totalPaid>=depositThreshold){
+        emailDepositComplete(tName,tEmail,totalPaid,travelerCount);
+        await sb.from('cabin_assignments').update({deposit_email_sent:true}).eq('user_id',userId);
+        flash('payment-alert',`✅ Payment saved! Full deposit reached — confirmation email sent to ${tEmail}.`,'success');
+      }
     }
   }
+
   loadAdminPayments();loadTravelers();
 }
 async function loadAdminPayments(){
@@ -1126,7 +1255,7 @@ async function loadInventoryTab(){
     sb.from('cabin_assignments').select('*, profiles(name,email)').order('cabin_type')
   ]);
 
-  const colors={Balcony:'balcony','Ocean View':'oceanview',Interior:'interior'};
+  const colors={Balcony:'balcony','Ocean View':'oceanview',Interior:'interior',Suite:'suite'};
   const cards=(inv||[]).map(r=>{
     const reserved=r.total_cabins-r.available_cabins;
     const pct=r.total_cabins>0?Math.round((reserved/r.total_cabins)*100):0;
@@ -1169,6 +1298,68 @@ async function loadCancellationsTab(){
 async function markRefunded(id){
   await sb.from('cancellations').update({refund_processed:true}).eq('id',id);
   loadCancellationsTab();
+}
+
+// ── SUITE REQUESTS ────────────────────────────────────────────
+async function loadSuiteRequests(){
+  const{data}=await sb.from('suite_requests').select('*, profiles(name,email)').order('requested_at',{ascending:false});
+  const el=document.getElementById('admin-suite-requests');
+  if(!data||data.length===0){el.innerHTML='<div class="empty"><div class="ei">⭐</div><p>No suite requests yet.</p></div>';return;}
+  const rows=data.map(r=>{
+    const isPending=r.status==='pending';
+    const isConfirmed=r.status==='confirmed';
+    const badge=isPending?'<span class="badge badge-warn">Pending</span>':isConfirmed?'<span class="badge badge-success">Confirmed ✓</span>':'<span class="badge badge-danger">Declined</span>';
+    const actions=isPending?`
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn-warn" onclick="confirmSuite('${r.id}','${r.user_id}','${r.backup_cabin_type}','${r.requestor_name}','${r.requestor_email}')">✓ Confirm Suite</button>
+        <button class="btn-danger" onclick="declineSuite('${r.id}','${r.user_id}','${r.backup_cabin_type}','${r.requestor_name}','${r.requestor_email}')">✗ Decline</button>
+      </div>`:'—';
+    return`<tr>
+      <td><strong>${r.requestor_name}</strong><br><small style="color:var(--muted)">${r.requestor_email}</small></td>
+      <td>${r.requestor_phone||'—'}</td>
+      <td><span class="badge badge-purple">${r.backup_cabin_type}</span></td>
+      <td>${badge}</td>
+      <td>${new Date(r.requested_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td>
+      <td>${actions}</td>
+    </tr>`;
+  });
+  el.innerHTML=`<table><thead><tr><th>Requestor</th><th>Phone</th><th>Backup Cabin</th><th>Status</th><th>Requested</th><th>Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+}
+
+async function confirmSuite(reqId,userId,backupCabin,name,email){
+  // Check suite inventory
+  const{data:inv}=await sb.from('cabin_inventory').select('available_cabins').eq('cabin_type','Suite').single();
+  if(!inv||inv.available_cabins<=0){
+    alert('No suites available in inventory. Please add suites to inventory first.');return;
+  }
+  const cabinNum=prompt(`Assign a suite cabin number for ${name} (optional — leave blank to assign later):`) ;
+  if(cabinNum===null)return; // cancelled
+
+  // 1. Restore backup cabin inventory
+  await sb.rpc('increment_cabin',{cabin:backupCabin});
+  // 2. Decrement suite inventory
+  await sb.rpc('decrement_cabin',{cabin:'Suite'});
+  // 3. Update cabin assignment to Suite
+  await sb.from('cabin_assignments').update({cabin_type:'Suite',suite_pending:false,cabin_number:cabinNum.trim()||null}).eq('user_id',userId);
+  // 4. Mark suite request confirmed
+  await sb.from('suite_requests').update({status:'confirmed',confirmed_at:new Date().toISOString()}).eq('id',reqId);
+  // 5. Send confirmation email
+  emailSuiteConfirmed(name,email,cabinNum.trim()||null);
+
+  alert(`✅ Suite confirmed for ${name}. Their ${backupCabin} backup has been returned to inventory.`);
+  await Promise.all([loadSuiteRequests(),loadInventoryTab(),loadTravelers()]);
+}
+
+async function declineSuite(reqId,userId,backupCabin,name,email){
+  if(!confirm(`Decline suite request for ${name}?\n\nTheir ${backupCabin} backup cabin will remain confirmed.`))return;
+  // Mark suite_pending false — they keep backup cabin
+  await sb.from('cabin_assignments').update({suite_pending:false}).eq('user_id',userId);
+  // Mark request declined
+  await sb.from('suite_requests').update({status:'declined'}).eq('id',reqId);
+  // Send decline email
+  emailSuiteDeclined(name,email,backupCabin);
+  alert(`Suite request declined. ${name} has been notified and their ${backupCabin} cabin remains confirmed.`);
+  await Promise.all([loadSuiteRequests(),loadTravelers()]);
 }
 
 // ── DOC REQUESTS ──────────────────────────────────────────────
