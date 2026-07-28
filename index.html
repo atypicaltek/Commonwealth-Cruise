@@ -37,12 +37,16 @@
     /* FORMS */
     .form-group{margin-bottom:18px;}
     .form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;}
+    .form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+    .form-row-4{display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:12px;}
+    @media(max-width:600px){.form-row-2{grid-template-columns:1fr;}.form-row-3{grid-template-columns:1fr;}.form-row-4{grid-template-columns:1fr 1fr;}}
     @media(max-width:440px){.form-row-2{grid-template-columns:1fr;}}
     label{display:block;font-size:.84rem;font-weight:700;color:var(--text);margin-bottom:6px;}
     input[type=text],input[type=email],input[type=number],input[type=date],select,textarea{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:9px;font-size:.95rem;color:var(--text);background:#fff;outline:none;transition:border-color .2s,box-shadow .2s;font-family:inherit;}
     input:focus,select:focus,textarea:focus{border-color:var(--secondary);box-shadow:0 0 0 3px rgba(33,118,174,.12);}
     select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7c93' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:38px;}
     input:-webkit-autofill{-webkit-box-shadow:0 0 0 50px white inset !important;}
+    select.narrow{width:auto;min-width:90px;}
 
     /* BUTTONS */
     .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px 20px;border:none;border-radius:9px;font-size:.95rem;font-weight:700;cursor:pointer;transition:opacity .18s,transform .18s;text-decoration:none;}
@@ -54,6 +58,7 @@
     .btn-danger-sm{background:#fdf0ee;color:var(--danger);border:1px solid #f5c6c0;padding:5px 12px;font-size:.8rem;border-radius:6px;font-weight:600;cursor:pointer;}
     .btn-sm{padding:8px 16px;font-size:.85rem;}
     .btn-accent{background:var(--accent);color:#fff;}
+    .btn-outline{background:transparent;color:var(--secondary);border:2px solid var(--secondary);padding:8px 18px;font-size:.88rem;}
 
     /* ALERTS */
     .alert{padding:11px 15px;border-radius:8px;font-size:.88rem;margin-bottom:14px;display:none;line-height:1.5;}
@@ -66,7 +71,6 @@
     .pin-row{display:flex;gap:9px;justify-content:center;margin:6px 0;}
     .pin-box{width:48px;height:54px;text-align:center;font-size:1.3rem;font-weight:800;border:2px solid var(--border);border-radius:10px;outline:none;color:var(--primary);transition:border-color .18s,box-shadow .18s;-webkit-text-security:disc;background:#fff;}
     .pin-box:focus{border-color:var(--secondary);box-shadow:0 0 0 3px rgba(33,118,174,.15);}
-    .pin-box:-webkit-autofill{-webkit-box-shadow:0 0 0 50px white inset !important;}
 
     .auth-switch{text-align:center;margin-top:18px;font-size:.88rem;color:var(--muted);}
     .auth-switch a{color:var(--secondary);font-weight:700;cursor:pointer;text-decoration:none;}
@@ -83,7 +87,6 @@
     .doc-notice li{margin-bottom:7px;}
     .doc-notice .doc-section{font-weight:700;margin-top:14px;margin-bottom:6px;color:var(--primary);font-size:.9rem;}
     .doc-notice a{color:var(--secondary);}
-    .doc-notice a:hover{text-decoration:underline;}
     .doc-notice .important{background:#fff3cd;border-left:3px solid var(--accent);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;}
     .ck-group{display:flex;align-items:flex-start;gap:10px;margin:14px 0 8px;}
     .ck-group input[type=checkbox]{width:18px;height:18px;flex-shrink:0;margin-top:2px;cursor:pointer;accent-color:var(--secondary);}
@@ -115,6 +118,16 @@
     .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
     .card-title{font-size:1rem;font-weight:800;color:var(--primary);}
 
+    /* TRAVELER CARDS */
+    .traveler-card{background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+    .traveler-card-info{flex:1;}
+    .traveler-card-name{font-weight:700;font-size:.95rem;color:var(--primary);}
+    .traveler-card-meta{font-size:.8rem;color:var(--muted);margin-top:3px;}
+    .add-traveler-form{background:#f0f7ff;border:1.5px solid #aed6f1;border-radius:10px;padding:18px;margin-top:12px;display:none;}
+    .add-traveler-form.open{display:block;}
+    .dob-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+    @media(max-width:500px){.dob-row{grid-template-columns:1fr;}}
+
     /* TABLES */
     .table-wrap{overflow-x:auto;}
     table{width:100%;border-collapse:collapse;font-size:.88rem;}
@@ -144,8 +157,7 @@
     .tab-btn.active{background:#fff;color:var(--primary);box-shadow:0 2px 8px rgba(0,0,0,.1);}
     .tab-pane{display:none;} .tab-pane.active{display:block;}
     .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-    .form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
-    @media(max-width:580px){.form-row{grid-template-columns:1fr;}.form-row-3{grid-template-columns:1fr;}}
+    @media(max-width:480px){.form-row{grid-template-columns:1fr;}}
     .loading{text-align:center;padding:40px;color:var(--muted);}
     .spinner{border:3px solid var(--border);border-top-color:var(--secondary);border-radius:50%;width:30px;height:30px;animation:spin .9s linear infinite;margin:0 auto 12px;}
     @keyframes spin{to{transform:rotate(360deg);}}
@@ -155,6 +167,7 @@
     .mpbar-track{background:var(--border);border-radius:99px;height:6px;flex:1;overflow:hidden;}
     .mpbar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--secondary),var(--success));}
     .pbar-row{display:flex;align-items:center;gap:8px;}
+    .section-divider{font-size:.76rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin:22px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);}
   </style>
 </head>
 <body>
@@ -223,10 +236,10 @@
         <label for="su-citizenship">Travel Documentation — Citizenship / Country of Origin</label>
         <select id="su-citizenship" onchange="onCitizenshipChange()">
           <option value="">— Select your citizenship status —</option>
-          <option value="us">🇺🇸 U.S. Citizens</option>
-          <option value="non-us">🌍 Non-U.S. Citizens</option>
-          <option value="canadian">🍁 Canadian Citizens</option>
-          <option value="other">🌐 Other</option>
+          <option value="us">U.S. Citizens</option>
+          <option value="non-us">Non-U.S. Citizens</option>
+          <option value="canadian">Canadian Citizens</option>
+          <option value="other">Other</option>
         </select>
       </div>
 
@@ -254,7 +267,6 @@
         <h4>📋 Travel Documentation — Non-U.S. Citizens</h4>
         <p>Carnival requires guests to provide proper travel documentation in order to travel. The documentation is required at embarkation and throughout the cruise and is the responsibility of the guest. Our policy states that any guest traveling without proper documentation will be denied boarding the ship and will be under full penalty, and therefore, will not be offered a refund or a replacement cruise.</p>
         <p>Guests must contact the appropriate embassy or consulate of the countries they will be visiting for specific travel documentation requirements. Carnival assumes no responsibility for advising guests of Immigration requirements.</p>
-        <p>On occasion, Non-U.S. Citizens may be asked to surrender their passport at time of check-in. It will be returned upon completion of the immigration inspection at the time of debarkation.</p>
         <p>Carnival highly recommends that all guests travel with a passport valid for at least <strong>six months beyond the completion of travel</strong>, from their country of citizenship.</p>
         <div class="doc-section">🚢 Domestic Cruises</div>
         <ul>
@@ -274,16 +286,14 @@
       <!-- CANADIAN CITIZENS -->
       <div id="doc-canadian" class="doc-notice">
         <h4>📋 Travel Documentation — Canadian Citizens</h4>
-        <p>Carnival requires guests to provide proper travel documentation in order to travel. The documentation is required at embarkation and throughout the cruise and is the responsibility of the guest. Our policy states that any guest traveling without proper documentation will be denied boarding the ship and will be under full penalty, and therefore, will not be offered a refund or a replacement cruise.</p>
+        <p>Carnival requires guests to provide proper travel documentation in order to travel. The documentation is required at embarkation and throughout the cruise and is the responsibility of the guest.</p>
         <div class="doc-section">🚢 Domestic Cruises</div>
         <p>All Canadian citizens, including children, are required to carry a <strong>Canadian passport valid for at least six months beyond the completion of travel</strong> if arriving by air travel into the United States.</p>
-        <p>This will enable guests to fly from Canada or the United States to meet their ship at the first port should they miss their scheduled embarkation, and allow guests who must disembark before their cruise ends due to an emergency to fly back without significant delays.</p>
         <ul>
           <li>Canadian citizens who are U.S. Permanent Residents: <a href="https://help.goccl.com/app/answers/detail/a_id/1401" target="_blank" rel="noopener">Travel Documentation for Canadian PR holders ↗</a></li>
           <li>Expedited passport services: <a href="http://visacentral.ca/" target="_blank" rel="noopener">visacentral.ca ↗</a> or call 888-665-9956</li>
           <li>Border crossing (driving) into the United States: <a href="https://help.goccl.com/app/answers/detail/a_id/1402#driving" target="_blank" rel="noopener">Border Crossing Documentation Details ↗</a></li>
         </ul>
-        <p style="font-size:.82rem;color:var(--muted);">* Applies only to cruises sailing from a U.S. port to the same U.S. port that do not include Colombia, Panama, or Greenland.</p>
         <div class="important">📎 All guests are required to visit and review the full Carnival documentation page. Each guest is personally responsible — the trip organizer and tour operator assume no responsibility.<br><br>
           <a href="https://help.goccl.com/app/answers/detail/a_id/1402" target="_blank" rel="noopener">help.goccl.com — Canadian Citizen Travel Documentation ↗</a>
         </div>
@@ -302,8 +312,7 @@
           <input type="text" id="su-country" placeholder="e.g. Jamaica, Germany, Brazil…" oninput="onCountryInput()" autocomplete="off">
         </div>
         <div id="country-link-result" style="display:none;margin-top:10px;">
-          <p>Based on your country, here are your Carnival documentation resources:</p>
-          <div id="country-link-display" style="margin-top:8px;"></div>
+          <div id="country-link-display"></div>
         </div>
         <div class="important">📎 For general international documentation requirements:<br><br>
           <a href="https://help.goccl.com/app/answers/detail/a_id/1405" target="_blank" rel="noopener">help.goccl.com — International Travel Documentation ↗</a><br><br>
@@ -311,7 +320,7 @@
         </div>
         <div class="ck-group">
           <input type="checkbox" id="ack-other" onchange="onAckChange()">
-          <label for="ack-other">I have read the information above and understand that I am personally responsible for ensuring I have all required travel documents for my country of citizenship. Each guest is solely responsible for their documentation — the trip organizer and tour operator assume no responsibility for documentation compliance.</label>
+          <label for="ack-other">I have read the information above and understand that I am personally responsible for ensuring I have all required travel documents for my country of citizenship. Each guest is solely responsible for their documentation — the trip organizer and tour operator assume no responsibility.</label>
         </div>
       </div>
 
@@ -452,9 +461,128 @@
           <div class="stat-label">Next Due Date</div>
         </div>
       </div>
+
+      <!-- PAYMENT SCHEDULE -->
       <div class="card">
         <div class="card-header"><span class="card-title">📋 Your Payment Schedule</span></div>
         <div id="dash-schedule" class="table-wrap"></div>
+      </div>
+
+      <!-- CABIN TRAVELERS -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🛳️ My Cabin Travelers</span>
+          <button class="btn btn-outline btn-sm" onclick="toggleAddTraveler()">+ Add Traveler</button>
+        </div>
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:14px;">Add all guests staying in your cabin. This information is needed for cruise check-in.</p>
+
+        <!-- ADD TRAVELER FORM -->
+        <div class="add-traveler-form" id="add-traveler-form">
+          <div id="cabin-alert" class="alert"></div>
+          <div class="section-divider">Personal Information</div>
+
+          <!-- Salutation + First + Middle + Last -->
+          <div style="display:grid;grid-template-columns:100px 1fr 1fr 1fr;gap:10px;margin-bottom:18px;" class="name-grid">
+            <div class="form-group" style="margin-bottom:0;">
+              <label for="ct-salutation">Title</label>
+              <select id="ct-salutation">
+                <option value="">—</option>
+                <option value="Mr.">Mr.</option>
+                <option value="Mrs.">Mrs.</option>
+                <option value="Ms.">Ms.</option>
+                <option value="Dr.">Dr.</option>
+                <option value="Rev.">Rev.</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label for="ct-firstname">First Name *</label>
+              <input type="text" id="ct-firstname" placeholder="First" autocomplete="off">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label for="ct-middlename">Middle Name</label>
+              <input type="text" id="ct-middlename" placeholder="Middle (optional)" autocomplete="off">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label for="ct-lastname">Last Name *</label>
+              <input type="text" id="ct-lastname" placeholder="Last" autocomplete="off">
+            </div>
+          </div>
+          <style>.name-grid{} @media(max-width:640px){.name-grid{grid-template-columns:1fr 1fr !important;}.name-grid>:first-child{grid-column:1/-1;}} @media(max-width:440px){.name-grid{grid-template-columns:1fr !important;}}</style>
+
+          <div class="section-divider">Date of Birth</div>
+          <div class="dob-row" style="margin-bottom:18px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label for="ct-dob-month">Month *</label>
+              <select id="ct-dob-month">
+                <option value="">Month</option>
+                <option value="01">January</option>
+                <option value="02">February</option>
+                <option value="03">March</option>
+                <option value="04">April</option>
+                <option value="05">May</option>
+                <option value="06">June</option>
+                <option value="07">July</option>
+                <option value="08">August</option>
+                <option value="09">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label for="ct-dob-day">Day *</label>
+              <select id="ct-dob-day">
+                <option value="">Day</option>
+                <script>for(let d=1;d<=31;d++){document.write(`<option value="${String(d).padStart(2,'0')}">${d}</option>`)}</script>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label for="ct-dob-year">Year *</label>
+              <select id="ct-dob-year">
+                <option value="">Year</option>
+                <script>const yr=new Date().getFullYear();for(let y=yr;y>=yr-100;y--){document.write(`<option value="${y}">${y}</option>`)}</script>
+              </select>
+            </div>
+          </div>
+
+          <div class="section-divider">Additional Details</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:18px;" class="details-grid">
+            <div class="form-group" style="margin-bottom:0;">
+              <label for="ct-gender">Gender *</label>
+              <select id="ct-gender">
+                <option value="">Select</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label for="ct-citizenship">Country of Citizenship *</label>
+              <input type="text" id="ct-citizenship" placeholder="e.g. United States" autocomplete="off">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label for="ct-relationship">Relationship to You *</label>
+              <select id="ct-relationship">
+                <option value="">Select</option>
+                <option value="Spouse/Partner">Spouse/Partner</option>
+                <option value="Child">Child</option>
+                <option value="Parent">Parent</option>
+                <option value="Sibling">Sibling</option>
+                <option value="Relative">Relative</option>
+                <option value="Friend">Friend</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+          <style>@media(max-width:580px){.details-grid{grid-template-columns:1fr !important;}}</style>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" onclick="addCabinTraveler()">Save Traveler</button>
+            <button class="btn btn-ghost btn-sm" onclick="toggleAddTraveler()">Cancel</button>
+          </div>
+        </div>
+
+        <!-- TRAVELER LIST -->
+        <div id="cabin-travelers-list" style="margin-top:12px;"></div>
       </div>
     </div>
   </div>
@@ -474,7 +602,6 @@
       <button class="tab-btn" onclick="switchTab('docrequests',this)">Doc Requests</button>
     </div>
 
-    <!-- TRAVELERS TAB -->
     <div id="tab-travelers" class="tab-pane active">
       <div class="card">
         <div class="card-header"><span class="card-title">All Travelers</span></div>
@@ -482,13 +609,12 @@
       </div>
     </div>
 
-    <!-- SCHEDULE TAB -->
     <div id="tab-schedule" class="tab-pane">
       <div class="card">
         <div class="card-header"><span class="card-title">Add Payment Milestone</span></div>
         <div id="milestone-alert" class="alert"></div>
-        <div class="form-row-3">
-          <div class="form-group"><label>Label (e.g., "Deposit")</label><input type="text" id="ms-label" placeholder="Payment label"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div class="form-group"><label>Label</label><input type="text" id="ms-label" placeholder="e.g. Deposit"></div>
           <div class="form-group"><label>Minimum Amount Due ($)</label><input type="number" id="ms-amount" placeholder="0.00" min="0" step="0.01"></div>
           <div class="form-group"><label>Due Date</label><input type="date" id="ms-date"></div>
         </div>
@@ -500,7 +626,6 @@
       </div>
     </div>
 
-    <!-- PAYMENTS TAB -->
     <div id="tab-payments" class="tab-pane">
       <div class="card">
         <div class="card-header"><span class="card-title">Record / Update a Payment</span></div>
@@ -525,7 +650,6 @@
       </div>
     </div>
 
-    <!-- DOC REQUESTS TAB -->
     <div id="tab-docrequests" class="tab-pane">
       <div class="card">
         <div class="card-header"><span class="card-title">📬 Documentation Requests — "Other" Citizenship</span></div>
@@ -549,10 +673,8 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true }
 });
 
-let gUser = null;
-let gProfile = null;
+let gUser = null, gProfile = null;
 
-// ── ROUTER ─────────────────────────────────────────────────
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   const el = document.getElementById('page-' + name);
@@ -560,8 +682,7 @@ function showPage(name) {
   window.scrollTo(0, 0);
   if (name === 'login') {
     document.getElementById('login-email').value = '';
-    clearPin('lp');
-    clearFlash('login-alert');
+    clearPin('lp'); clearFlash('login-alert');
     setTimeout(() => { document.getElementById('login-email').value = ''; clearPin('lp'); }, 150);
   }
 }
@@ -578,14 +699,12 @@ function clearFlash(id) { const el=document.getElementById(id); if(el) el.classN
 function wirePins() {
   document.querySelectorAll('.pin-box').forEach((box,_,all) => {
     box.addEventListener('input', e => {
-      const v = e.target.value.replace(/\D/g,'');
-      e.target.value = v ? v[0] : '';
-      if (v) { const n=nextPin(e.target,all); if(n) n.focus(); }
+      const v=e.target.value.replace(/\D/g,'');
+      e.target.value=v?v[0]:'';
+      if(v){const n=nextPin(e.target,all);if(n)n.focus();}
     });
     box.addEventListener('keydown', e => {
-      if (e.key==='Backspace' && !e.target.value) {
-        const p=prevPin(e.target,all); if(p){p.value='';p.focus();}
-      }
+      if(e.key==='Backspace'&&!e.target.value){const p=prevPin(e.target,all);if(p){p.value='';p.focus();}}
     });
     box.addEventListener('paste', e => {
       e.preventDefault();
@@ -600,219 +719,244 @@ function nextPin(el,all){const i=[...all].indexOf(el);return i<all.length-1?all[
 function prevPin(el,all){const i=[...all].indexOf(el);return i>0?all[i-1]:null;}
 function getPin(p){return Array.from({length:6},(_,i)=>{const e=document.getElementById(p+i);return e?e.value:'';}).join('');}
 function clearPin(p){for(let i=0;i<6;i++){const e=document.getElementById(p+i);if(e)e.value='';}}
-
 function fmt(n){return '$'+parseFloat(n||0).toFixed(2);}
 
 // ── AUTH ────────────────────────────────────────────────────
 async function doLogin() {
   clearFlash('login-alert');
-  const email = document.getElementById('login-email').value.trim();
-  const pin   = getPin('lp');
-  if (!email) return flash('login-alert','Please enter your email address.');
-  if (pin.length < 6) return flash('login-alert','Please enter your complete 6-digit PIN.');
-  const { data, error } = await sb.auth.signInWithPassword({ email, password: pin });
-  if (error) {
-    flash('login-alert','Invalid email or PIN. Please try again.');
-    clearPin('lp'); document.getElementById('lp0').focus();
-    return;
-  }
+  const email=document.getElementById('login-email').value.trim();
+  const pin=getPin('lp');
+  if(!email) return flash('login-alert','Please enter your email address.');
+  if(pin.length<6) return flash('login-alert','Please enter your complete 6-digit PIN.');
+  const{data,error}=await sb.auth.signInWithPassword({email,password:pin});
+  if(error){flash('login-alert','Invalid email or PIN. Please try again.');clearPin('lp');document.getElementById('lp0').focus();return;}
   await loadAndRoute(data.user);
 }
 
 async function doSignup() {
   clearFlash('signup-alert');
-  const firstName   = document.getElementById('su-firstname').value.trim();
-  const lastName    = document.getElementById('su-lastname').value.trim();
-  const email       = document.getElementById('su-email').value.trim();
-  const citizenship = document.getElementById('su-citizenship').value;
-  const country     = document.getElementById('su-country').value.trim();
-  const pin         = getPin('sp');
-  const confirm     = getPin('cp');
+  const firstName  =document.getElementById('su-firstname').value.trim();
+  const lastName   =document.getElementById('su-lastname').value.trim();
+  const email      =document.getElementById('su-email').value.trim();
+  const citizenship=document.getElementById('su-citizenship').value;
+  const country    =document.getElementById('su-country').value.trim();
+  const pin        =getPin('sp');
+  const confirm    =getPin('cp');
 
-  if (!firstName)   return flash('signup-alert','Please enter your first name.');
-  if (!lastName)    return flash('signup-alert','Please enter your last name.');
-  if (!email)       return flash('signup-alert','Please enter your email address.');
-  if (!citizenship) return flash('signup-alert','Please select your citizenship status.');
-  if (citizenship==='other' && !country) return flash('signup-alert','Please enter your country of citizenship.');
-  if (pin.length < 6)  return flash('signup-alert','Please create a complete 6-digit PIN.');
-  if (pin !== confirm) return flash('signup-alert','PINs do not match — please try again.');
+  if(!firstName)   return flash('signup-alert','Please enter your first name.');
+  if(!lastName)    return flash('signup-alert','Please enter your last name.');
+  if(!email)       return flash('signup-alert','Please enter your email address.');
+  if(!citizenship) return flash('signup-alert','Please select your citizenship status.');
+  if(citizenship==='other'&&!country) return flash('signup-alert','Please enter your country of citizenship.');
+  if(pin.length<6) return flash('signup-alert','Please create a complete 6-digit PIN.');
+  if(pin!==confirm) return flash('signup-alert','PINs do not match — please try again.');
 
-  const ackMap = {us:'ack-us','non-us':'ack-non-us',canadian:'ack-canadian',other:'ack-other'};
-  const ackEl  = document.getElementById(ackMap[citizenship]);
-  if (!ackEl||!ackEl.checked) return flash('signup-alert','Please read and check the acknowledgment box before continuing.');
+  const ackMap={us:'ack-us','non-us':'ack-non-us',canadian:'ack-canadian',other:'ack-other'};
+  const ackEl=document.getElementById(ackMap[citizenship]);
+  if(!ackEl||!ackEl.checked) return flash('signup-alert','Please read and check the acknowledgment box before continuing.');
 
   flash('signup-alert','Creating your account…','info');
-
-  const fullName = firstName + ' ' + lastName;
-  const { data, error } = await sb.auth.signUp({
-    email, password: pin,
-    options: { data: { full_name: fullName, first_name: firstName, last_name: lastName } }
-  });
-  if (error) { flash('signup-alert', error.message); return; }
-
-  if (data.user) {
-    const { error: profErr } = await sb.from('profiles').insert({
-      id: data.user.id,
-      name: fullName,
-      citizenship_type: citizenship,
-      country_of_citizenship: citizenship==='other' ? country : null,
-      docs_acknowledged: true,
-      needs_doc_info: citizenship==='other',
-      is_admin: email.toLowerCase()===ADMIN_EMAIL.toLowerCase()
+  const fullName=firstName+' '+lastName;
+  const{data,error}=await sb.auth.signUp({email,password:pin,options:{data:{full_name:fullName}}});
+  if(error){flash('signup-alert',error.message);return;}
+  if(data.user){
+    const{error:pErr}=await sb.from('profiles').insert({
+      id:data.user.id,name:fullName,citizenship_type:citizenship,
+      country_of_citizenship:citizenship==='other'?country:null,
+      docs_acknowledged:true,needs_doc_info:citizenship==='other',
+      is_admin:email.toLowerCase()===ADMIN_EMAIL.toLowerCase()
     });
-    if (profErr) console.error('Profile error:', profErr.message);
+    if(pErr) console.error('Profile error:',pErr.message);
   }
-
-  flash('signup-alert','🎉 Account created! Check your email to confirm your address, then sign in.','success');
+  flash('signup-alert','🎉 Account created! Check your email to confirm, then sign in.','success');
 }
 
 async function doForgot() {
   clearFlash('forgot-alert');
-  const email = document.getElementById('forgot-email').value.trim();
-  if (!email) return flash('forgot-alert','Please enter your email address.');
-  const { error } = await sb.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.origin + window.location.pathname + '?mode=reset'
-  });
-  if (error) { flash('forgot-alert', error.message); return; }
-  flash('forgot-alert','✅ Reset link sent! Check your email and click the link to set a new PIN.','success');
+  const email=document.getElementById('forgot-email').value.trim();
+  if(!email) return flash('forgot-alert','Please enter your email address.');
+  const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+window.location.pathname+'?mode=reset'});
+  if(error){flash('forgot-alert',error.message);return;}
+  flash('forgot-alert','✅ Reset link sent! Check your email.','success');
 }
 
 async function doReset() {
   clearFlash('reset-alert');
-  const pin     = getPin('rp');
-  const confirm = getPin('rc');
-  if (pin.length < 6)  return flash('reset-alert','Please enter a complete 6-digit PIN.');
-  if (pin !== confirm) return flash('reset-alert','PINs do not match — please try again.');
-  const { error } = await sb.auth.updateUser({ password: pin });
-  if (error) { flash('reset-alert', error.message); return; }
-  flash('reset-alert','✅ PIN updated! Redirecting to sign in…','success');
-  setTimeout(() => { sb.auth.signOut(); showPage('login'); }, 2500);
+  const pin=getPin('rp'),confirm=getPin('rc');
+  if(pin.length<6) return flash('reset-alert','Please enter a complete 6-digit PIN.');
+  if(pin!==confirm) return flash('reset-alert','PINs do not match.');
+  const{error}=await sb.auth.updateUser({password:pin});
+  if(error){flash('reset-alert',error.message);return;}
+  flash('reset-alert','✅ PIN updated! Redirecting…','success');
+  setTimeout(()=>{sb.auth.signOut();showPage('login');},2500);
 }
 
-async function doLogout() {
-  await sb.auth.signOut();
-  gUser = null; gProfile = null;
-  showPage('login');
-}
+async function doLogout(){await sb.auth.signOut();gUser=null;gProfile=null;showPage('login');}
 
 // ── LOAD + ROUTE ────────────────────────────────────────────
 async function loadAndRoute(user) {
-  gUser = user;
-  const isAdminByEmail = user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-  const { data: prof } = await sb.from('profiles').select('*').eq('id', user.id).single();
-  gProfile = prof;
-  if (isAdminByEmail || prof?.is_admin) {
-    showPage('admin');
-    adminInit();
-  } else {
-    showPage('dashboard');
-    loadDashboard();
-  }
+  gUser=user;
+  const isAdminByEmail=user.email.toLowerCase()===ADMIN_EMAIL.toLowerCase();
+  const{data:prof}=await sb.from('profiles').select('*').eq('id',user.id).single();
+  gProfile=prof;
+  if(isAdminByEmail||prof?.is_admin){showPage('admin');adminInit();}
+  else{showPage('dashboard');loadDashboard();}
 }
 
 // ── DASHBOARD ───────────────────────────────────────────────
 async function loadDashboard() {
-  document.getElementById('dash-loading').style.display = 'block';
-  document.getElementById('dash-content').style.display = 'none';
+  document.getElementById('dash-loading').style.display='block';
+  document.getElementById('dash-content').style.display='none';
+  const fullName=gProfile?.name||gUser?.email||'Traveler';
+  document.getElementById('dash-topbar-name').textContent=fullName;
+  document.getElementById('dash-welcome').textContent=`Welcome, ${fullName}!`;
 
-  const fullName = gProfile?.name || gUser?.email || 'Traveler';
-  document.getElementById('dash-topbar-name').textContent = fullName;
-  document.getElementById('dash-welcome').textContent = `Welcome, ${fullName}!`;
-
-  const [{data:milestones},{data:payments}] = await Promise.all([
+  const[{data:milestones},{data:payments}]=await Promise.all([
     sb.from('payment_milestones').select('*').order('due_date',{ascending:true}),
     sb.from('user_payments').select('*').eq('user_id',gUser.id)
   ]);
 
-  const payMap = {};
-  (payments||[]).forEach(p => { payMap[p.milestone_id]=p; });
+  const payMap={};
+  (payments||[]).forEach(p=>{payMap[p.milestone_id]=p;});
 
-  const today = new Date(); today.setHours(0,0,0,0);
-
-  // Compute totals using admin-set amount_due; fall back to minimum_amount
-  let totalDue=0, totalPaid=0, nextDue=null;
-  (milestones||[]).forEach(m => {
-    const p   = payMap[m.id]||{};
-    const due = parseFloat(p.amount_due ?? m.minimum_amount ?? 0);
-    const paid= parseFloat(p.amount_paid||0);
-    totalDue += due; totalPaid += paid;
-    const isPaid = due>0 && paid>=due;
-    const dDate  = new Date(m.due_date+'T00:00:00');
-    if (!isPaid && (!nextDue||dDate<nextDue)) nextDue=dDate;
+  const today=new Date();today.setHours(0,0,0,0);
+  let totalDue=0,totalPaid=0,nextDue=null;
+  (milestones||[]).forEach(m=>{
+    const p=payMap[m.id]||{};
+    const due=parseFloat(p.amount_due??m.minimum_amount??0);
+    const paid=parseFloat(p.amount_paid||0);
+    totalDue+=due;totalPaid+=paid;
+    const isPaid=due>0&&paid>=due;
+    const dDate=new Date(m.due_date+'T00:00:00');
+    if(!isPaid&&(!nextDue||dDate<nextDue)) nextDue=dDate;
   });
 
-  const balance = Math.max(0, totalDue-totalPaid);
-  const pct     = totalDue>0 ? Math.round((totalPaid/totalDue)*100) : 0;
+  const balance=Math.max(0,totalDue-totalPaid);
+  const pct=totalDue>0?Math.round((totalPaid/totalDue)*100):0;
+  document.getElementById('dash-pct').textContent=pct+'%';
+  document.getElementById('dash-pbar').style.width=pct+'%';
+  document.getElementById('dash-paid-label').textContent=fmt(totalPaid)+' paid';
+  document.getElementById('dash-total-label').textContent='Total: '+fmt(totalDue);
+  document.getElementById('dash-paid-val').textContent=fmt(totalPaid);
+  document.getElementById('dash-balance-val').textContent=fmt(balance);
+  document.getElementById('dash-nextdue-val').textContent=nextDue?nextDue.toLocaleDateString('en-US',{month:'short',day:'numeric'}):'None';
 
-  document.getElementById('dash-pct').textContent         = pct+'%';
-  document.getElementById('dash-pbar').style.width        = pct+'%';
-  document.getElementById('dash-paid-label').textContent  = fmt(totalPaid)+' paid';
-  document.getElementById('dash-total-label').textContent = 'Total: '+fmt(totalDue);
-  document.getElementById('dash-paid-val').textContent    = fmt(totalPaid);
-  document.getElementById('dash-balance-val').textContent = fmt(balance);
-  document.getElementById('dash-nextdue-val').textContent = nextDue
-    ? nextDue.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : 'None';
-
-  // Build schedule table with running balance
-  let runningDue=0, runningPaid=0;
-  const rows = (milestones||[]).map(m => {
-    const p      = payMap[m.id]||{};
-    const minAmt = parseFloat(m.minimum_amount||0);
-    const due    = parseFloat(p.amount_due ?? m.minimum_amount ?? 0);
-    const paid   = parseFloat(p.amount_paid||0);
-    runningDue  += due;
-    runningPaid += paid;
-    const remaining = runningDue - runningPaid;
-
-    const dDate   = new Date(m.due_date+'T00:00:00');
-    const isPaid  = due>0 && paid>=due;
-    const isOver  = !isPaid && dDate<today;
-    const isSoon  = !isPaid && !isOver && (dDate-today)<7*24*60*60*1000;
-    const dateStr = dDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-    const dateCls = isOver?'overdue':isSoon?'due-soon':'';
-
-    let badge = '<span class="badge badge-gray">TBD</span>';
-    if (due>0) {
-      if (isPaid)      badge='<span class="badge badge-success">Paid ✓</span>';
-      else if (isOver) badge='<span class="badge badge-danger">Overdue!</span>';
-      else if (isSoon) badge='<span class="badge badge-warn">Due Soon</span>';
-      else             badge='<span class="badge badge-info">Upcoming</span>';
+  let runningDue=0,runningPaid=0;
+  const rows=(milestones||[]).map(m=>{
+    const p=payMap[m.id]||{};
+    const minAmt=parseFloat(m.minimum_amount||0);
+    const due=parseFloat(p.amount_due??m.minimum_amount??0);
+    const paid=parseFloat(p.amount_paid||0);
+    runningDue+=due;runningPaid+=paid;
+    const remaining=runningDue-runningPaid;
+    const dDate=new Date(m.due_date+'T00:00:00');
+    const isPaid=due>0&&paid>=due;
+    const isOver=!isPaid&&dDate<today;
+    const isSoon=!isPaid&&!isOver&&(dDate-today)<7*24*60*60*1000;
+    const dateStr=dDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const dateCls=isOver?'overdue':isSoon?'due-soon':'';
+    let badge='<span class="badge badge-gray">TBD</span>';
+    if(due>0){
+      if(isPaid) badge='<span class="badge badge-success">Paid ✓</span>';
+      else if(isOver) badge='<span class="badge badge-danger">Overdue!</span>';
+      else if(isSoon) badge='<span class="badge badge-warn">Due Soon</span>';
+      else badge='<span class="badge badge-info">Upcoming</span>';
     }
-
-    const remClass = remaining<=0 ? 'remaining-zero' : 'remaining-pos';
-    const remStr   = remaining<=0 ? '✓ ' + fmt(0) : fmt(remaining);
-
-    return `<tr>
-      <td><strong>${m.label}</strong></td>
-      <td class="col-money">${minAmt>0?fmt(minAmt):'—'}</td>
-      <td class="${dateCls}">${dateStr}</td>
-      <td class="col-money">${paid>0?'<strong>'+fmt(paid)+'</strong>':'—'}</td>
-      <td class="col-money ${remClass}">${remStr}</td>
-      <td>${badge}</td>
-    </tr>`;
+    const remClass=remaining<=0?'remaining-zero':'remaining-pos';
+    const remStr=remaining<=0?'✓ '+fmt(0):fmt(remaining);
+    return`<tr><td><strong>${m.label}</strong></td><td class="col-money">${minAmt>0?fmt(minAmt):'—'}</td><td class="${dateCls}">${dateStr}</td><td class="col-money">${paid>0?'<strong>'+fmt(paid)+'</strong>':'—'}</td><td class="col-money ${remClass}">${remStr}</td><td>${badge}</td></tr>`;
   });
 
-  document.getElementById('dash-schedule').innerHTML = rows.length
-    ? `<table>
-        <thead><tr>
-          <th>Payment</th>
-          <th class="col-money">Min. Amount Due</th>
-          <th>Due Date</th>
-          <th class="col-money">Amount Paid</th>
-          <th class="col-money">Remaining Balance</th>
-          <th>Status</th>
-        </tr></thead>
-        <tbody>${rows.join('')}</tbody>
-       </table>`
-    : `<div class="empty"><div class="empty-icon">📋</div><p>No payment schedule set yet — check back soon!</p></div>`;
+  document.getElementById('dash-schedule').innerHTML=rows.length
+    ?`<table><thead><tr><th>Payment</th><th class="col-money">Min. Amount Due</th><th>Due Date</th><th class="col-money">Amount Paid</th><th class="col-money">Remaining Balance</th><th>Status</th></tr></thead><tbody>${rows.join('')}</tbody></table>`
+    :`<div class="empty"><div class="empty-icon">📋</div><p>No payment schedule set yet.</p></div>`;
 
-  document.getElementById('dash-loading').style.display = 'none';
-  document.getElementById('dash-content').style.display = 'block';
+  document.getElementById('dash-loading').style.display='none';
+  document.getElementById('dash-content').style.display='block';
+  loadCabinTravelers();
+}
+
+// ── CABIN TRAVELERS ─────────────────────────────────────────
+function toggleAddTraveler() {
+  const form=document.getElementById('add-traveler-form');
+  form.classList.toggle('open');
+  if(form.classList.contains('open')){
+    clearFlash('cabin-alert');
+    ['ct-salutation','ct-firstname','ct-middlename','ct-lastname','ct-dob-month','ct-dob-day','ct-dob-year','ct-gender','ct-citizenship','ct-relationship'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el) el.value='';
+    });
+  }
+}
+
+async function addCabinTraveler() {
+  clearFlash('cabin-alert');
+  const sal    =document.getElementById('ct-salutation').value;
+  const first  =document.getElementById('ct-firstname').value.trim();
+  const middle =document.getElementById('ct-middlename').value.trim();
+  const last   =document.getElementById('ct-lastname').value.trim();
+  const month  =document.getElementById('ct-dob-month').value;
+  const day    =document.getElementById('ct-dob-day').value;
+  const year   =document.getElementById('ct-dob-year').value;
+  const gender =document.getElementById('ct-gender').value;
+  const citizen=document.getElementById('ct-citizenship').value.trim();
+  const rel    =document.getElementById('ct-relationship').value;
+
+  if(!first)  return flash('cabin-alert','Please enter the traveler\'s first name.');
+  if(!last)   return flash('cabin-alert','Please enter the traveler\'s last name.');
+  if(!month||!day||!year) return flash('cabin-alert','Please select a complete date of birth.');
+  if(!gender) return flash('cabin-alert','Please select a gender.');
+  if(!citizen) return flash('cabin-alert','Please enter a country of citizenship.');
+  if(!rel)    return flash('cabin-alert','Please select the traveler\'s relationship to you.');
+
+  const dob=`${year}-${month}-${day}`;
+  const{error}=await sb.from('cabin_travelers').insert({
+    account_owner_id:gUser.id,
+    salutation:sal||null,
+    first_name:first,
+    middle_name:middle||null,
+    last_name:last,
+    date_of_birth:dob,
+    gender,
+    country_of_citizenship:citizen,
+    relationship:rel
+  });
+  if(error){flash('cabin-alert','Error saving traveler: '+error.message);return;}
+  toggleAddTraveler();
+  loadCabinTravelers();
+}
+
+async function loadCabinTravelers() {
+  const{data:travelers}=await sb.from('cabin_travelers').select('*').eq('account_owner_id',gUser.id).order('created_at',{ascending:true});
+  const el=document.getElementById('cabin-travelers-list');
+  if(!travelers||travelers.length===0){
+    el.innerHTML='<div class="empty" style="padding:20px;"><div class="empty-icon">👨‍👩‍👧</div><p>No cabin travelers added yet. Click "+ Add Traveler" to get started.</p></div>';
+    return;
+  }
+  el.innerHTML=travelers.map(t=>{
+    const dob=new Date(t.date_of_birth+'T00:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+    const nameParts=[t.salutation,t.first_name,t.middle_name,t.last_name].filter(Boolean);
+    return`<div class="traveler-card">
+      <div class="traveler-card-info">
+        <div class="traveler-card-name">${nameParts.join(' ')}</div>
+        <div class="traveler-card-meta">
+          DOB: ${dob} &nbsp;·&nbsp; ${t.gender} &nbsp;·&nbsp; ${t.country_of_citizenship} &nbsp;·&nbsp; ${t.relationship}
+        </div>
+      </div>
+      <button class="btn-danger-sm" onclick="deleteCabinTraveler('${t.id}')">Remove</button>
+    </div>`;
+  }).join('');
+}
+
+async function deleteCabinTraveler(id) {
+  if(!confirm('Remove this traveler from your cabin?')) return;
+  await sb.from('cabin_travelers').delete().eq('id',id);
+  loadCabinTravelers();
 }
 
 // ── SIGNUP UI ───────────────────────────────────────────────
 function onCitizenshipChange() {
-  const val = document.getElementById('su-citizenship').value;
+  const val=document.getElementById('su-citizenship').value;
   ['doc-us','doc-non-us','doc-canadian','doc-other'].forEach(id=>document.getElementById(id).classList.remove('show'));
   ['ack-us','ack-non-us','ack-canadian','ack-other'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
   document.getElementById('pin-setup-section').style.display='none';
@@ -825,10 +969,10 @@ function onAckChange() {
   const el=document.getElementById(ackMap[cit]);
   document.getElementById('pin-setup-section').style.display=(el&&el.checked)?'block':'none';
 }
-const COUNTRY_LINKS = {
+const COUNTRY_LINKS={
   'mexico':{label:'Mexico',url:'https://help.goccl.com/app/answers/detail/a_id/1405'},
-  'united kingdom':{label:'UK (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},
   'uk':{label:'UK (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},
+  'united kingdom':{label:'UK (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},
   'australia':{label:'Australia (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},
   'germany':{label:'Germany (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},
   'france':{label:'France (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},
@@ -859,44 +1003,39 @@ function onCountryInput() {
 }
 
 // ── ADMIN ───────────────────────────────────────────────────
-async function adminInit() {
-  await Promise.all([loadTravelers(),loadAdminMilestones(),loadPaymentFormSelects(),loadAdminPayments(),loadDocRequests()]);
-}
-function switchTab(name,btn) {
+async function adminInit(){await Promise.all([loadTravelers(),loadAdminMilestones(),loadPaymentFormSelects(),loadAdminPayments(),loadDocRequests()]);}
+function switchTab(name,btn){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');document.getElementById('tab-'+name).classList.add('active');
 }
 
 async function loadTravelers() {
-  const {data:profiles}=await sb.from('profiles').select('*, user_payments(amount_due,amount_paid)').eq('is_admin',false).order('name');
+  const{data:profiles}=await sb.from('profiles').select('*, user_payments(amount_due,amount_paid)').eq('is_admin',false).order('name');
   const el=document.getElementById('admin-travelers');
-  if(!profiles||profiles.length===0){el.innerHTML='<div class="empty"><div class="empty-icon">👥</div><p>No travelers registered yet.</p></div>';return;}
-  const citLabel={us:'🇺🇸 U.S.','non-us':'🌍 Non-U.S.',canadian:'🍁 Canadian',other:'🌐 Other'};
+  if(!profiles||profiles.length===0){el.innerHTML='<div class="empty"><div class="empty-icon">👥</div><p>No travelers yet.</p></div>';return;}
+  const citLabel={us:'U.S.','non-us':'Non-U.S.',canadian:'Canadian',other:'Other'};
   const rows=profiles.map(p=>{
     const due=(p.user_payments||[]).reduce((s,x)=>s+parseFloat(x.amount_due||0),0);
     const paid=(p.user_payments||[]).reduce((s,x)=>s+parseFloat(x.amount_paid||0),0);
     const bal=Math.max(0,due-paid);
     const pct=due>0?Math.round((paid/due)*100):0;
     const docB=p.needs_doc_info?'<span class="badge needs-info">Needs Doc Email</span> ':'';
-    return `<tr><td><strong>${p.name}</strong> ${docB}</td><td>${citLabel[p.citizenship_type]||p.citizenship_type}${p.country_of_citizenship?' — '+p.country_of_citizenship:''}</td><td class="col-money" style="color:var(--success)"><strong>${fmt(paid)}</strong></td><td class="col-money" style="color:var(--danger)">${fmt(bal)}</td><td><div class="pbar-row"><div class="mpbar-track"><div class="mpbar-fill" style="width:${pct}%"></div></div><small style="color:var(--muted)">${pct}%</small></div></td></tr>`;
+    return`<tr><td><strong>${p.name}</strong> ${docB}</td><td>${citLabel[p.citizenship_type]||p.citizenship_type}${p.country_of_citizenship?' — '+p.country_of_citizenship:''}</td><td class="col-money" style="color:var(--success)"><strong>${fmt(paid)}</strong></td><td class="col-money" style="color:var(--danger)">${fmt(bal)}</td><td><div class="pbar-row"><div class="mpbar-track"><div class="mpbar-fill" style="width:${pct}%"></div></div><small>${pct}%</small></div></td></tr>`;
   });
   el.innerHTML=`<table><thead><tr><th>Traveler</th><th>Citizenship</th><th class="col-money">Paid</th><th class="col-money">Balance</th><th>Progress</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 
 async function addMilestone() {
-  const label  = document.getElementById('ms-label').value.trim();
-  const amount = parseFloat(document.getElementById('ms-amount').value)||null;
-  const date   = document.getElementById('ms-date').value;
-  if(!label||!date){flash('milestone-alert','Please enter both a label and a due date.');return;}
-  const{error}=await sb.from('payment_milestones').insert({label, minimum_amount:amount, due_date:date});
+  const label=document.getElementById('ms-label').value.trim();
+  const amount=parseFloat(document.getElementById('ms-amount').value)||null;
+  const date=document.getElementById('ms-date').value;
+  if(!label||!date){flash('milestone-alert','Please enter a label and due date.');return;}
+  const{error}=await sb.from('payment_milestones').insert({label,minimum_amount:amount,due_date:date});
   if(error){flash('milestone-alert','Error: '+error.message);return;}
-  document.getElementById('ms-label').value='';
-  document.getElementById('ms-amount').value='';
-  document.getElementById('ms-date').value='';
+  document.getElementById('ms-label').value='';document.getElementById('ms-amount').value='';document.getElementById('ms-date').value='';
   flash('milestone-alert','✅ Milestone added!','success');
-  loadAdminMilestones(); loadPaymentFormSelects();
+  loadAdminMilestones();loadPaymentFormSelects();
 }
 
 async function loadAdminMilestones() {
@@ -905,16 +1044,15 @@ async function loadAdminMilestones() {
   if(!data||data.length===0){el.innerHTML='<div class="empty"><div class="empty-icon">📅</div><p>No milestones yet.</p></div>';return;}
   const rows=data.map(m=>{
     const d=new Date(m.due_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-    const minAmt = m.minimum_amount!=null ? fmt(m.minimum_amount) : '—';
-    return`<tr><td><strong>${m.label}</strong></td><td class="col-money">${minAmt}</td><td>${d}</td><td><button class="btn-danger-sm" onclick="deleteMilestone('${m.id}')">Delete</button></td></tr>`;
+    return`<tr><td><strong>${m.label}</strong></td><td class="col-money">${m.minimum_amount!=null?fmt(m.minimum_amount):'—'}</td><td>${d}</td><td><button class="btn-danger-sm" onclick="deleteMilestone('${m.id}')">Delete</button></td></tr>`;
   });
   el.innerHTML=`<table><thead><tr><th>Label</th><th class="col-money">Min. Amount Due</th><th>Due Date</th><th>Action</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 
-async function deleteMilestone(id) {
-  if(!confirm('Delete this milestone? Associated payment records will also be removed.')) return;
+async function deleteMilestone(id){
+  if(!confirm('Delete this milestone and all associated payment records?')) return;
   await sb.from('payment_milestones').delete().eq('id',id);
-  loadAdminMilestones(); loadPaymentFormSelects();
+  loadAdminMilestones();loadPaymentFormSelects();
 }
 
 async function loadPaymentFormSelects() {
@@ -925,8 +1063,8 @@ async function loadPaymentFormSelects() {
   document.getElementById('pay-traveler').innerHTML='<option value="">Select traveler</option>'+(profiles||[]).map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
   document.getElementById('pay-milestone').innerHTML='<option value="">Select milestone</option>'+(milestones||[]).map(m=>{
     const d=new Date(m.due_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
-    const minStr = m.minimum_amount!=null?' — min '+fmt(m.minimum_amount):'';
-    return`<option value="${m.id}">${m.label} (${d}${minStr})</option>`;
+    const min=m.minimum_amount!=null?' — min '+fmt(m.minimum_amount):'';
+    return`<option value="${m.id}">${m.label} (${d}${min})</option>`;
   }).join('');
 }
 
@@ -940,7 +1078,7 @@ async function savePayment() {
   const{error}=await sb.from('user_payments').upsert({user_id:userId,milestone_id:milestoneId,amount_due:amtDue,amount_paid:amtPaid,paid_at:paidDate?new Date(paidDate).toISOString():null},{onConflict:'user_id,milestone_id'});
   if(error){flash('payment-alert','Error: '+error.message);return;}
   flash('payment-alert','✅ Payment saved!','success');
-  loadAdminPayments(); loadTravelers();
+  loadAdminPayments();loadTravelers();
 }
 
 async function loadAdminPayments() {
@@ -969,19 +1107,19 @@ async function loadDocRequests() {
   el.innerHTML=`<table><thead><tr><th>Traveler</th><th>Country</th><th>Signed Up</th><th>Action</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 
-function draftDocEmail(name,country) {
+function draftDocEmail(name,country){
   const subject=`Commonwealth Cruise 2027 — Travel Documentation for ${country} Citizens`;
-  const body=`Hi ${name},\n\nThank you for signing up for the Commonwealth Cruise 2027!\n\nSince you indicated your citizenship is from ${country}, please review the travel documentation requirements that apply to you:\n\n[ADD SPECIFIC DOCUMENTATION REQUIREMENTS HERE]\n\nFor general international requirements, visit:\nhttps://help.goccl.com/app/answers/detail/a_id/1405\n\nPlease ensure all documents are in order before the cruise. Reply with any questions.\n\nBest regards,\n[Your Name]`;
-  prompt(`Copy this draft — find ${name}'s email in your records and send it:\n\nSubject: ${subject}\n\n${body}`);
+  const body=`Hi ${name},\n\nThank you for signing up for the Commonwealth Cruise 2027!\n\nSince you indicated your citizenship is from ${country}, please review the travel documentation requirements that apply to you:\n\n[ADD SPECIFIC DOCUMENTATION REQUIREMENTS HERE]\n\nFor general international requirements, visit:\nhttps://help.goccl.com/app/answers/detail/a_id/1405\n\nPlease ensure all documents are in order before the cruise.\n\nBest regards,\n[Your Name]`;
+  prompt(`Copy this draft email:\n\nSubject: ${subject}\n\n${body}`);
 }
 
 // ── INIT ────────────────────────────────────────────────────
-window.addEventListener('load', async () => {
+window.addEventListener('load', async()=>{
   wirePins();
   document.getElementById('login-email').value='';
   clearPin('lp');
 
-  if (window.location.hash.includes('access_token')||window.location.search.includes('mode=reset')) {
+  if(window.location.hash.includes('access_token')||window.location.search.includes('mode=reset')){
     const{data}=await sb.auth.getSession();
     if(data.session){showPage('reset');return;}
   }
