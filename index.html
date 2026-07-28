@@ -143,6 +143,13 @@
     .inv-label{font-size:.83rem;color:var(--muted);margin-top:2px;}
     .inv-sub{font-size:.78rem;color:var(--muted);margin-top:6px;}
     .section-hdr{font-size:.74rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:18px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+    .sr-option{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;font-size:.84rem;font-weight:500;cursor:pointer;border:1.5px solid var(--border);background:#fff;transition:background .15s,border-color .15s;user-select:none;}
+    .sr-option:hover{background:#f0f7ff;border-color:#aed6f1;}
+    .sr-option input[type=checkbox]{width:15px;height:15px;accent-color:var(--secondary);flex-shrink:0;cursor:pointer;}
+    .sr-option.checked{background:#e8f4fd;border-color:var(--secondary);font-weight:700;}
+    .sr-option.disabled{opacity:.45;pointer-events:none;}
+    .so-option{display:flex;align-items:center;gap:8px;font-size:.93rem;cursor:pointer;}
+    .so-option input[type=checkbox]{width:16px;height:16px;accent-color:var(--secondary);cursor:pointer;}
   </style>
 </head>
 <body>
@@ -328,6 +335,7 @@
         <p style="font-size:.84rem;color:var(--muted);margin-bottom:12px;">Add all guests sharing your cabin. Required for cruise check-in.</p>
         <div class="add-traveler-form" id="add-traveler-form">
           <div id="cabin-alert" class="alert"></div>
+
           <div class="section-hdr">Personal Information</div>
           <div class="grid-4" style="margin-bottom:14px;">
             <div class="form-group" style="margin-bottom:0;"><label>Title</label><select id="ct-salutation"><option value="">—</option><option>Mr.</option><option>Mrs.</option><option>Ms.</option><option>Dr.</option><option>Rev.</option></select></div>
@@ -335,18 +343,61 @@
             <div class="form-group" style="margin-bottom:0;"><label>Middle Name</label><input type="text" id="ct-middlename" placeholder="(optional)" autocomplete="off"></div>
             <div class="form-group" style="margin-bottom:0;"><label>Last Name *</label><input type="text" id="ct-lastname" placeholder="Last" autocomplete="off"></div>
           </div>
+
           <div class="section-hdr">Date of Birth</div>
           <div class="grid-3" style="margin-bottom:14px;">
             <div class="form-group" style="margin-bottom:0;"><label>Month *</label><select id="ct-dob-month"><option value="">Month</option><option value="01">January</option><option value="02">February</option><option value="03">March</option><option value="04">April</option><option value="05">May</option><option value="06">June</option><option value="07">July</option><option value="08">August</option><option value="09">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select></div>
             <div class="form-group" style="margin-bottom:0;"><label>Day *</label><select id="ct-dob-day"><option value="">Day</option><script>for(let d=1;d<=31;d++)document.write(`<option value="${String(d).padStart(2,'0')}">${d}</option>`);</script></select></div>
             <div class="form-group" style="margin-bottom:0;"><label>Year *</label><select id="ct-dob-year"><option value="">Year</option><script>const _y=new Date().getFullYear();for(let y=_y;y>=_y-100;y--)document.write(`<option value="${y}">${y}</option>`);</script></select></div>
           </div>
+
           <div class="section-hdr">Additional Details</div>
-          <div class="grid-3" style="margin-bottom:14px;">
+          <div class="grid-3" style="margin-bottom:10px;">
             <div class="form-group" style="margin-bottom:0;"><label>Gender *</label><select id="ct-gender"><option value="">Select</option><option>Male</option><option>Female</option></select></div>
             <div class="form-group" style="margin-bottom:0;"><label>Country of Citizenship *</label><input type="text" id="ct-citizenship" placeholder="e.g. United States" autocomplete="off"></div>
-            <div class="form-group" style="margin-bottom:0;"><label>Relationship to You *</label><select id="ct-relationship"><option value="">Select</option><option>Spouse/Partner</option><option>Child</option><option>Parent</option><option>Sibling</option><option>Relative</option><option>Friend</option><option>Other</option></select></div>
+            <div class="form-group" style="margin-bottom:0;"><label>State of Residency</label><select id="ct-state"><option value="">— Select State —</option><option>Alabama</option><option>Alaska</option><option>Arizona</option><option>Arkansas</option><option>California</option><option>Colorado</option><option>Connecticut</option><option>Delaware</option><option>Florida</option><option>Georgia</option><option>Hawaii</option><option>Idaho</option><option>Illinois</option><option>Indiana</option><option>Iowa</option><option>Kansas</option><option>Kentucky</option><option>Louisiana</option><option>Maine</option><option>Maryland</option><option>Massachusetts</option><option>Michigan</option><option>Minnesota</option><option>Mississippi</option><option>Missouri</option><option>Montana</option><option>Nebraska</option><option>Nevada</option><option>New Hampshire</option><option>New Jersey</option><option>New Mexico</option><option>New York</option><option>North Carolina</option><option>North Dakota</option><option>Ohio</option><option>Oklahoma</option><option>Oregon</option><option>Pennsylvania</option><option>Rhode Island</option><option>South Carolina</option><option>South Dakota</option><option>Tennessee</option><option>Texas</option><option>Utah</option><option>Vermont</option><option>Virginia</option><option>Washington</option><option>West Virginia</option><option>Wisconsin</option><option>Wyoming</option><option>Washington D.C.</option><option>Puerto Rico</option><option>U.S. Virgin Islands</option><option>Guam</option></select></div>
           </div>
+          <div class="grid-3" style="margin-bottom:14px;">
+            <div class="form-group" style="margin-bottom:0;"><label>Relationship to You *</label><select id="ct-relationship"><option value="">Select</option><option>Spouse/Partner</option><option>Child</option><option>Parent</option><option>Sibling</option><option>Relative</option><option>Friend</option><option>Other</option></select></div>
+            <div class="form-group" style="margin-bottom:0;"><label>Email Address</label><input type="email" id="ct-email" placeholder="traveler@email.com" autocomplete="off"></div>
+            <div class="form-group" style="margin-bottom:0;"><label>Telephone</label><input type="text" id="ct-phone" placeholder="e.g. 555-867-5309" autocomplete="off"></div>
+          </div>
+
+          <div class="section-hdr">Special Requests — Medical Needs <span style="font-weight:400;font-size:.72rem;color:var(--muted)">(select up to 4)</span></div>
+          <div id="ct-special-requests-count" style="font-size:.8rem;color:var(--muted);margin-bottom:8px;">0 of 4 selected</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;margin-bottom:14px;" id="ct-sr-grid">
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Wheelchair Assistance" onchange="onSrChange()"> Wheelchair Assistance</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Cognitive Disabilities" onchange="onSrChange()"> Cognitive Disabilities</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Concentrator" onchange="onSrChange()"> Concentrator</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Scooter/Power Wheelchair" onchange="onSrChange()"> Scooter/Power Wheelchair</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Autism" onchange="onSrChange()"> Autism</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Diabetic" onchange="onSrChange()"> Diabetic</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Blind/Low Vision" onchange="onSrChange()"> Blind/Low Vision</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Deaf/Hard of Hearing" onchange="onSrChange()"> Deaf/Hard of Hearing</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Allergies" onchange="onSrChange()"> Allergies</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Pregnant Less Than 24 Full Weeks" onchange="onSrChange()"> Pregnant Less Than 24 Full Weeks</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Sharps Container" onchange="onSrChange()"> Sharps Container</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Dialysis" onchange="onSrChange()"> Dialysis</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Manual Wheelchair" onchange="onSrChange()"> Manual Wheelchair</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Pregnant More Than 24 Full Weeks" onchange="onSrChange()"> Pregnant More Than 24 Full Weeks</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Oxygen (Tanks Only)" onchange="onSrChange()"> Oxygen (Tanks Only)</label>
+          </div>
+
+          <div class="section-hdr">Special Occasions</div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;background:#fffbeb;border:1.5px solid #f6df74;border-radius:9px;padding:14px;">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <label class="so-option" style="font-weight:700;min-width:130px;"><input type="checkbox" id="ct-bday-ck" onchange="toggleSoDate('ct-bday-date',this)"> 🎂 Birthday</label>
+              <div id="ct-bday-date" style="display:none;flex:1;min-width:160px;"><label style="font-size:.8rem;margin-bottom:3px;">Select Date</label><input type="date" id="ct-birthday"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <label class="so-option" style="font-weight:700;min-width:130px;"><input type="checkbox" id="ct-anniv-ck" onchange="toggleSoDate('ct-anniv-date',this)"> 💍 Anniversary</label>
+              <div id="ct-anniv-date" style="display:none;flex:1;min-width:160px;"><label style="font-size:.8rem;margin-bottom:3px;">Select Date</label><input type="date" id="ct-anniversary"></div>
+            </div>
+            <div>
+              <label class="so-option" style="font-weight:700;"><input type="checkbox" id="ct-honeymoon"> 🥂 Honeymoon</label>
+            </div>
+          </div>
+
           <div style="display:flex;gap:9px;flex-wrap:wrap;">
             <button class="btn btn-primary btn-sm" onclick="addCabinTraveler()">Save Traveler</button>
             <button class="btn btn-ghost btn-sm" onclick="toggleAddTraveler()">Cancel</button>
@@ -789,14 +840,40 @@ async function loadDashboard(){
 }
 
 // ── CABIN TRAVELERS ──────────────────────────────────────────
+const CT_TEXT_IDS=['ct-salutation','ct-firstname','ct-middlename','ct-lastname','ct-dob-month','ct-dob-day','ct-dob-year','ct-gender','ct-citizenship','ct-state','ct-relationship','ct-email','ct-phone','ct-birthday','ct-anniversary'];
+
+function onSrChange(){
+  const cbs=document.querySelectorAll('.sr-cb');
+  const checked=[...cbs].filter(c=>c.checked);
+  const count=checked.length;
+  document.getElementById('ct-special-requests-count').textContent=`${count} of 4 selected`;
+  cbs.forEach(cb=>{
+    const label=cb.closest('label');
+    if(cb.checked){label.classList.add('checked');label.classList.remove('disabled');}
+    else if(count>=4){label.classList.add('disabled');label.classList.remove('checked');}
+    else{label.classList.remove('disabled','checked');}
+  });
+}
+
+function toggleSoDate(wrapperId,checkbox){
+  document.getElementById(wrapperId).style.display=checkbox.checked?'flex':'none';
+}
+
+function resetTravelerForm(){
+  CT_TEXT_IDS.forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.querySelectorAll('.sr-cb').forEach(cb=>{cb.checked=false;cb.closest('label').classList.remove('checked','disabled');});
+  document.getElementById('ct-special-requests-count').textContent='0 of 4 selected';
+  ['ct-bday-ck','ct-anniv-ck','ct-honeymoon'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
+  document.getElementById('ct-bday-date').style.display='none';
+  document.getElementById('ct-anniv-date').style.display='none';
+}
+
 function toggleAddTraveler(){
   const form=document.getElementById('add-traveler-form');
   form.classList.toggle('open');
-  if(form.classList.contains('open')){
-    clearFlash('cabin-alert');
-    ['ct-salutation','ct-firstname','ct-middlename','ct-lastname','ct-dob-month','ct-dob-day','ct-dob-year','ct-gender','ct-citizenship','ct-relationship'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  }
+  if(form.classList.contains('open')){clearFlash('cabin-alert');resetTravelerForm();}
 }
+
 async function addCabinTraveler(){
   clearFlash('cabin-alert');
   const sal=document.getElementById('ct-salutation').value;
@@ -808,17 +885,43 @@ async function addCabinTraveler(){
   const year=document.getElementById('ct-dob-year').value;
   const gender=document.getElementById('ct-gender').value;
   const citizen=document.getElementById('ct-citizenship').value.trim();
+  const state=document.getElementById('ct-state').value;
   const rel=document.getElementById('ct-relationship').value;
+  const email=document.getElementById('ct-email').value.trim();
+  const phone=document.getElementById('ct-phone').value.trim();
+  const specialRequests=[...document.querySelectorAll('.sr-cb:checked')].map(cb=>cb.value);
+  const birthdayDate=document.getElementById('ct-bday-ck').checked?document.getElementById('ct-birthday').value:null;
+  const anniversaryDate=document.getElementById('ct-anniv-ck').checked?document.getElementById('ct-anniversary').value:null;
+  const isHoneymoon=document.getElementById('ct-honeymoon').checked;
+
   if(!first)return flash('cabin-alert',"Please enter the traveler's first name.");
   if(!last)return flash('cabin-alert',"Please enter the traveler's last name.");
   if(!month||!day||!year)return flash('cabin-alert','Please select a complete date of birth.');
   if(!gender)return flash('cabin-alert','Please select a gender.');
   if(!citizen)return flash('cabin-alert','Please enter a country of citizenship.');
   if(!rel)return flash('cabin-alert',"Please select the traveler's relationship to you.");
-  const{error}=await sb.from('cabin_travelers').insert({account_owner_id:gUser.id,salutation:sal||null,first_name:first,middle_name:middle||null,last_name:last,date_of_birth:`${year}-${month}-${day}`,gender,country_of_citizenship:citizen,relationship:rel});
+  if(document.getElementById('ct-bday-ck').checked&&!birthdayDate)return flash('cabin-alert','Please select a birthday date.');
+  if(document.getElementById('ct-anniv-ck').checked&&!anniversaryDate)return flash('cabin-alert','Please select an anniversary date.');
+
+  const{error}=await sb.from('cabin_travelers').insert({
+    account_owner_id:gUser.id,
+    salutation:sal||null,
+    first_name:first,middle_name:middle||null,last_name:last,
+    date_of_birth:`${year}-${month}-${day}`,
+    gender,country_of_citizenship:citizen,
+    state_of_residency:state||null,
+    relationship:rel,
+    email:email||null,
+    phone:phone||null,
+    special_requests:specialRequests.length?specialRequests:null,
+    birthday_date:birthdayDate||null,
+    anniversary_date:anniversaryDate||null,
+    is_honeymoon:isHoneymoon
+  });
   if(error){flash('cabin-alert','Error saving traveler: '+error.message);return;}
   toggleAddTraveler();loadCabinTravelers();
 }
+
 async function loadCabinTravelers(){
   const{data:travelers}=await sb.from('cabin_travelers').select('*').eq('account_owner_id',gUser.id).order('created_at',{ascending:true});
   const el=document.getElementById('cabin-travelers-list');
@@ -826,7 +929,21 @@ async function loadCabinTravelers(){
   el.innerHTML=travelers.map(t=>{
     const dob=fmtDate(t.date_of_birth);
     const name=[t.salutation,t.first_name,t.middle_name,t.last_name].filter(Boolean).join(' ');
-    return`<div class="traveler-card"><div><div class="traveler-card-name">${name}</div><div class="traveler-card-meta">DOB: ${dob} · ${t.gender} · ${t.country_of_citizenship} · ${t.relationship}</div></div><button class="btn-danger" onclick="deleteCabinTraveler('${t.id}')">Remove</button></div>`;
+    const sr=(t.special_requests||[]);
+    const occasions=[];
+    if(t.birthday_date)occasions.push('🎂 Birthday: '+fmtDate(t.birthday_date));
+    if(t.anniversary_date)occasions.push('💍 Anniversary: '+fmtDate(t.anniversary_date));
+    if(t.is_honeymoon)occasions.push('🥂 Honeymoon');
+    return`<div class="traveler-card">
+      <div style="flex:1;">
+        <div class="traveler-card-name">${name}</div>
+        <div class="traveler-card-meta">DOB: ${dob} · ${t.gender} · ${t.relationship}${t.state_of_residency?' · '+t.state_of_residency:''}</div>
+        ${t.email||t.phone?`<div class="traveler-card-meta">${[t.email,t.phone].filter(Boolean).join(' · ')}</div>`:''}
+        ${sr.length?`<div class="traveler-card-meta" style="color:var(--warn);">⚕️ ${sr.join(', ')}</div>`:''}
+        ${occasions.length?`<div class="traveler-card-meta" style="color:var(--accent);">${occasions.join(' · ')}</div>`:''}
+      </div>
+      <button class="btn-danger" onclick="deleteCabinTraveler('${t.id}')">Remove</button>
+    </div>`;
   }).join('');
 }
 async function deleteCabinTraveler(id){
