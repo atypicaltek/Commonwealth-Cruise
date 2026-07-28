@@ -5,169 +5,144 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Commonwealth Cruise 2027 — Payment Tracker</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <style>
-    :root {
-      --primary:#1a4f7a; --secondary:#2176ae; --accent:#e8a020;
-      --success:#1f8c4e; --danger:#c0392b; --warn:#d68910;
-      --bg:#eef2f7; --card:#ffffff; --text:#1c2940;
-      --muted:#6b7c93; --border:#d5dce8; --radius:12px;
-      --shadow:0 4px 24px rgba(0,0,0,0.08);
-    }
+    :root{--primary:#1a4f7a;--secondary:#2176ae;--accent:#e8a020;--success:#1f8c4e;--danger:#c0392b;--warn:#d68910;--bg:#eef2f7;--card:#fff;--text:#1c2940;--muted:#6b7c93;--border:#d5dce8;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.08);}
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;}
-    .page{display:none;} .page.active{display:block;}
-
-    /* TOPBAR */
+    .page{display:none;}.page.active{display:block;}
     .topbar{background:linear-gradient(135deg,var(--primary),var(--secondary));color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 12px rgba(0,0,0,.18);}
-    .topbar h1{font-size:1.15rem;font-weight:700;}
+    .topbar h1{font-size:1.1rem;font-weight:700;}
     .topbar-right{display:flex;align-items:center;gap:12px;}
     .topbar-name{font-size:.85rem;opacity:.88;}
-    .btn-signout{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);color:#fff;padding:5px 14px;border-radius:20px;cursor:pointer;font-size:.82rem;transition:background .2s;}
-    .btn-signout:hover{background:rgba(255,255,255,.3);}
-
-    /* AUTH */
+    .btn-signout{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);color:#fff;padding:5px 14px;border-radius:20px;cursor:pointer;font-size:.82rem;}
     .auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;background:linear-gradient(160deg,#1a4f7a 0%,#2e88cc 100%);}
-    .auth-card{background:var(--card);border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.2);padding:40px 36px;width:100%;max-width:480px;}
-    @media(max-width:500px){.auth-card{padding:28px 18px;}}
-    .auth-logo{text-align:center;margin-bottom:28px;}
-    .auth-logo .logo-icon{font-size:2.8rem;display:block;margin-bottom:8px;}
-    .auth-logo h2{font-size:1.45rem;color:var(--primary);font-weight:800;}
-    .auth-logo p{color:var(--muted);font-size:.9rem;margin-top:4px;}
-
-    /* FORMS */
-    .form-group{margin-bottom:18px;}
-    .form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;}
-    .form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
-    .form-row-4{display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:12px;}
-    @media(max-width:600px){.form-row-2{grid-template-columns:1fr;}.form-row-3{grid-template-columns:1fr;}.form-row-4{grid-template-columns:1fr 1fr;}}
-    @media(max-width:440px){.form-row-2{grid-template-columns:1fr;}}
-    label{display:block;font-size:.84rem;font-weight:700;color:var(--text);margin-bottom:6px;}
-    input[type=text],input[type=email],input[type=number],input[type=date],select,textarea{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:9px;font-size:.95rem;color:var(--text);background:#fff;outline:none;transition:border-color .2s,box-shadow .2s;font-family:inherit;}
-    input:focus,select:focus,textarea:focus{border-color:var(--secondary);box-shadow:0 0 0 3px rgba(33,118,174,.12);}
-    select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7c93' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:38px;}
-    input:-webkit-autofill{-webkit-box-shadow:0 0 0 50px white inset !important;}
-    select.narrow{width:auto;min-width:90px;}
-
-    /* BUTTONS */
-    .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px 20px;border:none;border-radius:9px;font-size:.95rem;font-weight:700;cursor:pointer;transition:opacity .18s,transform .18s;text-decoration:none;}
+    .auth-card{background:var(--card);border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.2);padding:36px 32px;width:100%;max-width:500px;}
+    @media(max-width:520px){.auth-card{padding:24px 16px;}}
+    .auth-logo{text-align:center;margin-bottom:24px;}
+    .auth-logo .logo-icon{font-size:2.6rem;display:block;margin-bottom:6px;}
+    .auth-logo h2{font-size:1.4rem;color:var(--primary);font-weight:800;}
+    .auth-logo p{color:var(--muted);font-size:.88rem;margin-top:3px;}
+    .form-group{margin-bottom:16px;}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+    .grid-4{display:grid;grid-template-columns:90px 1fr 1fr 1fr;gap:10px;}
+    @media(max-width:580px){.grid-2{grid-template-columns:1fr;}.grid-3{grid-template-columns:1fr;}.grid-4{grid-template-columns:1fr 1fr;}.grid-4>:first-child{grid-column:1/-1;}}
+    label{display:block;font-size:.83rem;font-weight:700;color:var(--text);margin-bottom:5px;}
+    input[type=text],input[type=email],input[type=number],input[type=date],select,textarea{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:9px;font-size:.93rem;color:var(--text);background:#fff;outline:none;transition:border-color .2s;font-family:inherit;}
+    input:focus,select:focus{border-color:var(--secondary);box-shadow:0 0 0 3px rgba(33,118,174,.12);}
+    select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7c93' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:34px;}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 18px;border:none;border-radius:9px;font-size:.93rem;font-weight:700;cursor:pointer;transition:opacity .18s,transform .15s;text-decoration:none;}
     .btn:hover{opacity:.88;transform:translateY(-1px);}
     .btn-full{width:100%;}
     .btn-primary{background:linear-gradient(135deg,var(--primary),var(--secondary));color:#fff;}
     .btn-ghost{background:var(--bg);color:var(--text);border:1.5px solid var(--border);}
-    .btn-ghost:hover{background:var(--border);}
-    .btn-danger-sm{background:#fdf0ee;color:var(--danger);border:1px solid #f5c6c0;padding:5px 12px;font-size:.8rem;border-radius:6px;font-weight:600;cursor:pointer;}
-    .btn-sm{padding:8px 16px;font-size:.85rem;}
+    .btn-sm{padding:6px 14px;font-size:.82rem;}
+    .btn-danger{background:#fdf0ee;color:var(--danger);border:1px solid #f5c6c0;font-size:.8rem;padding:5px 11px;border-radius:6px;font-weight:600;cursor:pointer;}
+    .btn-warn{background:#fffbeb;color:var(--warn);border:1px solid #f6df74;font-size:.8rem;padding:5px 11px;border-radius:6px;font-weight:600;cursor:pointer;}
+    .btn-outline{background:transparent;color:var(--secondary);border:2px solid var(--secondary);padding:7px 16px;font-size:.86rem;}
     .btn-accent{background:var(--accent);color:#fff;}
-    .btn-outline{background:transparent;color:var(--secondary);border:2px solid var(--secondary);padding:8px 18px;font-size:.88rem;}
-
-    /* ALERTS */
-    .alert{padding:11px 15px;border-radius:8px;font-size:.88rem;margin-bottom:14px;display:none;line-height:1.5;}
+    .alert{padding:10px 14px;border-radius:8px;font-size:.87rem;margin-bottom:13px;display:none;line-height:1.5;}
     .alert.show{display:block;}
     .alert-error{background:#fdf0ee;border:1px solid #f5c6c0;color:#7b1c14;}
     .alert-success{background:#edfbf3;border:1px solid #b3e6c9;color:#145c36;}
     .alert-info{background:#e8f4fd;border:1px solid #aed6f1;color:#0c4a6e;}
-
-    /* PIN */
-    .pin-row{display:flex;gap:9px;justify-content:center;margin:6px 0;}
-    .pin-box{width:48px;height:54px;text-align:center;font-size:1.3rem;font-weight:800;border:2px solid var(--border);border-radius:10px;outline:none;color:var(--primary);transition:border-color .18s,box-shadow .18s;-webkit-text-security:disc;background:#fff;}
+    .pin-row{display:flex;gap:8px;justify-content:center;margin:5px 0;}
+    .pin-box{width:46px;height:52px;text-align:center;font-size:1.25rem;font-weight:800;border:2px solid var(--border);border-radius:10px;outline:none;color:var(--primary);-webkit-text-security:disc;background:#fff;}
     .pin-box:focus{border-color:var(--secondary);box-shadow:0 0 0 3px rgba(33,118,174,.15);}
-
-    .auth-switch{text-align:center;margin-top:18px;font-size:.88rem;color:var(--muted);}
-    .auth-switch a{color:var(--secondary);font-weight:700;cursor:pointer;text-decoration:none;}
-    .auth-switch a:hover{text-decoration:underline;}
-    .divider{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.82rem;margin:14px 0;}
+    .auth-switch{text-align:center;margin-top:16px;font-size:.87rem;color:var(--muted);}
+    .auth-switch a{color:var(--secondary);font-weight:700;cursor:pointer;}
+    .divider{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.8rem;margin:12px 0;}
     .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border);}
-
-    /* DOC NOTICES */
-    .doc-notice{display:none;background:#fffbeb;border:1.5px solid #f6c440;border-radius:10px;padding:18px;margin:14px 0;font-size:.875rem;line-height:1.65;}
+    .doc-notice{display:none;background:#fffbeb;border:1.5px solid #f6c440;border-radius:10px;padding:16px;margin:12px 0;font-size:.86rem;line-height:1.65;}
     .doc-notice.show{display:block;}
-    .doc-notice h4{color:var(--primary);font-size:.95rem;margin-bottom:10px;}
-    .doc-notice p{margin-bottom:8px;}
-    .doc-notice ul{margin:8px 0 8px 20px;}
-    .doc-notice li{margin-bottom:7px;}
-    .doc-notice .doc-section{font-weight:700;margin-top:14px;margin-bottom:6px;color:var(--primary);font-size:.9rem;}
+    .doc-notice h4{color:var(--primary);font-size:.93rem;margin-bottom:9px;}
+    .doc-notice p{margin-bottom:7px;}
+    .doc-notice ul{margin:7px 0 7px 18px;}
+    .doc-notice li{margin-bottom:6px;}
+    .doc-notice .doc-section{font-weight:700;margin-top:12px;margin-bottom:5px;color:var(--primary);font-size:.88rem;}
     .doc-notice a{color:var(--secondary);}
-    .doc-notice .important{background:#fff3cd;border-left:3px solid var(--accent);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;}
-    .ck-group{display:flex;align-items:flex-start;gap:10px;margin:14px 0 8px;}
-    .ck-group input[type=checkbox]{width:18px;height:18px;flex-shrink:0;margin-top:2px;cursor:pointer;accent-color:var(--secondary);}
-    .ck-group label{font-size:.875rem;font-weight:500;color:var(--text);cursor:pointer;line-height:1.55;}
-
+    .doc-notice .important{background:#fff3cd;border-left:3px solid var(--accent);padding:7px 11px;border-radius:0 6px 6px 0;margin:9px 0;}
+    .ck-group{display:flex;align-items:flex-start;gap:9px;margin:12px 0 7px;}
+    .ck-group input[type=checkbox]{width:17px;height:17px;flex-shrink:0;margin-top:2px;cursor:pointer;accent-color:var(--secondary);}
+    .ck-group label{font-size:.86rem;font-weight:500;cursor:pointer;line-height:1.5;}
+    .step-box{background:#f0f7ff;border:1.5px solid #aed6f1;border-radius:10px;padding:16px;margin-top:10px;}
+    .step-box.green{background:#f0fdf4;border-color:#86efac;}
     #pin-setup-section{display:none;}
-    .pin-setup-card{background:#f0f7ff;border:1.5px solid #aed6f1;border-radius:10px;padding:18px;margin-top:10px;}
-
+    #cabin-select-section{display:none;}
+    .cabin-avail{font-size:.8rem;color:var(--muted);margin-top:6px;line-height:1.7;}
+    .cabin-avail span.low{color:var(--warn);font-weight:700;}
+    .cabin-avail span.out{color:var(--danger);font-weight:700;}
     /* DASHBOARD */
-    .dash-body{max-width:900px;margin:0 auto;padding:22px 16px 80px;}
-    .welcome-banner{background:linear-gradient(135deg,var(--primary),var(--secondary));color:#fff;border-radius:var(--radius);padding:22px 24px;margin-bottom:18px;box-shadow:var(--shadow);}
-    .welcome-banner h2{font-size:1.25rem;margin-bottom:4px;}
-    .welcome-banner p{opacity:.85;font-size:.88rem;}
-    .progress-card{background:var(--card);border-radius:var(--radius);padding:20px 22px;box-shadow:var(--shadow);margin-bottom:18px;}
-    .progress-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
-    .progress-meta span{font-size:.85rem;font-weight:700;color:var(--primary);}
-    .progress-pct{color:var(--secondary) !important;}
-    .pbar-track{background:var(--border);border-radius:99px;height:11px;overflow:hidden;}
+    .dash-body{max-width:900px;margin:0 auto;padding:20px 16px 60px;}
+    .welcome-banner{background:linear-gradient(135deg,var(--primary),var(--secondary));color:#fff;border-radius:var(--radius);padding:20px 22px;margin-bottom:16px;box-shadow:var(--shadow);}
+    .welcome-banner h2{font-size:1.2rem;margin-bottom:3px;}
+    .welcome-banner p{opacity:.85;font-size:.86rem;}
+    .progress-card{background:var(--card);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);margin-bottom:16px;}
+    .progress-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;}
+    .progress-meta span{font-size:.84rem;font-weight:700;color:var(--primary);}
+    .progress-pct{color:var(--secondary)!important;}
+    .pbar-track{background:var(--border);border-radius:99px;height:10px;overflow:hidden;}
     .pbar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--secondary),var(--success));transition:width .6s ease;}
-    .progress-labels{display:flex;justify-content:space-between;font-size:.77rem;color:var(--muted);margin-top:5px;}
-    .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;}
-    @media(max-width:580px){.stats-grid{grid-template-columns:1fr;}}
-    .stat-card{background:var(--card);border-radius:var(--radius);padding:18px 16px;box-shadow:var(--shadow);text-align:center;}
-    .stat-icon{font-size:1.7rem;margin-bottom:7px;}
-    .stat-val{font-size:1.5rem;font-weight:800;}
-    .stat-val.paid{color:var(--success);} .stat-val.owed{color:var(--danger);} .stat-val.date{font-size:1.1rem;color:var(--primary);}
-    .stat-label{font-size:.78rem;color:var(--muted);margin-top:3px;}
-    .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px;margin-bottom:18px;}
-    .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
-    .card-title{font-size:1rem;font-weight:800;color:var(--primary);}
-
-    /* TRAVELER CARDS */
-    .traveler-card{background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
-    .traveler-card-info{flex:1;}
-    .traveler-card-name{font-weight:700;font-size:.95rem;color:var(--primary);}
-    .traveler-card-meta{font-size:.8rem;color:var(--muted);margin-top:3px;}
-    .add-traveler-form{background:#f0f7ff;border:1.5px solid #aed6f1;border-radius:10px;padding:18px;margin-top:12px;display:none;}
+    .progress-labels{display:flex;justify-content:space-between;font-size:.76rem;color:var(--muted);margin-top:4px;}
+    .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;}
+    @media(max-width:540px){.stats-grid{grid-template-columns:1fr;}}
+    .stat-card{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);text-align:center;}
+    .stat-icon{font-size:1.6rem;margin-bottom:6px;}
+    .stat-val{font-size:1.4rem;font-weight:800;}
+    .stat-val.paid{color:var(--success);}.stat-val.owed{color:var(--danger);}.stat-val.date{font-size:1rem;color:var(--primary);}
+    .stat-label{font-size:.77rem;color:var(--muted);margin-top:2px;}
+    .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:16px;}
+    .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+    .card-title{font-size:.97rem;font-weight:800;color:var(--primary);}
+    .traveler-card{background:var(--bg);border:1.5px solid var(--border);border-radius:9px;padding:12px 14px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+    .traveler-card-name{font-weight:700;font-size:.93rem;color:var(--primary);}
+    .traveler-card-meta{font-size:.79rem;color:var(--muted);margin-top:2px;}
+    .add-traveler-form{background:#f0f7ff;border:1.5px solid #aed6f1;border-radius:10px;padding:16px;margin-top:10px;display:none;}
     .add-traveler-form.open{display:block;}
-    .dob-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
-    @media(max-width:500px){.dob-row{grid-template-columns:1fr;}}
-
     /* TABLES */
     .table-wrap{overflow-x:auto;}
-    table{width:100%;border-collapse:collapse;font-size:.88rem;}
-    th{background:var(--bg);padding:9px 12px;text-align:left;font-size:.76rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;}
-    td{padding:11px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
+    table{width:100%;border-collapse:collapse;font-size:.87rem;}
+    th{background:var(--bg);padding:8px 11px;text-align:left;font-size:.74rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;}
+    td{padding:10px 11px;border-bottom:1px solid var(--border);vertical-align:middle;}
     tr:last-child td{border-bottom:none;}
     tr:hover td{background:#f9fbff;}
-    .col-money{text-align:right;font-variant-numeric:tabular-nums;}
-    th.col-money{text-align:right;}
-
-    /* BADGES */
-    .badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:.76rem;font-weight:700;white-space:nowrap;}
+    .col-r{text-align:right;}
+    th.col-r{text-align:right;}
+    .badge{display:inline-block;padding:3px 9px;border-radius:12px;font-size:.74rem;font-weight:700;white-space:nowrap;}
     .badge-success{background:#d4f4e7;color:#14532d;}
     .badge-warn{background:#fefce8;color:#78460a;border:1px solid #f6df74;}
     .badge-danger{background:#fde8e7;color:#7b1c14;}
     .badge-info{background:#dbeafe;color:#1e40af;}
     .badge-gray{background:#f1f5f9;color:#475569;}
+    .badge-purple{background:#f3e8ff;color:#6b21a8;}
     .needs-info{background:#fff3cd;color:#78460a;border:1px solid #f6c440;}
-    .overdue{color:var(--danger);font-weight:700;} .due-soon{color:var(--warn);font-weight:700;}
-    .remaining-zero{color:var(--success);font-weight:700;}
-    .remaining-pos{color:var(--danger);font-weight:700;}
-
+    .overdue{color:var(--danger);font-weight:700;}.due-soon{color:var(--warn);font-weight:700;}
+    .rem-zero{color:var(--success);font-weight:700;}.rem-pos{color:var(--danger);font-weight:700;}
     /* ADMIN */
-    .admin-body{max-width:960px;margin:0 auto;padding:22px 16px 40px;}
-    .tab-bar{display:flex;gap:3px;background:var(--bg);padding:4px;border-radius:10px;margin-bottom:20px;}
-    .tab-btn{flex:1;padding:9px 6px;border:none;background:transparent;border-radius:8px;font-size:.85rem;font-weight:700;color:var(--muted);cursor:pointer;transition:all .2s;}
+    .admin-body{max-width:980px;margin:0 auto;padding:20px 16px 40px;}
+    .tab-bar{display:flex;gap:2px;background:var(--bg);padding:4px;border-radius:10px;margin-bottom:18px;overflow-x:auto;}
+    .tab-btn{flex:0 0 auto;padding:8px 12px;border:none;background:transparent;border-radius:7px;font-size:.82rem;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .2s;}
     .tab-btn.active{background:#fff;color:var(--primary);box-shadow:0 2px 8px rgba(0,0,0,.1);}
-    .tab-pane{display:none;} .tab-pane.active{display:block;}
-    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-    @media(max-width:480px){.form-row{grid-template-columns:1fr;}}
-    .loading{text-align:center;padding:40px;color:var(--muted);}
-    .spinner{border:3px solid var(--border);border-top-color:var(--secondary);border-radius:50%;width:30px;height:30px;animation:spin .9s linear infinite;margin:0 auto 12px;}
+    .tab-pane{display:none;}.tab-pane.active{display:block;}
+    .loading{text-align:center;padding:36px;color:var(--muted);}
+    .spinner{border:3px solid var(--border);border-top-color:var(--secondary);border-radius:50%;width:28px;height:28px;animation:spin .9s linear infinite;margin:0 auto 10px;}
     @keyframes spin{to{transform:rotate(360deg);}}
-    .empty{text-align:center;padding:36px 20px;color:var(--muted);}
-    .empty .empty-icon{font-size:2.2rem;margin-bottom:10px;}
-    .empty p{font-size:.9rem;}
-    .mpbar-track{background:var(--border);border-radius:99px;height:6px;flex:1;overflow:hidden;}
+    .empty{text-align:center;padding:30px 18px;color:var(--muted);}
+    .empty .ei{font-size:2rem;margin-bottom:8px;}
+    .mpbar-track{background:var(--border);border-radius:99px;height:5px;flex:1;overflow:hidden;}
     .mpbar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--secondary),var(--success));}
-    .pbar-row{display:flex;align-items:center;gap:8px;}
-    .section-divider{font-size:.76rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin:22px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+    .pbar-row{display:flex;align-items:center;gap:7px;}
+    .inv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;}
+    @media(max-width:560px){.inv-grid{grid-template-columns:1fr;}}
+    .inv-card{background:var(--card);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);text-align:center;border-top:4px solid var(--secondary);}
+    .inv-card.balcony{border-top-color:#2176ae;}
+    .inv-card.oceanview{border-top-color:#0891b2;}
+    .inv-card.interior{border-top-color:#7c3aed;}
+    .inv-num{font-size:2.4rem;font-weight:800;color:var(--primary);}
+    .inv-label{font-size:.83rem;color:var(--muted);margin-top:2px;}
+    .inv-sub{font-size:.78rem;color:var(--muted);margin-top:6px;}
+    .section-hdr{font-size:.74rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:18px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--border);}
   </style>
 </head>
 <body>
@@ -176,26 +151,11 @@
 <div id="page-login" class="page active">
   <div class="auth-wrap">
     <div class="auth-card">
-      <div class="auth-logo">
-        <span class="logo-icon">✈️</span>
-        <h2>Commonwealth Cruise 2027</h2>
-        <p>Sign in to view your payment status</p>
-      </div>
+      <div class="auth-logo"><span class="logo-icon">✈️</span><h2>Commonwealth Cruise 2027</h2><p>Sign in to view your payment status</p></div>
       <div id="login-alert" class="alert"></div>
-      <div class="form-group">
-        <label for="login-email">Email Address</label>
-        <input type="email" id="login-email" placeholder="you@email.com" autocomplete="off" spellcheck="false">
-      </div>
-      <div class="form-group">
-        <label>Your 6-Digit PIN</label>
-        <div class="pin-row">
-          <input class="pin-box" id="lp0" maxlength="1" inputmode="numeric" autocomplete="off">
-          <input class="pin-box" id="lp1" maxlength="1" inputmode="numeric" autocomplete="off">
-          <input class="pin-box" id="lp2" maxlength="1" inputmode="numeric" autocomplete="off">
-          <input class="pin-box" id="lp3" maxlength="1" inputmode="numeric" autocomplete="off">
-          <input class="pin-box" id="lp4" maxlength="1" inputmode="numeric" autocomplete="off">
-          <input class="pin-box" id="lp5" maxlength="1" inputmode="numeric" autocomplete="off">
-        </div>
+      <div class="form-group"><label>Email Address</label><input type="email" id="login-email" placeholder="you@email.com" autocomplete="off"></div>
+      <div class="form-group"><label>Your 6-Digit PIN</label>
+        <div class="pin-row"><input class="pin-box" id="lp0" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp1" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp2" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp3" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp4" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp5" maxlength="1" inputmode="numeric" autocomplete="off"></div>
       </div>
       <button class="btn btn-primary btn-full" onclick="doLogin()">Sign In</button>
       <div class="divider">or</div>
@@ -209,31 +169,15 @@
 <div id="page-signup" class="page">
   <div class="auth-wrap">
     <div class="auth-card">
-      <div class="auth-logo">
-        <span class="logo-icon">✈️</span>
-        <h2>Create Your Account</h2>
-        <p>Join the Commonwealth Cruise 2027</p>
-      </div>
+      <div class="auth-logo"><span class="logo-icon">✈️</span><h2>Create Your Account</h2><p>Join the Commonwealth Cruise 2027</p></div>
       <div id="signup-alert" class="alert"></div>
 
-      <div class="form-row-2">
-        <div class="form-group" style="margin-bottom:0;">
-          <label for="su-firstname">First Name</label>
-          <input type="text" id="su-firstname" placeholder="Jane" autocomplete="off">
-        </div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label for="su-lastname">Last Name</label>
-          <input type="text" id="su-lastname" placeholder="Smith" autocomplete="off">
-        </div>
+      <div class="grid-2" style="margin-bottom:16px;">
+        <div class="form-group" style="margin-bottom:0;"><label>First Name *</label><input type="text" id="su-firstname" placeholder="Jane" autocomplete="off"></div>
+        <div class="form-group" style="margin-bottom:0;"><label>Last Name *</label><input type="text" id="su-lastname" placeholder="Smith" autocomplete="off"></div>
       </div>
-
-      <div class="form-group" style="margin-top:18px;">
-        <label for="su-email">Email Address</label>
-        <input type="email" id="su-email" placeholder="you@email.com" autocomplete="off">
-      </div>
-
-      <div class="form-group">
-        <label for="su-citizenship">Travel Documentation — Citizenship / Country of Origin</label>
+      <div class="form-group"><label>Email Address *</label><input type="email" id="su-email" placeholder="you@email.com" autocomplete="off"></div>
+      <div class="form-group"><label>Citizenship / Country of Origin *</label>
         <select id="su-citizenship" onchange="onCitizenshipChange()">
           <option value="">— Select your citizenship status —</option>
           <option value="us">U.S. Citizens</option>
@@ -243,346 +187,172 @@
         </select>
       </div>
 
-      <!-- U.S. CITIZENS -->
+      <!-- U.S. -->
       <div id="doc-us" class="doc-notice">
         <h4>📋 Travel Documentation — U.S. Citizens</h4>
         <p>First and last names and gender on the cruise and airline reservations should match what is on the guest's government-issued IDs.</p>
         <ul>
-          <li><strong>Soon-to-be or recently married guests</strong> — we recommend the cruise reservation be booked using the maiden name, provided the guest does not have official documents (marriage certificate, etc.) to confirm the name change.</li>
-          <li><strong>Guests sailing with birth certificate and government-issued ID</strong> — if the names differ between the two documents, guests will be required to show official documentation that confirms the legal name change (e.g., marriage certificate, adoption, deed poll, U.S. naturalization).</li>
+          <li><strong>Soon-to-be or recently married guests</strong> — book using maiden name unless you have official name-change documents.</li>
+          <li><strong>Guests sailing with birth certificate and government-issued ID</strong> — if names differ, bring official documentation of the legal name change.</li>
         </ul>
         <div class="doc-section">⚠️ Traveling with Minors</div>
-        <p>When traveling with a minor where one parent or both parents or legal guardians are not cruising, we strongly recommend bringing an original signed letter from the absent parent(s) or legal guardians authorizing the minor to travel with you. If there is no second parent with legal claims to the minor (due to sole custody, deceased, etc.) other relevant paperwork, such as a court decision, death certificate, or birth certificate naming only one parent, would be useful to bring in place of a signed letter. This will expedite processing by the Department of Homeland Security.</p>
-        <div class="important">📎 All guests are required to visit and review the Carnival travel documentation page in its entirety. Each guest is personally responsible for compliance — the trip organizer and tour operator assume no responsibility.<br><br>
-          <a href="https://help.goccl.com/app/answers/detail/a_id/1406#names" target="_blank" rel="noopener">help.goccl.com — U.S. Citizen Travel Documentation ↗</a>
+        <p>When traveling with a minor where one or both parents/guardians are not cruising, bring an original signed letter from the absent parent(s) authorizing the minor to travel with you.</p>
+        <div class="important">📎 Each guest must review the Carnival documentation page. Guests are personally responsible — the trip organizer assumes no responsibility.<br><br>
+          <a href="https://help.goccl.com/app/answers/detail/a_id/1406#names" target="_blank">help.goccl.com — U.S. Citizen Documentation ↗</a>
         </div>
-        <div class="ck-group">
-          <input type="checkbox" id="ack-us" onchange="onAckChange()">
-          <label for="ack-us">I have read and understand the travel documentation requirements above. I acknowledge that I am personally responsible for visiting the Carnival documentation site and reviewing it in its entirety. Each guest is solely responsible for ensuring their documents are in order — the trip organizer and tour operator assume no responsibility for documentation compliance.</label>
-        </div>
+        <div class="ck-group"><input type="checkbox" id="ack-us" onchange="onAckChange()"><label for="ack-us">I have read and understand the travel documentation requirements. I am personally responsible for ensuring my documents are in order. The trip organizer and tour operator assume no responsibility for documentation compliance.</label></div>
       </div>
 
-      <!-- NON-U.S. CITIZENS -->
+      <!-- NON-US -->
       <div id="doc-non-us" class="doc-notice">
         <h4>📋 Travel Documentation — Non-U.S. Citizens</h4>
-        <p>Carnival requires guests to provide proper travel documentation in order to travel. The documentation is required at embarkation and throughout the cruise and is the responsibility of the guest. Our policy states that any guest traveling without proper documentation will be denied boarding the ship and will be under full penalty, and therefore, will not be offered a refund or a replacement cruise.</p>
-        <p>Guests must contact the appropriate embassy or consulate of the countries they will be visiting for specific travel documentation requirements. Carnival assumes no responsibility for advising guests of Immigration requirements.</p>
-        <p>Carnival highly recommends that all guests travel with a passport valid for at least <strong>six months beyond the completion of travel</strong>, from their country of citizenship.</p>
-        <div class="doc-section">🚢 Domestic Cruises</div>
+        <p>Proper travel documentation is required at embarkation and throughout the cruise. Guests traveling without proper documentation will be denied boarding with no refund.</p>
+        <p>Carnival highly recommends a passport valid for at least <strong>six months beyond the completion of travel</strong>.</p>
         <ul>
-          <li><strong>Visa Waiver Program (VWP) eligible travelers</strong> — required to carry a passport valid for at least six months beyond completion of travel, plus an electronic travel authorization via ESTA. Details: <a href="https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP" target="_blank" rel="noopener">ESTA / VWP Details ↗</a></li>
-          <li><strong>Non-VWP country citizens</strong> — must obtain a visa to enter the United States. Visit: <a href="https://travel.state.gov/content/travel/en/us-visas.html" target="_blank" rel="noopener">U.S. Department of State — Visa Requirements ↗</a> or <a href="https://visacentral.com/" target="_blank" rel="noopener">VisaCentral.com ↗</a></li>
-          <li><strong>Mexican citizens</strong> traveling with a Border Crossing Card must also present a Mexican passport valid for at least six months beyond the completion of travel.</li>
+          <li><strong>VWP eligible travelers</strong> — valid passport + ESTA required. <a href="https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP" target="_blank">ESTA / VWP Details ↗</a></li>
+          <li><strong>Non-VWP citizens</strong> — U.S. visa required. <a href="https://travel.state.gov/content/travel/en/us-visas.html" target="_blank">U.S. Visa Info ↗</a></li>
+          <li><strong>Mexican citizens</strong> with Border Crossing Card must also present a Mexican passport valid 6+ months beyond travel.</li>
         </ul>
-        <div class="important">📎 All guests are required to visit and review the full Carnival documentation page. Each guest is personally responsible — the trip organizer and tour operator assume no responsibility.<br><br>
-          <a href="https://help.goccl.com/app/answers/detail/a_id/1405" target="_blank" rel="noopener">help.goccl.com — Non-U.S. Citizen Travel Documentation ↗</a>
-        </div>
-        <div class="ck-group">
-          <input type="checkbox" id="ack-non-us" onchange="onAckChange()">
-          <label for="ack-non-us">I have read and understand the travel documentation requirements above. I acknowledge that I am personally responsible for visiting the Carnival documentation site and reviewing it in its entirety. Each guest is solely responsible for ensuring their documents are in order — the trip organizer and tour operator assume no responsibility for documentation compliance.</label>
-        </div>
+        <div class="important">📎 <a href="https://help.goccl.com/app/answers/detail/a_id/1405" target="_blank">help.goccl.com — Non-U.S. Citizen Documentation ↗</a></div>
+        <div class="ck-group"><input type="checkbox" id="ack-non-us" onchange="onAckChange()"><label for="ack-non-us">I have read and understand the travel documentation requirements. I am personally responsible for ensuring my documents are in order. The trip organizer and tour operator assume no responsibility.</label></div>
       </div>
 
-      <!-- CANADIAN CITIZENS -->
+      <!-- CANADIAN -->
       <div id="doc-canadian" class="doc-notice">
         <h4>📋 Travel Documentation — Canadian Citizens</h4>
-        <p>Carnival requires guests to provide proper travel documentation in order to travel. The documentation is required at embarkation and throughout the cruise and is the responsibility of the guest.</p>
-        <div class="doc-section">🚢 Domestic Cruises</div>
-        <p>All Canadian citizens, including children, are required to carry a <strong>Canadian passport valid for at least six months beyond the completion of travel</strong> if arriving by air travel into the United States.</p>
+        <p>All Canadian citizens, including children, must carry a <strong>Canadian passport valid for at least six months beyond the completion of travel</strong> if arriving by air into the United States.</p>
         <ul>
-          <li>Canadian citizens who are U.S. Permanent Residents: <a href="https://help.goccl.com/app/answers/detail/a_id/1401" target="_blank" rel="noopener">Travel Documentation for Canadian PR holders ↗</a></li>
-          <li>Expedited passport services: <a href="http://visacentral.ca/" target="_blank" rel="noopener">visacentral.ca ↗</a> or call 888-665-9956</li>
-          <li>Border crossing (driving) into the United States: <a href="https://help.goccl.com/app/answers/detail/a_id/1402#driving" target="_blank" rel="noopener">Border Crossing Documentation Details ↗</a></li>
+          <li>Canadian PR holders: <a href="https://help.goccl.com/app/answers/detail/a_id/1401" target="_blank">Canadian PR Documentation ↗</a></li>
+          <li>Expedited passports: <a href="http://visacentral.ca/" target="_blank">visacentral.ca ↗</a> or 888-665-9956</li>
+          <li>Border crossing by car: <a href="https://help.goccl.com/app/answers/detail/a_id/1402#driving" target="_blank">Border Crossing Details ↗</a></li>
         </ul>
-        <div class="important">📎 All guests are required to visit and review the full Carnival documentation page. Each guest is personally responsible — the trip organizer and tour operator assume no responsibility.<br><br>
-          <a href="https://help.goccl.com/app/answers/detail/a_id/1402" target="_blank" rel="noopener">help.goccl.com — Canadian Citizen Travel Documentation ↗</a>
-        </div>
-        <div class="ck-group">
-          <input type="checkbox" id="ack-canadian" onchange="onAckChange()">
-          <label for="ack-canadian">I have read and understand the travel documentation requirements above. I acknowledge that I am personally responsible for visiting the Carnival documentation site and reviewing it in its entirety. Each guest is solely responsible for ensuring their documents are in order — the trip organizer and tour operator assume no responsibility for documentation compliance.</label>
-        </div>
+        <div class="important">📎 <a href="https://help.goccl.com/app/answers/detail/a_id/1402" target="_blank">help.goccl.com — Canadian Citizen Documentation ↗</a></div>
+        <div class="ck-group"><input type="checkbox" id="ack-canadian" onchange="onAckChange()"><label for="ack-canadian">I have read and understand the travel documentation requirements. I am personally responsible for ensuring my documents are in order. The trip organizer and tour operator assume no responsibility.</label></div>
       </div>
 
       <!-- OTHER -->
       <div id="doc-other" class="doc-notice">
         <h4>📋 Travel Documentation — Other Citizenship</h4>
-        <p>Please enter your country of citizenship below. The trip organizer will be notified and will email you with documentation requirements specific to your country.</p>
-        <div class="form-group" style="margin-top:10px;">
-          <label for="su-country">Country of Citizenship</label>
-          <input type="text" id="su-country" placeholder="e.g. Jamaica, Germany, Brazil…" oninput="onCountryInput()" autocomplete="off">
-        </div>
-        <div id="country-link-result" style="display:none;margin-top:10px;">
-          <div id="country-link-display"></div>
-        </div>
-        <div class="important">📎 For general international documentation requirements:<br><br>
-          <a href="https://help.goccl.com/app/answers/detail/a_id/1405" target="_blank" rel="noopener">help.goccl.com — International Travel Documentation ↗</a><br><br>
-          After you create your account, the trip organizer will email you with documentation information specific to your country.
-        </div>
-        <div class="ck-group">
-          <input type="checkbox" id="ack-other" onchange="onAckChange()">
-          <label for="ack-other">I have read the information above and understand that I am personally responsible for ensuring I have all required travel documents for my country of citizenship. Each guest is solely responsible for their documentation — the trip organizer and tour operator assume no responsibility.</label>
+        <p>Enter your country of citizenship. The trip organizer will email you with documentation requirements specific to your country.</p>
+        <div class="form-group" style="margin-top:9px;"><label>Country of Citizenship *</label><input type="text" id="su-country" placeholder="e.g. Jamaica, Germany…" oninput="onCountryInput()" autocomplete="off"></div>
+        <div id="country-link-result" style="display:none;margin-top:8px;"><div id="country-link-display"></div></div>
+        <div class="important">📎 <a href="https://help.goccl.com/app/answers/detail/a_id/1405" target="_blank">help.goccl.com — International Documentation ↗</a></div>
+        <div class="ck-group"><input type="checkbox" id="ack-other" onchange="onAckChange()"><label for="ack-other">I understand I am personally responsible for all required travel documents. The trip organizer and tour operator assume no responsibility for documentation compliance.</label></div>
+      </div>
+
+      <!-- CABIN SELECTION (shows after acknowledgment) -->
+      <div id="cabin-select-section">
+        <div class="step-box green">
+          <div class="form-group" style="margin-bottom:6px;"><label>🛳️ Select Your Cabin Type *</label>
+            <select id="su-cabin-type" onchange="onCabinTypeChange()">
+              <option value="">— Select cabin type —</option>
+              <option value="Balcony">Balcony Cabin</option>
+              <option value="Ocean View">Ocean View Cabin</option>
+              <option value="Interior">Interior Cabin</option>
+            </select>
+          </div>
+          <div class="cabin-avail" id="cabin-avail-info">Loading availability…</div>
         </div>
       </div>
 
-      <!-- PIN SETUP -->
+      <!-- PIN SETUP (shows after cabin selected) -->
       <div id="pin-setup-section">
-        <div class="pin-setup-card">
-          <div class="form-group">
-            <label>Create Your 6-Digit PIN</label>
-            <div class="pin-row">
-              <input class="pin-box" id="sp0" maxlength="1" inputmode="numeric" autocomplete="new-password">
-              <input class="pin-box" id="sp1" maxlength="1" inputmode="numeric" autocomplete="new-password">
-              <input class="pin-box" id="sp2" maxlength="1" inputmode="numeric" autocomplete="new-password">
-              <input class="pin-box" id="sp3" maxlength="1" inputmode="numeric" autocomplete="new-password">
-              <input class="pin-box" id="sp4" maxlength="1" inputmode="numeric" autocomplete="new-password">
-              <input class="pin-box" id="sp5" maxlength="1" inputmode="numeric" autocomplete="new-password">
-            </div>
+        <div class="step-box">
+          <div class="form-group"><label>Create Your 6-Digit PIN *</label>
+            <div class="pin-row"><input class="pin-box" id="sp0" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="sp1" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="sp2" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="sp3" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="sp4" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="sp5" maxlength="1" inputmode="numeric" autocomplete="new-password"></div>
           </div>
-          <div class="form-group" style="margin-bottom:0;">
-            <label>Confirm PIN</label>
-            <div class="pin-row">
-              <input class="pin-box" id="cp0" maxlength="1" inputmode="numeric" autocomplete="new-password">
-              <input class="pin-box" id="cp1" maxlength="1" inputmode="numeric" autocomplete="new-password">
-              <input class="pin-box" id="cp2" maxlength="1" inputmode="numeric" autocomplete="new-password">
-              <input class="pin-box" id="cp3" maxlength="1" inputmode="numeric" autocomplete="new-password">
-              <input class="pin-box" id="cp4" maxlength="1" inputmode="numeric" autocomplete="new-password">
-              <input class="pin-box" id="cp5" maxlength="1" inputmode="numeric" autocomplete="new-password">
-            </div>
+          <div class="form-group" style="margin-bottom:0;"><label>Confirm PIN *</label>
+            <div class="pin-row"><input class="pin-box" id="cp0" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="cp1" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="cp2" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="cp3" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="cp4" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="cp5" maxlength="1" inputmode="numeric" autocomplete="new-password"></div>
           </div>
         </div>
-        <button class="btn btn-primary btn-full" style="margin-top:14px;" onclick="doSignup()">Create Account</button>
+        <button class="btn btn-primary btn-full" style="margin-top:13px;" onclick="doSignup()">Create Account</button>
       </div>
 
-      <div class="auth-switch" style="margin-top:16px;">
-        Already have an account? <a onclick="showPage('login')">Sign in</a>
-      </div>
+      <div class="auth-switch" style="margin-top:14px;">Already have an account? <a onclick="showPage('login')">Sign in</a></div>
     </div>
   </div>
 </div>
 
-<!-- ══ FORGOT PIN ══════════════════════════════════════════ -->
+<!-- ══ FORGOT ══════════════════════════════════════════════ -->
 <div id="page-forgot" class="page">
-  <div class="auth-wrap">
-    <div class="auth-card">
-      <div class="auth-logo">
-        <span class="logo-icon">🔑</span>
-        <h2>Reset Your PIN</h2>
-        <p>Enter your email and we'll send a reset link</p>
-      </div>
-      <div id="forgot-alert" class="alert"></div>
-      <div class="form-group">
-        <label for="forgot-email">Email Address</label>
-        <input type="email" id="forgot-email" placeholder="you@email.com" autocomplete="off">
-      </div>
-      <button class="btn btn-primary btn-full" onclick="doForgot()">Send Reset Link</button>
-      <div class="auth-switch" style="margin-top:16px;"><a onclick="showPage('login')">← Back to Sign In</a></div>
-    </div>
-  </div>
+  <div class="auth-wrap"><div class="auth-card">
+    <div class="auth-logo"><span class="logo-icon">🔑</span><h2>Reset Your PIN</h2><p>We'll email you a reset link</p></div>
+    <div id="forgot-alert" class="alert"></div>
+    <div class="form-group"><label>Email Address</label><input type="email" id="forgot-email" placeholder="you@email.com" autocomplete="off"></div>
+    <button class="btn btn-primary btn-full" onclick="doForgot()">Send Reset Link</button>
+    <div class="auth-switch" style="margin-top:14px;"><a onclick="showPage('login')">← Back to Sign In</a></div>
+  </div></div>
 </div>
 
-<!-- ══ RESET PIN ═══════════════════════════════════════════ -->
+<!-- ══ RESET ═══════════════════════════════════════════════ -->
 <div id="page-reset" class="page">
-  <div class="auth-wrap">
-    <div class="auth-card">
-      <div class="auth-logo">
-        <span class="logo-icon">🔒</span>
-        <h2>Set New PIN</h2>
-        <p>Choose a new 6-digit PIN for your account</p>
-      </div>
-      <div id="reset-alert" class="alert"></div>
-      <div class="form-group">
-        <label>New PIN</label>
-        <div class="pin-row">
-          <input class="pin-box" id="rp0" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="rp1" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="rp2" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="rp3" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="rp4" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="rp5" maxlength="1" inputmode="numeric" autocomplete="new-password">
-        </div>
-      </div>
-      <div class="form-group">
-        <label>Confirm New PIN</label>
-        <div class="pin-row">
-          <input class="pin-box" id="rc0" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="rc1" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="rc2" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="rc3" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="rc4" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="rc5" maxlength="1" inputmode="numeric" autocomplete="new-password">
-        </div>
-      </div>
-      <button class="btn btn-primary btn-full" onclick="doReset()">Update PIN</button>
+  <div class="auth-wrap"><div class="auth-card">
+    <div class="auth-logo"><span class="logo-icon">🔒</span><h2>Set New PIN</h2></div>
+    <div id="reset-alert" class="alert"></div>
+    <div class="form-group"><label>New PIN</label>
+      <div class="pin-row"><input class="pin-box" id="rp0" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rp1" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rp2" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rp3" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rp4" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rp5" maxlength="1" inputmode="numeric" autocomplete="new-password"></div>
     </div>
-  </div>
+    <div class="form-group"><label>Confirm New PIN</label>
+      <div class="pin-row"><input class="pin-box" id="rc0" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rc1" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rc2" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rc3" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rc4" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rc5" maxlength="1" inputmode="numeric" autocomplete="new-password"></div>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="doReset()">Update PIN</button>
+  </div></div>
 </div>
 
 <!-- ══ DASHBOARD ═══════════════════════════════════════════ -->
 <div id="page-dashboard" class="page">
   <div class="topbar">
     <h1>✈️ Commonwealth Cruise 2027</h1>
-    <div class="topbar-right">
-      <span class="topbar-name" id="dash-topbar-name"></span>
-      <button class="btn-signout" onclick="doLogout()">Sign Out</button>
-    </div>
+    <div class="topbar-right"><span class="topbar-name" id="dash-topbar-name"></span><button class="btn-signout" onclick="doLogout()">Sign Out</button></div>
   </div>
   <div class="dash-body">
     <div id="dash-loading" class="loading"><div class="spinner"></div><p>Loading your payment info…</p></div>
     <div id="dash-content" style="display:none;">
-      <div class="welcome-banner">
-        <h2 id="dash-welcome">Welcome!</h2>
-        <p>Here's your current payment status for the Commonwealth Cruise 2027</p>
-      </div>
+      <div class="welcome-banner"><h2 id="dash-welcome">Welcome!</h2><p>Here's your current payment status for the Commonwealth Cruise 2027</p></div>
       <div class="progress-card">
-        <div class="progress-meta">
-          <span>Payment Progress</span>
-          <span class="progress-pct" id="dash-pct">0%</span>
-        </div>
+        <div class="progress-meta"><span>Payment Progress</span><span class="progress-pct" id="dash-pct">0%</span></div>
         <div class="pbar-track"><div class="pbar-fill" id="dash-pbar" style="width:0%"></div></div>
-        <div class="progress-labels">
-          <span id="dash-paid-label">$0 paid</span>
-          <span id="dash-total-label">Total: $0</span>
-        </div>
+        <div class="progress-labels"><span id="dash-paid-label">$0 paid</span><span id="dash-total-label">Total: $0</span></div>
       </div>
       <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon">✅</div>
-          <div class="stat-val paid" id="dash-paid-val">$0</div>
-          <div class="stat-label">Total Paid</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon">⏳</div>
-          <div class="stat-val owed" id="dash-balance-val">$0</div>
-          <div class="stat-label">Balance Due</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon">📅</div>
-          <div class="stat-val date" id="dash-nextdue-val">—</div>
-          <div class="stat-label">Next Due Date</div>
-        </div>
+        <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-val paid" id="dash-paid-val">$0</div><div class="stat-label">Total Paid</div></div>
+        <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-val owed" id="dash-balance-val">$0</div><div class="stat-label">Balance Due</div></div>
+        <div class="stat-card"><div class="stat-icon">📅</div><div class="stat-val date" id="dash-nextdue-val">—</div><div class="stat-label">Next Due Date</div></div>
       </div>
-
-      <!-- PAYMENT SCHEDULE -->
       <div class="card">
-        <div class="card-header"><span class="card-title">📋 Your Payment Schedule</span></div>
+        <div class="card-header"><span class="card-title">📋 Payment Schedule</span><span id="dash-cabin-badge" class="badge badge-info" style="display:none;"></span></div>
         <div id="dash-schedule" class="table-wrap"></div>
       </div>
-
-      <!-- CABIN TRAVELERS -->
       <div class="card">
-        <div class="card-header">
-          <span class="card-title">🛳️ My Cabin Travelers</span>
-          <button class="btn btn-outline btn-sm" onclick="toggleAddTraveler()">+ Add Traveler</button>
-        </div>
-        <p style="font-size:.85rem;color:var(--muted);margin-bottom:14px;">Add all guests staying in your cabin. This information is needed for cruise check-in.</p>
-
-        <!-- ADD TRAVELER FORM -->
+        <div class="card-header"><span class="card-title">🛳️ My Cabin Travelers</span><button class="btn btn-outline btn-sm" onclick="toggleAddTraveler()">+ Add Traveler</button></div>
+        <p style="font-size:.84rem;color:var(--muted);margin-bottom:12px;">Add all guests sharing your cabin. Required for cruise check-in.</p>
         <div class="add-traveler-form" id="add-traveler-form">
           <div id="cabin-alert" class="alert"></div>
-          <div class="section-divider">Personal Information</div>
-
-          <!-- Salutation + First + Middle + Last -->
-          <div style="display:grid;grid-template-columns:100px 1fr 1fr 1fr;gap:10px;margin-bottom:18px;" class="name-grid">
-            <div class="form-group" style="margin-bottom:0;">
-              <label for="ct-salutation">Title</label>
-              <select id="ct-salutation">
-                <option value="">—</option>
-                <option value="Mr.">Mr.</option>
-                <option value="Mrs.">Mrs.</option>
-                <option value="Ms.">Ms.</option>
-                <option value="Dr.">Dr.</option>
-                <option value="Rev.">Rev.</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin-bottom:0;">
-              <label for="ct-firstname">First Name *</label>
-              <input type="text" id="ct-firstname" placeholder="First" autocomplete="off">
-            </div>
-            <div class="form-group" style="margin-bottom:0;">
-              <label for="ct-middlename">Middle Name</label>
-              <input type="text" id="ct-middlename" placeholder="Middle (optional)" autocomplete="off">
-            </div>
-            <div class="form-group" style="margin-bottom:0;">
-              <label for="ct-lastname">Last Name *</label>
-              <input type="text" id="ct-lastname" placeholder="Last" autocomplete="off">
-            </div>
+          <div class="section-hdr">Personal Information</div>
+          <div class="grid-4" style="margin-bottom:14px;">
+            <div class="form-group" style="margin-bottom:0;"><label>Title</label><select id="ct-salutation"><option value="">—</option><option>Mr.</option><option>Mrs.</option><option>Ms.</option><option>Dr.</option><option>Rev.</option></select></div>
+            <div class="form-group" style="margin-bottom:0;"><label>First Name *</label><input type="text" id="ct-firstname" placeholder="First" autocomplete="off"></div>
+            <div class="form-group" style="margin-bottom:0;"><label>Middle Name</label><input type="text" id="ct-middlename" placeholder="(optional)" autocomplete="off"></div>
+            <div class="form-group" style="margin-bottom:0;"><label>Last Name *</label><input type="text" id="ct-lastname" placeholder="Last" autocomplete="off"></div>
           </div>
-          <style>.name-grid{} @media(max-width:640px){.name-grid{grid-template-columns:1fr 1fr !important;}.name-grid>:first-child{grid-column:1/-1;}} @media(max-width:440px){.name-grid{grid-template-columns:1fr !important;}}</style>
-
-          <div class="section-divider">Date of Birth</div>
-          <div class="dob-row" style="margin-bottom:18px;">
-            <div class="form-group" style="margin-bottom:0;">
-              <label for="ct-dob-month">Month *</label>
-              <select id="ct-dob-month">
-                <option value="">Month</option>
-                <option value="01">January</option>
-                <option value="02">February</option>
-                <option value="03">March</option>
-                <option value="04">April</option>
-                <option value="05">May</option>
-                <option value="06">June</option>
-                <option value="07">July</option>
-                <option value="08">August</option>
-                <option value="09">September</option>
-                <option value="10">October</option>
-                <option value="11">November</option>
-                <option value="12">December</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin-bottom:0;">
-              <label for="ct-dob-day">Day *</label>
-              <select id="ct-dob-day">
-                <option value="">Day</option>
-                <script>for(let d=1;d<=31;d++){document.write(`<option value="${String(d).padStart(2,'0')}">${d}</option>`)}</script>
-              </select>
-            </div>
-            <div class="form-group" style="margin-bottom:0;">
-              <label for="ct-dob-year">Year *</label>
-              <select id="ct-dob-year">
-                <option value="">Year</option>
-                <script>const yr=new Date().getFullYear();for(let y=yr;y>=yr-100;y--){document.write(`<option value="${y}">${y}</option>`)}</script>
-              </select>
-            </div>
+          <div class="section-hdr">Date of Birth</div>
+          <div class="grid-3" style="margin-bottom:14px;">
+            <div class="form-group" style="margin-bottom:0;"><label>Month *</label><select id="ct-dob-month"><option value="">Month</option><option value="01">January</option><option value="02">February</option><option value="03">March</option><option value="04">April</option><option value="05">May</option><option value="06">June</option><option value="07">July</option><option value="08">August</option><option value="09">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select></div>
+            <div class="form-group" style="margin-bottom:0;"><label>Day *</label><select id="ct-dob-day"><option value="">Day</option><script>for(let d=1;d<=31;d++)document.write(`<option value="${String(d).padStart(2,'0')}">${d}</option>`);</script></select></div>
+            <div class="form-group" style="margin-bottom:0;"><label>Year *</label><select id="ct-dob-year"><option value="">Year</option><script>const _y=new Date().getFullYear();for(let y=_y;y>=_y-100;y--)document.write(`<option value="${y}">${y}</option>`);</script></select></div>
           </div>
-
-          <div class="section-divider">Additional Details</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:18px;" class="details-grid">
-            <div class="form-group" style="margin-bottom:0;">
-              <label for="ct-gender">Gender *</label>
-              <select id="ct-gender">
-                <option value="">Select</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin-bottom:0;">
-              <label for="ct-citizenship">Country of Citizenship *</label>
-              <input type="text" id="ct-citizenship" placeholder="e.g. United States" autocomplete="off">
-            </div>
-            <div class="form-group" style="margin-bottom:0;">
-              <label for="ct-relationship">Relationship to You *</label>
-              <select id="ct-relationship">
-                <option value="">Select</option>
-                <option value="Spouse/Partner">Spouse/Partner</option>
-                <option value="Child">Child</option>
-                <option value="Parent">Parent</option>
-                <option value="Sibling">Sibling</option>
-                <option value="Relative">Relative</option>
-                <option value="Friend">Friend</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
+          <div class="section-hdr">Additional Details</div>
+          <div class="grid-3" style="margin-bottom:14px;">
+            <div class="form-group" style="margin-bottom:0;"><label>Gender *</label><select id="ct-gender"><option value="">Select</option><option>Male</option><option>Female</option></select></div>
+            <div class="form-group" style="margin-bottom:0;"><label>Country of Citizenship *</label><input type="text" id="ct-citizenship" placeholder="e.g. United States" autocomplete="off"></div>
+            <div class="form-group" style="margin-bottom:0;"><label>Relationship to You *</label><select id="ct-relationship"><option value="">Select</option><option>Spouse/Partner</option><option>Child</option><option>Parent</option><option>Sibling</option><option>Relative</option><option>Friend</option><option>Other</option></select></div>
           </div>
-          <style>@media(max-width:580px){.details-grid{grid-template-columns:1fr !important;}}</style>
-
-          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div style="display:flex;gap:9px;flex-wrap:wrap;">
             <button class="btn btn-primary btn-sm" onclick="addCabinTraveler()">Save Traveler</button>
             <button class="btn btn-ghost btn-sm" onclick="toggleAddTraveler()">Cancel</button>
           </div>
         </div>
-
-        <!-- TRAVELER LIST -->
-        <div id="cabin-travelers-list" style="margin-top:12px;"></div>
+        <div id="cabin-travelers-list" style="margin-top:10px;"></div>
       </div>
     </div>
   </div>
@@ -590,18 +360,18 @@
 
 <!-- ══ ADMIN ════════════════════════════════════════════════ -->
 <div id="page-admin" class="page">
-  <div class="topbar">
-    <h1>⚙️ Admin — Commonwealth Cruise 2027</h1>
-    <button class="btn-signout" onclick="doLogout()">Sign Out</button>
-  </div>
+  <div class="topbar"><h1>⚙️ Admin — Commonwealth Cruise 2027</h1><button class="btn-signout" onclick="doLogout()">Sign Out</button></div>
   <div class="admin-body">
     <div class="tab-bar">
       <button class="tab-btn active" onclick="switchTab('travelers',this)">Travelers</button>
       <button class="tab-btn" onclick="switchTab('schedule',this)">Schedule</button>
       <button class="tab-btn" onclick="switchTab('payments',this)">Payments</button>
+      <button class="tab-btn" onclick="switchTab('inventory',this)">Inventory</button>
+      <button class="tab-btn" onclick="switchTab('cancellations',this)">Cancellations</button>
       <button class="tab-btn" onclick="switchTab('docrequests',this)">Doc Requests</button>
     </div>
 
+    <!-- TRAVELERS -->
     <div id="tab-travelers" class="tab-pane active">
       <div class="card">
         <div class="card-header"><span class="card-title">All Travelers</span></div>
@@ -609,6 +379,7 @@
       </div>
     </div>
 
+    <!-- SCHEDULE -->
     <div id="tab-schedule" class="tab-pane">
       <div class="card">
         <div class="card-header"><span class="card-title">Add Payment Milestone</span></div>
@@ -626,22 +397,20 @@
       </div>
     </div>
 
+    <!-- PAYMENTS -->
     <div id="tab-payments" class="tab-pane">
       <div class="card">
         <div class="card-header"><span class="card-title">Record / Update a Payment</span></div>
         <div id="payment-alert" class="alert"></div>
-        <div class="form-row">
+        <div class="grid-2">
           <div class="form-group"><label>Traveler</label><select id="pay-traveler"><option value="">Select traveler</option></select></div>
           <div class="form-group"><label>Milestone</label><select id="pay-milestone"><option value="">Select milestone</option></select></div>
         </div>
-        <div class="form-row">
+        <div class="grid-2">
           <div class="form-group"><label>Amount Due ($)</label><input type="number" id="pay-due" placeholder="0.00" min="0" step="0.01"></div>
           <div class="form-group"><label>Amount Paid ($)</label><input type="number" id="pay-paid" placeholder="0.00" min="0" step="0.01"></div>
         </div>
-        <div class="form-group">
-          <label>Date Paid <em style="font-weight:400;color:var(--muted)">(leave blank if not yet paid)</em></label>
-          <input type="date" id="pay-date">
-        </div>
+        <div class="form-group"><label>Date Paid <em style="font-weight:400;color:var(--muted)">(leave blank if not paid)</em></label><input type="date" id="pay-date"></div>
         <button class="btn btn-primary btn-sm" onclick="savePayment()">Save Payment</button>
       </div>
       <div class="card">
@@ -650,10 +419,29 @@
       </div>
     </div>
 
+    <!-- INVENTORY -->
+    <div id="tab-inventory" class="tab-pane">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Cabin Availability</span></div>
+        <div class="inv-grid" id="inv-cards"><div class="loading"><div class="spinner"></div></div></div>
+        <div class="section-hdr">Cabin Assignments</div>
+        <div id="inv-assignments" class="table-wrap"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- CANCELLATIONS -->
+    <div id="tab-cancellations" class="tab-pane">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Cancellation Requests</span></div>
+        <div id="admin-cancellations" class="table-wrap"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- DOC REQUESTS -->
     <div id="tab-docrequests" class="tab-pane">
       <div class="card">
         <div class="card-header"><span class="card-title">📬 Documentation Requests — "Other" Citizenship</span></div>
-        <p style="font-size:.88rem;color:var(--muted);margin-bottom:14px;">These travelers selected "Other" for citizenship. Email each one with documentation requirements specific to their country.</p>
+        <p style="font-size:.87rem;color:var(--muted);margin-bottom:12px;">Email these travelers with documentation requirements for their country.</p>
         <div id="admin-docrequests" class="table-wrap"><div class="loading"><div class="spinner"></div></div></div>
       </div>
     </div>
@@ -666,53 +454,41 @@ const SUPABASE_URL      = 'https://ctumpdzdibzixywnxfyg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN0dW1wZHpkaWJ6aXh5d254ZnlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxODUyNDcsImV4cCI6MjEwMDc2MTI0N30.qCLKV8lnCst_0Un0rdxDrAq6BLcO1vP088S33X0l23A';
 const ADMIN_EMAIL       = 'glowjetters@gmail.com';
 const TRIP_NAME         = 'Commonwealth Cruise 2027';
+
+// ── EmailJS (sign up free at emailjs.com) ──────────────────
+// Create ONE template with variables: {{to_name}} {{to_email}} {{subject}} {{message}}
+const EMAILJS_PUBLIC_KEY  = 'YOUR_EMAILJS_PUBLIC_KEY';   // e.g. 'user_abc123'
+const EMAILJS_SERVICE_ID  = 'YOUR_EMAILJS_SERVICE_ID';   // e.g. 'service_gmail'
+const EMAILJS_TEMPLATE_ID = 'YOUR_EMAILJS_TEMPLATE_ID';  // e.g. 'template_cruise'
 // ───────────────────────────────────────────────────────────
 
-const { createClient } = supabase;
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true }
-});
+const{createClient}=supabase;
+const sb=createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+let gUser=null,gProfile=null,gInventory={};
 
-let gUser = null, gProfile = null;
-
-function showPage(name) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  const el = document.getElementById('page-' + name);
-  if (el) el.classList.add('active');
-  window.scrollTo(0, 0);
-  if (name === 'login') {
-    document.getElementById('login-email').value = '';
-    clearPin('lp'); clearFlash('login-alert');
-    setTimeout(() => { document.getElementById('login-email').value = ''; clearPin('lp'); }, 150);
+// ── ROUTER ─────────────────────────────────────────────────
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const el=document.getElementById('page-'+name);
+  if(el)el.classList.add('active');
+  window.scrollTo(0,0);
+  if(name==='login'){
+    document.getElementById('login-email').value='';
+    clearPin('lp');clearFlash('login-alert');
+    setTimeout(()=>{document.getElementById('login-email').value='';clearPin('lp');},150);
   }
+  if(name==='signup') loadInventoryForSignup();
 }
 
-function flash(id, msg, type='error') {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.textContent = msg;
-  el.className = `alert alert-${type} show`;
-}
-function clearFlash(id) { const el=document.getElementById(id); if(el) el.className='alert'; }
+function flash(id,msg,type='error'){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.className=`alert alert-${type} show`;}
+function clearFlash(id){const el=document.getElementById(id);if(el)el.className='alert';}
 
 // ── PIN ─────────────────────────────────────────────────────
-function wirePins() {
-  document.querySelectorAll('.pin-box').forEach((box,_,all) => {
-    box.addEventListener('input', e => {
-      const v=e.target.value.replace(/\D/g,'');
-      e.target.value=v?v[0]:'';
-      if(v){const n=nextPin(e.target,all);if(n)n.focus();}
-    });
-    box.addEventListener('keydown', e => {
-      if(e.key==='Backspace'&&!e.target.value){const p=prevPin(e.target,all);if(p){p.value='';p.focus();}}
-    });
-    box.addEventListener('paste', e => {
-      e.preventDefault();
-      const txt=(e.clipboardData||window.clipboardData).getData('text').replace(/\D/g,'');
-      const row=e.target.closest('.pin-row').querySelectorAll('.pin-box');
-      const idx=[...row].indexOf(e.target);
-      txt.split('').forEach((c,i)=>{if(row[idx+i])row[idx+i].value=c;});
-    });
+function wirePins(){
+  document.querySelectorAll('.pin-box').forEach((box,_,all)=>{
+    box.addEventListener('input',e=>{const v=e.target.value.replace(/\D/g,'');e.target.value=v?v[0]:'';if(v){const n=nextPin(e.target,all);if(n)n.focus();}});
+    box.addEventListener('keydown',e=>{if(e.key==='Backspace'&&!e.target.value){const p=prevPin(e.target,all);if(p){p.value='';p.focus();}}});
+    box.addEventListener('paste',e=>{e.preventDefault();const txt=(e.clipboardData||window.clipboardData).getData('text').replace(/\D/g,'');const row=e.target.closest('.pin-row').querySelectorAll('.pin-box');const idx=[...row].indexOf(e.target);txt.split('').forEach((c,i)=>{if(row[idx+i])row[idx+i].value=c;});});
   });
 }
 function nextPin(el,all){const i=[...all].indexOf(el);return i<all.length-1?all[i+1]:null;}
@@ -720,71 +496,122 @@ function prevPin(el,all){const i=[...all].indexOf(el);return i>0?all[i-1]:null;}
 function getPin(p){return Array.from({length:6},(_,i)=>{const e=document.getElementById(p+i);return e?e.value:'';}).join('');}
 function clearPin(p){for(let i=0;i<6;i++){const e=document.getElementById(p+i);if(e)e.value='';}}
 function fmt(n){return '$'+parseFloat(n||0).toFixed(2);}
+function fmtDate(d){return d?new Date(d+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';}
+
+// ── EMAIL ────────────────────────────────────────────────────
+async function sendEmail(toEmail,toName,subject,message){
+  const configured=EMAILJS_PUBLIC_KEY&&EMAILJS_PUBLIC_KEY!=='YOUR_EMAILJS_PUBLIC_KEY';
+  if(!configured){
+    // Fall back to mailto: draft
+    window.open(`mailto:${toEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`);
+    return{ok:false,fallback:true};
+  }
+  try{
+    await emailjs.send(EMAILJS_SERVICE_ID,EMAILJS_TEMPLATE_ID,{to_email:toEmail,to_name:toName,subject,message},{publicKey:EMAILJS_PUBLIC_KEY});
+    return{ok:true};
+  }catch(e){console.error('Email error:',e);return{ok:false,error:e};}
+}
+
+function emailAccountCreated(profile,cabinType){
+  const subject=`${TRIP_NAME} — Your Account Has Been Created`;
+  const message=`Hi ${profile.name},\n\nWelcome to the ${TRIP_NAME} payment portal! Your account has been created successfully.\n\nAccount Details:\n• Name: ${profile.name}\n• Email: ${profile.email}\n• Citizenship: ${profile.citizenship_type.toUpperCase()}\n• Cabin Type: ${cabinType||'Not yet selected'}\n\nYou can log in at any time to check your payment status and manage your cabin travelers.\n\nImportant: Please ensure your travel documentation is in order before the cruise.\n\nIf you have any questions, reply to this email or contact the trip organizer.\n\nSafe travels!\n${ADMIN_EMAIL}`;
+  sendEmail(profile.email,profile.name,subject,message);
+}
+
+function emailPaymentConfirmed(travelerName,travelerEmail,paymentLabel,amountPaid,totalPaidToDate,remainingBalance){
+  const subject=`${TRIP_NAME} — Payment Received: ${paymentLabel}`;
+  const message=`Hi ${travelerName},\n\nWe've recorded your payment for the ${TRIP_NAME}.\n\nPayment Details:\n• Payment: ${paymentLabel}\n• Amount Paid: ${fmt(amountPaid)}\n• Total Paid to Date: ${fmt(totalPaidToDate)}\n• Remaining Balance: ${fmt(remainingBalance)}\n\nThank you for your payment! Log in to your account to view your full payment schedule.\n\n${ADMIN_EMAIL}`;
+  sendEmail(travelerEmail,travelerName,subject,message);
+}
+
+function emailCancellationToTraveler(travelerName,travelerEmail,cabinType,cabinNumber,totalPaid){
+  const subject=`${TRIP_NAME} — Reservation Cancellation`;
+  const message=`Dear ${travelerName},\n\nThis email confirms that your reservation for the ${TRIP_NAME} has been cancelled.\n\nCancellation Details:\n• Name: ${travelerName}\n• Cabin Type: ${cabinType||'N/A'}\n• Cabin Number: ${cabinNumber||'Not yet assigned'}\n• Total Amount Paid: ${fmt(totalPaid)}\n• Cancellation Date: ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}\n\nIf you paid ${fmt(totalPaid)}, a refund will be processed manually. You will be contacted about the refund process.\n\nIf you believe this cancellation was made in error, please contact the trip organizer immediately at ${ADMIN_EMAIL}.\n\nWe're sorry to see you go.`;
+  sendEmail(travelerEmail,travelerName,subject,message);
+}
+
+function emailCancellationToAdmin(travelerName,travelerEmail,cabinType,cabinNumber,citizenship,totalPaid){
+  const subject=`${TRIP_NAME} — CANCELLATION: ${travelerName}`;
+  const message=`A traveler has been cancelled from the ${TRIP_NAME}. Please process a refund if applicable.\n\nCANCELLED TRAVELER INFORMATION:\n• Name: ${travelerName}\n• Email: ${travelerEmail}\n• Citizenship: ${citizenship||'Unknown'}\n• Cabin Type: ${cabinType||'N/A'}\n• Cabin Number: ${cabinNumber||'Not yet assigned'}\n• Total Amount Paid: ${fmt(totalPaid)}\n• Cancellation Date: ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}\n\nACTION REQUIRED:\n${totalPaid>0?`• Process refund of ${fmt(totalPaid)} to ${travelerEmail}\n`:'• No refund required (no payments made)\n'}• Cabin ${cabinType} has been returned to inventory\n• The cancellation has been logged in the Cancellations tab`;
+  sendEmail(ADMIN_EMAIL,'Admin',subject,message);
+}
 
 // ── AUTH ────────────────────────────────────────────────────
-async function doLogin() {
+async function doLogin(){
   clearFlash('login-alert');
   const email=document.getElementById('login-email').value.trim();
   const pin=getPin('lp');
-  if(!email) return flash('login-alert','Please enter your email address.');
-  if(pin.length<6) return flash('login-alert','Please enter your complete 6-digit PIN.');
+  if(!email)return flash('login-alert','Please enter your email address.');
+  if(pin.length<6)return flash('login-alert','Please enter your complete 6-digit PIN.');
   const{data,error}=await sb.auth.signInWithPassword({email,password:pin});
   if(error){flash('login-alert','Invalid email or PIN. Please try again.');clearPin('lp');document.getElementById('lp0').focus();return;}
   await loadAndRoute(data.user);
 }
 
-async function doSignup() {
+async function doSignup(){
   clearFlash('signup-alert');
-  const firstName  =document.getElementById('su-firstname').value.trim();
-  const lastName   =document.getElementById('su-lastname').value.trim();
-  const email      =document.getElementById('su-email').value.trim();
+  const firstName=document.getElementById('su-firstname').value.trim();
+  const lastName=document.getElementById('su-lastname').value.trim();
+  const email=document.getElementById('su-email').value.trim();
   const citizenship=document.getElementById('su-citizenship').value;
-  const country    =document.getElementById('su-country').value.trim();
-  const pin        =getPin('sp');
-  const confirm    =getPin('cp');
+  const country=document.getElementById('su-country').value.trim();
+  const cabinType=document.getElementById('su-cabin-type').value;
+  const pin=getPin('sp');
+  const confirm=getPin('cp');
 
-  if(!firstName)   return flash('signup-alert','Please enter your first name.');
-  if(!lastName)    return flash('signup-alert','Please enter your last name.');
-  if(!email)       return flash('signup-alert','Please enter your email address.');
-  if(!citizenship) return flash('signup-alert','Please select your citizenship status.');
-  if(citizenship==='other'&&!country) return flash('signup-alert','Please enter your country of citizenship.');
-  if(pin.length<6) return flash('signup-alert','Please create a complete 6-digit PIN.');
-  if(pin!==confirm) return flash('signup-alert','PINs do not match — please try again.');
+  if(!firstName)return flash('signup-alert','Please enter your first name.');
+  if(!lastName)return flash('signup-alert','Please enter your last name.');
+  if(!email)return flash('signup-alert','Please enter your email address.');
+  if(!citizenship)return flash('signup-alert','Please select your citizenship status.');
+  if(citizenship==='other'&&!country)return flash('signup-alert','Please enter your country of citizenship.');
+  if(!cabinType)return flash('signup-alert','Please select a cabin type.');
+  if(pin.length<6)return flash('signup-alert','Please create a complete 6-digit PIN.');
+  if(pin!==confirm)return flash('signup-alert','PINs do not match — please try again.');
 
   const ackMap={us:'ack-us','non-us':'ack-non-us',canadian:'ack-canadian',other:'ack-other'};
   const ackEl=document.getElementById(ackMap[citizenship]);
-  if(!ackEl||!ackEl.checked) return flash('signup-alert','Please read and check the acknowledgment box before continuing.');
+  if(!ackEl||!ackEl.checked)return flash('signup-alert','Please read and check the acknowledgment box.');
+
+  // Check inventory one more time
+  const{data:inv}=await sb.from('cabin_inventory').select('available_cabins').eq('cabin_type',cabinType).single();
+  if(!inv||inv.available_cabins<=0)return flash('signup-alert',`Sorry, ${cabinType} cabins are sold out. Please select a different cabin type.`);
 
   flash('signup-alert','Creating your account…','info');
   const fullName=firstName+' '+lastName;
   const{data,error}=await sb.auth.signUp({email,password:pin,options:{data:{full_name:fullName}}});
   if(error){flash('signup-alert',error.message);return;}
+
   if(data.user){
-    const{error:pErr}=await sb.from('profiles').insert({
-      id:data.user.id,name:fullName,citizenship_type:citizenship,
-      country_of_citizenship:citizenship==='other'?country:null,
-      docs_acknowledged:true,needs_doc_info:citizenship==='other',
-      is_admin:email.toLowerCase()===ADMIN_EMAIL.toLowerCase()
-    });
-    if(pErr) console.error('Profile error:',pErr.message);
+    const isAdmin=email.toLowerCase()===ADMIN_EMAIL.toLowerCase();
+    const profileData={id:data.user.id,name:fullName,email,citizenship_type:citizenship,country_of_citizenship:citizenship==='other'?country:null,docs_acknowledged:true,needs_doc_info:citizenship==='other',is_admin:isAdmin};
+    const{error:pErr}=await sb.from('profiles').insert(profileData);
+    if(pErr)console.error('Profile error:',pErr.message);
+
+    // Create cabin assignment
+    await sb.from('cabin_assignments').insert({user_id:data.user.id,cabin_type:cabinType});
+    // Decrement inventory
+    await sb.rpc('decrement_cabin',{cabin:cabinType});
+
+    // Send confirmation email
+    emailAccountCreated({...profileData},cabinType);
   }
   flash('signup-alert','🎉 Account created! Check your email to confirm, then sign in.','success');
 }
 
-async function doForgot() {
+async function doForgot(){
   clearFlash('forgot-alert');
   const email=document.getElementById('forgot-email').value.trim();
-  if(!email) return flash('forgot-alert','Please enter your email address.');
+  if(!email)return flash('forgot-alert','Please enter your email address.');
   const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+window.location.pathname+'?mode=reset'});
   if(error){flash('forgot-alert',error.message);return;}
   flash('forgot-alert','✅ Reset link sent! Check your email.','success');
 }
 
-async function doReset() {
+async function doReset(){
   clearFlash('reset-alert');
   const pin=getPin('rp'),confirm=getPin('rc');
-  if(pin.length<6) return flash('reset-alert','Please enter a complete 6-digit PIN.');
-  if(pin!==confirm) return flash('reset-alert','PINs do not match.');
+  if(pin.length<6)return flash('reset-alert','Please enter a complete 6-digit PIN.');
+  if(pin!==confirm)return flash('reset-alert','PINs do not match.');
   const{error}=await sb.auth.updateUser({password:pin});
   if(error){flash('reset-alert',error.message);return;}
   flash('reset-alert','✅ PIN updated! Redirecting…','success');
@@ -793,8 +620,8 @@ async function doReset() {
 
 async function doLogout(){await sb.auth.signOut();gUser=null;gProfile=null;showPage('login');}
 
-// ── LOAD + ROUTE ────────────────────────────────────────────
-async function loadAndRoute(user) {
+// ── ROUTE ────────────────────────────────────────────────────
+async function loadAndRoute(user){
   gUser=user;
   const isAdminByEmail=user.email.toLowerCase()===ADMIN_EMAIL.toLowerCase();
   const{data:prof}=await sb.from('profiles').select('*').eq('id',user.id).single();
@@ -803,32 +630,117 @@ async function loadAndRoute(user) {
   else{showPage('dashboard');loadDashboard();}
 }
 
-// ── DASHBOARD ───────────────────────────────────────────────
-async function loadDashboard() {
+// ── SIGNUP UI ────────────────────────────────────────────────
+async function loadInventoryForSignup(){
+  const{data}=await sb.from('cabin_inventory').select('*');
+  if(!data)return;
+  gInventory={};
+  data.forEach(r=>{gInventory[r.cabin_type]=r;});
+  updateCabinAvailDisplay();
+}
+
+function updateCabinAvailDisplay(){
+  const sel=document.getElementById('su-cabin-type');
+  if(!sel)return;
+  ['Balcony','Ocean View','Interior'].forEach(t=>{
+    const opt=sel.querySelector(`option[value="${t}"]`);
+    if(!opt)return;
+    const inv=gInventory[t];
+    if(!inv){opt.textContent=t;return;}
+    const avail=inv.available_cabins;
+    if(avail<=0){opt.textContent=`${t} — SOLD OUT`;opt.disabled=true;}
+    else if(avail<=5){opt.textContent=`${t} (${avail} remaining — Almost Full!)`;}
+    else{opt.textContent=`${t} (${avail} remaining)`;}
+  });
+  const info=document.getElementById('cabin-avail-info');
+  if(info&&Object.keys(gInventory).length>0){
+    const lines=Object.entries(gInventory).map(([t,v])=>{
+      const a=v.available_cabins,tot=v.total_cabins;
+      const cls=a<=0?'out':a<=5?'low':'';
+      return `${t}: <span class="${cls}">${a} of ${tot} available</span>`;
+    });
+    info.innerHTML=lines.join(' &nbsp;·&nbsp; ');
+  }
+}
+
+function onCitizenshipChange(){
+  const val=document.getElementById('su-citizenship').value;
+  ['doc-us','doc-non-us','doc-canadian','doc-other'].forEach(id=>document.getElementById(id).classList.remove('show'));
+  ['ack-us','ack-non-us','ack-canadian','ack-other'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
+  document.getElementById('cabin-select-section').style.display='none';
+  document.getElementById('pin-setup-section').style.display='none';
+  const map={us:'doc-us','non-us':'doc-non-us',canadian:'doc-canadian',other:'doc-other'};
+  if(map[val])document.getElementById(map[val]).classList.add('show');
+}
+
+function onAckChange(){
+  const cit=document.getElementById('su-citizenship').value;
+  const ackMap={us:'ack-us','non-us':'ack-non-us',canadian:'ack-canadian',other:'ack-other'};
+  const el=document.getElementById(ackMap[cit]);
+  const show=el&&el.checked;
+  document.getElementById('cabin-select-section').style.display=show?'block':'none';
+  document.getElementById('pin-setup-section').style.display='none';
+  if(show)updateCabinAvailDisplay();
+}
+
+function onCabinTypeChange(){
+  const val=document.getElementById('su-cabin-type').value;
+  document.getElementById('pin-setup-section').style.display=val?'block':'none';
+}
+
+const COUNTRY_LINKS={'mexico':{label:'Mexico',url:'https://help.goccl.com/app/answers/detail/a_id/1405'},'uk':{label:'UK (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'united kingdom':{label:'UK (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'australia':{label:'Australia (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'germany':{label:'Germany (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'france':{label:'France (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'japan':{label:'Japan (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'ireland':{label:'Ireland (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'brazil':{label:'Brazil',url:'https://travel.state.gov/content/travel/en/us-visas.html'},'india':{label:'India',url:'https://travel.state.gov/content/travel/en/us-visas.html'},'china':{label:'China',url:'https://travel.state.gov/content/travel/en/us-visas.html'},'jamaica':{label:'Jamaica',url:'https://help.goccl.com/app/answers/detail/a_id/1405'},'trinidad':{label:'Trinidad & Tobago',url:'https://help.goccl.com/app/answers/detail/a_id/1405'},'barbados':{label:'Barbados',url:'https://help.goccl.com/app/answers/detail/a_id/1405'},'nigeria':{label:'Nigeria',url:'https://travel.state.gov/content/travel/en/us-visas.html'},'ghana':{label:'Ghana',url:'https://travel.state.gov/content/travel/en/us-visas.html'},'new zealand':{label:'New Zealand (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'}};
+function onCountryInput(){
+  const val=document.getElementById('su-country').value.trim().toLowerCase();
+  const result=document.getElementById('country-link-result');
+  const display=document.getElementById('country-link-display');
+  if(!val){result.style.display='none';return;}
+  let match=null;
+  for(const[key,info]of Object.entries(COUNTRY_LINKS)){if(val.includes(key)||key.includes(val)){match=info;break;}}
+  result.style.display='block';
+  display.innerHTML=match?`<a href="${match.url}" target="_blank">📄 ${match.label} — Carnival Documentation ↗</a>`:`<a href="https://help.goccl.com/app/answers/detail/a_id/1405" target="_blank">📄 Carnival International Documentation ↗</a>`;
+}
+
+// ── DASHBOARD ────────────────────────────────────────────────
+async function loadDashboard(){
   document.getElementById('dash-loading').style.display='block';
   document.getElementById('dash-content').style.display='none';
   const fullName=gProfile?.name||gUser?.email||'Traveler';
   document.getElementById('dash-topbar-name').textContent=fullName;
   document.getElementById('dash-welcome').textContent=`Welcome, ${fullName}!`;
 
-  const[{data:milestones},{data:payments}]=await Promise.all([
+  const[msRes,pyRes,caRes]=await Promise.all([
     sb.from('payment_milestones').select('*').order('due_date',{ascending:true}),
-    sb.from('user_payments').select('*').eq('user_id',gUser.id)
+    sb.from('user_payments').select('*').eq('user_id',gUser.id),
+    sb.from('cabin_assignments').select('*').eq('user_id',gUser.id).single()
   ]);
 
-  const payMap={};
-  (payments||[]).forEach(p=>{payMap[p.milestone_id]=p;});
+  if(msRes.error){
+    document.getElementById('dash-loading').innerHTML=`<p style="color:var(--danger);font-weight:700;">⚠️ Error: ${msRes.error.message}</p>`;
+    return;
+  }
 
+  const milestones=msRes.data||[];
+  const payments=pyRes.data||[];
+  const cabin=caRes.data;
+
+  // Show cabin badge
+  const cabinBadge=document.getElementById('dash-cabin-badge');
+  if(cabin){
+    cabinBadge.textContent=`🛳️ ${cabin.cabin_type}${cabin.cabin_number?' — '+cabin.cabin_number:''}`;
+    cabinBadge.style.display='inline-block';
+  }
+
+  const payMap={};payments.forEach(p=>{payMap[p.milestone_id]=p;});
   const today=new Date();today.setHours(0,0,0,0);
   let totalDue=0,totalPaid=0,nextDue=null;
-  (milestones||[]).forEach(m=>{
+  milestones.forEach(m=>{
     const p=payMap[m.id]||{};
     const due=parseFloat(p.amount_due??m.minimum_amount??0);
     const paid=parseFloat(p.amount_paid||0);
     totalDue+=due;totalPaid+=paid;
     const isPaid=due>0&&paid>=due;
     const dDate=new Date(m.due_date+'T00:00:00');
-    if(!isPaid&&(!nextDue||dDate<nextDue)) nextDue=dDate;
+    if(!isPaid&&(!nextDue||dDate<nextDue))nextDue=dDate;
   });
 
   const balance=Math.max(0,totalDue-totalPaid);
@@ -842,7 +754,7 @@ async function loadDashboard() {
   document.getElementById('dash-nextdue-val').textContent=nextDue?nextDue.toLocaleDateString('en-US',{month:'short',day:'numeric'}):'None';
 
   let runningDue=0,runningPaid=0;
-  const rows=(milestones||[]).map(m=>{
+  const rows=milestones.map(m=>{
     const p=payMap[m.id]||{};
     const minAmt=parseFloat(m.minimum_amount||0);
     const due=parseFloat(p.amount_due??m.minimum_amount??0);
@@ -853,180 +765,170 @@ async function loadDashboard() {
     const isPaid=due>0&&paid>=due;
     const isOver=!isPaid&&dDate<today;
     const isSoon=!isPaid&&!isOver&&(dDate-today)<7*24*60*60*1000;
-    const dateStr=dDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const dateStr=fmtDate(m.due_date);
     const dateCls=isOver?'overdue':isSoon?'due-soon':'';
     let badge='<span class="badge badge-gray">TBD</span>';
     if(due>0){
-      if(isPaid) badge='<span class="badge badge-success">Paid ✓</span>';
-      else if(isOver) badge='<span class="badge badge-danger">Overdue!</span>';
-      else if(isSoon) badge='<span class="badge badge-warn">Due Soon</span>';
+      if(isPaid)badge='<span class="badge badge-success">Paid ✓</span>';
+      else if(isOver)badge='<span class="badge badge-danger">Overdue!</span>';
+      else if(isSoon)badge='<span class="badge badge-warn">Due Soon</span>';
       else badge='<span class="badge badge-info">Upcoming</span>';
     }
-    const remClass=remaining<=0?'remaining-zero':'remaining-pos';
+    const remCls=remaining<=0?'rem-zero':'rem-pos';
     const remStr=remaining<=0?'✓ '+fmt(0):fmt(remaining);
-    return`<tr><td><strong>${m.label}</strong></td><td class="col-money">${minAmt>0?fmt(minAmt):'—'}</td><td class="${dateCls}">${dateStr}</td><td class="col-money">${paid>0?'<strong>'+fmt(paid)+'</strong>':'—'}</td><td class="col-money ${remClass}">${remStr}</td><td>${badge}</td></tr>`;
+    return`<tr><td><strong>${m.label}</strong></td><td class="col-r">${minAmt>0?fmt(minAmt):'—'}</td><td class="${dateCls}">${dateStr}</td><td class="col-r">${paid>0?'<strong>'+fmt(paid)+'</strong>':'—'}</td><td class="col-r ${remCls}">${remStr}</td><td>${badge}</td></tr>`;
   });
 
   document.getElementById('dash-schedule').innerHTML=rows.length
-    ?`<table><thead><tr><th>Payment</th><th class="col-money">Min. Amount Due</th><th>Due Date</th><th class="col-money">Amount Paid</th><th class="col-money">Remaining Balance</th><th>Status</th></tr></thead><tbody>${rows.join('')}</tbody></table>`
-    :`<div class="empty"><div class="empty-icon">📋</div><p>No payment schedule set yet.</p></div>`;
+    ?`<table><thead><tr><th>Payment</th><th class="col-r">Min. Due</th><th>Due Date</th><th class="col-r">Paid</th><th class="col-r">Remaining Balance</th><th>Status</th></tr></thead><tbody>${rows.join('')}</tbody></table>`
+    :`<div class="empty"><div class="ei">📋</div><p style="color:var(--danger);font-weight:600;">No milestones found.<br><small style="font-weight:400;">Run <strong>run-this-in-supabase.sql</strong> in Supabase SQL Editor.</small></p></div>`;
 
   document.getElementById('dash-loading').style.display='none';
   document.getElementById('dash-content').style.display='block';
   loadCabinTravelers();
 }
 
-// ── CABIN TRAVELERS ─────────────────────────────────────────
-function toggleAddTraveler() {
+// ── CABIN TRAVELERS ──────────────────────────────────────────
+function toggleAddTraveler(){
   const form=document.getElementById('add-traveler-form');
   form.classList.toggle('open');
   if(form.classList.contains('open')){
     clearFlash('cabin-alert');
-    ['ct-salutation','ct-firstname','ct-middlename','ct-lastname','ct-dob-month','ct-dob-day','ct-dob-year','ct-gender','ct-citizenship','ct-relationship'].forEach(id=>{
-      const el=document.getElementById(id);
-      if(el) el.value='';
-    });
+    ['ct-salutation','ct-firstname','ct-middlename','ct-lastname','ct-dob-month','ct-dob-day','ct-dob-year','ct-gender','ct-citizenship','ct-relationship'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   }
 }
-
-async function addCabinTraveler() {
+async function addCabinTraveler(){
   clearFlash('cabin-alert');
-  const sal    =document.getElementById('ct-salutation').value;
-  const first  =document.getElementById('ct-firstname').value.trim();
-  const middle =document.getElementById('ct-middlename').value.trim();
-  const last   =document.getElementById('ct-lastname').value.trim();
-  const month  =document.getElementById('ct-dob-month').value;
-  const day    =document.getElementById('ct-dob-day').value;
-  const year   =document.getElementById('ct-dob-year').value;
-  const gender =document.getElementById('ct-gender').value;
+  const sal=document.getElementById('ct-salutation').value;
+  const first=document.getElementById('ct-firstname').value.trim();
+  const middle=document.getElementById('ct-middlename').value.trim();
+  const last=document.getElementById('ct-lastname').value.trim();
+  const month=document.getElementById('ct-dob-month').value;
+  const day=document.getElementById('ct-dob-day').value;
+  const year=document.getElementById('ct-dob-year').value;
+  const gender=document.getElementById('ct-gender').value;
   const citizen=document.getElementById('ct-citizenship').value.trim();
-  const rel    =document.getElementById('ct-relationship').value;
-
-  if(!first)  return flash('cabin-alert','Please enter the traveler\'s first name.');
-  if(!last)   return flash('cabin-alert','Please enter the traveler\'s last name.');
-  if(!month||!day||!year) return flash('cabin-alert','Please select a complete date of birth.');
-  if(!gender) return flash('cabin-alert','Please select a gender.');
-  if(!citizen) return flash('cabin-alert','Please enter a country of citizenship.');
-  if(!rel)    return flash('cabin-alert','Please select the traveler\'s relationship to you.');
-
-  const dob=`${year}-${month}-${day}`;
-  const{error}=await sb.from('cabin_travelers').insert({
-    account_owner_id:gUser.id,
-    salutation:sal||null,
-    first_name:first,
-    middle_name:middle||null,
-    last_name:last,
-    date_of_birth:dob,
-    gender,
-    country_of_citizenship:citizen,
-    relationship:rel
-  });
+  const rel=document.getElementById('ct-relationship').value;
+  if(!first)return flash('cabin-alert',"Please enter the traveler's first name.");
+  if(!last)return flash('cabin-alert',"Please enter the traveler's last name.");
+  if(!month||!day||!year)return flash('cabin-alert','Please select a complete date of birth.');
+  if(!gender)return flash('cabin-alert','Please select a gender.');
+  if(!citizen)return flash('cabin-alert','Please enter a country of citizenship.');
+  if(!rel)return flash('cabin-alert',"Please select the traveler's relationship to you.");
+  const{error}=await sb.from('cabin_travelers').insert({account_owner_id:gUser.id,salutation:sal||null,first_name:first,middle_name:middle||null,last_name:last,date_of_birth:`${year}-${month}-${day}`,gender,country_of_citizenship:citizen,relationship:rel});
   if(error){flash('cabin-alert','Error saving traveler: '+error.message);return;}
-  toggleAddTraveler();
-  loadCabinTravelers();
+  toggleAddTraveler();loadCabinTravelers();
 }
-
-async function loadCabinTravelers() {
+async function loadCabinTravelers(){
   const{data:travelers}=await sb.from('cabin_travelers').select('*').eq('account_owner_id',gUser.id).order('created_at',{ascending:true});
   const el=document.getElementById('cabin-travelers-list');
-  if(!travelers||travelers.length===0){
-    el.innerHTML='<div class="empty" style="padding:20px;"><div class="empty-icon">👨‍👩‍👧</div><p>No cabin travelers added yet. Click "+ Add Traveler" to get started.</p></div>';
-    return;
-  }
+  if(!travelers||travelers.length===0){el.innerHTML='<div class="empty" style="padding:18px;"><div class="ei">👨‍👩‍👧</div><p>No cabin travelers added yet.</p></div>';return;}
   el.innerHTML=travelers.map(t=>{
-    const dob=new Date(t.date_of_birth+'T00:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
-    const nameParts=[t.salutation,t.first_name,t.middle_name,t.last_name].filter(Boolean);
-    return`<div class="traveler-card">
-      <div class="traveler-card-info">
-        <div class="traveler-card-name">${nameParts.join(' ')}</div>
-        <div class="traveler-card-meta">
-          DOB: ${dob} &nbsp;·&nbsp; ${t.gender} &nbsp;·&nbsp; ${t.country_of_citizenship} &nbsp;·&nbsp; ${t.relationship}
-        </div>
-      </div>
-      <button class="btn-danger-sm" onclick="deleteCabinTraveler('${t.id}')">Remove</button>
-    </div>`;
+    const dob=fmtDate(t.date_of_birth);
+    const name=[t.salutation,t.first_name,t.middle_name,t.last_name].filter(Boolean).join(' ');
+    return`<div class="traveler-card"><div><div class="traveler-card-name">${name}</div><div class="traveler-card-meta">DOB: ${dob} · ${t.gender} · ${t.country_of_citizenship} · ${t.relationship}</div></div><button class="btn-danger" onclick="deleteCabinTraveler('${t.id}')">Remove</button></div>`;
   }).join('');
 }
-
-async function deleteCabinTraveler(id) {
-  if(!confirm('Remove this traveler from your cabin?')) return;
+async function deleteCabinTraveler(id){
+  if(!confirm('Remove this traveler from your cabin?'))return;
   await sb.from('cabin_travelers').delete().eq('id',id);
   loadCabinTravelers();
 }
 
-// ── SIGNUP UI ───────────────────────────────────────────────
-function onCitizenshipChange() {
-  const val=document.getElementById('su-citizenship').value;
-  ['doc-us','doc-non-us','doc-canadian','doc-other'].forEach(id=>document.getElementById(id).classList.remove('show'));
-  ['ack-us','ack-non-us','ack-canadian','ack-other'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
-  document.getElementById('pin-setup-section').style.display='none';
-  const map={us:'doc-us','non-us':'doc-non-us',canadian:'doc-canadian',other:'doc-other'};
-  if(map[val]) document.getElementById(map[val]).classList.add('show');
+// ── ADMIN ────────────────────────────────────────────────────
+async function adminInit(){
+  await Promise.all([loadTravelers(),loadAdminMilestones(),loadPaymentFormSelects(),loadAdminPayments(),loadInventoryTab(),loadCancellationsTab(),loadDocRequests()]);
 }
-function onAckChange() {
-  const cit=document.getElementById('su-citizenship').value;
-  const ackMap={us:'ack-us','non-us':'ack-non-us',canadian:'ack-canadian',other:'ack-other'};
-  const el=document.getElementById(ackMap[cit]);
-  document.getElementById('pin-setup-section').style.display=(el&&el.checked)?'block':'none';
-}
-const COUNTRY_LINKS={
-  'mexico':{label:'Mexico',url:'https://help.goccl.com/app/answers/detail/a_id/1405'},
-  'uk':{label:'UK (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},
-  'united kingdom':{label:'UK (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},
-  'australia':{label:'Australia (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},
-  'germany':{label:'Germany (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},
-  'france':{label:'France (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},
-  'japan':{label:'Japan (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},
-  'ireland':{label:'Ireland (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},
-  'brazil':{label:'Brazil — Visa required',url:'https://travel.state.gov/content/travel/en/us-visas.html'},
-  'india':{label:'India — Visa required',url:'https://travel.state.gov/content/travel/en/us-visas.html'},
-  'china':{label:'China — Visa required',url:'https://travel.state.gov/content/travel/en/us-visas.html'},
-  'jamaica':{label:'Jamaica',url:'https://help.goccl.com/app/answers/detail/a_id/1405'},
-  'bahamas':{label:'Bahamas',url:'https://help.goccl.com/app/answers/detail/a_id/1405'},
-  'trinidad':{label:'Trinidad & Tobago',url:'https://help.goccl.com/app/answers/detail/a_id/1405'},
-  'barbados':{label:'Barbados',url:'https://help.goccl.com/app/answers/detail/a_id/1405'},
-  'nigeria':{label:'Nigeria — Visa required',url:'https://travel.state.gov/content/travel/en/us-visas.html'},
-  'ghana':{label:'Ghana — Visa required',url:'https://travel.state.gov/content/travel/en/us-visas.html'},
-  'new zealand':{label:'New Zealand (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},
-};
-function onCountryInput() {
-  const val=document.getElementById('su-country').value.trim().toLowerCase();
-  const result=document.getElementById('country-link-result');
-  const display=document.getElementById('country-link-display');
-  if(!val){result.style.display='none';return;}
-  let match=null;
-  for(const[key,info] of Object.entries(COUNTRY_LINKS)){if(val.includes(key)||key.includes(val)){match=info;break;}}
-  result.style.display='block';
-  display.innerHTML=match
-    ?`<a href="${match.url}" target="_blank" rel="noopener">📄 ${match.label} — Carnival Documentation ↗</a>`
-    :`<a href="https://help.goccl.com/app/answers/detail/a_id/1405" target="_blank" rel="noopener">📄 Carnival International Travel Documentation ↗</a>`;
-}
-
-// ── ADMIN ───────────────────────────────────────────────────
-async function adminInit(){await Promise.all([loadTravelers(),loadAdminMilestones(),loadPaymentFormSelects(),loadAdminPayments(),loadDocRequests()]);}
 function switchTab(name,btn){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active');document.getElementById('tab-'+name).classList.add('active');
 }
 
-async function loadTravelers() {
-  const{data:profiles}=await sb.from('profiles').select('*, user_payments(amount_due,amount_paid)').eq('is_admin',false).order('name');
+async function loadTravelers(){
+  const{data:profiles}=await sb.from('profiles').select('*, user_payments(amount_due,amount_paid), cabin_assignments(cabin_type,cabin_number)').eq('is_admin',false).order('name');
   const el=document.getElementById('admin-travelers');
-  if(!profiles||profiles.length===0){el.innerHTML='<div class="empty"><div class="empty-icon">👥</div><p>No travelers yet.</p></div>';return;}
+  if(!profiles||profiles.length===0){el.innerHTML='<div class="empty"><div class="ei">👥</div><p>No travelers yet.</p></div>';return;}
   const citLabel={us:'U.S.','non-us':'Non-U.S.',canadian:'Canadian',other:'Other'};
-  const rows=profiles.map(p=>{
+  const active=profiles.filter(p=>p.status!=='cancelled');
+  const cancelled=profiles.filter(p=>p.status==='cancelled');
+
+  function makeRow(p,isCancelled){
     const due=(p.user_payments||[]).reduce((s,x)=>s+parseFloat(x.amount_due||0),0);
     const paid=(p.user_payments||[]).reduce((s,x)=>s+parseFloat(x.amount_paid||0),0);
     const bal=Math.max(0,due-paid);
     const pct=due>0?Math.round((paid/due)*100):0;
-    const docB=p.needs_doc_info?'<span class="badge needs-info">Needs Doc Email</span> ':'';
-    return`<tr><td><strong>${p.name}</strong> ${docB}</td><td>${citLabel[p.citizenship_type]||p.citizenship_type}${p.country_of_citizenship?' — '+p.country_of_citizenship:''}</td><td class="col-money" style="color:var(--success)"><strong>${fmt(paid)}</strong></td><td class="col-money" style="color:var(--danger)">${fmt(bal)}</td><td><div class="pbar-row"><div class="mpbar-track"><div class="mpbar-fill" style="width:${pct}%"></div></div><small>${pct}%</small></div></td></tr>`;
-  });
-  el.innerHTML=`<table><thead><tr><th>Traveler</th><th>Citizenship</th><th class="col-money">Paid</th><th class="col-money">Balance</th><th>Progress</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+    const cabin=p.cabin_assignments?p.cabin_assignments.cabin_type+(p.cabin_assignments.cabin_number?' #'+p.cabin_assignments.cabin_number:''):'—';
+    const docB=p.needs_doc_info?'<span class="badge needs-info">Needs Doc</span> ':'';
+    const rowStyle=isCancelled?'opacity:.6;background:#fdf0ee;':'';
+    const actions=isCancelled
+      ?`<span class="badge badge-danger">Cancelled</span>`
+      :`<div style="display:flex;gap:5px;flex-wrap:wrap;">
+          <button class="btn-warn" onclick="assignCabinNumber('${p.id}','${p.name}','${p.cabin_assignments?.cabin_type||''}','${p.cabin_assignments?.cabin_number||''}')">Assign Cabin #</button>
+          <button class="btn-danger" onclick="cancelTraveler('${p.id}','${p.name}','${p.email||''}','${p.cabin_assignments?.cabin_type||''}','${p.cabin_assignments?.cabin_number||''}','${p.citizenship_type||''}',${paid})">Cancel</button>
+          <button class="btn-danger" style="background:#fdf0ee;opacity:.7;" onclick="deleteTravelerTest('${p.id}','${p.name}')">Delete (Test)</button>
+        </div>`;
+    return`<tr style="${rowStyle}">
+      <td><strong>${p.name}</strong> ${docB}<br><small style="color:var(--muted)">${p.email||''}</small></td>
+      <td>${citLabel[p.citizenship_type]||p.citizenship_type||'—'}${p.country_of_citizenship?' — '+p.country_of_citizenship:''}</td>
+      <td><span class="badge badge-purple">${cabin}</span></td>
+      <td class="col-r" style="color:var(--success)"><strong>${fmt(paid)}</strong></td>
+      <td class="col-r" style="color:var(--danger)">${fmt(bal)}</td>
+      <td><div class="pbar-row"><div class="mpbar-track"><div class="mpbar-fill" style="width:${pct}%"></div></div><small>${pct}%</small></div></td>
+      <td>${actions}</td>
+    </tr>`;
+  }
+
+  const thead=`<thead><tr><th>Traveler</th><th>Citizenship</th><th>Cabin</th><th class="col-r">Paid</th><th class="col-r">Balance</th><th>Progress</th><th>Actions</th></tr></thead>`;
+  let html=`<table>${thead}<tbody>${active.map(p=>makeRow(p,false)).join('')}</tbody></table>`;
+  if(cancelled.length>0){
+    html+=`<div class="section-hdr" style="margin-top:22px;">Cancelled Travelers (${cancelled.length})</div>
+    <table>${thead}<tbody>${cancelled.map(p=>makeRow(p,true)).join('')}</tbody></table>`;
+  }
+  el.innerHTML=html;
 }
 
-async function addMilestone() {
+async function assignCabinNumber(userId,name,cabinType,currentNum){
+  const num=prompt(`Assign cabin number for ${name} (${cabinType}):\nCurrent: ${currentNum||'Not assigned'}`,currentNum||'');
+  if(num===null)return;
+  const{error}=await sb.from('cabin_assignments').update({cabin_number:num.trim()||null}).eq('user_id',userId);
+  if(error){alert('Error: '+error.message);return;}
+  loadTravelers();loadInventoryTab();
+}
+
+async function cancelTraveler(userId,name,email,cabinType,cabinNumber,citizenship,totalPaid){
+  const confirmed=confirm(`Cancel ${name}'s reservation?\n\nCabin: ${cabinType||'N/A'} ${cabinNumber?'#'+cabinNumber:''}\nTotal Paid: ${fmt(totalPaid)}\n\nThis will:\n• Mark the traveler as cancelled (profile is kept for your records)\n• Return the cabin to inventory\n• Send cancellation emails to traveler and admin\n\nThis cannot be undone.`);
+  if(!confirmed)return;
+
+  // 1. Mark profile as cancelled (do NOT delete — preserve record)
+  await sb.from('profiles').update({status:'cancelled'}).eq('id',userId);
+
+  // 2. Record in cancellations log
+  await sb.from('cancellations').insert({original_user_id:userId,traveler_name:name,traveler_email:email,cabin_type:cabinType||null,cabin_number:cabinNumber||null,citizenship_type:citizenship||null,total_paid:totalPaid});
+
+  // 3. Restore cabin inventory
+  if(cabinType)await sb.rpc('increment_cabin',{cabin:cabinType});
+
+  // 4. Send emails
+  emailCancellationToTraveler(name,email,cabinType,cabinNumber,totalPaid);
+  emailCancellationToAdmin(name,email,cabinType,cabinNumber,citizenship,totalPaid);
+
+  alert(`✅ ${name}'s reservation has been cancelled. Their profile is preserved for your records. Emails ${EMAILJS_PUBLIC_KEY==='YOUR_EMAILJS_PUBLIC_KEY'?'will open as drafts':'have been sent'}.`);
+  await Promise.all([loadTravelers(),loadInventoryTab(),loadCancellationsTab()]);
+}
+
+async function deleteTravelerTest(userId,name){
+  const confirmed=confirm(`Delete test account for ${name}?\n\nTESTING ONLY — no emails sent, no cancellation record.\n\nNote: Also go to Supabase Dashboard → Authentication → Users to fully remove the login.`);
+  if(!confirmed)return;
+  const{data:ca}=await sb.from('cabin_assignments').select('cabin_type').eq('user_id',userId).single();
+  if(ca?.cabin_type)await sb.rpc('increment_cabin',{cabin:ca.cabin_type});
+  await sb.from('profiles').delete().eq('id',userId);
+  alert(`✅ Test account deleted. Remember to remove from Supabase Auth → Users.`);
+  await Promise.all([loadTravelers(),loadInventoryTab()]);
+}
+
+// ── SCHEDULE ─────────────────────────────────────────────────
+async function addMilestone(){
   const label=document.getElementById('ms-label').value.trim();
   const amount=parseFloat(document.getElementById('ms-amount').value)||null;
   const date=document.getElementById('ms-date').value;
@@ -1037,40 +939,33 @@ async function addMilestone() {
   flash('milestone-alert','✅ Milestone added!','success');
   loadAdminMilestones();loadPaymentFormSelects();
 }
-
-async function loadAdminMilestones() {
+async function loadAdminMilestones(){
   const{data}=await sb.from('payment_milestones').select('*').order('due_date',{ascending:true});
   const el=document.getElementById('admin-milestones');
-  if(!data||data.length===0){el.innerHTML='<div class="empty"><div class="empty-icon">📅</div><p>No milestones yet.</p></div>';return;}
-  const rows=data.map(m=>{
-    const d=new Date(m.due_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-    return`<tr><td><strong>${m.label}</strong></td><td class="col-money">${m.minimum_amount!=null?fmt(m.minimum_amount):'—'}</td><td>${d}</td><td><button class="btn-danger-sm" onclick="deleteMilestone('${m.id}')">Delete</button></td></tr>`;
-  });
-  el.innerHTML=`<table><thead><tr><th>Label</th><th class="col-money">Min. Amount Due</th><th>Due Date</th><th>Action</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  if(!data||data.length===0){el.innerHTML='<div class="empty"><div class="ei">📅</div><p>No milestones yet. Add them above or run the SQL file.</p></div>';return;}
+  const rows=data.map(m=>`<tr><td><strong>${m.label}</strong></td><td class="col-r">${m.minimum_amount!=null?fmt(m.minimum_amount):'—'}</td><td>${fmtDate(m.due_date)}</td><td><button class="btn-danger" onclick="deleteMilestone('${m.id}')">Delete</button></td></tr>`);
+  el.innerHTML=`<table><thead><tr><th>Label</th><th class="col-r">Min. Amount</th><th>Due Date</th><th>Action</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
-
 async function deleteMilestone(id){
-  if(!confirm('Delete this milestone and all associated payment records?')) return;
+  if(!confirm('Delete this milestone and all associated payment records?'))return;
   await sb.from('payment_milestones').delete().eq('id',id);
   loadAdminMilestones();loadPaymentFormSelects();
 }
 
-async function loadPaymentFormSelects() {
+// ── PAYMENTS ─────────────────────────────────────────────────
+async function loadPaymentFormSelects(){
   const[{data:profiles},{data:milestones}]=await Promise.all([
-    sb.from('profiles').select('id,name').eq('is_admin',false).order('name'),
+    sb.from('profiles').select('id,name,email').eq('is_admin',false).order('name'),
     sb.from('payment_milestones').select('*').order('due_date',{ascending:true})
   ]);
-  document.getElementById('pay-traveler').innerHTML='<option value="">Select traveler</option>'+(profiles||[]).map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
-  document.getElementById('pay-milestone').innerHTML='<option value="">Select milestone</option>'+(milestones||[]).map(m=>{
-    const d=new Date(m.due_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
-    const min=m.minimum_amount!=null?' — min '+fmt(m.minimum_amount):'';
-    return`<option value="${m.id}">${m.label} (${d}${min})</option>`;
-  }).join('');
+  document.getElementById('pay-traveler').innerHTML='<option value="">Select traveler</option>'+(profiles||[]).map(p=>`<option value="${p.id}" data-email="${p.email||''}" data-name="${p.name}">${p.name}</option>`).join('');
+  document.getElementById('pay-milestone').innerHTML='<option value="">Select milestone</option>'+(milestones||[]).map(m=>`<option value="${m.id}" data-label="${m.label}">${m.label} (${fmtDate(m.due_date)}${m.minimum_amount!=null?' — min '+fmt(m.minimum_amount):''})</option>`).join('');
 }
-
-async function savePayment() {
-  const userId=document.getElementById('pay-traveler').value;
-  const milestoneId=document.getElementById('pay-milestone').value;
+async function savePayment(){
+  const travelerSel=document.getElementById('pay-traveler');
+  const milestoneSel=document.getElementById('pay-milestone');
+  const userId=travelerSel.value;
+  const milestoneId=milestoneSel.value;
   const amtDue=parseFloat(document.getElementById('pay-due').value)||0;
   const amtPaid=parseFloat(document.getElementById('pay-paid').value)||0;
   const paidDate=document.getElementById('pay-date').value;
@@ -1078,43 +973,107 @@ async function savePayment() {
   const{error}=await sb.from('user_payments').upsert({user_id:userId,milestone_id:milestoneId,amount_due:amtDue,amount_paid:amtPaid,paid_at:paidDate?new Date(paidDate).toISOString():null},{onConflict:'user_id,milestone_id'});
   if(error){flash('payment-alert','Error: '+error.message);return;}
   flash('payment-alert','✅ Payment saved!','success');
+
+  // Send payment confirmation email
+  if(amtPaid>0){
+    const tName=travelerSel.options[travelerSel.selectedIndex].dataset.name;
+    const tEmail=travelerSel.options[travelerSel.selectedIndex].dataset.email;
+    const mLabel=milestoneSel.options[milestoneSel.selectedIndex].dataset.label;
+    if(tEmail){
+      // Get running totals for this traveler
+      const{data:allPayments}=await sb.from('user_payments').select('amount_due,amount_paid').eq('user_id',userId);
+      const totalDue=(allPayments||[]).reduce((s,p)=>s+parseFloat(p.amount_due||0),0);
+      const totalPaid=(allPayments||[]).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+      emailPaymentConfirmed(tName,tEmail,mLabel,amtPaid,totalPaid,Math.max(0,totalDue-totalPaid));
+    }
+  }
   loadAdminPayments();loadTravelers();
 }
-
-async function loadAdminPayments() {
-  const{data}=await sb.from('user_payments').select('*, profiles(name), payment_milestones(label,due_date,minimum_amount)').order('created_at',{ascending:false});
+async function loadAdminPayments(){
+  const{data}=await sb.from('user_payments').select('*, profiles(name,email), payment_milestones(label,due_date)').order('created_at',{ascending:false});
   const el=document.getElementById('admin-payments');
-  if(!data||data.length===0){el.innerHTML='<div class="empty"><div class="empty-icon">💳</div><p>No payments recorded yet.</p></div>';return;}
+  if(!data||data.length===0){el.innerHTML='<div class="empty"><div class="ei">💳</div><p>No payments recorded yet.</p></div>';return;}
   const rows=data.map(p=>{
     const due=parseFloat(p.amount_due||0),paid=parseFloat(p.amount_paid||0);
-    const isPaid=due>0&&paid>=due;
-    const badge=isPaid?'<span class="badge badge-success">Paid ✓</span>':'<span class="badge badge-warn">Pending</span>';
-    const d=p.payment_milestones?new Date(p.payment_milestones.due_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+    const badge=due>0&&paid>=due?'<span class="badge badge-success">Paid ✓</span>':'<span class="badge badge-warn">Pending</span>';
     const pd=p.paid_at?new Date(p.paid_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—';
-    return`<tr><td><strong>${p.profiles?.name||'—'}</strong></td><td>${p.payment_milestones?.label||'—'}</td><td>${d}</td><td class="col-money">${fmt(due)}</td><td class="col-money">${fmt(paid)}</td><td>${pd}</td><td>${badge}</td></tr>`;
+    return`<tr><td><strong>${p.profiles?.name||'—'}</strong></td><td>${p.payment_milestones?.label||'—'}</td><td>${fmtDate(p.payment_milestones?.due_date)}</td><td class="col-r">${fmt(due)}</td><td class="col-r">${fmt(paid)}</td><td>${pd}</td><td>${badge}</td></tr>`;
   });
-  el.innerHTML=`<table><thead><tr><th>Traveler</th><th>Milestone</th><th>Due Date</th><th class="col-money">Amt Due</th><th class="col-money">Paid</th><th>Paid On</th><th>Status</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  el.innerHTML=`<table><thead><tr><th>Traveler</th><th>Milestone</th><th>Due Date</th><th class="col-r">Amt Due</th><th class="col-r">Paid</th><th>Paid On</th><th>Status</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 
-async function loadDocRequests() {
+// ── INVENTORY ─────────────────────────────────────────────────
+async function loadInventoryTab(){
+  const[{data:inv},{data:assignments}]=await Promise.all([
+    sb.from('cabin_inventory').select('*'),
+    sb.from('cabin_assignments').select('*, profiles(name,email)').order('cabin_type')
+  ]);
+
+  const colors={Balcony:'balcony','Ocean View':'oceanview',Interior:'interior'};
+  const cards=(inv||[]).map(r=>{
+    const reserved=r.total_cabins-r.available_cabins;
+    const pct=r.total_cabins>0?Math.round((reserved/r.total_cabins)*100):0;
+    return`<div class="inv-card ${colors[r.cabin_type]||''}">
+      <div style="font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">${r.cabin_type}</div>
+      <div class="inv-num">${r.available_cabins}</div>
+      <div class="inv-label">Available</div>
+      <div class="inv-sub">${reserved} reserved of ${r.total_cabins} total</div>
+      <div class="pbar-track" style="margin-top:10px;height:6px;"><div class="mpbar-fill" style="width:${pct}%;background:${r.available_cabins===0?'#c0392b':r.available_cabins<=5?'#d68910':'#2176ae'};"></div></div>
+    </div>`;
+  }).join('');
+  document.getElementById('inv-cards').innerHTML=cards||'<p>No inventory data. Run update-schema.sql.</p>';
+
+  const asgEl=document.getElementById('inv-assignments');
+  if(!assignments||assignments.length===0){asgEl.innerHTML='<div class="empty"><div class="ei">🛏️</div><p>No cabin assignments yet.</p></div>';return;}
+  const rows=assignments.map(a=>`<tr><td><strong>${a.profiles?.name||'—'}</strong><br><small style="color:var(--muted)">${a.profiles?.email||''}</small></td><td>${a.cabin_type}</td><td>${a.cabin_number||'<em style="color:var(--muted)">Not assigned yet</em>'}</td><td>${new Date(a.assigned_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td></tr>`);
+  asgEl.innerHTML=`<table><thead><tr><th>Traveler</th><th>Cabin Type</th><th>Cabin Number</th><th>Reserved On</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+}
+
+// ── CANCELLATIONS ─────────────────────────────────────────────
+async function loadCancellationsTab(){
+  const{data}=await sb.from('cancellations').select('*').order('canceled_at',{ascending:false});
+  const el=document.getElementById('admin-cancellations');
+  if(!data||data.length===0){el.innerHTML='<div class="empty"><div class="ei">✅</div><p>No cancellations.</p></div>';return;}
+  const rows=data.map(c=>{
+    const refundBadge=c.refund_processed?'<span class="badge badge-success">Refunded</span>':'<span class="badge badge-danger">Pending Refund</span>';
+    const btn=!c.refund_processed?`<button class="btn-warn" onclick="markRefunded('${c.id}')">Mark Refunded</button>`:'';
+    return`<tr>
+      <td><strong>${c.traveler_name}</strong><br><small style="color:var(--muted)">${c.traveler_email}</small></td>
+      <td>${c.cabin_type||'—'}</td>
+      <td>${c.cabin_number||'—'}</td>
+      <td class="col-r"><strong>${fmt(c.total_paid)}</strong></td>
+      <td>${c.refund_processed?'<span class="badge badge-success">Refunded ✓</span>':'<span class="badge badge-danger">Pending</span>'}</td>
+      <td>${new Date(c.canceled_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td>
+      <td>${btn}</td>
+    </tr>`;
+  });
+  el.innerHTML=`<table><thead><tr><th>Traveler</th><th>Cabin Type</th><th>Cabin #</th><th class="col-r">Total Paid</th><th>Refund</th><th>Canceled On</th><th>Action</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+}
+async function markRefunded(id){
+  await sb.from('cancellations').update({refund_processed:true}).eq('id',id);
+  loadCancellationsTab();
+}
+
+// ── DOC REQUESTS ──────────────────────────────────────────────
+async function loadDocRequests(){
   const{data}=await sb.from('profiles').select('*').eq('needs_doc_info',true).order('name');
   const el=document.getElementById('admin-docrequests');
-  if(!data||data.length===0){el.innerHTML='<div class="empty"><div class="empty-icon">✅</div><p>No outstanding documentation requests.</p></div>';return;}
-  const rows=data.map(p=>{
-    const country=p.country_of_citizenship||'Not specified';
-    return`<tr><td><strong>${p.name}</strong></td><td>${country}</td><td>${new Date(p.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td><td><button class="btn-accent btn-sm btn" onclick="draftDocEmail('${p.name}','${country}')">✉️ Draft Email</button></td></tr>`;
-  });
+  if(!data||data.length===0){el.innerHTML='<div class="empty"><div class="ei">✅</div><p>No outstanding requests.</p></div>';return;}
+  const rows=data.map(p=>`<tr><td><strong>${p.name}</strong></td><td>${p.country_of_citizenship||'Not specified'}</td><td>${new Date(p.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td><td><button class="btn-accent btn btn-sm" onclick="draftDocEmail('${p.name}','${p.email||''}','${p.country_of_citizenship||''}')">✉️ Draft Email</button></td></tr>`);
   el.innerHTML=`<table><thead><tr><th>Traveler</th><th>Country</th><th>Signed Up</th><th>Action</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
-
-function draftDocEmail(name,country){
-  const subject=`Commonwealth Cruise 2027 — Travel Documentation for ${country} Citizens`;
-  const body=`Hi ${name},\n\nThank you for signing up for the Commonwealth Cruise 2027!\n\nSince you indicated your citizenship is from ${country}, please review the travel documentation requirements that apply to you:\n\n[ADD SPECIFIC DOCUMENTATION REQUIREMENTS HERE]\n\nFor general international requirements, visit:\nhttps://help.goccl.com/app/answers/detail/a_id/1405\n\nPlease ensure all documents are in order before the cruise.\n\nBest regards,\n[Your Name]`;
-  prompt(`Copy this draft email:\n\nSubject: ${subject}\n\n${body}`);
+function draftDocEmail(name,email,country){
+  const subject=`${TRIP_NAME} — Travel Documentation for ${country} Citizens`;
+  const body=`Hi ${name},\n\nThank you for signing up for the ${TRIP_NAME}!\n\nSince you are a citizen of ${country}, please review the travel documentation requirements specific to your country:\n\n[ADD DOCUMENTATION REQUIREMENTS HERE]\n\nFor general international requirements: https://help.goccl.com/app/answers/detail/a_id/1405\n\nPlease ensure all documents are in order before the cruise.\n\nBest regards,\n${ADMIN_EMAIL}`;
+  sendEmail(email||ADMIN_EMAIL,name,subject,body);
 }
 
-// ── INIT ────────────────────────────────────────────────────
-window.addEventListener('load', async()=>{
+// ── INIT ─────────────────────────────────────────────────────
+window.addEventListener('load',async()=>{
+  // Init EmailJS if configured
+  if(EMAILJS_PUBLIC_KEY&&EMAILJS_PUBLIC_KEY!=='YOUR_EMAILJS_PUBLIC_KEY'){
+    emailjs.init({publicKey:EMAILJS_PUBLIC_KEY});
+  }
   wirePins();
   document.getElementById('login-email').value='';
   clearPin('lp');
@@ -1123,14 +1082,12 @@ window.addEventListener('load', async()=>{
     const{data}=await sb.auth.getSession();
     if(data.session){showPage('reset');return;}
   }
-
   const{data:{session}}=await sb.auth.getSession();
   if(session){await loadAndRoute(session.user);return;}
-
   showPage('login');
   sb.auth.onAuthStateChange(async(event,session)=>{
-    if(event==='PASSWORD_RECOVERY') showPage('reset');
-    else if(event==='SIGNED_IN'&&session) await loadAndRoute(session.user);
+    if(event==='PASSWORD_RECOVERY')showPage('reset');
+    else if(event==='SIGNED_IN'&&session)await loadAndRoute(session.user);
   });
 });
 </script>
