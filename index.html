@@ -1299,6 +1299,11 @@ async function doProfileSetup(){
 async function loadDashboard(){
   document.getElementById('dash-loading').style.display='block';
   document.getElementById('dash-content').style.display='none';
+  // Always re-fetch profile from DB so the name is never stale or email-based
+  if(gUser){
+    const{data:freshProf}=await sb.from('profiles').select('*').eq('id',gUser.id).single();
+    if(freshProf)gProfile=freshProf;
+  }
   const fullName=gProfile?.name||gUser?.user_metadata?.full_name||gUser?.user_metadata?.name||'Traveler';
   document.getElementById('dash-topbar-name').textContent=fullName;
   document.getElementById('dash-welcome').textContent=`Welcome, ${fullName}!`;
@@ -1698,8 +1703,8 @@ async function loadTravelers(){
       <td class="col-r">${cabinCostDisplay}</td>
       <td style="font-size:.82rem;min-width:110px;"><div style="font-weight:600;color:var(--text);">${reservNum}</div><div style="margin-top:3px;">${payLink}</div></td>
       <td class="col-r" style="color:var(--success)"><strong>${fmt(paid)}</strong></td>
-      <td class="col-r" style="color:${cabinCost?'var(--danger)':'var(--muted)'}">${cabinCost?fmt(bal):'<em style="font-size:.82rem;">—</em>'}</td>
-      <td><div class="pbar-row"><div class="mpbar-track"><div class="mpbar-fill" style="width:${pct}%"></div></div><small>${pct}%</small></div></td>
+      <td class="col-r" style="color:${isCancelled?'var(--muted)':cabinCost?'var(--danger)':'var(--muted)'}">${isCancelled?'<em style="font-size:.82rem;">—</em>':cabinCost?fmt(bal):'<em style="font-size:.82rem;">—</em>'}</td>
+      <td><div class="pbar-row"><div class="mpbar-track"><div class="mpbar-fill" style="width:${isCancelled?0:pct}%"></div></div><small>${isCancelled?'—':pct+'%'}</small></div></td>
       <td>${actions}</td>
     </tr>`;
   }
@@ -1962,9 +1967,25 @@ async function loadInventoryTab(){
   asgEl.innerHTML=`<table><thead><tr><th>Traveler</th><th>Cabin Type</th><th>Cabin Number</th><th>Reserved On</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 
-function showInventoryDetail(cabinType){
-  const matching=gInventoryAssignments.filter(a=>a.cabin_type===cabinType);
+async function showInventoryDetail(cabinType){
+  // Open modal immediately with spinner so user sees the click registered
+  document.getElementById('inv-detail-title').textContent=`${cabinType} — Loading…`;
+  document.getElementById('inv-detail-content').innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  document.getElementById('inv-detail-modal').classList.add('open');
+
+  // Fetch live from DB so data is always fresh
+  const{data:assignments,error}=await sb.from('cabin_assignments')
+    .select('*, profiles(name,email)')
+    .eq('cabin_type',cabinType);
+
+  if(error){
+    document.getElementById('inv-detail-content').innerHTML=`<p style="color:var(--danger);padding:12px;">Error loading data: ${error.message}</p>`;
+    return;
+  }
+
+  const matching=assignments||[];
   document.getElementById('inv-detail-title').textContent=`${cabinType} Cabin — ${matching.length} Booked`;
+
   if(matching.length===0){
     document.getElementById('inv-detail-content').innerHTML='<div class="empty"><div class="ei">🛏️</div><p>No travelers booked in this cabin type yet.</p></div>';
   } else {
@@ -1972,11 +1993,10 @@ function showInventoryDetail(cabinType){
       <td><strong>${a.profiles?.name||'—'}</strong><br><small style="color:var(--muted)">${a.profiles?.email||''}</small></td>
       <td>${a.cabin_number||'<em style="color:var(--muted)">Not assigned</em>'}</td>
       <td>${a.suite_pending?'<span class="badge badge-warn">⭐ Suite Pending</span>':'<span class="badge badge-success">Confirmed ✓</span>'}</td>
-      <td><small>${new Date(a.assigned_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</small></td>
+      <td><small>${a.assigned_at?new Date(a.assigned_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</small></td>
     </tr>`).join('');
     document.getElementById('inv-detail-content').innerHTML=`<table><thead><tr><th>Traveler</th><th>Cabin #</th><th>Status</th><th>Reserved</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
-  document.getElementById('inv-detail-modal').classList.add('open');
 }
 
 // ── CANCELLATIONS ─────────────────────────────────────────────
