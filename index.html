@@ -243,8 +243,8 @@
       <div class="welcome-banner"><h2 id="dash-welcome">Welcome!</h2><p>Here's your current payment status for the Commonwealth Cruise 2027</p></div>
       <div class="progress-card">
         <div class="ticker-wrap"><div class="ticker-track">
-          <span class="ticker-item">⚠️ GRATUITIES ARE NOT INCLUDED IN CABIN PRICE — These are a separate cost payable directly to the cruise line.</span>
-          <span class="ticker-item">⚠️ GRATUITIES ARE NOT INCLUDED IN CABIN PRICE — These are a separate cost payable directly to the cruise line.</span>
+          <span class="ticker-item">⚠️ Gratuities are NOT INCLUDED in your cruise cabin costs &nbsp;—&nbsp; <a href="https://www.carnival.com/site-content/static-faq-2018/page-content#collapseOne-3-0" target="_blank" style="color:#fff;text-decoration:underline;">What are Service Gratuities? ↗</a></span>
+          <span class="ticker-item">⚠️ Gratuities are NOT INCLUDED in your cruise cabin costs &nbsp;—&nbsp; <a href="https://www.carnival.com/site-content/static-faq-2018/page-content#collapseOne-3-0" target="_blank" style="color:#fff;text-decoration:underline;">What are Service Gratuities? ↗</a></span>
         </div></div>
         <div class="progress-meta"><span>Payment Progress</span><span class="progress-pct" id="dash-pct"></span></div>
         <div class="pbar-track"><div class="pbar-fill" id="dash-pbar" style="width:0%"></div></div>
@@ -264,6 +264,13 @@
         <p style="font-size:.84rem;color:var(--muted);margin-bottom:12px;">Add all guests sharing your cabin. Required for cruise check-in.</p>
         <div class="add-traveler-form" id="add-traveler-form">
           <div id="cabin-alert" class="alert"></div>
+
+          <!-- Name documentation disclaimer -->
+          <div style="background:#f0f7ff;border:1.5px solid #aed6f1;border-radius:9px;padding:13px 15px;margin-bottom:14px;font-size:.85rem;line-height:1.65;">
+            <strong style="display:block;margin-bottom:4px;color:var(--primary);">📋 Cabin Traveler Information</strong>
+            The guest's full name (first name and last name) must be the same as the guest's unexpired, government-issued photo ID that will be used for travel identification.
+            <span style="display:block;margin-top:5px;font-weight:800;color:var(--danger);">Failure to bring documentation bridging the name differences could result in denial of boarding.</span>
+          </div>
 
           <div class="section-hdr">Personal Information</div>
           <div class="grid-4" style="margin-bottom:14px;">
@@ -440,18 +447,41 @@
 
 <!-- FIRST LOGIN MODAL -->
 <div id="first-login-modal" class="modal-overlay">
-  <div class="modal-box">
+  <div class="modal-box" style="max-width:500px;max-height:90vh;overflow-y:auto;">
     <div style="font-size:2rem;text-align:center;margin-bottom:10px;">🛳️ Welcome Aboard!</div>
     <h3 style="text-align:center;color:var(--primary);margin-bottom:14px;">Before You Get Started</h3>
+
+    <!-- Gratuities Notice -->
     <div style="background:#fdf0ee;border:2px solid #f5c6c0;border-radius:10px;padding:14px;margin-bottom:14px;">
-      <div style="font-weight:800;color:var(--danger);margin-bottom:6px;">⚠️ Gratuities Notice</div>
-      <p style="font-size:.87rem;line-height:1.6;color:#7b1c14;">Gratuities are <strong>NOT included</strong> in your cabin price. These are a separate cost payable directly to the cruise line.</p>
+      <div style="font-weight:800;color:var(--danger);margin-bottom:8px;">⚠️ Gratuities Notice</div>
+      <p style="font-size:.87rem;line-height:1.6;color:#7b1c14;margin-bottom:10px;">Gratuities are <strong>NOT INCLUDED</strong> in your cruise cabin costs. These are a separate charge. <a href="https://help.carnival.com/app/answers/category/c/481" target="_blank" style="color:var(--danger);font-weight:700;">What are Service Gratuities? ↗</a></p>
+      <table style="width:100%;border-collapse:collapse;font-size:.85rem;margin-bottom:12px;">
+        <thead><tr style="background:#f9d6d2;"><th style="padding:6px 10px;text-align:left;border-radius:6px 0 0 0;">Stateroom Type</th><th style="padding:6px 10px;text-align:right;border-radius:0 6px 0 0;">Per Person / Per Day</th></tr></thead>
+        <tbody>
+          <tr style="border-bottom:1px solid #f5c6c0;"><td style="padding:7px 10px;">Standard Staterooms</td><td style="padding:7px 10px;text-align:right;font-weight:700;">$17.00 USD</td></tr>
+          <tr><td style="padding:7px 10px;">Suite Staterooms</td><td style="padding:7px 10px;text-align:right;font-weight:700;">$19.00 USD</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:.83rem;color:#7b1c14;margin-bottom:10px;font-weight:700;">How would you like to handle gratuities?</p>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:4px;">
+        <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;font-weight:500;font-size:.86rem;background:#fff8f7;border:1.5px solid #f5c6c0;border-radius:8px;padding:10px;">
+          <input type="radio" name="grat-choice" id="grat-prepay" value="prepay" onchange="checkFirstLoginReady()" style="margin-top:2px;accent-color:var(--danger);">
+          <span><strong>Prepay Gratuities</strong> — Pay your gratuity amount before sailing. Contact the trip organizer or call Carnival directly to prepay.</span>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;font-weight:500;font-size:.86rem;background:#fff8f7;border:1.5px solid #f5c6c0;border-radius:8px;padding:10px;">
+          <input type="radio" name="grat-choice" id="grat-sail" value="sail-sign" onchange="checkFirstLoginReady()" style="margin-top:2px;accent-color:var(--danger);">
+          <span><strong>Pay through Sail &amp; Sign Card</strong> — Gratuities will be charged automatically to your onboard account during the cruise.</span>
+        </label>
+      </div>
     </div>
-    <div style="background:#e8f4fd;border:2px solid #aed6f1;border-radius:10px;padding:14px;margin-bottom:18px;">
+
+    <!-- Cabin Travelers Reminder -->
+    <div style="background:#e8f4fd;border:2px solid #aed6f1;border-radius:10px;padding:14px;margin-bottom:16px;">
       <div style="font-weight:800;color:var(--primary);margin-bottom:6px;">📋 Action Required — Cabin Travelers</div>
       <p style="font-size:.87rem;line-height:1.6;color:#0c4a6e;">You are required to add <strong>all travelers sharing your cabin</strong> using the Cabin Travelers section on your dashboard. This information is required for cruise check-in and must be completed before your first payment.</p>
     </div>
-    <div class="ck-group"><input type="checkbox" id="first-login-ack" onchange="document.getElementById('first-login-ok').disabled=!this.checked;"><label for="first-login-ack" style="font-size:.87rem;">I understand that gratuities are not included and that I must add all cabin travelers to my account.</label></div>
+
+    <div class="ck-group"><input type="checkbox" id="first-login-ack" onchange="checkFirstLoginReady()"><label for="first-login-ack" style="font-size:.87rem;">I understand that gratuities are <strong>NOT included</strong> in my cabin cost and are a separate charge, and that I must add all cabin travelers to my account.</label></div>
     <button id="first-login-ok" class="btn btn-primary btn-full" style="margin-top:14px;" onclick="dismissFirstLogin()" disabled>Continue to Dashboard</button>
   </div>
 </div>
@@ -512,7 +542,7 @@
         <li><strong>Non-VWP citizens</strong> — a valid U.S. visa is required.</li>
         <li><strong>Mexican citizens</strong> with a Border Crossing Card must also present a valid Mexican passport.</li>
       </ul>
-      <div class="important">📎 <a href="https://help.carnival.com/app/answers/detail/a_id/1405?_gl=1*1rs237m*_gcl_aw*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_dc*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_au*MTk3MTQ1MzE5LjE3ODQ2Njc3Njg.*_ga*NDkzMjg5MDkxLjE3ODI4NDUwNjM.*_ga_SRWFP1ER4J*czE3ODUzMzI2MTIkbzYkZzEkdDE3ODUzMzI3MTkkajU2JGwwJGgw" target="_blank">Travel Documentation: Non-U.S. Citizens ↗</a><br><br>Guests are personally responsible for their documents. The trip organizer assumes no responsibility.</div>
+      <div class="important">📎 <a href="https://help.carnival.com/app/answers/detail/a_id/1405?_gl=1*xr57qe*_gcl_aw*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_dc*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_au*MTk3MTQ1MzE5LjE3ODQ2Njc3Njg.*_ga*NDkzMjg5MDkxLjE3ODI4NDUwNjM.*_ga_SRWFP1ER4J*czE3ODUzNDA4OTkkbzgkZzEkdDE3ODUzNDI4OTMkajUzJGwwJGgw" target="_blank">Travel Documentation: Non-U.S. Citizens ↗</a><br><br>Guests are personally responsible for their documents. The trip organizer assumes no responsibility.</div>
       <div class="ck-group"><input type="checkbox" id="psetup-ack-non-us" onchange="onPsetupAckChange()"><label for="psetup-ack-non-us">I have read and understand the travel documentation requirements. I am personally responsible for ensuring my documents are in order.</label></div>
     </div>
 
@@ -660,8 +690,254 @@ async function sendEmail(toEmail,toName,subject,message){
 
 function emailAccountCreated(profile,cabinType){
   const subject=`${TRIP_NAME} — Your Account Has Been Created`;
-  const message=`Hi ${profile.name},\n\nWelcome to the ${TRIP_NAME} payment portal! Your account has been created successfully.\n\nAccount Details:\n• Name: ${profile.name}\n• Email: ${profile.email}\n• Citizenship: ${profile.citizenship_type.toUpperCase()}\n• Cabin Type: ${cabinType||'Not yet selected'}\n\nYou can log in at any time to check your payment status and manage your cabin travelers.\n\nImportant: Please ensure your travel documentation is in order before the cruise.\n\nIf you have any questions, reply to this email or contact the trip organizer.\n\nSafe travels!\n${ADMIN_EMAIL}`;
-  sendEmail(profile.email,profile.name,subject,message);
+  const cit=profile.citizenship_type||'';
+  const isUS=cit==='us';
+  const isNonUS=cit==='non-us';
+  const isUSPR=cit==='us-pr';
+  const isCanadian=cit==='canadian';
+  const isSuiteType=(cabinType||'').toLowerCase().includes('suite');
+  const gratRate=isSuiteType?'$19.00':'$17.00';
+
+  // ── Sections included for EVERYONE ──────────────────────────
+
+  const namesSection=`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NAMES ON TRAVEL DOCUMENTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+It is important that the guest's full name (first name and last name) and gender on the cruise and airline tickets be the same as the guest's unexpired, government-issued photo ID that will be used for travel identification. In the event of a different name on the cruise/airline ticket and the guest's photo ID as a result of a marriage, divorce or a legal name change, documentation (original or clear, legible copy) supporting this change is required at embarkation, such as a marriage certificate, marriage license or legal name change court document. Failure to bring documentation bridging the name differences could result in denial of boarding.
+
+Please Note: For those about to or recently have been married, we strongly recommend that if the non-expired government-issued photo ID is in the maiden name, the cruise booking be made in the maiden name (do not include the married name). If the reservation was made in the married name, but the non-expired government-issued photo ID is in the maiden name, documentation (original or clear, legible copy) supporting this change is required at embarkation, such as a marriage certificate or marriage license. Failure to bring documentation bridging the name differences could result in denial of boarding.
+
+• Soon-to-be or recently married guests – we recommend the cruise reservation be booked using the maiden name, provided the guest does not have official documents (marriage certificate, etc.) to confirm the name change.
+• Guests sailing with birth certificate and government-issued ID – if the names differ between the two documents, guests will be required to show official documentation that confirms the legal name change (e.g. marriage certificate, adoption, deed poll, U.S. naturalization).`;
+
+  const gratuitySection=`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GRATUITIES — NOT INCLUDED IN CABIN COST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Gratuities are NOT included in your cabin price and are a separate cost. Your cabin type (${cabinType||'Standard'}) rate is ${gratRate} USD per person, per day.
+
+• Standard Staterooms: $17.00 USD per person, per day
+• Suite Staterooms:    $19.00 USD per person, per day
+
+You may prepay gratuities in advance or have them charged to your Sail & Sign onboard account during the cruise.
+For more information: https://help.carnival.com/app/answers/category/c/481`;
+
+  const minorSection=`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TRAVELING WITH MINORS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+When traveling with a minor where one or both parents or legal guardians are not cruising, we strongly recommend bringing an original, signed letter from the absent parent(s) or legal guardians authorizing the minor to travel with you. If there is no second parent with legal claims to the minor (due to sole custody, deceased, etc.) other relevant paperwork, such as a court decision, death certificate, or birth certificate naming only one parent, would be useful to bring in place of a signed letter. This will expedite processing by the Department of Homeland Security.`;
+
+  // ── U.S. Citizens section ────────────────────────────────────
+
+  const usDocSection=`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+U.S. CITIZENS — TRAVEL DOCUMENTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Proper travel documentation is required at embarkation and throughout the cruise. Even though a guest has completed registration using Online Check-in, it is still the responsibility of the guest to present the required travel documents at the time of embarkation. Any guest without proper documents will not be allowed to board the vessel and no refund of the cruise fare will be issued. Carnival assumes no responsibility for advising guests of proper travel documentation.
+
+Carnival highly recommends that all guests travel with a passport book valid for at least six months beyond the completion of travel.
+
+U.S. DOMESTIC CRUISES — ACCEPTABLE WHTI-COMPLIANT DOCUMENTS:
+• U.S. Passport Book (valid 6+ months beyond travel completion)
+• U.S. Passport Card (valid 6+ months beyond travel completion)
+• State Enhanced Driver's License
+• Certificate of U.S. Naturalization
+• Native American Indian Card
+• Birth certificate (government-issued) + unexpired government photo ID
+
+─── U.S. PASSPORT BOOK ───
+Valid for air, land, or sea travel. Apply at passport-acceptance facilities nationwide.
+For information: www.travel.state.gov
+Expedited passport services: www.visacentral.com/carnival or call 877-559-4875.
+Mention "Carnival Account 75020" for discounted rates on VisaCentral service fees.
+
+─── U.S. PASSPORT CARD ───
+Cannot be used to travel by air outside the United States. Valid for land and sea travel between the U.S., Canada, Mexico, the Caribbean, and Bermuda.
+
+─── STATE ENHANCED DRIVER'S LICENSE (EDL) ───
+Cannot be used to travel by air outside the United States.
+Issued by: Michigan, Minnesota, New York, Vermont, and Washington.
+NOTE: A Real ID (gold circle with star) is NOT an Enhanced Driver's License and cannot be used as proof of citizenship. A Mobile/Digital version of an EDL is not acceptable.
+
+─── CERTIFICATE OF U.S. NATURALIZATION ───
+Form N-550 or N-570. Photocopies are unacceptable. Mobile/Digital versions not acceptable.
+
+─── NATIVE AMERICAN INDIANS ───
+Cannot be used to travel by air outside the United States.
+• Form I-872 American Indian Card
+• Enhanced Tribal Card (when available)
+
+─── BIRTH CERTIFICATE + PHOTO ID ───
+Acceptable birth certificates:
+• Original or copy issued by a government agency (state/county/city) or Dept. of Health and Vital Statistics
+• Clear, legible printed photocopy (does not need to be notarized)
+• Birth Certificate Card
+• Consular Report of Birth Abroad
+• Internationally adopted children (under 18): Certificate of Citizenship + adoption paperwork
+• Obtain copies at: www.vitalchek.com
+IMPORTANT: Birth certificates from Puerto Rico issued prior to July 1, 2010 are NOT valid.
+
+Required Photo ID (all guests 16+):
+• Driver's License (temporary with photo is acceptable)
+• Driver's Permit
+• School/Student ID (acceptable for guests 16/17/18)
+• Government-issued ID or U.S. Military ID with photo
+• Government-issued Trusted Traveler Card (NEXUS/SENTRI/FAST) — photo ID use only
+
+UNACCEPTABLE FORMS OF DOCUMENTATION:
+• Copies of any WHTI-Compliant document  • Driver's License as the only proof
+• Mobile/Digital version of a photo ID   • Temporary driver's license without photo
+• Voter's Registration Card               • Baptismal Papers
+• U.S. Military ID as the only proof     • Dependent Military ID (spouse/children of military)
+• U.S. Military Discharge Papers         • "No Record of Birth" certificate
+• Hospital certificate, hospital-issued birth notice, Certificate of Live Birth, or announcement of birth
+
+Additional Reference: https://www.carnival.com/help?topicid=3409`;
+
+  // ── Non-U.S. Citizens section ────────────────────────────────
+
+  const nonUsDocSection=`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TRAVEL DOCUMENTATION: NON-U.S. CITIZENS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Carnival requires guests to provide proper travel documentation in order to travel. The documentation is required at embarkation and throughout the cruise and is the responsibility of the guest. Our policy states that any guest traveling without proper documentation will be denied boarding the ship and will be under full penalty, and therefore, will not be offered a refund or a replacement cruise. Guests must contact the appropriate embassy or consulate of the countries they will be visiting for specific travel documentation requirements. Carnival assumes no responsibility for advising guests of Immigration requirements.
+
+On occasion, Non-U.S. Citizens may be asked to surrender their passport at time of check-in. It will be returned upon completion of the immigration inspection at the time of debarkation.
+
+Carnival highly recommends that all guests travel with a passport valid for at least six months beyond the completion of travel, from their country of citizenship.
+
+DOMESTIC CRUISES:
+• Non-U.S. citizens eligible under the Visa Waiver Program (VWP) are required to carry a passport valid for at least six months beyond the completion of travel AND must have an Electronic System for Travel Authorization (ESTA).
+  ESTA details: https://help.carnival.com/app/answers/detail/a_id/1405#VWP
+• Citizens from countries NOT eligible under the VWP must obtain a U.S. visa.
+  U.S. visa requirements: https://travel.state.gov/content/travel/en/us-visas.html
+  Alternatively, contact the nearest U.S. Embassy/Consulate or visit: https://visacentral.com/
+• Mexican citizens traveling with a Border Crossing Card must also present a valid Mexican passport (6+ months beyond travel completion).
+
+VISA WAIVER PROGRAM (VWP):
+The VWP allows foreign nationals from certain countries to travel to the United States for business or pleasure, for stays of 90 days or less, without obtaining a visa. All VWP countries must issue passports that include biometric identifiers (electronic scans of physical features such as eye, hand, fingerprint, or face).
+
+ELECTRONIC SYSTEM FOR TRAVEL AUTHORIZATION (ESTA):
+Citizens of VWP countries must possess an ESTA approval to travel. Applications may be submitted at any time prior to travel and must be completed for each qualifying member of the traveling party.
+Submit ESTA here: https://www.cbp.gov/travel/international-visitors/esta
+Guests must print and carry their ESTA as it will be required at cruise check-in along with their passport. An ESTA must be completed for EACH family member traveling on the cruise.
+
+NAMES ON TRAVEL DOCUMENTATION (Non-U.S. Citizens):
+It is important that the guest's full name (first name and last name) and gender on the cruise and airline tickets be the same as the guest's non-expired government-issued photo ID they plan to use for travel identification. In the event of a different name as a result of a marriage, divorce or a legal name change, documentation (original or clear, legible copy) supporting this change is required at embarkation. Failure to bring documentation bridging the name differences could result in denial of boarding.
+
+Please Note: For those about to or recently married — if the non-expired government-issued photo ID is in the maiden name, the cruise booking should be made in the maiden name. If the reservation was made in the married name but the photo ID is in the maiden name, a marriage certificate or marriage license is required at embarkation. Failure to bring documentation bridging the name differences could result in denial of boarding.
+
+Full documentation reference: https://help.carnival.com/app/answers/detail/a_id/1405`;
+
+  // ── U.S. Permanent Residents section ─────────────────────────
+
+  const usPRDocSection=`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TRAVEL DOCUMENTATION: U.S. PERMANENT RESIDENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Carnival requires guests to provide proper travel documentation in order to travel. The documentation is required at embarkation and throughout the cruise and is the responsibility of the guest. Our policy states that any guest traveling without proper documentation will be denied boarding the ship and will be under full penalty, and therefore, will not be offered a refund or a replacement cruise.
+
+Carnival highly recommends that all guests travel with a passport valid for at least six months beyond the completion of travel, from their country of citizenship.
+
+U.S. Permanent Residents (Green Card holders) are required to carry their Alien Registration Card (Form I-551) and a valid passport from their country of citizenship.
+
+BERMUDA SAILINGS:
+All Permanent Residents sailing to Bermuda MUST have a valid passport (not just their Green Card). A passport is mandatory for entry into Bermuda.
+
+RENEWING YOUR PERMANENT RESIDENT CARD:
+If your Green Card is expiring, you can renew it at: www.uscis.gov
+
+PHOTO ID:
+All guests 16 and older must present a government-issued photo ID at embarkation. A Permanent Resident Card (I-551) with a photo satisfies this requirement. However, guests are encouraged to also carry their country-of-citizenship passport.
+
+NAMES ON TRAVEL DOCUMENTATION (U.S. Permanent Residents):
+It is important that the guest's full name (first name and last name) and gender on the cruise and airline tickets be the same as the guest's non-expired government-issued photo ID they plan to use for travel identification. In the event of a different name as a result of a marriage, divorce or a legal name change, documentation (original or clear, legible copy) supporting this change is required at embarkation. Failure to bring documentation bridging the name differences could result in denial of boarding.
+
+Please Note: For those about to or recently married — if the non-expired government-issued photo ID is in the maiden name, the cruise booking should be made in the maiden name. If the reservation was made in the married name but the photo ID is in the maiden name, a marriage certificate or marriage license is required at embarkation. Failure to bring documentation bridging the name differences could result in denial of boarding.
+
+TRAVELING WITH MINORS (U.S. Permanent Residents):
+Minors (guests under 18) traveling with only one parent or legal guardian, or with neither parent, should carry a notarized letter of consent from the non-accompanying parent(s) or legal guardian(s) permitting the minor to travel. This is especially important when crossing international borders.
+
+Full documentation reference: https://help.carnival.com/app/answers/detail/a_id/1401?_gl=1*r8qksa*_gcl_aw*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_dc*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_au*MTk3MTQ1MzE5LjE3ODQ2Njc3Njg.*_ga*NDkzMjg5MDkxLjE3ODI4NDUwNjM.*_ga_SRWFP1ER4J*czE3ODUzNDA4OTkkbzgkZzEkdDE3ODUzNDM4NjkkajUzJGwwJGgw`;
+
+  // ── Canadian Citizens section ─────────────────────────────────
+
+  const canadianDocSection=`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TRAVEL DOCUMENTATION: CANADIAN CITIZENS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Carnival requires guests to provide proper travel documentation in order to travel. The documentation is required at embarkation and throughout the cruise and is the responsibility of the guest. Our policy states that any guest traveling without proper documentation will be denied boarding the ship and will be under full penalty, and therefore, will not be offered a refund or a replacement cruise.
+
+Carnival highly recommends that all guests travel with a passport valid for at least six months beyond the completion of travel, from their country of citizenship.
+
+─── CANADIAN PASSPORT ───
+A valid Canadian Passport is the recommended and most widely accepted travel document.
+For passport and visa assistance: www.visacentral.ca or call 888-665-9956.
+Mention "Carnival" for discounted rates on VisaCentral service fees.
+
+─── PROVINCIAL ENHANCED DRIVER'S LICENSE (EDL) ───
+Cannot be used to travel by air outside of Canada.
+Issued by the following provinces: British Columbia, Manitoba, Ontario, and Quebec.
+NOTE: A Mobile/Digital version of an EDL is not acceptable.
+
+─── SECURE CERTIFICATE OF INDIAN STATUS (SCIS) ───
+Two types are accepted:
+• SCIS card with a MRZ (machine-readable zone) — valid for land/sea travel
+• SCIS card without MRZ — may have additional restrictions; confirm with embarkation staff
+
+─── KOOTENAI TRIBE ENHANCED TRIBAL CARD (ETC) ───
+Accepted for land and sea travel between the U.S. and Canada.
+
+─── GUESTS 15 AND UNDER ───
+Any ONE of the following is accepted (in addition to photo ID for guests 12–15):
+• Original or copy of Birth Certificate issued by a Canadian government agency
+• Canadian Citizenship Card
+• Certificate of Canadian Citizenship (Naturalization Certificate)
+
+UNACCEPTABLE FORMS OF DOCUMENTATION:
+• Copies of any WHTI-Compliant document
+• Mobile/Digital version of a photo ID
+• Driver's License as the only proof of citizenship
+• Hospital-issued birth certificates or birth notices
+• Baptismal Papers
+• Provincial Health Cards
+
+NAMES ON TRAVEL DOCUMENTATION (Canadian Citizens):
+It is important that the guest's full name (first name and last name) and gender on the cruise and airline tickets be the same as the guest's non-expired government-issued photo ID they plan to use for travel identification. In the event of a different name as a result of a marriage, divorce or a legal name change, documentation (original or clear, legible copy) supporting this change is required at embarkation. Failure to bring documentation bridging the name differences could result in denial of boarding.
+
+Please Note: For those about to or recently married — if the non-expired government-issued photo ID is in the maiden name, the cruise booking should be made in the maiden name. If the reservation was made in the married name but the photo ID is in the maiden name, a marriage certificate or marriage license is required at embarkation. Failure to bring documentation bridging the name differences could result in denial of boarding.
+
+TRAVELING WITH MINORS (Canadian Citizens):
+Minors (guests under 18) traveling with only one parent or legal guardian, or with neither parent, should carry a notarized letter of consent from the non-accompanying parent(s) or legal guardian(s) permitting the minor to travel. This is especially important when crossing international borders.
+
+Full documentation reference: https://help.carnival.com/app/answers/detail/a_id/1402?_gl=1*1fh1ntz*_gcl_aw*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_dc*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_au*MTk3MTQ1MzE5LjE3ODQ2Njc3Njg.*_ga*NDkzMjg5MDkxLjE3ODI4NDUwNjM.*_ga_SRWFP1ER4J*czE3ODUzNDA4OTkkbzgkZzEkdDE3ODUzNDQwMjAkajUzJGwwJGgw`;
+
+  // ── Assemble message ─────────────────────────────────────────
+
+  const parts=[
+    `Hi ${profile.name},`,
+    ``,
+    `Welcome to the ${TRIP_NAME} payment portal! Your cabin selection has been received.`,
+    ``,
+    `ACCOUNT DETAILS:`,
+    `• Name: ${profile.name}`,
+    `• Email: ${profile.email}`,
+    `• Cabin Type: ${cabinType||'Pending'}`,
+    ``,
+    `You can log in at any time to check your payment status and manage your cabin travelers.`,
+    ``,
+    namesSection,
+    ``,
+    gratuitySection,
+    ``,
+    isUS      ? usDocSection     : '',
+    isNonUS   ? nonUsDocSection  : '',
+    isUSPR    ? usPRDocSection   : '',
+    isCanadian? canadianDocSection: '',
+    ``,
+    minorSection,
+    ``,
+    `If you have any questions, contact the trip organizer at ${ADMIN_EMAIL}.`,
+    ``,
+    `Safe travels!`
+  ];
+
+  sendEmail(profile.email,profile.name,subject,parts.filter(p=>p!==undefined).join('\n'));
 }
 
 function emailPaymentConfirmed(travelerName,travelerEmail,paymentLabel,amountPaid,totalPaidToDate,remainingBalance){
@@ -773,6 +1049,12 @@ async function doReset(){
 }
 
 async function doLogout(){await sb.auth.signOut();gUser=null;gProfile=null;showPage('login');}
+
+function checkFirstLoginReady(){
+  const ack=document.getElementById('first-login-ack')?.checked;
+  const grat=document.querySelector('input[name="grat-choice"]:checked');
+  document.getElementById('first-login-ok').disabled=!(ack&&grat);
+}
 
 async function dismissFirstLogin(){
   document.getElementById('first-login-modal').classList.remove('open');
