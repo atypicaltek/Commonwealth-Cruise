@@ -155,6 +155,11 @@
     .modal-overlay.open{display:flex;}
     .modal-box{background:#fff;border-radius:16px;padding:28px 24px;max-width:440px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.25);}
     .suite-pending-badge{background:#fffbeb;color:#78460a;border:1.5px solid #f6c440;border-radius:7px;padding:4px 10px;font-size:.78rem;font-weight:700;display:inline-block;}
+    .ticker-wrap{background:#c0392b;overflow:hidden;border-radius:8px;margin-bottom:10px;padding:7px 0;}
+    .ticker-track{display:flex;width:max-content;animation:ticker 18s linear infinite;}
+    .ticker-track:hover{animation-play-state:paused;}
+    .ticker-item{color:#fff;font-weight:800;font-size:.84rem;padding:0 60px;white-space:nowrap;}
+    @keyframes ticker{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
   </style>
 </head>
 <body>
@@ -340,13 +345,17 @@
     <div id="dash-content" style="display:none;">
       <div class="welcome-banner"><h2 id="dash-welcome">Welcome!</h2><p>Here's your current payment status for the Commonwealth Cruise 2027</p></div>
       <div class="progress-card">
-        <div class="progress-meta"><span>Payment Progress</span><span class="progress-pct" id="dash-pct">0%</span></div>
+        <div class="ticker-wrap"><div class="ticker-track">
+          <span class="ticker-item">⚠️ GRATUITIES ARE NOT INCLUDED IN CABIN PRICE — These are a separate cost payable directly to the cruise line.</span>
+          <span class="ticker-item">⚠️ GRATUITIES ARE NOT INCLUDED IN CABIN PRICE — These are a separate cost payable directly to the cruise line.</span>
+        </div></div>
+        <div class="progress-meta"><span>Payment Progress</span><span class="progress-pct" id="dash-pct"></span></div>
         <div class="pbar-track"><div class="pbar-fill" id="dash-pbar" style="width:0%"></div></div>
-        <div class="progress-labels"><span id="dash-paid-label">$0 paid</span><span id="dash-total-label">Total: $0</span></div>
+        <div class="progress-labels"><span id="dash-paid-label">$0 paid</span><span id="dash-total-label" style="color:var(--muted);font-style:italic;">Total: Pending admin update</span></div>
       </div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-val paid" id="dash-paid-val">$0</div><div class="stat-label">Total Paid</div></div>
-        <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-val owed" id="dash-balance-val">$0</div><div class="stat-label">Balance Due</div></div>
+        <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-val" id="dash-balance-val" style="color:var(--muted);font-size:1rem;">Pending</div><div class="stat-label">Balance Due</div></div>
         <div class="stat-card"><div class="stat-icon">📅</div><div class="stat-val date" id="dash-nextdue-val">—</div><div class="stat-label">Next Due Date</div></div>
       </div>
       <div class="card">
@@ -532,6 +541,24 @@
   </div>
 </div>
 
+<!-- FIRST LOGIN MODAL -->
+<div id="first-login-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div style="font-size:2rem;text-align:center;margin-bottom:10px;">🛳️ Welcome Aboard!</div>
+    <h3 style="text-align:center;color:var(--primary);margin-bottom:14px;">Before You Get Started</h3>
+    <div style="background:#fdf0ee;border:2px solid #f5c6c0;border-radius:10px;padding:14px;margin-bottom:14px;">
+      <div style="font-weight:800;color:var(--danger);margin-bottom:6px;">⚠️ Gratuities Notice</div>
+      <p style="font-size:.87rem;line-height:1.6;color:#7b1c14;">Gratuities are <strong>NOT included</strong> in your cabin price. These are a separate cost payable directly to the cruise line.</p>
+    </div>
+    <div style="background:#e8f4fd;border:2px solid #aed6f1;border-radius:10px;padding:14px;margin-bottom:18px;">
+      <div style="font-weight:800;color:var(--primary);margin-bottom:6px;">📋 Action Required — Cabin Travelers</div>
+      <p style="font-size:.87rem;line-height:1.6;color:#0c4a6e;">You are required to add <strong>all travelers sharing your cabin</strong> using the Cabin Travelers section on your dashboard. This information is required for cruise check-in and must be completed before your first payment.</p>
+    </div>
+    <div class="ck-group"><input type="checkbox" id="first-login-ack" onchange="document.getElementById('first-login-ok').disabled=!this.checked;"><label for="first-login-ack" style="font-size:.87rem;">I understand that gratuities are not included and that I must add all cabin travelers to my account.</label></div>
+    <button id="first-login-ok" class="btn btn-primary btn-full" style="margin-top:14px;" onclick="dismissFirstLogin()" disabled>Continue to Dashboard</button>
+  </div>
+</div>
+
 <!-- SUITE AVAILABILITY MODAL -->
 <div id="suite-modal" class="modal-overlay">
   <div class="modal-box" style="text-align:center;">
@@ -709,7 +736,7 @@ async function doSignup(){
 
   flash('signup-alert','Creating your account…','info');
   const fullName=firstName+' '+lastName;
-  const{data,error}=await sb.auth.signUp({email,password:pin,options:{data:{full_name:fullName}}});
+  const{data,error}=await sb.auth.signUp({email,password:pin,options:{data:{full_name:fullName},emailRedirectTo:window.location.origin+window.location.pathname}});
   if(error){flash('signup-alert',error.message);return;}
 
   if(data.user){
@@ -730,7 +757,8 @@ async function doSignup(){
       emailAccountCreated({...profileData},cabinType);
     }
   }
-  flash('signup-alert','🎉 Account created! Check your email to confirm, then sign in.','success');
+  flash('signup-alert','🎉 Account created! Check your email to confirm your address, then sign in. Redirecting to sign-in…','success');
+  setTimeout(()=>showPage('login'),3500);
 }
 
 async function doForgot(){
@@ -754,6 +782,11 @@ async function doReset(){
 }
 
 async function doLogout(){await sb.auth.signOut();gUser=null;gProfile=null;showPage('login');}
+
+async function dismissFirstLogin(){
+  document.getElementById('first-login-modal').classList.remove('open');
+  await sb.from('profiles').update({first_login_complete:true}).eq('id',gUser.id);
+}
 
 // ── ROUTE ────────────────────────────────────────────────────
 async function loadAndRoute(user){
@@ -884,6 +917,7 @@ async function loadDashboard(){
   const milestones=msRes.data||[];
   const payments=pyRes.data||[];
   const cabin=caRes.data;
+  const cabinCost=cabin?.cabin_cost?parseFloat(cabin.cabin_cost):null;
 
   // Show cabin badge
   const cabinBadge=document.getElementById('dash-cabin-badge');
@@ -892,53 +926,91 @@ async function loadDashboard(){
     cabinBadge.style.display='inline-block';
   }
 
+  // First login check
+  if(gProfile&&!gProfile.first_login_complete){
+    document.getElementById('first-login-modal').classList.add('open');
+  }
+
   const payMap={};payments.forEach(p=>{payMap[p.milestone_id]=p;});
   const today=new Date();today.setHours(0,0,0,0);
-  let totalDue=0,totalPaid=0,nextDue=null;
+  let totalPaid=0,nextDue=null;
   milestones.forEach(m=>{
     const p=payMap[m.id]||{};
-    const due=parseFloat(p.amount_due??m.minimum_amount??0);
     const paid=parseFloat(p.amount_paid||0);
-    totalDue+=due;totalPaid+=paid;
+    totalPaid+=paid;
+    const due=parseFloat(p.amount_due??m.minimum_amount??0);
     const isPaid=due>0&&paid>=due;
     const dDate=new Date(m.due_date+'T00:00:00');
     if(!isPaid&&(!nextDue||dDate<nextDue))nextDue=dDate;
   });
 
-  const balance=Math.max(0,totalDue-totalPaid);
-  const pct=totalDue>0?Math.round((totalPaid/totalDue)*100):0;
-  document.getElementById('dash-pct').textContent=pct+'%';
-  document.getElementById('dash-pbar').style.width=pct+'%';
+  // Progress bar — only show % if cabin cost is known
+  if(cabinCost){
+    const pct=Math.min(100,Math.round((totalPaid/cabinCost)*100));
+    document.getElementById('dash-pct').textContent=pct+'%';
+    document.getElementById('dash-pbar').style.width=pct+'%';
+    document.getElementById('dash-total-label').textContent='Total: '+fmt(cabinCost);
+    document.getElementById('dash-total-label').style.cssText='';
+    const balance=Math.max(0,cabinCost-totalPaid);
+    document.getElementById('dash-balance-val').textContent=fmt(balance);
+    document.getElementById('dash-balance-val').style.cssText='color:var(--danger);font-size:1.4rem;font-weight:800;';
+  } else {
+    document.getElementById('dash-pct').textContent='';
+    document.getElementById('dash-pbar').style.width='0%';
+    document.getElementById('dash-total-label').textContent='Total: Pending admin update';
+    document.getElementById('dash-balance-val').textContent='Pending';
+    document.getElementById('dash-balance-val').style.cssText='color:var(--muted);font-size:1rem;';
+  }
   document.getElementById('dash-paid-label').textContent=fmt(totalPaid)+' paid';
-  document.getElementById('dash-total-label').textContent='Total: '+fmt(totalDue);
   document.getElementById('dash-paid-val').textContent=fmt(totalPaid);
-  document.getElementById('dash-balance-val').textContent=fmt(balance);
   document.getElementById('dash-nextdue-val').textContent=nextDue?nextDue.toLocaleDateString('en-US',{month:'short',day:'numeric'}):'None';
 
-  let runningDue=0,runningPaid=0;
-  const rows=milestones.map(m=>{
+  // Build schedule rows — last milestone (Remaining Balance) uses cabin_cost
+  let runningPaid=0;
+  const isLastMilestone=(m,arr)=>arr.indexOf(m)===arr.length-1;
+  const rows=milestones.map((m,i,arr)=>{
     const p=payMap[m.id]||{};
-    const minAmt=parseFloat(m.minimum_amount||0);
-    const due=parseFloat(p.amount_due??m.minimum_amount??0);
+    const minAmt=m.minimum_amount!=null?parseFloat(m.minimum_amount):null;
     const paid=parseFloat(p.amount_paid||0);
-    runningDue+=due;runningPaid+=paid;
-    const remaining=runningDue-runningPaid;
+    runningPaid+=paid;
+    const isLast=i===arr.length-1;
     const dDate=new Date(m.due_date+'T00:00:00');
-    const isPaid=due>0&&paid>=due;
-    const isOver=!isPaid&&dDate<today;
-    const isSoon=!isPaid&&!isOver&&(dDate-today)<7*24*60*60*1000;
+    const due=parseFloat(p.amount_due??m.minimum_amount??0);
+    const isPaid=!isLast&&due>0&&paid>=due;
+    const isOver=!isPaid&&!isLast&&dDate<today;
+    const isSoon=!isPaid&&!isOver&&!isLast&&(dDate-today)<7*24*60*60*1000;
     const dateStr=fmtDate(m.due_date);
     const dateCls=isOver?'overdue':isSoon?'due-soon':'';
     let badge='<span class="badge badge-gray">TBD</span>';
-    if(due>0){
+    if(isLast){
+      badge=cabinCost?'<span class="badge badge-info">Final Payment</span>':'<span class="badge badge-gray">Pending Cost Entry</span>';
+    } else if(due>0){
       if(isPaid)badge='<span class="badge badge-success">Paid ✓</span>';
       else if(isOver)badge='<span class="badge badge-danger">Overdue!</span>';
       else if(isSoon)badge='<span class="badge badge-warn">Due Soon</span>';
       else badge='<span class="badge badge-info">Upcoming</span>';
     }
-    const remCls=remaining<=0?'rem-zero':'rem-pos';
-    const remStr=remaining<=0?'✓ '+fmt(0):fmt(remaining);
-    return`<tr><td><strong>${m.label}</strong></td><td class="col-r">${minAmt>0?fmt(minAmt):'—'}</td><td class="${dateCls}">${dateStr}</td><td class="col-r">${paid>0?'<strong>'+fmt(paid)+'</strong>':'—'}</td><td class="col-r ${remCls}">${remStr}</td><td>${badge}</td></tr>`;
+    // Remaining balance cell
+    let remCell;
+    if(isLast){
+      if(cabinCost){
+        const finalRem=Math.max(0,cabinCost-runningPaid);
+        const cls=finalRem<=0?'rem-zero':'rem-pos';
+        remCell=`<td class="col-r ${cls}">${finalRem<=0?'✓ '+fmt(0):fmt(finalRem)}</td>`;
+      } else {
+        remCell=`<td class="col-r" style="color:var(--muted);font-style:italic;">Pending</td>`;
+      }
+      // Min amount for last row also depends on cabin_cost
+      const lastMin=cabinCost?(cabinCost-850>0?fmt(cabinCost-850):'—'):'Pending';
+      return`<tr><td><strong>${m.label}</strong></td><td class="col-r" style="${!cabinCost?'color:var(--muted);font-style:italic;':''}">${lastMin}</td><td class="${dateCls}">${dateStr}</td><td class="col-r">${paid>0?'<strong>'+fmt(paid)+'</strong>':'—'}</td>${remCell}<td>${badge}</td></tr>`;
+    } else {
+      const runningDueSoFar=(minAmt||0)*(i+1<=5?1:1); // each row accumulates
+      // For non-last rows, remaining = (sum of minimums so far) - totalPaid
+      const nonLastRemaining=milestones.slice(0,i+1).reduce((s,ms)=>s+parseFloat(ms.minimum_amount||0),0)-runningPaid;
+      const cls=nonLastRemaining<=0?'rem-zero':'rem-pos';
+      const remStr=nonLastRemaining<=0?'✓ '+fmt(0):fmt(nonLastRemaining);
+      return`<tr><td><strong>${m.label}</strong></td><td class="col-r">${minAmt!=null?fmt(minAmt):'—'}</td><td class="${dateCls}">${dateStr}</td><td class="col-r">${paid>0?'<strong>'+fmt(paid)+'</strong>':'—'}</td><td class="col-r ${cls}">${remStr}</td><td>${badge}</td></tr>`;
+    }
   });
 
   document.getElementById('dash-schedule').innerHTML=rows.length
@@ -1087,12 +1159,14 @@ async function loadTravelers(){
     const bal=Math.max(0,due-paid);
     const pct=due>0?Math.round((paid/due)*100):0;
     const cabin=p.cabin_assignments?p.cabin_assignments.cabin_type+(p.cabin_assignments.cabin_number?' #'+p.cabin_assignments.cabin_number:''):'—';
+    const cabinCostDisplay=p.cabin_assignments?.cabin_cost?fmt(p.cabin_assignments.cabin_cost):'<em style="color:var(--muted)">Not set</em>';
     const docB=p.needs_doc_info?'<span class="badge needs-info">Needs Doc</span> ':'';
     const rowStyle=isCancelled?'opacity:.6;background:#fdf0ee;':'';
     const actions=isCancelled
       ?`<span class="badge badge-danger">Cancelled</span>`
       :`<div style="display:flex;gap:5px;flex-wrap:wrap;">
           <button class="btn-warn" onclick="assignCabinNumber('${p.id}','${p.name}','${p.cabin_assignments?.cabin_type||''}','${p.cabin_assignments?.cabin_number||''}')">Assign Cabin #</button>
+          <button class="btn-warn" onclick="setCabinCost('${p.id}','${p.name}','${p.cabin_assignments?.cabin_cost||''}')">Set Cabin Cost</button>
           <button class="btn-danger" onclick="cancelTraveler('${p.id}','${p.name}','${p.email||''}','${p.cabin_assignments?.cabin_type||''}','${p.cabin_assignments?.cabin_number||''}','${p.citizenship_type||''}',${paid})">Cancel</button>
           <button class="btn-danger" style="background:#fdf0ee;opacity:.7;" onclick="deleteTravelerTest('${p.id}','${p.name}')">Delete (Test)</button>
         </div>`;
@@ -1100,6 +1174,7 @@ async function loadTravelers(){
       <td><strong>${p.name}</strong> ${docB}<br><small style="color:var(--muted)">${p.email||''}</small></td>
       <td>${citLabel[p.citizenship_type]||p.citizenship_type||'—'}${p.country_of_citizenship?' — '+p.country_of_citizenship:''}</td>
       <td><span class="badge badge-purple">${cabin}</span></td>
+      <td class="col-r">${cabinCostDisplay}</td>
       <td class="col-r" style="color:var(--success)"><strong>${fmt(paid)}</strong></td>
       <td class="col-r" style="color:var(--danger)">${fmt(bal)}</td>
       <td><div class="pbar-row"><div class="mpbar-track"><div class="mpbar-fill" style="width:${pct}%"></div></div><small>${pct}%</small></div></td>
@@ -1107,7 +1182,7 @@ async function loadTravelers(){
     </tr>`;
   }
 
-  const thead=`<thead><tr><th>Traveler</th><th>Citizenship</th><th>Cabin</th><th class="col-r">Paid</th><th class="col-r">Balance</th><th>Progress</th><th>Actions</th></tr></thead>`;
+  const thead=`<thead><tr><th>Traveler</th><th>Citizenship</th><th>Cabin</th><th class="col-r">Cabin Cost</th><th class="col-r">Paid</th><th class="col-r">Balance</th><th>Progress</th><th>Actions</th></tr></thead>`;
   let html=`<table>${thead}<tbody>${active.map(p=>makeRow(p,false)).join('')}</tbody></table>`;
   if(cancelled.length>0){
     html+=`<div class="section-hdr" style="margin-top:22px;">Cancelled Travelers (${cancelled.length})</div>
@@ -1122,6 +1197,17 @@ async function assignCabinNumber(userId,name,cabinType,currentNum){
   const{error}=await sb.from('cabin_assignments').update({cabin_number:num.trim()||null}).eq('user_id',userId);
   if(error){alert('Error: '+error.message);return;}
   loadTravelers();loadInventoryTab();
+}
+
+async function setCabinCost(userId,name,currentCost){
+  const currentDisplay=currentCost?fmt(parseFloat(currentCost)):'Not set';
+  const input=prompt(`Set total cabin cost for ${name}:\nCurrent: ${currentDisplay}\n\nEnter the full cabin cost (numbers only, e.g. 2400):`,currentCost||'');
+  if(input===null)return; // cancelled
+  const parsed=parseFloat(input.replace(/[^0-9.]/g,''));
+  if(isNaN(parsed)||parsed<=0){alert('Please enter a valid dollar amount.');return;}
+  const{error}=await sb.from('cabin_assignments').update({cabin_cost:parsed}).eq('user_id',userId);
+  if(error){alert('Error saving cabin cost: '+error.message);return;}
+  loadTravelers();
 }
 
 async function cancelTraveler(userId,name,email,cabinType,cabinNumber,citizenship,totalPaid){
