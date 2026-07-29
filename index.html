@@ -67,7 +67,7 @@
     .ck-group label{font-size:.86rem;font-weight:500;cursor:pointer;line-height:1.5;}
     .step-box{background:#f0f7ff;border:1.5px solid #aed6f1;border-radius:10px;padding:16px;margin-top:10px;}
     .step-box.green{background:#f0fdf4;border-color:#86efac;}
-    #psetup-cabin-section{display:none;}
+    #psetup-citizenship-section{display:none;}
     .cabin-avail{font-size:.8rem;color:var(--muted);margin-top:6px;line-height:1.7;}
     .cabin-avail span.low{color:var(--warn);font-weight:700;}
     .cabin-avail span.out{color:var(--danger);font-weight:700;}
@@ -562,19 +562,58 @@
     <button onclick="document.getElementById('profile-setup-modal').classList.remove('open');gProfileSetupComplete=true;" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted);line-height:1;" title="Close">×</button>
     <div style="font-size:2rem;text-align:center;margin-bottom:8px;">🛳️</div>
     <h3 style="text-align:center;color:var(--primary);margin-bottom:6px;">Complete Your Profile</h3>
-    <p style="font-size:.86rem;color:var(--muted);text-align:center;margin-bottom:16px;">Select your citizenship and cabin type to finalize your reservation.</p>
+    <p style="font-size:.86rem;color:var(--muted);text-align:center;margin-bottom:16px;">Step 1: Choose your cabin type. Step 2: Confirm your citizenship documentation.</p>
     <div id="psetup-alert" class="alert"></div>
 
-    <div class="form-group">
-      <label>Citizenship / Country of Origin *</label>
-      <select id="psetup-citizenship" onchange="onPsetupCitizenshipChange()">
-        <option value="">— Select your citizenship status —</option>
-        <option value="us">U.S. Citizens</option>
-        <option value="us-pr">U.S. Permanent Residents</option>
-        <option value="non-us">Non-U.S. Citizens</option>
-        <option value="canadian">Canadian Citizens</option>
-        <option value="other">Other</option>
-      </select>
+    <!-- ── STEP 1: Cabin Selection (always visible first) ─── -->
+    <div id="psetup-cabin-section">
+      <div class="step-box green">
+        <div style="font-weight:700;color:#166534;margin-bottom:10px;font-size:.9rem;">🛳️ Step 1 — Select Your Cabin Type</div>
+        <div class="form-group" style="margin-bottom:6px;"><label>Cabin Type *</label>
+          <select id="psetup-cabin-type" onchange="onPsetupCabinTypeChange()">
+            <option value="">— Select cabin type —</option>
+            <option value="Balcony">Balcony Cabin</option>
+            <option value="Ocean View">Ocean View Cabin</option>
+            <option value="Interior">Interior Cabin</option>
+            <option value="Suite">Suite ⭐ (Request — Subject to Availability)</option>
+          </select>
+        </div>
+        <div class="cabin-avail" id="psetup-cabin-avail">Loading availability…</div>
+      </div>
+    </div>
+
+    <!-- Suite Backup (shows only when Suite selected) -->
+    <div id="psetup-suite-backup" style="display:none;">
+      <div class="step-box" style="background:#fffbeb;border-color:#f6c440;">
+        <div style="font-weight:700;color:#78460a;margin-bottom:8px;">⭐ Suite Request Details</div>
+        <p style="font-size:.84rem;color:#78460a;margin-bottom:12px;">Select a backup cabin to hold while your suite request is reviewed.</p>
+        <div class="form-group" style="margin-bottom:10px;"><label>Contact Phone Number *</label><input type="text" id="psetup-suite-phone" placeholder="e.g. 555-867-5309" autocomplete="off"></div>
+        <div class="form-group" style="margin-bottom:0;"><label>Backup Cabin Type *</label>
+          <select id="psetup-backup-cabin">
+            <option value="">— Select backup cabin —</option>
+            <option value="Balcony">Balcony Cabin</option>
+            <option value="Ocean View">Ocean View Cabin</option>
+            <option value="Interior">Interior Cabin</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── STEP 2: Citizenship (shows after cabin selected) ─ -->
+    <div id="psetup-citizenship-section">
+    <div class="step-box" style="margin-top:14px;background:#f0f7ff;border-color:#aed6f1;">
+      <div style="font-weight:700;color:var(--primary);margin-bottom:10px;font-size:.9rem;">📋 Step 2 — Citizenship &amp; Documentation</div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label>Citizenship / Country of Origin *</label>
+        <select id="psetup-citizenship" onchange="onPsetupCitizenshipChange()">
+          <option value="">— Select your citizenship status —</option>
+          <option value="us">U.S. Citizens</option>
+          <option value="us-pr">U.S. Permanent Residents</option>
+          <option value="non-us">Non-U.S. Citizens</option>
+          <option value="canadian">Canadian Citizens</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
     </div>
 
     <!-- U.S. Citizens -->
@@ -636,38 +675,7 @@
       <div class="ck-group"><input type="checkbox" id="psetup-ack-other" onchange="onPsetupAckChange()"><label for="psetup-ack-other">I understand I am personally responsible for all required travel documents. The trip organizer assumes no responsibility.</label></div>
     </div>
 
-    <!-- Cabin Selection (shows after acknowledgment) -->
-    <div id="psetup-cabin-section" style="display:none;">
-      <div class="step-box green">
-        <div class="form-group" style="margin-bottom:6px;"><label>🛳️ Select Your Cabin Type *</label>
-          <select id="psetup-cabin-type" onchange="onPsetupCabinTypeChange()">
-            <option value="">— Select cabin type —</option>
-            <option value="Balcony">Balcony Cabin</option>
-            <option value="Ocean View">Ocean View Cabin</option>
-            <option value="Interior">Interior Cabin</option>
-            <option value="Suite">Suite ⭐ (Request — Subject to Availability)</option>
-          </select>
-        </div>
-        <div class="cabin-avail" id="psetup-cabin-avail">Loading availability…</div>
-      </div>
-    </div>
-
-    <!-- Suite Backup (shows only when Suite selected) -->
-    <div id="psetup-suite-backup" style="display:none;">
-      <div class="step-box" style="background:#fffbeb;border-color:#f6c440;">
-        <div style="font-weight:700;color:#78460a;margin-bottom:8px;">⭐ Suite Request Details</div>
-        <p style="font-size:.84rem;color:#78460a;margin-bottom:12px;">Select a backup cabin to hold while your suite request is reviewed.</p>
-        <div class="form-group" style="margin-bottom:10px;"><label>Contact Phone Number *</label><input type="text" id="psetup-suite-phone" placeholder="e.g. 555-867-5309" autocomplete="off"></div>
-        <div class="form-group" style="margin-bottom:0;"><label>Backup Cabin Type *</label>
-          <select id="psetup-backup-cabin">
-            <option value="">— Select backup cabin —</option>
-            <option value="Balcony">Balcony Cabin</option>
-            <option value="Ocean View">Ocean View Cabin</option>
-            <option value="Interior">Interior Cabin</option>
-          </select>
-        </div>
-      </div>
-    </div>
+    </div><!-- end psetup-citizenship-section -->
 
     <!-- Submit -->
     <div id="psetup-submit-section" style="display:none;">
@@ -1198,8 +1206,6 @@ function onPsetupCitizenshipChange(){
   const val=document.getElementById('psetup-citizenship').value;
   ['psetup-doc-us','psetup-doc-us-pr','psetup-doc-non-us','psetup-doc-canadian','psetup-doc-other'].forEach(id=>document.getElementById(id).classList.remove('show'));
   ['psetup-ack-us','psetup-ack-us-pr','psetup-ack-non-us','psetup-ack-canadian','psetup-ack-other'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
-  document.getElementById('psetup-cabin-section').style.display='none';
-  document.getElementById('psetup-suite-backup').style.display='none';
   document.getElementById('psetup-submit-section').style.display='none';
   const map={us:'psetup-doc-us','us-pr':'psetup-doc-us-pr','non-us':'psetup-doc-non-us',canadian:'psetup-doc-canadian',other:'psetup-doc-other'};
   if(map[val])document.getElementById(map[val]).classList.add('show');
@@ -1210,19 +1216,46 @@ function onPsetupAckChange(){
   const ackMap={us:'psetup-ack-us','us-pr':'psetup-ack-us-pr','non-us':'psetup-ack-non-us',canadian:'psetup-ack-canadian',other:'psetup-ack-other'};
   const el=document.getElementById(ackMap[cit]);
   const show=el&&el.checked;
-  document.getElementById('psetup-cabin-section').style.display=show?'block':'none';
-  document.getElementById('psetup-suite-backup').style.display='none';
-  document.getElementById('psetup-submit-section').style.display='none';
-  document.getElementById('psetup-cabin-type').value='';
-  if(show)loadInventoryForSetup();
+  document.getElementById('psetup-submit-section').style.display=show?'block':'none';
 }
 
-function onPsetupCabinTypeChange(){
+async function onPsetupCabinTypeChange(){
   const val=document.getElementById('psetup-cabin-type').value;
+  const csEl=document.getElementById('psetup-citizenship-section');
+  if(!val){
+    if(csEl)csEl.style.display='none';
+    document.getElementById('psetup-suite-backup').style.display='none';
+    document.getElementById('psetup-submit-section').style.display='none';
+    return;
+  }
   const isSuite=val==='Suite';
+
+  // Check sold-out for non-suite types
+  if(!isSuite){
+    const{data:invData}=await sb.from('cabin_inventory').select('available_cabins').eq('cabin_type',val).single();
+    if(invData&&invData.available_cabins<=0){
+      const{data:allInv}=await sb.from('cabin_inventory').select('cabin_type,available_cabins').gt('available_cabins',0).neq('cabin_type','Suite');
+      const altList=(allInv||[]).map(i=>`<strong>${i.cabin_type}</strong> (${i.available_cabins} remaining)`).join(', ');
+      const avEl=document.getElementById('psetup-cabin-avail');
+      if(avEl)avEl.innerHTML=`<span style="color:var(--danger);font-weight:700;">❌ ${val} cabins are SOLD OUT.</span>${altList?'<br>Available options: '+altList:'<br>No cabin types currently available.'}`;
+      if(csEl)csEl.style.display='none';
+      document.getElementById('psetup-suite-backup').style.display='none';
+      document.getElementById('psetup-submit-section').style.display='none';
+      return;
+    }
+  }
+
+  // Valid selection — reset citizenship and reveal Step 2
+  ['psetup-doc-us','psetup-doc-us-pr','psetup-doc-non-us','psetup-doc-canadian','psetup-doc-other'].forEach(id=>document.getElementById(id).classList.remove('show'));
+  ['psetup-ack-us','psetup-ack-us-pr','psetup-ack-non-us','psetup-ack-canadian','psetup-ack-other'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
+  const citSel=document.getElementById('psetup-citizenship');if(citSel)citSel.value='';
+  document.getElementById('psetup-submit-section').style.display='none';
   document.getElementById('psetup-suite-backup').style.display=isSuite?'block':'none';
-  document.getElementById('psetup-submit-section').style.display=(val&&!isSuite)?'block':'none';
+  if(csEl)csEl.style.display='block';
   if(isSuite)document.getElementById('suite-modal').classList.add('open');
+  // Refresh availability display
+  if(Object.keys(gInventory).length===0)await loadInventoryForSetup();
+  else updatePsetupCabinAvail();
 }
 
 function closeSuiteModal(){
@@ -1683,7 +1716,7 @@ async function loadTravelers(){
     const noCabinB=!ca?'<span class="badge badge-gray">No Cabin</span> ':'';
     const rowStyle=isCancelled?'opacity:.6;background:#fdf0ee;':'';
     // Escape strings used in onclick attributes
-    const safeName=p.name.replace(/'/g,"\\'");
+    const safeName=(p.name||'').replace(/'/g,"\\'");
     const safePayLink=(ca?.payment_link||'').replace(/'/g,"\\'");
     const actions=isCancelled
       ?`<span class="badge badge-danger">Cancelled</span>`
@@ -1697,7 +1730,7 @@ async function loadTravelers(){
           <button class="btn-danger" style="opacity:.7;" onclick="deleteTraveler('${p.id}','${safeName}')">Delete</button>
         </div>`;
     return`<tr style="${rowStyle}">
-      <td><strong>${p.name}</strong> ${docB}${suiteB}${noCabinB}<br><small style="color:var(--muted)">${p.email||''}</small></td>
+      <td><strong>${p.name||'<em style="font-weight:400;color:var(--muted)">No name yet</em>'}</strong> ${docB}${suiteB}${noCabinB}<br><small style="color:var(--muted)">${p.email||''}</small></td>
       <td style="font-size:.84rem;">${citLabel[p.citizenship_type]||p.citizenship_type||'<em style="color:var(--muted)">—</em>'}${p.country_of_citizenship?'<br><small style="color:var(--muted)">'+p.country_of_citizenship+'</small>':''}</td>
       <td><span class="badge badge-purple">${cabinStr}</span></td>
       <td class="col-r">${cabinCostDisplay}</td>
@@ -1911,7 +1944,7 @@ async function savePayment(){
       const depositThreshold=250*travelerCount;
       if(totalPaid>=depositThreshold){
         emailDepositComplete(tName,tEmail,totalPaid,travelerCount);
-        sendEmail(ADMIN_EMAIL,'Admin',`${TRIP_NAME} — DEPOSIT COMPLETE: ${tName}`,
+        sendEmail(ADMIN_EMAIL,'Admin',`Ready to Berth`,
           `Full deposit received for ${tName}.\n\n• Name: ${tName}\n• Email: ${tEmail||'—'}\n• Cabin: ${cabinStr}\n• Travelers in Cabin: ${travelerCount}\n• Total Paid: ${fmt(totalPaid)}\n• Deposit Threshold: ${fmt(depositThreshold)}`
         );
         await sb.from('cabin_assignments').update({deposit_email_sent:true}).eq('user_id',userId);
@@ -1973,28 +2006,36 @@ async function showInventoryDetail(cabinType){
   document.getElementById('inv-detail-content').innerHTML='<div class="loading"><div class="spinner"></div></div>';
   document.getElementById('inv-detail-modal').classList.add('open');
 
-  // Fetch live from DB so data is always fresh
-  const{data:assignments,error}=await sb.from('cabin_assignments')
-    .select('*, profiles(name,email)')
-    .eq('cabin_type',cabinType);
+  // Query via profiles (RLS disabled) embedding cabin_assignments — bypasses RLS on cabin_assignments
+  const{data:profileRows,error}=await sb.from('profiles')
+    .select('id,name,email,cabin_assignments(cabin_type,cabin_number,suite_pending,assigned_at,gratuity_paid)');
 
   if(error){
     document.getElementById('inv-detail-content').innerHTML=`<p style="color:var(--danger);padding:12px;">Error loading data: ${error.message}</p>`;
     return;
   }
 
-  const matching=assignments||[];
+  // Filter client-side to the selected cabin type
+  const matching=(profileRows||[]).filter(p=>{
+    const caArr=Array.isArray(p.cabin_assignments)?p.cabin_assignments:[p.cabin_assignments].filter(Boolean);
+    return caArr.some(ca=>ca&&ca.cabin_type===cabinType);
+  });
+
   document.getElementById('inv-detail-title').textContent=`${cabinType} Cabin — ${matching.length} Booked`;
 
   if(matching.length===0){
     document.getElementById('inv-detail-content').innerHTML='<div class="empty"><div class="ei">🛏️</div><p>No travelers booked in this cabin type yet.</p></div>';
   } else {
-    const rows=matching.map(a=>`<tr>
-      <td><strong>${a.profiles?.name||'—'}</strong><br><small style="color:var(--muted)">${a.profiles?.email||''}</small></td>
-      <td>${a.cabin_number||'<em style="color:var(--muted)">Not assigned</em>'}</td>
-      <td>${a.suite_pending?'<span class="badge badge-warn">⭐ Suite Pending</span>':'<span class="badge badge-success">Confirmed ✓</span>'}</td>
-      <td><small>${a.assigned_at?new Date(a.assigned_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</small></td>
-    </tr>`).join('');
+    const rows=matching.map(p=>{
+      const caArr=Array.isArray(p.cabin_assignments)?p.cabin_assignments:[p.cabin_assignments].filter(Boolean);
+      const a=caArr.find(ca=>ca&&ca.cabin_type===cabinType)||{};
+      return`<tr>
+        <td><strong>${p.name||'—'}</strong><br><small style="color:var(--muted)">${p.email||''}</small></td>
+        <td>${a.cabin_number||'<em style="color:var(--muted)">Not assigned</em>'}</td>
+        <td>${a.suite_pending?'<span class="badge badge-warn">⭐ Suite Pending</span>':'<span class="badge badge-success">Confirmed ✓</span>'}</td>
+        <td><small>${a.assigned_at?new Date(a.assigned_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</small></td>
+      </tr>`;
+    }).join('');
     document.getElementById('inv-detail-content').innerHTML=`<table><thead><tr><th>Traveler</th><th>Cabin #</th><th>Status</th><th>Reserved</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 }
