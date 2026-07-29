@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Commonwealth Cruise 2027 — Payment Tracker</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <style>
     :root{--primary:#1a4f7a;--secondary:#2176ae;--accent:#e8a020;--success:#1f8c4e;--danger:#c0392b;--warn:#d68910;--bg:#eef2f7;--card:#fff;--text:#1c2940;--muted:#6b7c93;--border:#d5dce8;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.08);}
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -459,7 +458,8 @@
 
 <!-- PROFILE SETUP MODAL (shown after first login if no cabin assignment exists) -->
 <div id="profile-setup-modal" class="modal-overlay">
-  <div class="modal-box" style="max-width:520px;max-height:90vh;overflow-y:auto;">
+  <div class="modal-box" style="max-width:520px;max-height:90vh;overflow-y:auto;position:relative;">
+    <button onclick="document.getElementById('profile-setup-modal').classList.remove('open');gProfileSetupComplete=true;" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted);line-height:1;" title="Close">×</button>
     <div style="font-size:2rem;text-align:center;margin-bottom:8px;">🛳️</div>
     <h3 style="text-align:center;color:var(--primary);margin-bottom:6px;">Complete Your Profile</h3>
     <p style="font-size:.86rem;color:var(--muted);text-align:center;margin-bottom:16px;">Select your citizenship and cabin type to finalize your reservation.</p>
@@ -597,16 +597,15 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const ADMIN_EMAIL       = 'glowjetters@gmail.com';
 const TRIP_NAME         = 'Commonwealth Cruise 2027';
 
-// ── EmailJS (sign up free at emailjs.com) ──────────────────
-// Create ONE template with variables: {{to_name}} {{to_email}} {{subject}} {{message}}
-const EMAILJS_PUBLIC_KEY  = 'YOUR_EMAILJS_PUBLIC_KEY';   // e.g. 'user_abc123'
-const EMAILJS_SERVICE_ID  = 'YOUR_EMAILJS_SERVICE_ID';   // e.g. 'service_gmail'
-const EMAILJS_TEMPLATE_ID = 'YOUR_EMAILJS_TEMPLATE_ID';  // e.g. 'template_cruise'
-// ───────────────────────────────────────────────────────────
+// ── Google Apps Script Email Web App ──────────────────────
+// Paste your deployed Web App URL below (see send-email.gs for setup steps).
+// Leave as-is and emails will fall back to a mailto: draft instead.
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzBceNPe3DkBRib2QfGiNWVoPCleJ9rwzvFXvCSPl228oK2FKxIZLQ498ftbL9KraDdqA/exec';
+// ──────────────────────────────────────────────────────────
 
 const{createClient}=supabase;
 const sb=createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
-let gUser=null,gProfile=null,gInventory={};
+let gUser=null,gProfile=null,gInventory={},gProfileSetupComplete=false;
 
 // ── ROUTER ─────────────────────────────────────────────────
 function showPage(name){
@@ -642,14 +641,19 @@ function fmtDate(d){return d?new Date(d+'T00:00:00').toLocaleDateString('en-US',
 
 // ── EMAIL ────────────────────────────────────────────────────
 async function sendEmail(toEmail,toName,subject,message){
-  const configured=EMAILJS_PUBLIC_KEY&&EMAILJS_PUBLIC_KEY!=='YOUR_EMAILJS_PUBLIC_KEY';
+  const configured=APPS_SCRIPT_URL&&APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_WEB_APP_URL';
   if(!configured){
-    // Fall back to mailto: draft
+    // Fallback: open a pre-filled mailto: draft
     window.open(`mailto:${toEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`);
     return{ok:false,fallback:true};
   }
   try{
-    await emailjs.send(EMAILJS_SERVICE_ID,EMAILJS_TEMPLATE_ID,{to_email:toEmail,to_name:toName,subject,message},{publicKey:EMAILJS_PUBLIC_KEY});
+    // mode:'no-cors' means we can't read the response, but the POST is sent and the email delivers.
+    fetch(APPS_SCRIPT_URL,{
+      method:'POST',
+      mode:'no-cors',
+      body:JSON.stringify({to_email:toEmail,subject,message})
+    });
     return{ok:true};
   }catch(e){console.error('Email error:',e);return{ok:false,error:e};}
 }
@@ -773,6 +777,14 @@ async function doLogout(){await sb.auth.signOut();gUser=null;gProfile=null;showP
 async function dismissFirstLogin(){
   document.getElementById('first-login-modal').classList.remove('open');
   await sb.from('profiles').update({first_login_complete:true}).eq('id',gUser.id);
+  // Auto-open the Add Cabin Traveler form so they can get started immediately
+  const form=document.getElementById('add-traveler-form');
+  if(form&&!form.classList.contains('open')){
+    form.classList.add('open');
+    clearFlash('cabin-alert');
+    resetTravelerForm();
+    setTimeout(()=>form.scrollIntoView({behavior:'smooth',block:'start'}),200);
+  }
 }
 
 // ── ROUTE ────────────────────────────────────────────────────
@@ -894,7 +906,8 @@ async function doProfileSetup(){
     needs_doc_info:citizenship==='other'
   }).eq('id',gUser.id);
 
-  const name=gProfile?.name||gUser.email;
+  // Reliably get the traveler's real name (auth metadata is the safest fallback)
+  const name=gProfile?.name||gUser?.user_metadata?.full_name||gUser?.user_metadata?.name||'Traveler';
   const email=gProfile?.email||gUser.email;
 
   if(isSuite){
@@ -908,7 +921,8 @@ async function doProfileSetup(){
     emailAccountCreated({name,email,citizenship_type:citizenship},cabinType);
   }
 
-  // Close modal, refresh profile, show first-login notice if needed
+  // Mark setup done so loadDashboard won't re-open the modal
+  gProfileSetupComplete=true;
   document.getElementById('profile-setup-modal').classList.remove('open');
   const{data:updatedProfile}=await sb.from('profiles').select('*').eq('id',gUser.id).single();
   gProfile=updatedProfile;
@@ -943,7 +957,7 @@ async function loadDashboard(){
   const cabinCost=cabin?.cabin_cost?parseFloat(cabin.cabin_cost):null;
 
   // If no cabin assignment yet, show profile setup modal first
-  if(!cabin){
+  if(!cabin && !gProfileSetupComplete){
     document.getElementById('dash-loading').style.display='none';
     document.getElementById('dash-content').style.display='block';
     loadInventoryForSetup();
