@@ -260,9 +260,9 @@
         <div class="progress-labels"><span id="dash-paid-label">$0 paid</span><span id="dash-total-label" style="color:var(--muted);font-style:italic;">Total: Pending admin update</span></div>
       </div>
       <div class="stats-grid">
-        <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-val paid" id="dash-paid-val">$0</div><div class="stat-label">Total Paid</div></div>
-        <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-val" id="dash-balance-val" style="color:var(--muted);font-size:1rem;">Pending</div><div class="stat-label">Balance Due</div></div>
-        <div class="stat-card"><div class="stat-icon">📅</div><div class="stat-val date" id="dash-nextdue-val">—</div><div class="stat-label">Next Due Date</div><div id="dash-nextdue-label" style="font-size:.72rem;color:var(--muted);margin-top:3px;line-height:1.3;"></div></div>
+        <div class="stat-card" onclick="showPaidDetail()" style="cursor:pointer;" title="View payment history"><div class="stat-icon">✅</div><div class="stat-val paid" id="dash-paid-val">$0</div><div class="stat-label">Total Paid</div></div>
+        <div class="stat-card" onclick="showBalanceDetail()" style="cursor:pointer;" title="View balance breakdown"><div class="stat-icon">⏳</div><div class="stat-val" id="dash-balance-val" style="color:var(--muted);font-size:1rem;">Pending</div><div class="stat-label">Balance Due</div></div>
+        <div class="stat-card" onclick="showScheduleDetail()" style="cursor:pointer;" title="View full payment schedule"><div class="stat-icon">📅</div><div class="stat-val date" id="dash-nextdue-val">—</div><div class="stat-label">Next Due Date</div><div id="dash-nextdue-label" style="font-size:.72rem;color:var(--muted);margin-top:3px;line-height:1.3;"></div></div>
       </div>
       <div class="card">
         <div class="card-header"><span class="card-title">📋 Payment Schedule</span><span id="dash-cabin-badge" class="badge badge-info" style="display:none;"></span></div>
@@ -282,11 +282,12 @@
           </div>
 
           <div class="section-hdr">Personal Information</div>
-          <div class="grid-4" style="margin-bottom:14px;">
+          <div style="display:grid;grid-template-columns:80px 1fr 1fr 1fr 80px;gap:10px;margin-bottom:14px;">
             <div class="form-group" style="margin-bottom:0;"><label>Title</label><select id="ct-salutation"><option value="">—</option><option>Mr.</option><option>Mrs.</option><option>Ms.</option><option>Dr.</option><option>Rev.</option></select></div>
             <div class="form-group" style="margin-bottom:0;"><label>First Name *</label><input type="text" id="ct-firstname" placeholder="First" autocomplete="off"></div>
             <div class="form-group" style="margin-bottom:0;"><label>Middle Name</label><input type="text" id="ct-middlename" placeholder="(optional)" autocomplete="off"></div>
             <div class="form-group" style="margin-bottom:0;"><label>Last Name *</label><input type="text" id="ct-lastname" placeholder="Last" autocomplete="off"></div>
+            <div class="form-group" style="margin-bottom:0;"><label>Suffix</label><select id="ct-suffix"><option value="">—</option><option>Jr.</option><option>Sr.</option><option>II</option><option>III</option><option>IV</option><option>V</option></select></div>
           </div>
 
           <div class="section-hdr">Date of Birth</div>
@@ -303,7 +304,7 @@
             <div class="form-group" style="margin-bottom:0;"><label>State of Residency</label><select id="ct-state"><option value="">— Select State —</option><option>Alabama</option><option>Alaska</option><option>Arizona</option><option>Arkansas</option><option>California</option><option>Colorado</option><option>Connecticut</option><option>Delaware</option><option>Florida</option><option>Georgia</option><option>Hawaii</option><option>Idaho</option><option>Illinois</option><option>Indiana</option><option>Iowa</option><option>Kansas</option><option>Kentucky</option><option>Louisiana</option><option>Maine</option><option>Maryland</option><option>Massachusetts</option><option>Michigan</option><option>Minnesota</option><option>Mississippi</option><option>Missouri</option><option>Montana</option><option>Nebraska</option><option>Nevada</option><option>New Hampshire</option><option>New Jersey</option><option>New Mexico</option><option>New York</option><option>North Carolina</option><option>North Dakota</option><option>Ohio</option><option>Oklahoma</option><option>Oregon</option><option>Pennsylvania</option><option>Rhode Island</option><option>South Carolina</option><option>South Dakota</option><option>Tennessee</option><option>Texas</option><option>Utah</option><option>Vermont</option><option>Virginia</option><option>Washington</option><option>West Virginia</option><option>Wisconsin</option><option>Wyoming</option><option>Washington D.C.</option><option>Puerto Rico</option><option>U.S. Virgin Islands</option><option>Guam</option></select></div>
           </div>
           <div class="grid-3" style="margin-bottom:14px;">
-            <div class="form-group" style="margin-bottom:0;"><label>Relationship to You *</label><select id="ct-relationship"><option value="">Select</option><option>Spouse/Partner</option><option>Child</option><option>Parent</option><option>Sibling</option><option>Relative</option><option>Friend</option><option>Other</option></select></div>
+            <div class="form-group" style="margin-bottom:0;"><label>Relationship to You</label><select id="ct-relationship"><option value="">Select (optional)</option><option>Spouse/Partner</option><option>Child</option><option>Parent</option><option>Sibling</option><option>Relative</option><option>Friend</option><option>Other</option></select></div>
             <div class="form-group" style="margin-bottom:0;"><label>Email Address</label><input type="email" id="ct-email" placeholder="traveler@email.com" autocomplete="off"></div>
             <div class="form-group" style="margin-bottom:0;"><label>Telephone</label><input type="text" id="ct-phone" placeholder="e.g. 555-867-5309" autocomplete="off"></div>
           </div>
@@ -579,6 +580,14 @@
           </select>
         </div>
         <div class="cabin-avail" id="psetup-cabin-avail">Loading availability…</div>
+        <div id="psetup-occupancy-section" style="display:none;margin-top:12px;">
+          <div class="form-group" style="margin-bottom:4px;"><label>Number of People in Your Cabin *</label>
+            <select id="psetup-num-guests" onchange="onPsetupGuestsChange()">
+              <option value="">— Select number of guests —</option>
+            </select>
+          </div>
+          <div id="psetup-occupancy-note" style="font-size:.81rem;color:var(--muted);margin-top:4px;line-height:1.4;"></div>
+        </div>
       </div>
     </div>
 
@@ -684,6 +693,35 @@
   </div>
 </div>
 
+<!-- PAYMENT DETAIL MODAL (dashboard tile click) -->
+<div id="pay-detail-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box" style="max-width:580px;max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 id="pay-detail-title" style="color:var(--primary);font-size:1.1rem;font-weight:800;">Payment Details</h3>
+      <button onclick="document.getElementById('pay-detail-modal').classList.remove('open')" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px;">×</button>
+    </div>
+    <div id="pay-detail-content"></div>
+  </div>
+</div>
+
+<!-- DUPLICATE WARNING MODAL -->
+<div id="dup-warn-modal" class="modal-overlay">
+  <div class="modal-box" style="max-width:480px;">
+    <div style="font-size:2.2rem;text-align:center;margin-bottom:10px;">⚠️</div>
+    <h3 style="text-align:center;color:var(--danger);margin-bottom:12px;">Duplicate Information Found</h3>
+    <p style="font-size:.9rem;line-height:1.65;margin-bottom:14px;text-align:center;">A cabin reservation already exists under this account.<br><strong style="color:var(--danger);">Duplicate entries may cause a cancellation of all cabins.</strong></p>
+    <div style="background:#fdf0ee;border:1.5px solid #f5c6c0;border-radius:9px;padding:14px;margin-bottom:4px;">
+      <p style="font-size:.86rem;color:#7b1c14;margin-bottom:12px;line-height:1.5;">If this is <strong>not</strong> a duplicate, check the box below to confirm and continue.<br>If you think your account was accessed without your permission, click <strong>Request PIN Reset</strong>.</p>
+      <div class="ck-group" style="margin-bottom:14px;"><input type="checkbox" id="dup-confirm-ck" onchange="document.getElementById('dup-continue-btn').disabled=!this.checked"><label for="dup-confirm-ck" style="font-size:.86rem;font-weight:600;">I confirm this is not a duplicate account or reservation. I understand duplicate entries may result in cancellation of all cabins.</label></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button id="dup-continue-btn" class="btn btn-primary btn-sm" disabled onclick="doDupContinue()">Continue Anyway</button>
+        <button class="btn btn-danger btn-sm" onclick="doDupReset()">Request PIN Reset</button>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('dup-warn-modal').classList.remove('open')">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MILESTONE WARNING MODAL -->
 <div id="milestone-warning-modal" class="modal-overlay">
   <div class="modal-box" style="max-width:440px;">
@@ -725,6 +763,7 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzBceNPe3DkBRib
 const{createClient}=supabase;
 const sb=createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
 let gUser=null,gProfile=null,gInventory={},gProfileSetupComplete=false,gInventoryAssignments=[],gReportData=[],gMilestoneWarningShown=false;
+let gMilestones=[],gPayments=[],gCabinCost=null,gDupConfirmed=false,gPendingSetup=null;
 
 // ── ROUTER ─────────────────────────────────────────────────
 function showPage(name){
@@ -1226,6 +1265,7 @@ async function onPsetupCabinTypeChange(){
     if(csEl)csEl.style.display='none';
     document.getElementById('psetup-suite-backup').style.display='none';
     document.getElementById('psetup-submit-section').style.display='none';
+    const occEl2=document.getElementById('psetup-occupancy-section');if(occEl2)occEl2.style.display='none';
     return;
   }
   const isSuite=val==='Suite';
@@ -1256,6 +1296,16 @@ async function onPsetupCabinTypeChange(){
   // Refresh availability display
   if(Object.keys(gInventory).length===0)await loadInventoryForSetup();
   else updatePsetupCabinAvail();
+  // Populate occupancy picker based on cabin type
+  const maxGuests=CABIN_MAX[val]||4;
+  const occEl=document.getElementById('psetup-occupancy-section');
+  const guestSel=document.getElementById('psetup-num-guests');
+  if(occEl&&guestSel){
+    guestSel.innerHTML='<option value="">— Select number of guests —</option>';
+    for(let i=1;i<=maxGuests;i++){guestSel.innerHTML+=`<option value="${i}">${i} ${i===1?'guest (just me)':`guests`}</option>`;}
+    document.getElementById('psetup-occupancy-note').textContent='';
+    occEl.style.display='block';
+  }
 }
 
 function closeSuiteModal(){
@@ -1281,12 +1331,23 @@ async function doProfileSetup(){
   const isSuite=cabinType==='Suite';
   const backupCabin=isSuite?document.getElementById('psetup-backup-cabin').value:'';
   const suitePhone=isSuite?document.getElementById('psetup-suite-phone').value.trim():'';
+  const numGuests=parseInt(document.getElementById('psetup-num-guests')?.value||'0')||null;
 
   if(!citizenship)return flash('psetup-alert','Please select your citizenship status.');
   if(citizenship==='other'&&!country)return flash('psetup-alert','Please enter your country of citizenship.');
   if(!cabinType)return flash('psetup-alert','Please select a cabin type.');
+  if(!numGuests)return flash('psetup-alert','Please select the number of people in your cabin.');
   if(isSuite&&!backupCabin)return flash('psetup-alert','Please select a backup cabin type for your suite request.');
   if(isSuite&&!suitePhone)return flash('psetup-alert','Please enter a phone number for your suite request.');
+
+  // ── Duplicate cabin check ─────────────────────────────────
+  if(!gDupConfirmed){
+    const{data:existingCabin}=await sb.from('cabin_assignments').select('id,cabin_type').eq('user_id',gUser.id).single();
+    if(existingCabin){
+      showDupWarning(null);
+      return;
+    }
+  }
 
   const checkCabin=isSuite?backupCabin:cabinType;
   const{data:inv}=await sb.from('cabin_inventory').select('available_cabins').eq('cabin_type',checkCabin).single();
@@ -1307,12 +1368,12 @@ async function doProfileSetup(){
   const email=gProfile?.email||gUser.email;
 
   if(isSuite){
-    await sb.from('cabin_assignments').insert({user_id:gUser.id,cabin_type:backupCabin,suite_pending:true});
+    await sb.from('cabin_assignments').insert({user_id:gUser.id,cabin_type:backupCabin,suite_pending:true,num_guests:numGuests});
     await sb.rpc('decrement_cabin',{cabin:backupCabin});
     await sb.from('suite_requests').insert({user_id:gUser.id,requestor_name:name,requestor_email:email,requestor_phone:suitePhone,backup_cabin_type:backupCabin});
     emailSuiteRequestReceived({name,email,citizenship_type:citizenship},backupCabin,suitePhone);
   } else {
-    await sb.from('cabin_assignments').insert({user_id:gUser.id,cabin_type:cabinType});
+    await sb.from('cabin_assignments').insert({user_id:gUser.id,cabin_type:cabinType,num_guests:numGuests});
     await sb.rpc('decrement_cabin',{cabin:cabinType});
     emailAccountCreated({name,email,citizenship_type:citizenship},cabinType);
   }
@@ -1356,6 +1417,8 @@ async function loadDashboard(){
   const payments=pyRes.data||[];
   const cabin=caRes.data;
   const cabinCost=cabin?.cabin_cost?parseFloat(cabin.cabin_cost):null;
+  // Cache globally so tile-click modals can read them without re-fetching
+  gMilestones=milestones;gPayments=payments;gCabinCost=cabinCost;
 
   // If no cabin assignment yet, show profile setup modal first
   if(!cabin && !gProfileSetupComplete){
@@ -1566,7 +1629,7 @@ function closeMilestoneWarning(){
 }
 
 // ── CABIN TRAVELERS ──────────────────────────────────────────
-const CT_TEXT_IDS=['ct-salutation','ct-firstname','ct-middlename','ct-lastname','ct-dob-month','ct-dob-day','ct-dob-year','ct-gender','ct-citizenship','ct-state','ct-relationship','ct-email','ct-phone','ct-birthday','ct-anniversary'];
+const CT_TEXT_IDS=['ct-salutation','ct-suffix','ct-firstname','ct-middlename','ct-lastname','ct-dob-month','ct-dob-day','ct-dob-year','ct-gender','ct-citizenship','ct-state','ct-relationship','ct-email','ct-phone','ct-birthday','ct-anniversary'];
 
 function onSrChange(){
   const cbs=document.querySelectorAll('.sr-cb');
@@ -1603,6 +1666,7 @@ function toggleAddTraveler(){
 async function addCabinTraveler(){
   clearFlash('cabin-alert');
   const sal=document.getElementById('ct-salutation').value;
+  const suffix=document.getElementById('ct-suffix').value;
   const first=document.getElementById('ct-firstname').value.trim();
   const middle=document.getElementById('ct-middlename').value.trim();
   const last=document.getElementById('ct-lastname').value.trim();
@@ -1625,18 +1689,27 @@ async function addCabinTraveler(){
   if(!month||!day||!year)return flash('cabin-alert','Please select a complete date of birth.');
   if(!gender)return flash('cabin-alert','Please select a gender.');
   if(!citizen)return flash('cabin-alert','Please enter a country of citizenship.');
-  if(!rel)return flash('cabin-alert',"Please select the traveler's relationship to you.");
   if(document.getElementById('ct-bday-ck').checked&&!birthdayDate)return flash('cabin-alert','Please select a birthday date.');
   if(document.getElementById('ct-anniv-ck').checked&&!anniversaryDate)return flash('cabin-alert','Please select an anniversary date.');
 
+  // Ensure profile row exists before inserting (guards against FK violation)
+  const ownerId=gUser.id;
+  const{data:profCheck}=await sb.from('profiles').select('id').eq('id',ownerId).single();
+  if(!profCheck){
+    const nm=gProfile?.name||gUser?.user_metadata?.full_name||'Traveler';
+    const{error:pErr}=await sb.from('profiles').insert({id:ownerId,name:nm,email:gUser.email,is_admin:false});
+    if(pErr){flash('cabin-alert','Profile error: '+pErr.message+'. Please sign out and back in.');return;}
+  }
+
   const{error}=await sb.from('cabin_travelers').insert({
-    account_owner_id:gUser.id,
+    account_owner_id:ownerId,
     salutation:sal||null,
+    name_suffix:suffix||null,
     first_name:first,middle_name:middle||null,last_name:last,
     date_of_birth:`${year}-${month}-${day}`,
     gender,country_of_citizenship:citizen,
     state_of_residency:state||null,
-    relationship:rel,
+    relationship:rel||null,
     email:email||null,
     phone:phone||null,
     special_requests:specialRequests.length?specialRequests:null,
@@ -1651,10 +1724,18 @@ async function addCabinTraveler(){
 async function loadCabinTravelers(){
   const{data:travelers}=await sb.from('cabin_travelers').select('*').eq('account_owner_id',gUser.id).order('created_at',{ascending:true});
   const el=document.getElementById('cabin-travelers-list');
-  if(!travelers||travelers.length===0){el.innerHTML='<div class="empty" style="padding:18px;"><div class="ei">👨‍👩‍👧</div><p>No cabin travelers added yet.</p></div>';return;}
+  // Show a warning banner if cabin is reserved but no travelers are entered
+  const numGuests=gProfile?.cabin_assignments?.num_guests||null;
+  if(!travelers||travelers.length===0){
+    el.innerHTML=`<div style="background:#fdf0ee;border:2px solid #f5c6c0;border-radius:10px;padding:14px 16px;margin-top:6px;">
+      <strong style="color:var(--danger);">⚠️ Action Required — Traveler Information Missing</strong>
+      <p style="font-size:.86rem;color:#7b1c14;margin-top:6px;line-height:1.5;">Your cabin has been reserved but no traveler information has been entered. <strong>All cabin guests must be added before your reservation is considered complete.</strong> Click "+ Add Traveler" above to add guests now.</p>
+    </div>`;
+    return;
+  }
   el.innerHTML=travelers.map(t=>{
     const dob=fmtDate(t.date_of_birth);
-    const name=[t.salutation,t.first_name,t.middle_name,t.last_name].filter(Boolean).join(' ');
+    const name=[t.salutation,t.first_name,t.middle_name,t.last_name,t.name_suffix].filter(Boolean).join(' ');
     const sr=(t.special_requests||[]);
     const occasions=[];
     if(t.birthday_date)occasions.push('🎂 Birthday: '+fmtDate(t.birthday_date));
@@ -1676,6 +1757,119 @@ async function deleteCabinTraveler(id){
   if(!confirm('Remove this traveler from your cabin?'))return;
   await sb.from('cabin_travelers').delete().eq('id',id);
   loadCabinTravelers();
+}
+
+// ── DASHBOARD TILE MODALS ─────────────────────────────────────
+function openPayDetailModal(title,html){
+  document.getElementById('pay-detail-title').textContent=title;
+  document.getElementById('pay-detail-content').innerHTML=html;
+  document.getElementById('pay-detail-modal').classList.add('open');
+}
+
+function showPaidDetail(){
+  if(!gMilestones.length&&!gPayments.length){return;}
+  const payMap={};gPayments.forEach(p=>{payMap[p.milestone_id]=p;});
+  const made=gPayments.filter(p=>parseFloat(p.amount_paid||0)>0);
+  if(made.length===0){
+    openPayDetailModal('Total Paid','<div class="empty"><div class="ei">💳</div><p>No payments recorded yet.</p></div>');
+    return;
+  }
+  const totalPaid=made.reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+  const rows=made.map(p=>{
+    const ms=gMilestones.find(m=>m.id===p.milestone_id);
+    const dateStr=p.paid_date?new Date(p.paid_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+    return`<tr><td><strong>${ms?.label||'Payment'}</strong></td><td>${dateStr}</td><td class="col-r" style="color:var(--success);font-weight:700;">${fmt(parseFloat(p.amount_paid||0))}</td></tr>`;
+  }).join('');
+  openPayDetailModal('Total Paid — Payment History',
+    `<table><thead><tr><th>Milestone</th><th>Date Paid</th><th class="col-r">Amount</th></tr></thead><tbody>${rows}</tbody></table>
+     <div style="text-align:right;font-weight:800;color:var(--success);font-size:1.05rem;margin-top:10px;padding-top:10px;border-top:2px solid var(--border);">Total: ${fmt(totalPaid)}</div>`
+  );
+}
+
+function showBalanceDetail(){
+  if(!gMilestones.length){return;}
+  const payMap={};gPayments.forEach(p=>{payMap[p.milestone_id]=p;});
+  const totalPaid=gPayments.reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+  const balance=gCabinCost?Math.max(0,gCabinCost-totalPaid):null;
+  const rows=gMilestones.map((m,i,arr)=>{
+    const p=payMap[m.id]||{};
+    const paid=parseFloat(p.amount_paid||0);
+    const due=parseFloat(p.amount_due??m.minimum_amount??0);
+    const remaining=Math.max(0,due-paid);
+    const isLast=i===arr.length-1;
+    const dateStr=m.due_date?new Date(m.due_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+    const status=paid>0&&(due<=0||paid>=due)?'<span class="badge badge-success">Paid ✓</span>':remaining>0?`<span class="badge badge-danger">Owed: ${fmt(remaining)}</span>`:'<span class="badge badge-gray">TBD</span>';
+    return`<tr><td><strong>${m.label}</strong></td><td style="font-size:.82rem;color:var(--muted);">${dateStr}</td><td class="col-r" style="color:var(--success);">${paid>0?fmt(paid):'—'}</td><td>${status}</td></tr>`;
+  }).join('');
+  const balStr=gCabinCost?`<div style="text-align:right;font-weight:800;color:var(--danger);font-size:1.05rem;margin-top:10px;padding-top:10px;border-top:2px solid var(--border);">Remaining Balance: ${fmt(balance)}</div>`:'<div style="text-align:right;color:var(--muted);margin-top:10px;font-size:.87rem;">Total cabin cost not yet set by admin.</div>';
+  openPayDetailModal('Balance Due — Payment Breakdown',
+    `<table><thead><tr><th>Milestone</th><th>Due Date</th><th class="col-r">Paid</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>${balStr}`
+  );
+}
+
+function showScheduleDetail(){
+  if(!gMilestones.length){return;}
+  const payMap={};gPayments.forEach(p=>{payMap[p.milestone_id]=p;});
+  const today=new Date();today.setHours(0,0,0,0);
+  const rows=gMilestones.map((m,i,arr)=>{
+    const p=payMap[m.id]||{};
+    const paid=parseFloat(p.amount_paid||0);
+    const due=parseFloat(p.amount_due??m.minimum_amount??0);
+    const isPaid=due>0&&paid>=due;
+    const isLast=i===arr.length-1;
+    const isGrat=!m.due_date&&!isLast;
+    const dDate=m.due_date?new Date(m.due_date+'T00:00:00'):null;
+    const isOver=!isPaid&&dDate&&dDate<today;
+    const isSoon=!isPaid&&dDate&&(dDate-today)<7*24*60*60*1000&&dDate>=today;
+    const dateStr=dDate?dDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'No fixed date';
+    let status;
+    if(isPaid)status='<span class="badge badge-success">Paid ✓</span>';
+    else if(isGrat)status='<span class="badge badge-purple">Gratuities</span>';
+    else if(isOver)status='<span class="badge badge-danger">Overdue</span>';
+    else if(isSoon)status='<span class="badge badge-warn">Due Soon</span>';
+    else if(isLast)status='<span class="badge badge-info">Final</span>';
+    else status='<span class="badge badge-gray">Upcoming</span>';
+    const paidAmt=paid>0?`<span style="color:var(--success);">+${fmt(paid)} paid</span>`:'—';
+    const dateStyle=isOver?'color:var(--danger);font-weight:700;':isSoon?'color:var(--warn);font-weight:700;':'color:var(--muted);';
+    return`<tr><td><strong>${m.label}</strong></td><td style="${dateStyle}font-size:.85rem;">${dateStr}</td><td class="col-r">${due>0?fmt(due):'TBD'}</td><td class="col-r">${paidAmt}</td><td>${status}</td></tr>`;
+  }).join('');
+  openPayDetailModal('Full Payment Schedule',
+    `<table><thead><tr><th>Milestone</th><th>Due Date</th><th class="col-r">Amount Due</th><th class="col-r">Paid</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`
+  );
+}
+
+// ── DUPLICATE CABIN WARNING ───────────────────────────────────
+let gPendingSetupPayload=null;
+function showDupWarning(payload){
+  gPendingSetupPayload=payload;
+  document.getElementById('dup-confirm-ck').checked=false;
+  document.getElementById('dup-continue-btn').disabled=true;
+  document.getElementById('dup-warn-modal').classList.add('open');
+}
+async function doDupContinue(){
+  document.getElementById('dup-warn-modal').classList.remove('open');
+  gDupConfirmed=true;
+  await doProfileSetup();
+  gDupConfirmed=false;
+}
+async function doDupReset(){
+  document.getElementById('dup-warn-modal').classList.remove('open');
+  const email=gUser?.email||gProfile?.email||'';
+  if(!email){alert('Could not determine your email address. Please use the Forgot PIN link on the sign-in page.');return;}
+  const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+window.location.pathname+'?mode=reset'});
+  if(error){alert('Could not send reset email: '+error.message);}
+  else{alert('✅ A PIN reset email has been sent to '+email+'. Check your inbox.');}
+}
+
+// Cabin occupancy picker (profile setup Step 1)
+const CABIN_MAX={Balcony:4,'Ocean View':4,Interior:4,Suite:6};
+function onPsetupGuestsChange(){
+  const val=document.getElementById('psetup-num-guests').value;
+  const noteEl=document.getElementById('psetup-occupancy-note');
+  if(!val){noteEl.textContent='';return;}
+  const n=parseInt(val);
+  noteEl.textContent=n===1?'Just you — no additional travelers needed.':
+    `You'll need to add ${n-1} additional traveler${n>2?'s':''} in the Cabin Travelers section after setup.`;
 }
 
 // ── ADMIN ────────────────────────────────────────────────────
@@ -2006,9 +2200,9 @@ async function showInventoryDetail(cabinType){
   document.getElementById('inv-detail-content').innerHTML='<div class="loading"><div class="spinner"></div></div>';
   document.getElementById('inv-detail-modal').classList.add('open');
 
-  // Query via profiles (RLS disabled) embedding cabin_assignments — bypasses RLS on cabin_assignments
+  // Query via profiles (RLS disabled) — embed cabin_assignments + cabin_travelers to bypass RLS
   const{data:profileRows,error}=await sb.from('profiles')
-    .select('id,name,email,cabin_assignments(cabin_type,cabin_number,suite_pending,assigned_at,gratuity_paid)');
+    .select('id,name,email,cabin_assignments(cabin_type,cabin_number,suite_pending,assigned_at,gratuity_paid,cabin_cost,num_guests,guest_reservation_number),cabin_travelers(first_name,middle_name,last_name,name_suffix,date_of_birth,gender,country_of_citizenship,relationship,special_requests,email,phone,birthday_date,anniversary_date,is_honeymoon)');
 
   if(error){
     document.getElementById('inv-detail-content').innerHTML=`<p style="color:var(--danger);padding:12px;">Error loading data: ${error.message}</p>`;
@@ -2026,17 +2220,52 @@ async function showInventoryDetail(cabinType){
   if(matching.length===0){
     document.getElementById('inv-detail-content').innerHTML='<div class="empty"><div class="ei">🛏️</div><p>No travelers booked in this cabin type yet.</p></div>';
   } else {
-    const rows=matching.map(p=>{
+    const cards=matching.map(p=>{
       const caArr=Array.isArray(p.cabin_assignments)?p.cabin_assignments:[p.cabin_assignments].filter(Boolean);
       const a=caArr.find(ca=>ca&&ca.cabin_type===cabinType)||{};
-      return`<tr>
-        <td><strong>${p.name||'—'}</strong><br><small style="color:var(--muted)">${p.email||''}</small></td>
-        <td>${a.cabin_number||'<em style="color:var(--muted)">Not assigned</em>'}</td>
-        <td>${a.suite_pending?'<span class="badge badge-warn">⭐ Suite Pending</span>':'<span class="badge badge-success">Confirmed ✓</span>'}</td>
-        <td><small>${a.assigned_at?new Date(a.assigned_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</small></td>
-      </tr>`;
+      const travelers=Array.isArray(p.cabin_travelers)?p.cabin_travelers:[];
+      const reservedDate=a.assigned_at?new Date(a.assigned_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+      const statusBadge=a.suite_pending?'<span class="badge badge-warn">⭐ Suite Pending</span>':'<span class="badge badge-success">Confirmed ✓</span>';
+      const gratBadge=a.gratuity_paid?'<span class="badge badge-success">Grat Paid ✓</span>':'<span class="badge badge-gray">Grat Unpaid</span>';
+
+      const travelerRows=travelers.length===0
+        ?`<tr><td colspan="5" style="color:var(--danger);font-style:italic;font-size:.84rem;">⚠️ No cabin travelers entered yet</td></tr>`
+        :travelers.map(t=>{
+          const tName=[t.first_name,t.middle_name,t.last_name,t.name_suffix].filter(Boolean).join(' ');
+          const dob=t.date_of_birth?new Date(t.date_of_birth+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+          const sr=(t.special_requests||[]).join(', ')||'None';
+          const occasions=[];
+          if(t.birthday_date)occasions.push('🎂 '+new Date(t.birthday_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}));
+          if(t.anniversary_date)occasions.push('💍 '+new Date(t.anniversary_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}));
+          if(t.is_honeymoon)occasions.push('🥂 Honeymoon');
+          return`<tr>
+            <td><strong>${tName}</strong>${t.relationship?`<br><small style="color:var(--muted)">${t.relationship}</small>`:''}</td>
+            <td>${dob}</td>
+            <td>${t.gender||'—'}</td>
+            <td>${t.country_of_citizenship||'—'}</td>
+            <td><small>${[t.email,t.phone].filter(Boolean).join(' · ')||'—'}${sr!=='None'?`<br><span style="color:var(--warn);">⚕️ ${sr}</span>`:''}${occasions.length?`<br>${occasions.join(' · ')}`:''}
+            </small></td>
+          </tr>`;
+        }).join('');
+
+      return`<div style="border:1.5px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;">
+          <strong style="font-size:1rem;">${p.name||'—'}</strong>
+          <small style="color:var(--muted);">${p.email||''}</small>
+          ${statusBadge}${gratBadge}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:.83rem;color:var(--muted);margin-bottom:10px;">
+          <span>Cabin #: <strong style="color:var(--text);">${a.cabin_number||'Not assigned'}</strong></span>
+          <span>Reserved: <strong style="color:var(--text);">${reservedDate}</strong></span>
+          ${a.cabin_cost?`<span>Cost: <strong style="color:var(--text);">${fmt(parseFloat(a.cabin_cost))}</strong></span>`:''}
+          ${a.num_guests?`<span>Guests: <strong style="color:var(--text);">${a.num_guests}</strong></span>`:''}
+          ${a.guest_reservation_number?`<span>Res. #: <strong style="color:var(--text);">${a.guest_reservation_number}</strong></span>`:''}
+        </div>
+        <div style="font-size:.8rem;font-weight:700;color:var(--primary);margin-bottom:6px;">Cabin Travelers (${travelers.length})</div>
+        <div class="table-wrap" style="margin:0;"><table><thead><tr><th>Name</th><th>DOB</th><th>Gender</th><th>Citizenship</th><th>Contact / Special</th></tr></thead><tbody>${travelerRows}</tbody></table></div>
+      </div>`;
     }).join('');
-    document.getElementById('inv-detail-content').innerHTML=`<table><thead><tr><th>Traveler</th><th>Cabin #</th><th>Status</th><th>Reserved</th></tr></thead><tbody>${rows}</tbody></table>`;
+    document.getElementById('inv-detail-content').innerHTML=cards;
   }
 }
 
