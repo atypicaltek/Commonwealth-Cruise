@@ -158,6 +158,15 @@
     .ticker-track:hover{animation-play-state:paused;}
     .ticker-item{color:#fff;font-weight:800;font-size:.84rem;padding:0 60px;white-space:nowrap;}
     @keyframes ticker{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+    /* INVENTORY CLICKABLE */
+    .inv-card{cursor:pointer;transition:transform .15s,box-shadow .15s;}
+    .inv-card:hover{transform:translateY(-3px);box-shadow:0 8px 28px rgba(0,0,0,.18);}
+    .inv-click-hint{font-size:.72rem;color:var(--secondary);margin-top:7px;font-weight:600;}
+    /* REPORTS */
+    .report-filter-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px;margin-bottom:16px;}
+    /* REFRESH BTN */
+    .btn-refresh{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.35);color:#fff;padding:5px 13px;border-radius:20px;cursor:pointer;font-size:.82rem;margin-right:6px;}
+    .btn-refresh:hover{background:rgba(255,255,255,.25);}
   </style>
 </head>
 <body>
@@ -235,14 +244,14 @@
 <div id="page-dashboard" class="page">
   <div class="topbar">
     <h1>✈️ Commonwealth Cruise 2027</h1>
-    <div class="topbar-right"><span class="topbar-name" id="dash-topbar-name"></span><button class="btn-signout" onclick="doLogout()">Sign Out</button></div>
+    <div class="topbar-right"><span class="topbar-name" id="dash-topbar-name"></span><button class="btn-refresh" onclick="loadDashboard()" title="Refresh your payment status">↻ Refresh</button><button class="btn-signout" onclick="doLogout()">Sign Out</button></div>
   </div>
   <div class="dash-body">
     <div id="dash-loading" class="loading"><div class="spinner"></div><p>Loading your payment info…</p></div>
     <div id="dash-content" style="display:none;">
       <div class="welcome-banner"><h2 id="dash-welcome">Welcome!</h2><p>Here's your current payment status for the Commonwealth Cruise 2027</p></div>
       <div class="progress-card">
-        <div class="ticker-wrap"><div class="ticker-track">
+        <div class="ticker-wrap" id="grat-ticker"><div class="ticker-track">
           <span class="ticker-item">⚠️ Gratuities are NOT INCLUDED in your cruise cabin costs &nbsp;—&nbsp; <a href="https://www.carnival.com/site-content/static-faq-2018/page-content#collapseOne-3-0" target="_blank" style="color:#fff;text-decoration:underline;">What are Service Gratuities? ↗</a></span>
           <span class="ticker-item">⚠️ Gratuities are NOT INCLUDED in your cruise cabin costs &nbsp;—&nbsp; <a href="https://www.carnival.com/site-content/static-faq-2018/page-content#collapseOne-3-0" target="_blank" style="color:#fff;text-decoration:underline;">What are Service Gratuities? ↗</a></span>
         </div></div>
@@ -253,7 +262,7 @@
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-val paid" id="dash-paid-val">$0</div><div class="stat-label">Total Paid</div></div>
         <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-val" id="dash-balance-val" style="color:var(--muted);font-size:1rem;">Pending</div><div class="stat-label">Balance Due</div></div>
-        <div class="stat-card"><div class="stat-icon">📅</div><div class="stat-val date" id="dash-nextdue-val">—</div><div class="stat-label">Next Due Date</div></div>
+        <div class="stat-card"><div class="stat-icon">📅</div><div class="stat-val date" id="dash-nextdue-val">—</div><div class="stat-label">Next Due Date</div><div id="dash-nextdue-label" style="font-size:.72rem;color:var(--muted);margin-top:3px;line-height:1.3;"></div></div>
       </div>
       <div class="card">
         <div class="card-header"><span class="card-title">📋 Payment Schedule</span><span id="dash-cabin-badge" class="badge badge-info" style="display:none;"></span></div>
@@ -357,6 +366,7 @@
       <button class="tab-btn" onclick="switchTab('cancellations',this)">Cancellations</button>
       <button class="tab-btn" onclick="switchTab('docrequests',this)">Doc Requests</button>
       <button class="tab-btn" onclick="switchTab('suiterequests',this)">Suite Requests</button>
+      <button class="tab-btn" onclick="switchTab('reports',this)">📊 Reports</button>
     </div>
 
     <!-- TRAVELERS -->
@@ -391,8 +401,8 @@
         <div class="card-header"><span class="card-title">Record / Update a Payment</span></div>
         <div id="payment-alert" class="alert"></div>
         <div class="grid-2">
-          <div class="form-group"><label>Traveler</label><select id="pay-traveler"><option value="">Select traveler</option></select></div>
-          <div class="form-group"><label>Milestone</label><select id="pay-milestone"><option value="">Select milestone</option></select></div>
+          <div class="form-group"><label>Traveler</label><select id="pay-traveler" onchange="onPayTravelerChange()"><option value="">Select traveler</option></select></div>
+          <div class="form-group"><label>Milestone</label><select id="pay-milestone" onchange="onPayMilestoneChange()"><option value="">Select milestone</option></select></div>
         </div>
         <div class="grid-2">
           <div class="form-group"><label>Amount Due ($)</label><input type="number" id="pay-due" placeholder="0.00" min="0" step="0.01"></div>
@@ -442,6 +452,66 @@
         <div id="admin-docrequests" class="table-wrap"><div class="loading"><div class="spinner"></div></div></div>
       </div>
     </div>
+
+    <!-- REPORTS -->
+    <div id="tab-reports" class="tab-pane">
+      <div class="card">
+        <div class="card-header"><span class="card-title">📊 Reports</span><span style="font-size:.8rem;color:var(--muted);">Filter across all traveler data</span></div>
+        <div class="report-filter-grid">
+          <div class="form-group" style="margin-bottom:0;"><label>Traveler Name</label><input type="text" id="rpt-name" placeholder="Search name…"></div>
+          <div class="form-group" style="margin-bottom:0;"><label>Cabin Number</label><input type="text" id="rpt-cabin-num" placeholder="e.g. 8245"></div>
+          <div class="form-group" style="margin-bottom:0;"><label>Cabin Type</label>
+            <select id="rpt-cabin-type">
+              <option value="">All Types</option>
+              <option value="Balcony">Balcony</option>
+              <option value="Ocean View">Ocean View</option>
+              <option value="Interior">Interior</option>
+              <option value="Suite">Suite</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;"><label>Milestone</label>
+            <select id="rpt-milestone"><option value="">All Milestones</option></select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;"><label>Payment Status</label>
+            <select id="rpt-pay-status">
+              <option value="">All</option>
+              <option value="paid">Has Payments</option>
+              <option value="unpaid">No Payments Yet</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;"><label>Traveler Status</label>
+            <select id="rpt-status">
+              <option value="">All</option>
+              <option value="active">Active</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="suite">Suite Pending</option>
+              <option value="no-cabin">No Cabin Assigned</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-primary btn-sm" onclick="runReport()">🔍 Run Report</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportReportCSV()">⬇️ Export CSV</button>
+          <span id="rpt-count" style="font-size:.82rem;color:var(--muted);margin-left:6px;"></span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Results</span></div>
+        <div id="rpt-results" class="table-wrap"><div class="empty"><div class="ei">📊</div><p>Set filters above and click Run Report.</p></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- INVENTORY DETAIL MODAL -->
+<div id="inv-detail-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box" style="max-width:600px;max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 id="inv-detail-title" style="color:var(--primary);font-size:1.1rem;font-weight:800;">Cabin Details</h3>
+      <button onclick="document.getElementById('inv-detail-modal').classList.remove('open')" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px;">×</button>
+    </div>
+    <div id="inv-detail-content"></div>
   </div>
 </div>
 
@@ -606,6 +676,17 @@
   </div>
 </div>
 
+<!-- MILESTONE WARNING MODAL -->
+<div id="milestone-warning-modal" class="modal-overlay">
+  <div class="modal-box" style="max-width:440px;">
+    <div style="font-size:2rem;text-align:center;margin-bottom:8px;">⚠️</div>
+    <h3 style="text-align:center;color:var(--danger);margin-bottom:14px;">Payment Due Soon</h3>
+    <div id="milestone-warning-content" style="background:#fdf0ee;border:2px solid #f5c6c0;border-radius:10px;padding:16px;margin-bottom:16px;font-size:.9rem;line-height:1.7;color:#7b1c14;"></div>
+    <p style="font-size:.83rem;color:var(--muted);text-align:center;margin-bottom:16px;">Please make your payment as soon as possible to stay on schedule. Contact the trip organizer if you have any questions.</p>
+    <button class="btn btn-primary btn-full" onclick="closeMilestoneWarning()">I Understand — View My Dashboard</button>
+  </div>
+</div>
+
 <!-- SUITE AVAILABILITY MODAL -->
 <div id="suite-modal" class="modal-overlay">
   <div class="modal-box" style="text-align:center;">
@@ -635,7 +716,7 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzBceNPe3DkBRib
 
 const{createClient}=supabase;
 const sb=createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
-let gUser=null,gProfile=null,gInventory={},gProfileSetupComplete=false;
+let gUser=null,gProfile=null,gInventory={},gProfileSetupComplete=false,gInventoryAssignments=[],gReportData=[],gMilestoneWarningShown=false;
 
 // ── ROUTER ─────────────────────────────────────────────────
 function showPage(name){
@@ -1218,7 +1299,7 @@ async function doProfileSetup(){
 async function loadDashboard(){
   document.getElementById('dash-loading').style.display='block';
   document.getElementById('dash-content').style.display='none';
-  const fullName=gProfile?.name||gUser?.email||'Traveler';
+  const fullName=gProfile?.name||gUser?.user_metadata?.full_name||gUser?.user_metadata?.name||'Traveler';
   document.getElementById('dash-topbar-name').textContent=fullName;
   document.getElementById('dash-welcome').textContent=`Welcome, ${fullName}!`;
 
@@ -1261,15 +1342,22 @@ async function loadDashboard(){
 
   const payMap={};payments.forEach(p=>{payMap[p.milestone_id]=p;});
   const today=new Date();today.setHours(0,0,0,0);
-  let totalPaid=0,nextDue=null;
-  milestones.forEach(m=>{
+  let totalPaid=0,nextDue=null,nextDueLabel=null,nextDueAmt=null;
+  milestones.forEach((m,i,arr)=>{
     const p=payMap[m.id]||{};
     const paid=parseFloat(p.amount_paid||0);
     totalPaid+=paid;
+    if(!m.due_date)return; // gratuity/no-date milestone — skip for nextDue calculation
+    const minAmt=m.minimum_amount!=null?parseFloat(m.minimum_amount):null;
     const due=parseFloat(p.amount_due??m.minimum_amount??0);
-    const isPaid=due>0&&paid>=due;
+    // Milestone is cleared if: no minimum required, or paid >= required amount
+    const isCleared=due<=0||paid>=due;
     const dDate=new Date(m.due_date+'T00:00:00');
-    if(!isPaid&&(!nextDue||dDate<nextDue))nextDue=dDate;
+    if(!isCleared&&(!nextDue||dDate<nextDue)){
+      nextDue=dDate;
+      nextDueLabel=m.label;
+      nextDueAmt=minAmt;
+    }
   });
 
   // Progress bar — only show % if cabin cost is known
@@ -1291,7 +1379,18 @@ async function loadDashboard(){
   }
   document.getElementById('dash-paid-label').textContent=fmt(totalPaid)+' paid';
   document.getElementById('dash-paid-val').textContent=fmt(totalPaid);
-  document.getElementById('dash-nextdue-val').textContent=nextDue?nextDue.toLocaleDateString('en-US',{month:'short',day:'numeric'}):'None';
+  if(nextDue){
+    const nd=nextDue.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    document.getElementById('dash-nextdue-val').textContent=nd;
+    // Show label under the date if it fits
+    const lblEl=document.getElementById('dash-nextdue-label');
+    if(lblEl)lblEl.textContent=nextDueLabel||'';
+  } else {
+    document.getElementById('dash-nextdue-val').textContent='All Clear ✓';
+    document.getElementById('dash-nextdue-val').style.color='var(--success)';
+    const lblEl=document.getElementById('dash-nextdue-label');
+    if(lblEl)lblEl.textContent='No payments outstanding';
+  }
 
   // Build schedule rows — last milestone (Remaining Balance) uses cabin_cost
   let runningPaid=0;
@@ -1302,16 +1401,19 @@ async function loadDashboard(){
     const paid=parseFloat(p.amount_paid||0);
     runningPaid+=paid;
     const isLast=i===arr.length-1;
-    const dDate=new Date(m.due_date+'T00:00:00');
+    const isGrat=!m.due_date&&!isLast; // no due_date = gratuity-type milestone
+    const dDate=m.due_date?new Date(m.due_date+'T00:00:00'):null;
     const due=parseFloat(p.amount_due??m.minimum_amount??0);
     const isPaid=!isLast&&due>0&&paid>=due;
-    const isOver=!isPaid&&!isLast&&dDate<today;
-    const isSoon=!isPaid&&!isOver&&!isLast&&(dDate-today)<7*24*60*60*1000;
+    const isOver=!isPaid&&!isLast&&!isGrat&&dDate&&dDate<today;
+    const isSoon=!isPaid&&!isOver&&!isLast&&!isGrat&&dDate&&(dDate-today)<7*24*60*60*1000;
     const dateStr=fmtDate(m.due_date);
     const dateCls=isOver?'overdue':isSoon?'due-soon':'';
     let badge='<span class="badge badge-gray">TBD</span>';
     if(isLast){
       badge=cabinCost?'<span class="badge badge-info">Final Payment</span>':'<span class="badge badge-gray">Pending Cost Entry</span>';
+    } else if(isGrat){
+      badge=isPaid?'<span class="badge badge-success">Paid ✓</span>':'<span class="badge badge-purple">Gratuities</span>';
     } else if(due>0){
       if(isPaid)badge='<span class="badge badge-success">Paid ✓</span>';
       else if(isOver)badge='<span class="badge badge-danger">Overdue!</span>';
@@ -1348,6 +1450,81 @@ async function loadDashboard(){
   document.getElementById('dash-loading').style.display='none';
   document.getElementById('dash-content').style.display='block';
   loadCabinTravelers();
+
+  // Hide gratuity ticker if gratuities have been paid:
+  // either admin toggled gratuity_paid on the cabin, or a gratuity milestone has amount_paid > 0
+  const gratMilestone=milestones.find(m=>!m.due_date||m.label.toLowerCase().includes('grat'));
+  const gratPaidViaMilestone=gratMilestone&&parseFloat(payMap[gratMilestone?.id]?.amount_paid||0)>0;
+  const gratPaidByAdmin=!!cabin?.gratuity_paid;
+  const ticker=document.getElementById('grat-ticker');
+  if(ticker)ticker.style.display=(gratPaidViaMilestone||gratPaidByAdmin)?'none':'';
+
+  // Show milestone warning once per login session if needed
+  if(!gMilestoneWarningShown&&gProfile?.first_login_complete){
+    checkMilestoneWarning(milestones,payments,cabinCost);
+  }
+}
+
+// ── MILESTONE WARNING ────────────────────────────────────────
+function checkMilestoneWarning(milestones,payments,cabinCost){
+  const payMap={};payments.forEach(p=>{payMap[p.milestone_id]=p;});
+  const today=new Date();today.setHours(0,0,0,0);
+  const sevenDays=7*24*60*60*1000;
+
+  // Check if everything is fully paid (last milestone paid = all done)
+  const totalPaid=payments.reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+  if(cabinCost&&totalPaid>=cabinCost)return; // fully paid — no warning
+
+  // For each non-last milestone, check if unpaid and within 7 days or overdue
+  const warnings=[];
+  milestones.forEach((m,i,arr)=>{
+    const isLast=i===arr.length-1;
+    if(!m.due_date)return; // gratuity/no-date milestone — skip from warning
+    const p=payMap[m.id]||{};
+    const paid=parseFloat(p.amount_paid||0);
+    const minAmt=m.minimum_amount!=null?parseFloat(m.minimum_amount):null;
+    const due=parseFloat(p.amount_due??m.minimum_amount??0);
+    // Skip milestones with no minimum amount required (nothing to warn about)
+    if(due<=0)return;
+    // Skip if already paid
+    if(paid>=due)return;
+    // For the last milestone, only warn if cabin_cost is known and unpaid
+    if(isLast){
+      if(!cabinCost)return;
+      const remaining=Math.max(0,cabinCost-totalPaid);
+      if(remaining<=0)return;
+    }
+    const dDate=new Date(m.due_date+'T00:00:00');
+    const diff=dDate-today; // ms until due (negative = overdue)
+    const isOverdue=diff<0;
+    const isDueSoon=diff>=0&&diff<=sevenDays;
+    if(isOverdue||isDueSoon){
+      const dStr=dDate.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+      warnings.push({label:m.label,dStr,due:minAmt,isOverdue,isDueSoon,remaining:isLast?(cabinCost-totalPaid):Math.max(0,due-paid)});
+    }
+  });
+
+  if(warnings.length===0)return;
+
+  // Build warning content
+  const lines=warnings.map(w=>{
+    const urgency=w.isOverdue?'🔴 OVERDUE':'🟡 Due within 7 days';
+    const amtStr=w.remaining?fmt(w.remaining):(w.due?fmt(w.due):'See schedule');
+    return`<div style="margin-bottom:${warnings.length>1?'12px':'0'};padding-bottom:${warnings.length>1?'12px':'0'};border-bottom:${warnings.length>1?'1px solid #f5c6c0':'none'};">
+      <div style="font-size:.78rem;font-weight:700;letter-spacing:.3px;">${urgency}</div>
+      <div style="font-size:1rem;font-weight:800;margin:3px 0;">${w.label}</div>
+      <div>Due: <strong>${w.dStr}</strong></div>
+      <div>Minimum Amount Due: <strong>${amtStr}</strong></div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('milestone-warning-content').innerHTML=lines;
+  document.getElementById('milestone-warning-modal').classList.add('open');
+  gMilestoneWarningShown=true;
+}
+
+function closeMilestoneWarning(){
+  document.getElementById('milestone-warning-modal').classList.remove('open');
 }
 
 // ── CABIN TRAVELERS ──────────────────────────────────────────
@@ -1465,7 +1642,7 @@ async function deleteCabinTraveler(id){
 
 // ── ADMIN ────────────────────────────────────────────────────
 async function adminInit(){
-  await Promise.all([loadTravelers(),loadAdminMilestones(),loadPaymentFormSelects(),loadAdminPayments(),loadInventoryTab(),loadCancellationsTab(),loadDocRequests(),loadSuiteRequests()]);
+  await Promise.all([loadTravelers(),loadAdminMilestones(),loadPaymentFormSelects(),loadAdminPayments(),loadInventoryTab(),loadCancellationsTab(),loadDocRequests(),loadSuiteRequests(),loadReportMilestones()]);
 }
 function switchTab(name,btn){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
@@ -1474,47 +1651,64 @@ function switchTab(name,btn){
 }
 
 async function loadTravelers(){
-  const{data:profiles}=await sb.from('profiles').select('*, user_payments(amount_due,amount_paid), cabin_assignments(cabin_type,cabin_number)').eq('is_admin',false).order('name');
+  // Select all non-admin profiles (including those without cabin assignments)
+  const{data:profiles}=await sb.from('profiles')
+    .select('*, user_payments(amount_due,amount_paid), cabin_assignments(cabin_type,cabin_number,cabin_cost,suite_pending,guest_reservation_number,payment_link,gratuity_paid)')
+    .eq('is_admin',false).order('name');
   const el=document.getElementById('admin-travelers');
   if(!profiles||profiles.length===0){el.innerHTML='<div class="empty"><div class="ei">👥</div><p>No travelers yet.</p></div>';return;}
-  const citLabel={us:'U.S.','non-us':'Non-U.S.',canadian:'Canadian',other:'Other'};
+  const citLabel={us:'U.S. Citizen','us-pr':'U.S. Perm. Resident','non-us':'Non-U.S.',canadian:'Canadian',other:'Other'};
   const active=profiles.filter(p=>p.status!=='cancelled');
   const cancelled=profiles.filter(p=>p.status==='cancelled');
 
   function makeRow(p,isCancelled){
-    const due=(p.user_payments||[]).reduce((s,x)=>s+parseFloat(x.amount_due||0),0);
     const paid=(p.user_payments||[]).reduce((s,x)=>s+parseFloat(x.amount_paid||0),0);
-    const bal=Math.max(0,due-paid);
-    const pct=due>0?Math.round((paid/due)*100):0;
-    const cabin=p.cabin_assignments?p.cabin_assignments.cabin_type+(p.cabin_assignments.cabin_number?' #'+p.cabin_assignments.cabin_number:''):'—';
-    const cabinCostDisplay=p.cabin_assignments?.cabin_cost?fmt(p.cabin_assignments.cabin_cost):'<em style="color:var(--muted)">Not set</em>';
+    const ca=p.cabin_assignments;
+    const cabinCost=ca?.cabin_cost?parseFloat(ca.cabin_cost):null;
+    // Balance = total cabin cost minus total paid; fall back to sum-of-dues if no cabin cost
+    const due=(p.user_payments||[]).reduce((s,x)=>s+parseFloat(x.amount_due||0),0);
+    const bal=cabinCost?Math.max(0,cabinCost-paid):Math.max(0,due-paid);
+    const pct=cabinCost?Math.min(100,Math.round((paid/cabinCost)*100)):(due>0?Math.round((paid/due)*100):0);
+    const cabinStr=ca?(ca.cabin_type+(ca.cabin_number?' #'+ca.cabin_number:'')):'—';
+    const cabinCostDisplay=ca?.cabin_cost?fmt(parseFloat(ca.cabin_cost)):'<em style="color:var(--muted)">Not set</em>';
+    const reservNum=ca?.guest_reservation_number||'—';
+    const payLink=ca?.payment_link?`<a href="${ca.payment_link}" target="_blank" style="color:var(--secondary);font-size:.79rem;word-break:break-all;">View Link ↗</a>`:'<em style="color:var(--muted);font-size:.79rem;">Not set</em>';
     const docB=p.needs_doc_info?'<span class="badge needs-info">Needs Doc</span> ':'';
+    const suiteB=ca?.suite_pending?'<span class="badge badge-warn">Suite⭐</span> ':'';
+    const noCabinB=!ca?'<span class="badge badge-gray">No Cabin</span> ':'';
     const rowStyle=isCancelled?'opacity:.6;background:#fdf0ee;':'';
+    // Escape strings used in onclick attributes
+    const safeName=p.name.replace(/'/g,"\\'");
+    const safePayLink=(ca?.payment_link||'').replace(/'/g,"\\'");
     const actions=isCancelled
       ?`<span class="badge badge-danger">Cancelled</span>`
-      :`<div style="display:flex;gap:5px;flex-wrap:wrap;">
-          <button class="btn-warn" onclick="assignCabinNumber('${p.id}','${p.name}','${p.cabin_assignments?.cabin_type||''}','${p.cabin_assignments?.cabin_number||''}')">Assign Cabin #</button>
-          <button class="btn-warn" onclick="setCabinCost('${p.id}','${p.name}','${p.cabin_assignments?.cabin_cost||''}')">Set Cabin Cost</button>
-          <button class="btn-danger" onclick="cancelTraveler('${p.id}','${p.name}','${p.email||''}','${p.cabin_assignments?.cabin_type||''}','${p.cabin_assignments?.cabin_number||''}','${p.citizenship_type||''}',${paid})">Cancel</button>
-          <button class="btn-danger" style="background:#fdf0ee;opacity:.7;" onclick="deleteTravelerTest('${p.id}','${p.name}')">Delete (Test)</button>
+      :`<div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button class="btn-warn" onclick="assignCabinNumber('${p.id}','${safeName}','${ca?.cabin_type||''}','${ca?.cabin_number||''}')">Cabin #</button>
+          <button class="btn-warn" onclick="setCabinCost('${p.id}','${safeName}','${ca?.cabin_cost||''}')">Cost</button>
+          <button class="btn-warn" onclick="setReservationNumber('${p.id}','${safeName}','${ca?.guest_reservation_number||''}')">Res. #</button>
+          <button class="btn-warn" onclick="setPaymentLink('${p.id}','${safeName}','${safePayLink}')">Pay Link</button>
+          <button class="${ca?.gratuity_paid?'btn-success':'btn-warn'}" onclick="setGratuityPaid('${p.id}','${safeName}',${!!ca?.gratuity_paid})">Grat ${ca?.gratuity_paid?'✓':'—'}</button>
+          <button class="btn-danger" onclick="cancelTraveler('${p.id}','${safeName}','${p.email||''}','${ca?.cabin_type||''}','${ca?.cabin_number||''}','${p.citizenship_type||''}',${paid})">Cancel</button>
+          <button class="btn-danger" style="opacity:.7;" onclick="deleteTraveler('${p.id}','${safeName}')">Delete</button>
         </div>`;
     return`<tr style="${rowStyle}">
-      <td><strong>${p.name}</strong> ${docB}<br><small style="color:var(--muted)">${p.email||''}</small></td>
-      <td>${citLabel[p.citizenship_type]||p.citizenship_type||'—'}${p.country_of_citizenship?' — '+p.country_of_citizenship:''}</td>
-      <td><span class="badge badge-purple">${cabin}</span></td>
+      <td><strong>${p.name}</strong> ${docB}${suiteB}${noCabinB}<br><small style="color:var(--muted)">${p.email||''}</small></td>
+      <td style="font-size:.84rem;">${citLabel[p.citizenship_type]||p.citizenship_type||'<em style="color:var(--muted)">—</em>'}${p.country_of_citizenship?'<br><small style="color:var(--muted)">'+p.country_of_citizenship+'</small>':''}</td>
+      <td><span class="badge badge-purple">${cabinStr}</span></td>
       <td class="col-r">${cabinCostDisplay}</td>
+      <td style="font-size:.82rem;min-width:110px;"><div style="font-weight:600;color:var(--text);">${reservNum}</div><div style="margin-top:3px;">${payLink}</div></td>
       <td class="col-r" style="color:var(--success)"><strong>${fmt(paid)}</strong></td>
-      <td class="col-r" style="color:var(--danger)">${fmt(bal)}</td>
+      <td class="col-r" style="color:${cabinCost?'var(--danger)':'var(--muted)'}">${cabinCost?fmt(bal):'<em style="font-size:.82rem;">—</em>'}</td>
       <td><div class="pbar-row"><div class="mpbar-track"><div class="mpbar-fill" style="width:${pct}%"></div></div><small>${pct}%</small></div></td>
       <td>${actions}</td>
     </tr>`;
   }
 
-  const thead=`<thead><tr><th>Traveler</th><th>Citizenship</th><th>Cabin</th><th class="col-r">Cabin Cost</th><th class="col-r">Paid</th><th class="col-r">Balance</th><th>Progress</th><th>Actions</th></tr></thead>`;
-  let html=`<table>${thead}<tbody>${active.map(p=>makeRow(p,false)).join('')}</tbody></table>`;
+  const thead=`<thead><tr><th>Traveler</th><th>Citizenship</th><th>Cabin</th><th class="col-r">Cabin Cost</th><th>Res. # / Pay Link</th><th class="col-r">Total Paid</th><th class="col-r">Balance</th><th>Progress</th><th>Actions</th></tr></thead>`;
+  let html=`<div class="table-wrap"><table>${thead}<tbody>${active.map(p=>makeRow(p,false)).join('')}</tbody></table></div>`;
   if(cancelled.length>0){
     html+=`<div class="section-hdr" style="margin-top:22px;">Cancelled Travelers (${cancelled.length})</div>
-    <table>${thead}<tbody>${cancelled.map(p=>makeRow(p,true)).join('')}</tbody></table>`;
+    <div class="table-wrap"><table>${thead}<tbody>${cancelled.map(p=>makeRow(p,true)).join('')}</tbody></table></div>`;
   }
   el.innerHTML=html;
 }
@@ -1529,12 +1723,43 @@ async function assignCabinNumber(userId,name,cabinType,currentNum){
 
 async function setCabinCost(userId,name,currentCost){
   const currentDisplay=currentCost?fmt(parseFloat(currentCost)):'Not set';
-  const input=prompt(`Set total cabin cost for ${name}:\nCurrent: ${currentDisplay}\n\nEnter the full cabin cost (numbers only, e.g. 2400):`,currentCost||'');
-  if(input===null)return; // cancelled
+  const input=prompt(`Set total cabin cost for ${name}:\nCurrent: ${currentDisplay}\n\nEnter the full cabin cost (e.g. 2400 or 2400.50):`,currentCost||'');
+  if(input===null)return;
   const parsed=parseFloat(input.replace(/[^0-9.]/g,''));
-  if(isNaN(parsed)||parsed<=0){alert('Please enter a valid dollar amount.');return;}
-  const{error}=await sb.from('cabin_assignments').update({cabin_cost:parsed}).eq('user_id',userId);
-  if(error){alert('Error saving cabin cost: '+error.message);return;}
+  if(isNaN(parsed)||parsed<=0){alert('Please enter a valid dollar amount (e.g. 2400 or 2400.50).');return;}
+  // Use a raw RPC to bypass schema cache issues with newly-added columns
+  const{error}=await sb.rpc('set_cabin_cost',{p_user_id:userId,p_cost:parsed}).catch(()=>({error:{message:'rpc_fallback'}}));
+  if(error){
+    // Fallback to direct update if RPC not yet created
+    const{error:err2}=await sb.from('cabin_assignments').update({cabin_cost:parsed}).eq('user_id',userId);
+    if(err2){alert('Error saving cabin cost: '+err2.message+'\n\nIf you see a schema cache error, run the new-columns.sql file in Supabase SQL Editor, then try again.');return;}
+  }
+  loadTravelers();
+}
+
+async function setReservationNumber(userId,name,current){
+  const input=prompt(`Guest reservation number for ${name}:\nCurrent: ${current||'Not set'}\n\nEnter Carnival reservation number:`,current||'');
+  if(input===null)return;
+  const{error}=await sb.from('cabin_assignments').update({guest_reservation_number:input.trim()||null}).eq('user_id',userId);
+  if(error){alert('Error: '+error.message);return;}
+  loadTravelers();
+}
+
+async function setPaymentLink(userId,name,current){
+  const input=prompt(`Payment link for ${name}:\nCurrent: ${current||'Not set'}\n\nEnter full payment URL (https://…):`,current||'');
+  if(input===null)return;
+  const trimmed=input.trim();
+  if(trimmed&&!trimmed.startsWith('http')){alert('Please enter a full URL starting with https://');return;}
+  const{error}=await sb.from('cabin_assignments').update({payment_link:trimmed||null}).eq('user_id',userId);
+  if(error){alert('Error: '+error.message);return;}
+  loadTravelers();
+}
+
+async function setGratuityPaid(userId,name,isPaid){
+  const action=isPaid?'Mark gratuities as UNPAID':'Mark gratuities as PAID';
+  if(!confirm(`Gratuities for ${name}:\nCurrently: ${isPaid?'PAID ✓':'Unpaid'}\n\n${action}?\n\nThis will ${isPaid?'restore':'hide'} the gratuity reminder banner for this traveler.`))return;
+  const{error}=await sb.from('cabin_assignments').update({gratuity_paid:!isPaid}).eq('user_id',userId);
+  if(error){alert('Error updating gratuity status: '+error.message);return;}
   loadTravelers();
 }
 
@@ -1555,18 +1780,23 @@ async function cancelTraveler(userId,name,email,cabinType,cabinNumber,citizenshi
   emailCancellationToTraveler(name,email,cabinType,cabinNumber,totalPaid);
   emailCancellationToAdmin(name,email,cabinType,cabinNumber,citizenship,totalPaid);
 
-  alert(`✅ ${name}'s reservation has been cancelled. Their profile is preserved for your records. Emails ${EMAILJS_PUBLIC_KEY==='YOUR_EMAILJS_PUBLIC_KEY'?'will open as drafts':'have been sent'}.`);
-  await Promise.all([loadTravelers(),loadInventoryTab(),loadCancellationsTab()]);
+  alert(`✅ ${name}'s reservation has been cancelled. Their profile is preserved for your records.`);
+  await Promise.all([loadTravelers(),loadInventoryTab(),loadCancellationsTab(),loadPaymentFormSelects()]);
 }
 
-async function deleteTravelerTest(userId,name){
-  const confirmed=confirm(`Delete test account for ${name}?\n\nTESTING ONLY — no emails sent, no cancellation record.\n\nNote: Also go to Supabase Dashboard → Authentication → Users to fully remove the login.`);
+async function deleteTraveler(userId,name){
+  const confirmed=confirm(`⚠️ PERMANENTLY DELETE account for ${name}?\n\nThis will:\n• Remove their profile, cabin assignment, payments, and cabin travelers\n• Return their cabin to inventory\n• NOT send any emails or record a cancellation\n\nIMPORTANT: Also delete from Supabase Dashboard → Authentication → Users.\n\nThis CANNOT be undone. Continue?`);
   if(!confirmed)return;
   const{data:ca}=await sb.from('cabin_assignments').select('cabin_type').eq('user_id',userId).single();
   if(ca?.cabin_type)await sb.rpc('increment_cabin',{cabin:ca.cabin_type});
+  await Promise.all([
+    sb.from('cabin_travelers').delete().eq('account_owner_id',userId),
+    sb.from('user_payments').delete().eq('user_id',userId),
+    sb.from('suite_requests').delete().eq('user_id',userId)
+  ]);
   await sb.from('profiles').delete().eq('id',userId);
-  alert(`✅ Test account deleted. Remember to remove from Supabase Auth → Users.`);
-  await Promise.all([loadTravelers(),loadInventoryTab()]);
+  alert(`✅ Account for ${name} deleted.\n\nRemember to also remove from Supabase Dashboard → Authentication → Users to prevent login.`);
+  await Promise.all([loadTravelers(),loadInventoryTab(),loadPaymentFormSelects()]);
 }
 
 // ── SCHEDULE ─────────────────────────────────────────────────
@@ -1574,8 +1804,8 @@ async function addMilestone(){
   const label=document.getElementById('ms-label').value.trim();
   const amount=parseFloat(document.getElementById('ms-amount').value)||null;
   const date=document.getElementById('ms-date').value;
-  if(!label||!date){flash('milestone-alert','Please enter a label and due date.');return;}
-  const{error}=await sb.from('payment_milestones').insert({label,minimum_amount:amount,due_date:date});
+  if(!label){flash('milestone-alert','Please enter a milestone label.');return;}
+  const{error}=await sb.from('payment_milestones').insert({label,minimum_amount:amount,due_date:date||null});
   if(error){flash('milestone-alert','Error: '+error.message);return;}
   document.getElementById('ms-label').value='';document.getElementById('ms-amount').value='';document.getElementById('ms-date').value='';
   flash('milestone-alert','✅ Milestone added!','success');
@@ -1597,11 +1827,36 @@ async function deleteMilestone(id){
 // ── PAYMENTS ─────────────────────────────────────────────────
 async function loadPaymentFormSelects(){
   const[{data:profiles},{data:milestones}]=await Promise.all([
-    sb.from('profiles').select('id,name,email').eq('is_admin',false).order('name'),
+    sb.from('profiles').select('id,name,email,status').eq('is_admin',false),
     sb.from('payment_milestones').select('*').order('due_date',{ascending:true})
   ]);
-  document.getElementById('pay-traveler').innerHTML='<option value="">Select traveler</option>'+(profiles||[]).map(p=>`<option value="${p.id}" data-email="${p.email||''}" data-name="${p.name}">${p.name}</option>`).join('');
-  document.getElementById('pay-milestone').innerHTML='<option value="">Select milestone</option>'+(milestones||[]).map(m=>`<option value="${m.id}" data-label="${m.label}">${m.label} (${fmtDate(m.due_date)}${m.minimum_amount!=null?' — min '+fmt(m.minimum_amount):''})</option>`).join('');
+  // Filter out cancelled travelers; sort remaining by last name alphabetically
+  const active=(profiles||[]).filter(p=>p.status!=='cancelled');
+  active.sort((a,b)=>{
+    const aLast=(a.name||'').split(' ').pop().toLowerCase();
+    const bLast=(b.name||'').split(' ').pop().toLowerCase();
+    return aLast.localeCompare(bLast);
+  });
+  document.getElementById('pay-traveler').innerHTML='<option value="">Select traveler</option>'+
+    active.map(p=>`<option value="${p.id}" data-email="${p.email||''}" data-name="${p.name}">${p.name}</option>`).join('');
+  document.getElementById('pay-milestone').innerHTML='<option value="">Select milestone</option>'+
+    (milestones||[]).map(m=>`<option value="${m.id}" data-label="${m.label}" data-amount="${m.minimum_amount||0}">${m.label} (${m.due_date?fmtDate(m.due_date):'No Date'}${m.minimum_amount!=null?' — min '+fmt(m.minimum_amount):''})</option>`).join('');
+}
+
+function onPayMilestoneChange(){
+  const sel=document.getElementById('pay-milestone');
+  const opt=sel.options[sel.selectedIndex];
+  const amt=parseFloat(opt?.dataset?.amount||0);
+  document.getElementById('pay-due').value=amt>0?amt.toFixed(2):'';
+}
+
+async function onPayTravelerChange(){
+  // Load existing payments for this traveler so admin can see what's already recorded
+  const userId=document.getElementById('pay-traveler').value;
+  if(!userId)return;
+  // Optionally pre-fill amount paid with 0 (clear field for fresh entry)
+  document.getElementById('pay-paid').value='';
+  document.getElementById('pay-date').value='';
 }
 async function savePayment(){
   const travelerSel=document.getElementById('pay-traveler');
@@ -1620,27 +1875,40 @@ async function savePayment(){
   const tEmail=travelerSel.options[travelerSel.selectedIndex].dataset.email;
   const mLabel=milestoneSel.options[milestoneSel.selectedIndex].dataset.label;
 
-  // Get running totals
-  const{data:allPayments}=await sb.from('user_payments').select('amount_due,amount_paid').eq('user_id',userId);
-  const totalDue=(allPayments||[]).reduce((s,p)=>s+parseFloat(p.amount_due||0),0);
+  // Get updated totals + cabin info in parallel
+  const[{data:allPayments},{data:cabinData}]=await Promise.all([
+    sb.from('user_payments').select('amount_due,amount_paid').eq('user_id',userId),
+    sb.from('cabin_assignments').select('cabin_type,cabin_number,cabin_cost,deposit_email_sent').eq('user_id',userId).single()
+  ]);
   const totalPaid=(allPayments||[]).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
-  const remaining=Math.max(0,totalDue-totalPaid);
+  // Balance = cabin_cost - totalPaid (preferred); fall back to sum-of-dues if cabin_cost not set
+  const cabinCost=cabinData?.cabin_cost?parseFloat(cabinData.cabin_cost):null;
+  const totalDue=(allPayments||[]).reduce((s,p)=>s+parseFloat(p.amount_due||0),0);
+  const remaining=cabinCost?Math.max(0,cabinCost-totalPaid):Math.max(0,totalDue-totalPaid);
+  const cabinStr=cabinData?(cabinData.cabin_type+(cabinData.cabin_number?' #'+cabinData.cabin_number:'')):'Not yet assigned';
 
+  // Email traveler confirmation
   if(amtPaid>0&&tEmail){
     emailPaymentConfirmed(tName,tEmail,mLabel,amtPaid,totalPaid,remaining);
   }
 
+  // ── Notify admin of every payment ───────────────────────────
+  if(amtPaid>0){
+    const adminMsg=`Payment recorded for ${tName}.\n\n• Milestone: ${mLabel}\n• Amount Paid: ${fmt(amtPaid)}\n• Total Paid to Date: ${fmt(totalPaid)}\n• Remaining Balance: ${remaining>0?fmt(remaining):'Paid in Full'}\n• Cabin: ${cabinStr}\n• Traveler Email: ${tEmail||'—'}`;
+    sendEmail(ADMIN_EMAIL,'Admin',`${TRIP_NAME} — Payment: ${tName} — ${mLabel}`,adminMsg);
+  }
+
   // ── Deposit completion check ($250 × number of travelers) ────
   if(tEmail){
-    const[{data:assignment},{data:cabinTravelers}]=await Promise.all([
-      sb.from('cabin_assignments').select('deposit_email_sent').eq('user_id',userId).single(),
-      sb.from('cabin_travelers').select('id').eq('account_owner_id',userId)
-    ]);
-    if(assignment&&!assignment.deposit_email_sent){
-      const travelerCount=(cabinTravelers?.length||0)+1; // +1 for account holder
+    const{data:cabinTravelers}=await sb.from('cabin_travelers').select('id').eq('account_owner_id',userId);
+    if(cabinData&&!cabinData.deposit_email_sent){
+      const travelerCount=(cabinTravelers?.length||0)+1;
       const depositThreshold=250*travelerCount;
       if(totalPaid>=depositThreshold){
         emailDepositComplete(tName,tEmail,totalPaid,travelerCount);
+        sendEmail(ADMIN_EMAIL,'Admin',`${TRIP_NAME} — DEPOSIT COMPLETE: ${tName}`,
+          `Full deposit received for ${tName}.\n\n• Name: ${tName}\n• Email: ${tEmail||'—'}\n• Cabin: ${cabinStr}\n• Travelers in Cabin: ${travelerCount}\n• Total Paid: ${fmt(totalPaid)}\n• Deposit Threshold: ${fmt(depositThreshold)}`
+        );
         await sb.from('cabin_assignments').update({deposit_email_sent:true}).eq('user_id',userId);
         flash('payment-alert',`✅ Payment saved! Full deposit reached — confirmation email sent to ${tEmail}.`,'success');
       }
@@ -1669,24 +1937,46 @@ async function loadInventoryTab(){
     sb.from('cabin_assignments').select('*, profiles(name,email)').order('cabin_type')
   ]);
 
+  // Store globally so the detail modal can reference without re-fetching
+  gInventoryAssignments=assignments||[];
+
   const colors={Balcony:'balcony','Ocean View':'oceanview',Interior:'interior',Suite:'suite'};
   const cards=(inv||[]).map(r=>{
     const reserved=r.total_cabins-r.available_cabins;
     const pct=r.total_cabins>0?Math.round((reserved/r.total_cabins)*100):0;
-    return`<div class="inv-card ${colors[r.cabin_type]||''}">
+    const barColor=r.available_cabins===0?'#c0392b':r.available_cabins<=5?'#d68910':'#2176ae';
+    return`<div class="inv-card ${colors[r.cabin_type]||''}" onclick="showInventoryDetail('${r.cabin_type}')">
       <div style="font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">${r.cabin_type}</div>
       <div class="inv-num">${r.available_cabins}</div>
       <div class="inv-label">Available</div>
       <div class="inv-sub">${reserved} reserved of ${r.total_cabins} total</div>
-      <div class="pbar-track" style="margin-top:10px;height:6px;"><div class="mpbar-fill" style="width:${pct}%;background:${r.available_cabins===0?'#c0392b':r.available_cabins<=5?'#d68910':'#2176ae'};"></div></div>
+      <div class="pbar-track" style="margin-top:10px;height:6px;"><div class="mpbar-fill" style="width:${pct}%;background:${barColor};"></div></div>
+      <div class="inv-click-hint">Click to see who's booked ↗</div>
     </div>`;
   }).join('');
-  document.getElementById('inv-cards').innerHTML=cards||'<p>No inventory data. Run update-schema.sql.</p>';
+  document.getElementById('inv-cards').innerHTML=cards||'<p>No inventory data. Run suite-schema.sql.</p>';
 
   const asgEl=document.getElementById('inv-assignments');
   if(!assignments||assignments.length===0){asgEl.innerHTML='<div class="empty"><div class="ei">🛏️</div><p>No cabin assignments yet.</p></div>';return;}
-  const rows=assignments.map(a=>`<tr><td><strong>${a.profiles?.name||'—'}</strong><br><small style="color:var(--muted)">${a.profiles?.email||''}</small></td><td>${a.cabin_type}</td><td>${a.cabin_number||'<em style="color:var(--muted)">Not assigned yet</em>'}</td><td>${new Date(a.assigned_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td></tr>`);
+  const rows=assignments.map(a=>`<tr><td><strong>${a.profiles?.name||'—'}</strong><br><small style="color:var(--muted)">${a.profiles?.email||''}</small></td><td>${a.cabin_type}${a.suite_pending?' <span class="badge badge-warn">Suite Pending</span>':''}</td><td>${a.cabin_number||'<em style="color:var(--muted)">Not assigned yet</em>'}</td><td>${new Date(a.assigned_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td></tr>`);
   asgEl.innerHTML=`<table><thead><tr><th>Traveler</th><th>Cabin Type</th><th>Cabin Number</th><th>Reserved On</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+}
+
+function showInventoryDetail(cabinType){
+  const matching=gInventoryAssignments.filter(a=>a.cabin_type===cabinType);
+  document.getElementById('inv-detail-title').textContent=`${cabinType} Cabin — ${matching.length} Booked`;
+  if(matching.length===0){
+    document.getElementById('inv-detail-content').innerHTML='<div class="empty"><div class="ei">🛏️</div><p>No travelers booked in this cabin type yet.</p></div>';
+  } else {
+    const rows=matching.map(a=>`<tr>
+      <td><strong>${a.profiles?.name||'—'}</strong><br><small style="color:var(--muted)">${a.profiles?.email||''}</small></td>
+      <td>${a.cabin_number||'<em style="color:var(--muted)">Not assigned</em>'}</td>
+      <td>${a.suite_pending?'<span class="badge badge-warn">⭐ Suite Pending</span>':'<span class="badge badge-success">Confirmed ✓</span>'}</td>
+      <td><small>${new Date(a.assigned_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</small></td>
+    </tr>`).join('');
+    document.getElementById('inv-detail-content').innerHTML=`<table><thead><tr><th>Traveler</th><th>Cabin #</th><th>Status</th><th>Reserved</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+  document.getElementById('inv-detail-modal').classList.add('open');
 }
 
 // ── CANCELLATIONS ─────────────────────────────────────────────
@@ -1790,12 +2080,126 @@ function draftDocEmail(name,email,country){
   sendEmail(email||ADMIN_EMAIL,name,subject,body);
 }
 
+// ── REPORTS ──────────────────────────────────────────────────
+async function loadReportMilestones(){
+  const{data:milestones}=await sb.from('payment_milestones').select('*').order('due_date',{ascending:true});
+  const sel=document.getElementById('rpt-milestone');
+  if(sel&&milestones){
+    sel.innerHTML='<option value="">All Milestones</option>'+(milestones||[]).map(m=>`<option value="${m.id}">${m.label} (${m.due_date?fmtDate(m.due_date):'No Date'})</option>`).join('');
+  }
+}
+
+async function runReport(){
+  const nameFilter=(document.getElementById('rpt-name').value||'').trim().toLowerCase();
+  const cabinNumFilter=(document.getElementById('rpt-cabin-num').value||'').trim().toLowerCase();
+  const cabinTypeFilter=document.getElementById('rpt-cabin-type').value;
+  const milestoneFilter=document.getElementById('rpt-milestone').value;
+  const payStatusFilter=document.getElementById('rpt-pay-status').value;
+  const statusFilter=document.getElementById('rpt-status').value;
+
+  document.getElementById('rpt-results').innerHTML='<div class="loading"><div class="spinner"></div><p>Loading…</p></div>';
+  document.getElementById('rpt-count').textContent='';
+
+  const{data:profiles}=await sb.from('profiles')
+    .select('*, cabin_assignments(cabin_type,cabin_number,cabin_cost,suite_pending,guest_reservation_number,payment_link), user_payments(milestone_id,amount_due,amount_paid)')
+    .eq('is_admin',false);
+
+  const rows=[];
+  (profiles||[]).forEach(p=>{
+    const ca=p.cabin_assignments;
+    const userPays=p.user_payments||[];
+
+    // Status filters
+    if(statusFilter==='active'&&p.status==='cancelled')return;
+    if(statusFilter==='cancelled'&&p.status!=='cancelled')return;
+    if(statusFilter==='suite'&&!ca?.suite_pending)return;
+    if(statusFilter==='no-cabin'&&ca)return;
+
+    // Name filter
+    if(nameFilter&&!(p.name||'').toLowerCase().includes(nameFilter))return;
+
+    // Cabin type filter
+    if(cabinTypeFilter&&ca?.cabin_type!==cabinTypeFilter)return;
+
+    // Cabin number filter
+    if(cabinNumFilter&&!(ca?.cabin_number||'').toLowerCase().includes(cabinNumFilter))return;
+
+    // Milestone filter
+    if(milestoneFilter&&!userPays.some(x=>x.milestone_id===milestoneFilter))return;
+
+    // Payment status filter
+    const totalPaid=userPays.reduce((s,x)=>s+parseFloat(x.amount_paid||0),0);
+    if(payStatusFilter==='paid'&&totalPaid<=0)return;
+    if(payStatusFilter==='unpaid'&&totalPaid>0)return;
+
+    const cabinCost=ca?.cabin_cost?parseFloat(ca.cabin_cost):null;
+    const totalDue=userPays.reduce((s,x)=>s+parseFloat(x.amount_due||0),0);
+    const balance=cabinCost?Math.max(0,cabinCost-totalPaid):Math.max(0,totalDue-totalPaid);
+    const pct=cabinCost?Math.min(100,Math.round((totalPaid/cabinCost)*100)):0;
+
+    rows.push({
+      id:p.id,
+      name:p.name||'—',
+      email:p.email||'—',
+      citizenship:p.citizenship_type||'—',
+      cabinType:ca?.cabin_type||'—',
+      cabinNum:ca?.cabin_number||'—',
+      reservNum:ca?.guest_reservation_number||'—',
+      payLink:ca?.payment_link||'',
+      cabinCostRaw:cabinCost,
+      cabinCost:cabinCost?fmt(cabinCost):'—',
+      totalPaidRaw:totalPaid,
+      totalPaid:fmt(totalPaid),
+      balance:fmt(balance),
+      pct,
+      status:p.status==='cancelled'?'Cancelled':ca?.suite_pending?'Suite Pending':ca?'Active':'No Cabin'
+    });
+  });
+
+  gReportData=rows;
+  const cnt=rows.length;
+  document.getElementById('rpt-count').textContent=`${cnt} result${cnt===1?'':'s'}`;
+
+  if(cnt===0){
+    document.getElementById('rpt-results').innerHTML='<div class="empty"><div class="ei">🔍</div><p>No results match your filters.</p></div>';
+    return;
+  }
+
+  const statusBadgeClass={Active:'badge-success',Cancelled:'badge-danger','Suite Pending':'badge-warn','No Cabin':'badge-gray'};
+  const tableRows=rows.map(r=>`<tr>
+    <td><strong>${r.name}</strong><br><small style="color:var(--muted)">${r.email}</small></td>
+    <td style="font-size:.82rem;">${r.citizenship}</td>
+    <td><span class="badge badge-purple">${r.cabinType}${r.cabinNum!=='—'?' #'+r.cabinNum:''}</span></td>
+    <td style="font-size:.82rem;">${r.reservNum}${r.payLink?`<br><a href="${r.payLink}" target="_blank" style="color:var(--secondary);font-size:.78rem;">Pay Link ↗</a>`:''}</td>
+    <td class="col-r">${r.cabinCost}</td>
+    <td class="col-r" style="color:var(--success)"><strong>${r.totalPaid}</strong></td>
+    <td class="col-r" style="color:var(--danger)">${r.balance}</td>
+    <td><div class="pbar-row"><div class="mpbar-track"><div class="mpbar-fill" style="width:${r.pct}%"></div></div><small>${r.pct}%</small></div></td>
+    <td><span class="badge ${statusBadgeClass[r.status]||'badge-gray'}">${r.status}</span></td>
+  </tr>`).join('');
+
+  document.getElementById('rpt-results').innerHTML=`<table>
+    <thead><tr><th>Traveler</th><th>Citizenship</th><th>Cabin</th><th>Res. # / Pay Link</th><th class="col-r">Cabin Cost</th><th class="col-r">Total Paid</th><th class="col-r">Balance</th><th>Progress</th><th>Status</th></tr></thead>
+    <tbody>${tableRows}</tbody>
+  </table>`;
+}
+
+function exportReportCSV(){
+  if(!gReportData.length){alert('Run a report first to generate results.');return;}
+  const headers=['Name','Email','Citizenship','Cabin Type','Cabin #','Reservation #','Payment Link','Cabin Cost','Total Paid','Balance','Progress %','Status'];
+  const csvRows=[headers.map(h=>`"${h}"`).join(',')];
+  gReportData.forEach(r=>{
+    csvRows.push([r.name,r.email,r.citizenship,r.cabinType,r.cabinNum,r.reservNum,r.payLink,r.cabinCost,r.totalPaid,r.balance,r.pct+'%',r.status].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(','));
+  });
+  const blob=new Blob([csvRows.join('\n')],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`commonwealth-cruise-report-${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+
 // ── INIT ─────────────────────────────────────────────────────
 window.addEventListener('load',async()=>{
-  // Init EmailJS if configured
-  if(EMAILJS_PUBLIC_KEY&&EMAILJS_PUBLIC_KEY!=='YOUR_EMAILJS_PUBLIC_KEY'){
-    emailjs.init({publicKey:EMAILJS_PUBLIC_KEY});
-  }
   wirePins();
   document.getElementById('login-email').value='';
   clearPin('lp');
