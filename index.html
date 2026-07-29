@@ -68,8 +68,7 @@
     .ck-group label{font-size:.86rem;font-weight:500;cursor:pointer;line-height:1.5;}
     .step-box{background:#f0f7ff;border:1.5px solid #aed6f1;border-radius:10px;padding:16px;margin-top:10px;}
     .step-box.green{background:#f0fdf4;border-color:#86efac;}
-    #pin-setup-section{display:none;}
-    #cabin-select-section{display:none;}
+    #psetup-cabin-section{display:none;}
     .cabin-avail{font-size:.8rem;color:var(--muted);margin-top:6px;line-height:1.7;}
     .cabin-avail span.low{color:var(--warn);font-weight:700;}
     .cabin-avail span.out{color:var(--danger);font-weight:700;}
@@ -188,121 +187,20 @@
     <div class="auth-card">
       <div class="auth-logo"><span class="logo-icon">✈️</span><h2>Create Your Account</h2><p>Join the Commonwealth Cruise 2027</p></div>
       <div id="signup-alert" class="alert"></div>
-
       <div class="grid-2" style="margin-bottom:16px;">
         <div class="form-group" style="margin-bottom:0;"><label>First Name *</label><input type="text" id="su-firstname" placeholder="Jane" autocomplete="off"></div>
         <div class="form-group" style="margin-bottom:0;"><label>Last Name *</label><input type="text" id="su-lastname" placeholder="Smith" autocomplete="off"></div>
       </div>
       <div class="form-group"><label>Email Address *</label><input type="email" id="su-email" placeholder="you@email.com" autocomplete="off"></div>
-      <div class="form-group"><label>Citizenship / Country of Origin *</label>
-        <select id="su-citizenship" onchange="onCitizenshipChange()">
-          <option value="">— Select your citizenship status —</option>
-          <option value="us">U.S. Citizens</option>
-          <option value="non-us">Non-U.S. Citizens</option>
-          <option value="canadian">Canadian Citizens</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
-
-      <!-- U.S. -->
-      <div id="doc-us" class="doc-notice">
-        <h4>📋 Travel Documentation — U.S. Citizens</h4>
-        <p>First and last names and gender on the cruise and airline reservations should match what is on the guest's government-issued IDs.</p>
-        <ul>
-          <li><strong>Soon-to-be or recently married guests</strong> — book using maiden name unless you have official name-change documents.</li>
-          <li><strong>Guests sailing with birth certificate and government-issued ID</strong> — if names differ, bring official documentation of the legal name change.</li>
-        </ul>
-        <div class="doc-section">⚠️ Traveling with Minors</div>
-        <p>When traveling with a minor where one or both parents/guardians are not cruising, bring an original signed letter from the absent parent(s) authorizing the minor to travel with you.</p>
-        <div class="important">📎 Each guest must review the Carnival documentation page. Guests are personally responsible — the trip organizer assumes no responsibility.<br><br>
-          <a href="https://help.goccl.com/app/answers/detail/a_id/1406#names" target="_blank">help.goccl.com — U.S. Citizen Documentation ↗</a>
+      <div class="step-box" style="margin-top:6px;">
+        <div class="form-group"><label>Create Your 6-Digit PIN *</label>
+          <div class="pin-row"><input class="pin-box" id="sp0" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="sp1" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="sp2" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="sp3" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="sp4" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="sp5" maxlength="1" inputmode="numeric" autocomplete="new-password"></div>
         </div>
-        <div class="ck-group"><input type="checkbox" id="ack-us" onchange="onAckChange()"><label for="ack-us">I have read and understand the travel documentation requirements. I am personally responsible for ensuring my documents are in order. The trip organizer and tour operator assume no responsibility for documentation compliance.</label></div>
-      </div>
-
-      <!-- NON-US -->
-      <div id="doc-non-us" class="doc-notice">
-        <h4>📋 Travel Documentation — Non-U.S. Citizens</h4>
-        <p>Proper travel documentation is required at embarkation and throughout the cruise. Guests traveling without proper documentation will be denied boarding with no refund.</p>
-        <p>Carnival highly recommends a passport valid for at least <strong>six months beyond the completion of travel</strong>.</p>
-        <ul>
-          <li><strong>VWP eligible travelers</strong> — valid passport + ESTA required. <a href="https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP" target="_blank">ESTA / VWP Details ↗</a></li>
-          <li><strong>Non-VWP citizens</strong> — U.S. visa required. <a href="https://travel.state.gov/content/travel/en/us-visas.html" target="_blank">U.S. Visa Info ↗</a></li>
-          <li><strong>Mexican citizens</strong> with Border Crossing Card must also present a Mexican passport valid 6+ months beyond travel.</li>
-        </ul>
-        <div class="important">📎 <a href="https://help.goccl.com/app/answers/detail/a_id/1405" target="_blank">help.goccl.com — Non-U.S. Citizen Documentation ↗</a></div>
-        <div class="ck-group"><input type="checkbox" id="ack-non-us" onchange="onAckChange()"><label for="ack-non-us">I have read and understand the travel documentation requirements. I am personally responsible for ensuring my documents are in order. The trip organizer and tour operator assume no responsibility.</label></div>
-      </div>
-
-      <!-- CANADIAN -->
-      <div id="doc-canadian" class="doc-notice">
-        <h4>📋 Travel Documentation — Canadian Citizens</h4>
-        <p>All Canadian citizens, including children, must carry a <strong>Canadian passport valid for at least six months beyond the completion of travel</strong> if arriving by air into the United States.</p>
-        <ul>
-          <li>Canadian PR holders: <a href="https://help.goccl.com/app/answers/detail/a_id/1401" target="_blank">Canadian PR Documentation ↗</a></li>
-          <li>Expedited passports: <a href="http://visacentral.ca/" target="_blank">visacentral.ca ↗</a> or 888-665-9956</li>
-          <li>Border crossing by car: <a href="https://help.goccl.com/app/answers/detail/a_id/1402#driving" target="_blank">Border Crossing Details ↗</a></li>
-        </ul>
-        <div class="important">📎 <a href="https://help.goccl.com/app/answers/detail/a_id/1402" target="_blank">help.goccl.com — Canadian Citizen Documentation ↗</a></div>
-        <div class="ck-group"><input type="checkbox" id="ack-canadian" onchange="onAckChange()"><label for="ack-canadian">I have read and understand the travel documentation requirements. I am personally responsible for ensuring my documents are in order. The trip organizer and tour operator assume no responsibility.</label></div>
-      </div>
-
-      <!-- OTHER -->
-      <div id="doc-other" class="doc-notice">
-        <h4>📋 Travel Documentation — Other Citizenship</h4>
-        <p>Enter your country of citizenship. The trip organizer will email you with documentation requirements specific to your country.</p>
-        <div class="form-group" style="margin-top:9px;"><label>Country of Citizenship *</label><input type="text" id="su-country" placeholder="e.g. Jamaica, Germany…" oninput="onCountryInput()" autocomplete="off"></div>
-        <div id="country-link-result" style="display:none;margin-top:8px;"><div id="country-link-display"></div></div>
-        <div class="important">📎 <a href="https://help.goccl.com/app/answers/detail/a_id/1405" target="_blank">help.goccl.com — International Documentation ↗</a></div>
-        <div class="ck-group"><input type="checkbox" id="ack-other" onchange="onAckChange()"><label for="ack-other">I understand I am personally responsible for all required travel documents. The trip organizer and tour operator assume no responsibility for documentation compliance.</label></div>
-      </div>
-
-      <!-- CABIN SELECTION (shows after acknowledgment) -->
-      <div id="cabin-select-section">
-        <div class="step-box green">
-          <div class="form-group" style="margin-bottom:6px;"><label>🛳️ Select Your Cabin Type *</label>
-            <select id="su-cabin-type" onchange="onCabinTypeChange()">
-              <option value="">— Select cabin type —</option>
-              <option value="Balcony">Balcony Cabin</option>
-              <option value="Ocean View">Ocean View Cabin</option>
-              <option value="Interior">Interior Cabin</option>
-              <option value="Suite">Suite ⭐ (Request — Subject to Availability)</option>
-            </select>
-          </div>
-          <div class="cabin-avail" id="cabin-avail-info">Loading availability…</div>
+        <div class="form-group" style="margin-bottom:0;"><label>Confirm PIN *</label>
+          <div class="pin-row"><input class="pin-box" id="cp0" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="cp1" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="cp2" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="cp3" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="cp4" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="cp5" maxlength="1" inputmode="numeric" autocomplete="new-password"></div>
         </div>
       </div>
-
-      <!-- SUITE BACKUP SECTION (shows only when Suite is selected) -->
-      <div id="suite-backup-section" style="display:none;">
-        <div class="step-box" style="background:#fffbeb;border-color:#f6c440;">
-          <div style="font-weight:700;color:#78460a;margin-bottom:8px;">⭐ Suite Request Details</div>
-          <p style="font-size:.84rem;color:#78460a;margin-bottom:12px;">Your suite request will be reviewed and confirmed by email. In the meantime, please select a backup cabin — it will be held for you and released once your suite is confirmed.</p>
-          <div class="form-group" style="margin-bottom:10px;"><label>Contact Phone Number *</label><input type="text" id="su-suite-phone" placeholder="e.g. 555-867-5309" autocomplete="off"></div>
-          <div class="form-group" style="margin-bottom:0;"><label>Backup Cabin Type *</label>
-            <select id="su-backup-cabin">
-              <option value="">— Select backup cabin —</option>
-              <option value="Balcony">Balcony Cabin</option>
-              <option value="Ocean View">Ocean View Cabin</option>
-              <option value="Interior">Interior Cabin</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- PIN SETUP (shows after cabin selected) -->
-      <div id="pin-setup-section">
-        <div class="step-box">
-          <div class="form-group"><label>Create Your 6-Digit PIN *</label>
-            <div class="pin-row"><input class="pin-box" id="sp0" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="sp1" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="sp2" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="sp3" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="sp4" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="sp5" maxlength="1" inputmode="numeric" autocomplete="new-password"></div>
-          </div>
-          <div class="form-group" style="margin-bottom:0;"><label>Confirm PIN *</label>
-            <div class="pin-row"><input class="pin-box" id="cp0" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="cp1" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="cp2" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="cp3" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="cp4" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="cp5" maxlength="1" inputmode="numeric" autocomplete="new-password"></div>
-          </div>
-        </div>
-        <button class="btn btn-primary btn-full" style="margin-top:13px;" onclick="doSignup()">Create Account</button>
-      </div>
-
+      <button class="btn btn-primary btn-full" style="margin-top:13px;" onclick="doSignup()">Create Account</button>
       <div class="auth-switch" style="margin-top:14px;">Already have an account? <a onclick="showPage('login')">Sign in</a></div>
     </div>
   </div>
@@ -559,6 +457,125 @@
   </div>
 </div>
 
+<!-- PROFILE SETUP MODAL (shown after first login if no cabin assignment exists) -->
+<div id="profile-setup-modal" class="modal-overlay">
+  <div class="modal-box" style="max-width:520px;max-height:90vh;overflow-y:auto;">
+    <div style="font-size:2rem;text-align:center;margin-bottom:8px;">🛳️</div>
+    <h3 style="text-align:center;color:var(--primary);margin-bottom:6px;">Complete Your Profile</h3>
+    <p style="font-size:.86rem;color:var(--muted);text-align:center;margin-bottom:16px;">Select your citizenship and cabin type to finalize your reservation.</p>
+    <div id="psetup-alert" class="alert"></div>
+
+    <div class="form-group">
+      <label>Citizenship / Country of Origin *</label>
+      <select id="psetup-citizenship" onchange="onPsetupCitizenshipChange()">
+        <option value="">— Select your citizenship status —</option>
+        <option value="us">U.S. Citizens</option>
+        <option value="us-pr">U.S. Permanent Residents</option>
+        <option value="non-us">Non-U.S. Citizens</option>
+        <option value="canadian">Canadian Citizens</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+
+    <!-- U.S. Citizens -->
+    <div id="psetup-doc-us" class="doc-notice">
+      <h4>📋 Travel Documentation — U.S. Citizens</h4>
+      <p>First and last names on cruise and airline reservations must match your government-issued ID.</p>
+      <ul>
+        <li><strong>Recently married guests</strong> — book under maiden name unless you have official name-change documents.</li>
+        <li><strong>Traveling with a birth certificate + government ID</strong> — bring legal name-change documentation if names differ.</li>
+      </ul>
+      <div class="doc-section">⚠️ Traveling with Minors</div>
+      <p>If a minor is traveling without one or both parents/guardians, bring a signed letter from the absent parent(s) authorizing travel.</p>
+      <div class="important">📎 <a href="https://www.carnival.com/site-content/static-faq-2018/page-content#section-0" target="_blank">Travel Documentation: U.S. Citizens ↗</a><br><br>Guests are personally responsible for their documents. The trip organizer assumes no responsibility.</div>
+      <div class="ck-group"><input type="checkbox" id="psetup-ack-us" onchange="onPsetupAckChange()"><label for="psetup-ack-us">I have read and understand the travel documentation requirements. I am personally responsible for ensuring my documents are in order.</label></div>
+    </div>
+
+    <!-- U.S. Permanent Residents -->
+    <div id="psetup-doc-us-pr" class="doc-notice">
+      <h4>📋 Travel Documentation — U.S. Permanent Residents</h4>
+      <p>U.S. Permanent Residents must travel with a valid Permanent Resident Card (Green Card) and a valid passport from their country of citizenship.</p>
+      <ul>
+        <li>A passport valid for at least <strong>six months beyond the completion of travel</strong> is strongly recommended.</li>
+        <li>Additional entry requirements may apply depending on the ports of call on your itinerary.</li>
+      </ul>
+      <div class="important">📎 <a href="https://help.carnival.com/app/answers/detail/a_id/1401?_gl=1*13vjwlh*_gcl_aw*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_dc*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_au*MTk3MTQ1MzE5LjE3ODQ2Njc3Njg.*_ga*NDkzMjg5MDkxLjE3ODI4NDUwNjM.*_ga_SRWFP1ER4J*czE3ODUzMzI2MTIkbzYkZzEkdDE3ODUzMzI2MzgkajM0JGwwJGgw" target="_blank">Travel Documentation: U.S. Permanent Residents ↗</a><br><br>Guests are personally responsible for their documents. The trip organizer assumes no responsibility.</div>
+      <div class="ck-group"><input type="checkbox" id="psetup-ack-us-pr" onchange="onPsetupAckChange()"><label for="psetup-ack-us-pr">I have read and understand the travel documentation requirements. I am personally responsible for ensuring my documents are in order.</label></div>
+    </div>
+
+    <!-- Non-U.S. Citizens -->
+    <div id="psetup-doc-non-us" class="doc-notice">
+      <h4>📋 Travel Documentation — Non-U.S. Citizens</h4>
+      <p>Guests traveling without proper documentation will be denied boarding with no refund. A passport valid for at least <strong>six months beyond travel completion</strong> is strongly recommended.</p>
+      <ul>
+        <li><strong>VWP eligible travelers</strong> — valid passport + ESTA required.</li>
+        <li><strong>Non-VWP citizens</strong> — a valid U.S. visa is required.</li>
+        <li><strong>Mexican citizens</strong> with a Border Crossing Card must also present a valid Mexican passport.</li>
+      </ul>
+      <div class="important">📎 <a href="https://help.carnival.com/app/answers/detail/a_id/1405?_gl=1*1rs237m*_gcl_aw*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_dc*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_au*MTk3MTQ1MzE5LjE3ODQ2Njc3Njg.*_ga*NDkzMjg5MDkxLjE3ODI4NDUwNjM.*_ga_SRWFP1ER4J*czE3ODUzMzI2MTIkbzYkZzEkdDE3ODUzMzI3MTkkajU2JGwwJGgw" target="_blank">Travel Documentation: Non-U.S. Citizens ↗</a><br><br>Guests are personally responsible for their documents. The trip organizer assumes no responsibility.</div>
+      <div class="ck-group"><input type="checkbox" id="psetup-ack-non-us" onchange="onPsetupAckChange()"><label for="psetup-ack-non-us">I have read and understand the travel documentation requirements. I am personally responsible for ensuring my documents are in order.</label></div>
+    </div>
+
+    <!-- Canadian Citizens -->
+    <div id="psetup-doc-canadian" class="doc-notice">
+      <h4>📋 Travel Documentation — Canadian Citizens</h4>
+      <p>All Canadian citizens, including children, must carry a <strong>valid Canadian passport</strong> (at least six months beyond travel completion if arriving by air into the U.S.).</p>
+      <ul>
+        <li>Expedited passports: <a href="http://visacentral.ca/" target="_blank">visacentral.ca ↗</a> or 888-665-9956</li>
+      </ul>
+      <div class="important">📎 <a href="https://help.carnival.com/app/answers/detail/a_id/1402?_gl=1*m9slij*_gcl_aw*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_dc*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_au*MTk3MTQ1MzE5LjE3ODQ2Njc3Njg.*_ga*NDkzMjg5MDkxLjE3ODI4NDUwNjM.*_ga_SRWFP1ER4J*czE3ODUzMzI2MTIkbzYkZzEkdDE3ODUzMzI4MDAkajUzJGwwJGgw" target="_blank">Travel Documentation: Canadian Citizens ↗</a><br><br>Guests are personally responsible for their documents. The trip organizer assumes no responsibility.</div>
+      <div class="ck-group"><input type="checkbox" id="psetup-ack-canadian" onchange="onPsetupAckChange()"><label for="psetup-ack-canadian">I have read and understand the travel documentation requirements. I am personally responsible for ensuring my documents are in order.</label></div>
+    </div>
+
+    <!-- Other -->
+    <div id="psetup-doc-other" class="doc-notice">
+      <h4>📋 Travel Documentation — Other Citizenship</h4>
+      <p>Enter your country of citizenship below. The trip organizer will follow up by email with the documentation requirements specific to your country.</p>
+      <div class="form-group" style="margin-top:9px;"><label>Country of Citizenship *</label><input type="text" id="psetup-country" placeholder="e.g. Jamaica, Germany…" autocomplete="off"></div>
+      <div class="important">📎 Guests are personally responsible for their documents. The trip organizer assumes no responsibility.</div>
+      <div class="ck-group"><input type="checkbox" id="psetup-ack-other" onchange="onPsetupAckChange()"><label for="psetup-ack-other">I understand I am personally responsible for all required travel documents. The trip organizer assumes no responsibility.</label></div>
+    </div>
+
+    <!-- Cabin Selection (shows after acknowledgment) -->
+    <div id="psetup-cabin-section" style="display:none;">
+      <div class="step-box green">
+        <div class="form-group" style="margin-bottom:6px;"><label>🛳️ Select Your Cabin Type *</label>
+          <select id="psetup-cabin-type" onchange="onPsetupCabinTypeChange()">
+            <option value="">— Select cabin type —</option>
+            <option value="Balcony">Balcony Cabin</option>
+            <option value="Ocean View">Ocean View Cabin</option>
+            <option value="Interior">Interior Cabin</option>
+            <option value="Suite">Suite ⭐ (Request — Subject to Availability)</option>
+          </select>
+        </div>
+        <div class="cabin-avail" id="psetup-cabin-avail">Loading availability…</div>
+      </div>
+    </div>
+
+    <!-- Suite Backup (shows only when Suite selected) -->
+    <div id="psetup-suite-backup" style="display:none;">
+      <div class="step-box" style="background:#fffbeb;border-color:#f6c440;">
+        <div style="font-weight:700;color:#78460a;margin-bottom:8px;">⭐ Suite Request Details</div>
+        <p style="font-size:.84rem;color:#78460a;margin-bottom:12px;">Select a backup cabin to hold while your suite request is reviewed.</p>
+        <div class="form-group" style="margin-bottom:10px;"><label>Contact Phone Number *</label><input type="text" id="psetup-suite-phone" placeholder="e.g. 555-867-5309" autocomplete="off"></div>
+        <div class="form-group" style="margin-bottom:0;"><label>Backup Cabin Type *</label>
+          <select id="psetup-backup-cabin">
+            <option value="">— Select backup cabin —</option>
+            <option value="Balcony">Balcony Cabin</option>
+            <option value="Ocean View">Ocean View Cabin</option>
+            <option value="Interior">Interior Cabin</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <div id="psetup-submit-section" style="display:none;">
+      <button class="btn btn-primary btn-full" style="margin-top:14px;" onclick="doProfileSetup()">Complete My Profile</button>
+    </div>
+  </div>
+</div>
+
 <!-- SUITE AVAILABILITY MODAL -->
 <div id="suite-modal" class="modal-overlay">
   <div class="modal-box" style="text-align:center;">
@@ -602,7 +619,7 @@ function showPage(name){
     clearPin('lp');clearFlash('login-alert');
     setTimeout(()=>{document.getElementById('login-email').value='';clearPin('lp');},150);
   }
-  if(name==='signup') loadInventoryForSignup();
+  // inventory loaded via loadInventoryForSetup() when profile-setup-modal opens
 }
 
 function flash(id,msg,type='error'){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.className=`alert alert-${type} show`;}
@@ -705,34 +722,14 @@ async function doSignup(){
   const firstName=document.getElementById('su-firstname').value.trim();
   const lastName=document.getElementById('su-lastname').value.trim();
   const email=document.getElementById('su-email').value.trim();
-  const citizenship=document.getElementById('su-citizenship').value;
-  const country=document.getElementById('su-country').value.trim();
-  const cabinType=document.getElementById('su-cabin-type').value;
-  const isSuite=cabinType==='Suite';
-  const backupCabin=isSuite?document.getElementById('su-backup-cabin').value:'';
-  const suitePhone=isSuite?document.getElementById('su-suite-phone').value.trim():'';
   const pin=getPin('sp');
   const confirm=getPin('cp');
 
   if(!firstName)return flash('signup-alert','Please enter your first name.');
   if(!lastName)return flash('signup-alert','Please enter your last name.');
   if(!email)return flash('signup-alert','Please enter your email address.');
-  if(!citizenship)return flash('signup-alert','Please select your citizenship status.');
-  if(citizenship==='other'&&!country)return flash('signup-alert','Please enter your country of citizenship.');
-  if(!cabinType)return flash('signup-alert','Please select a cabin type.');
-  if(isSuite&&!backupCabin)return flash('signup-alert','Please select a backup cabin type for your suite request.');
-  if(isSuite&&!suitePhone)return flash('signup-alert','Please enter a phone number for your suite request.');
   if(pin.length<6)return flash('signup-alert','Please create a complete 6-digit PIN.');
   if(pin!==confirm)return flash('signup-alert','PINs do not match — please try again.');
-
-  const ackMap={us:'ack-us','non-us':'ack-non-us',canadian:'ack-canadian',other:'ack-other'};
-  const ackEl=document.getElementById(ackMap[citizenship]);
-  if(!ackEl||!ackEl.checked)return flash('signup-alert','Please read and check the acknowledgment box.');
-
-  // Check backup/standard cabin inventory
-  const checkCabin=isSuite?backupCabin:cabinType;
-  const{data:inv}=await sb.from('cabin_inventory').select('available_cabins').eq('cabin_type',checkCabin).single();
-  if(!inv||inv.available_cabins<=0)return flash('signup-alert',`Sorry, ${checkCabin} cabins are sold out. Please select a different cabin type.`);
 
   flash('signup-alert','Creating your account…','info');
   const fullName=firstName+' '+lastName;
@@ -741,23 +738,13 @@ async function doSignup(){
 
   if(data.user){
     const isAdmin=email.toLowerCase()===ADMIN_EMAIL.toLowerCase();
-    const profileData={id:data.user.id,name:fullName,email,citizenship_type:citizenship,country_of_citizenship:citizenship==='other'?country:null,docs_acknowledged:true,needs_doc_info:citizenship==='other',is_admin:isAdmin};
+    const profileData={id:data.user.id,name:fullName,email,is_admin:isAdmin};
     const{error:pErr}=await sb.from('profiles').insert(profileData);
     if(pErr)console.error('Profile error:',pErr.message);
-
-    if(isSuite){
-      // Reserve backup cabin and log suite request
-      await sb.from('cabin_assignments').insert({user_id:data.user.id,cabin_type:backupCabin,suite_pending:true});
-      await sb.rpc('decrement_cabin',{cabin:backupCabin});
-      await sb.from('suite_requests').insert({user_id:data.user.id,requestor_name:fullName,requestor_email:email,requestor_phone:suitePhone,backup_cabin_type:backupCabin});
-      emailSuiteRequestReceived({...profileData},backupCabin,suitePhone);
-    } else {
-      await sb.from('cabin_assignments').insert({user_id:data.user.id,cabin_type:cabinType});
-      await sb.rpc('decrement_cabin',{cabin:cabinType});
-      emailAccountCreated({...profileData},cabinType);
-    }
+    // Welcome email — citizenship & cabin will be set at first login
+    sendEmail(email,fullName,`${TRIP_NAME} — Account Created`,`Hi ${fullName},\n\nYour account for the ${TRIP_NAME} payment portal has been created!\n\nAfter confirming your email, sign in to complete your profile (citizenship and cabin selection).\n\nIf you have questions, contact the trip organizer at ${ADMIN_EMAIL}.\n\nSafe travels!`);
   }
-  flash('signup-alert','🎉 Account created! Check your email to confirm your address, then sign in. Redirecting to sign-in…','success');
+  flash('signup-alert','🎉 Account created! Check your email to confirm your address, then sign in.','success');
   setTimeout(()=>showPage('login'),3500);
 }
 
@@ -798,17 +785,17 @@ async function loadAndRoute(user){
   else{showPage('dashboard');loadDashboard();}
 }
 
-// ── SIGNUP UI ────────────────────────────────────────────────
-async function loadInventoryForSignup(){
+// ── PROFILE SETUP MODAL ──────────────────────────────────────
+async function loadInventoryForSetup(){
   const{data}=await sb.from('cabin_inventory').select('*');
   if(!data)return;
   gInventory={};
   data.forEach(r=>{gInventory[r.cabin_type]=r;});
-  updateCabinAvailDisplay();
+  updatePsetupCabinAvail();
 }
 
-function updateCabinAvailDisplay(){
-  const sel=document.getElementById('su-cabin-type');
+function updatePsetupCabinAvail(){
+  const sel=document.getElementById('psetup-cabin-type');
   if(!sel)return;
   ['Balcony','Ocean View','Interior'].forEach(t=>{
     const opt=sel.querySelector(`option[value="${t}"]`);
@@ -820,79 +807,115 @@ function updateCabinAvailDisplay(){
     else if(avail<=5){opt.textContent=`${t} Cabin (${avail} remaining — Almost Full!)`;}
     else{opt.textContent=`${t} Cabin (${avail} remaining)`;}
   });
-  // Suite option — show pending count from inventory if present
+  // Suite — no availability count shown
   const suiteOpt=sel.querySelector('option[value="Suite"]');
-  if(suiteOpt&&gInventory['Suite']){
-    const avail=gInventory['Suite'].available_cabins;
-    suiteOpt.textContent=`Suite ⭐ (${avail} available — Request Required)`;
-  }
-  const info=document.getElementById('cabin-avail-info');
+  if(suiteOpt)suiteOpt.textContent='Suite ⭐ (Request — Subject to Availability)';
+  const info=document.getElementById('psetup-cabin-avail');
   if(info&&Object.keys(gInventory).length>0){
     const lines=Object.entries(gInventory)
       .filter(([t])=>t!=='Suite')
-      .map(([t,v])=>{
-        const a=v.available_cabins,tot=v.total_cabins;
-        const cls=a<=0?'out':a<=5?'low':'';
-        return `${t}: <span class="${cls}">${a} of ${tot} available</span>`;
-      });
+      .map(([t,v])=>{const a=v.available_cabins,tot=v.total_cabins;const cls=a<=0?'out':a<=5?'low':'';return`${t}: <span class="${cls}">${a} of ${tot} available</span>`;});
     info.innerHTML=lines.join(' &nbsp;·&nbsp; ');
   }
 }
 
-function onCitizenshipChange(){
-  const val=document.getElementById('su-citizenship').value;
-  ['doc-us','doc-non-us','doc-canadian','doc-other'].forEach(id=>document.getElementById(id).classList.remove('show'));
-  ['ack-us','ack-non-us','ack-canadian','ack-other'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
-  document.getElementById('cabin-select-section').style.display='none';
-  document.getElementById('pin-setup-section').style.display='none';
-  const map={us:'doc-us','non-us':'doc-non-us',canadian:'doc-canadian',other:'doc-other'};
+function onPsetupCitizenshipChange(){
+  const val=document.getElementById('psetup-citizenship').value;
+  ['psetup-doc-us','psetup-doc-us-pr','psetup-doc-non-us','psetup-doc-canadian','psetup-doc-other'].forEach(id=>document.getElementById(id).classList.remove('show'));
+  ['psetup-ack-us','psetup-ack-us-pr','psetup-ack-non-us','psetup-ack-canadian','psetup-ack-other'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
+  document.getElementById('psetup-cabin-section').style.display='none';
+  document.getElementById('psetup-suite-backup').style.display='none';
+  document.getElementById('psetup-submit-section').style.display='none';
+  const map={us:'psetup-doc-us','us-pr':'psetup-doc-us-pr','non-us':'psetup-doc-non-us',canadian:'psetup-doc-canadian',other:'psetup-doc-other'};
   if(map[val])document.getElementById(map[val]).classList.add('show');
 }
 
-function onAckChange(){
-  const cit=document.getElementById('su-citizenship').value;
-  const ackMap={us:'ack-us','non-us':'ack-non-us',canadian:'ack-canadian',other:'ack-other'};
+function onPsetupAckChange(){
+  const cit=document.getElementById('psetup-citizenship').value;
+  const ackMap={us:'psetup-ack-us','us-pr':'psetup-ack-us-pr','non-us':'psetup-ack-non-us',canadian:'psetup-ack-canadian',other:'psetup-ack-other'};
   const el=document.getElementById(ackMap[cit]);
   const show=el&&el.checked;
-  document.getElementById('cabin-select-section').style.display=show?'block':'none';
-  document.getElementById('pin-setup-section').style.display='none';
-  if(show)updateCabinAvailDisplay();
+  document.getElementById('psetup-cabin-section').style.display=show?'block':'none';
+  document.getElementById('psetup-suite-backup').style.display='none';
+  document.getElementById('psetup-submit-section').style.display='none';
+  document.getElementById('psetup-cabin-type').value='';
+  if(show)loadInventoryForSetup();
 }
 
-function onCabinTypeChange(){
-  const val=document.getElementById('su-cabin-type').value;
+function onPsetupCabinTypeChange(){
+  const val=document.getElementById('psetup-cabin-type').value;
   const isSuite=val==='Suite';
-  document.getElementById('suite-backup-section').style.display=isSuite?'block':'none';
-  document.getElementById('pin-setup-section').style.display=(val&&!isSuite)?'block':(isSuite?'none':'none');
-  if(isSuite){
-    document.getElementById('suite-modal').classList.add('open');
-  }
+  document.getElementById('psetup-suite-backup').style.display=isSuite?'block':'none';
+  document.getElementById('psetup-submit-section').style.display=(val&&!isSuite)?'block':'none';
+  if(isSuite)document.getElementById('suite-modal').classList.add('open');
 }
+
 function closeSuiteModal(){
   document.getElementById('suite-modal').classList.remove('open');
-  // Show pin setup only after backup cabin is selected
-  document.getElementById('pin-setup-section').style.display='none';
-  document.getElementById('su-backup-cabin').onchange=function(){
-    document.getElementById('pin-setup-section').style.display=this.value?'block':'none';
+  // Show submit only after backup cabin selected
+  document.getElementById('psetup-submit-section').style.display='none';
+  document.getElementById('psetup-backup-cabin').onchange=function(){
+    document.getElementById('psetup-submit-section').style.display=this.value?'block':'none';
   };
 }
 function cancelSuiteModal(){
   document.getElementById('suite-modal').classList.remove('open');
-  document.getElementById('su-cabin-type').value='';
-  document.getElementById('suite-backup-section').style.display='none';
-  document.getElementById('pin-setup-section').style.display='none';
+  document.getElementById('psetup-cabin-type').value='';
+  document.getElementById('psetup-suite-backup').style.display='none';
+  document.getElementById('psetup-submit-section').style.display='none';
 }
 
-const COUNTRY_LINKS={'mexico':{label:'Mexico',url:'https://help.goccl.com/app/answers/detail/a_id/1405'},'uk':{label:'UK (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'united kingdom':{label:'UK (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'australia':{label:'Australia (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'germany':{label:'Germany (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'france':{label:'France (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'japan':{label:'Japan (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'ireland':{label:'Ireland (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'},'brazil':{label:'Brazil',url:'https://travel.state.gov/content/travel/en/us-visas.html'},'india':{label:'India',url:'https://travel.state.gov/content/travel/en/us-visas.html'},'china':{label:'China',url:'https://travel.state.gov/content/travel/en/us-visas.html'},'jamaica':{label:'Jamaica',url:'https://help.goccl.com/app/answers/detail/a_id/1405'},'trinidad':{label:'Trinidad & Tobago',url:'https://help.goccl.com/app/answers/detail/a_id/1405'},'barbados':{label:'Barbados',url:'https://help.goccl.com/app/answers/detail/a_id/1405'},'nigeria':{label:'Nigeria',url:'https://travel.state.gov/content/travel/en/us-visas.html'},'ghana':{label:'Ghana',url:'https://travel.state.gov/content/travel/en/us-visas.html'},'new zealand':{label:'New Zealand (VWP)',url:'https://help.goccl.com/app/answers/detail/a_id/1405/related/1#VWP'}};
-function onCountryInput(){
-  const val=document.getElementById('su-country').value.trim().toLowerCase();
-  const result=document.getElementById('country-link-result');
-  const display=document.getElementById('country-link-display');
-  if(!val){result.style.display='none';return;}
-  let match=null;
-  for(const[key,info]of Object.entries(COUNTRY_LINKS)){if(val.includes(key)||key.includes(val)){match=info;break;}}
-  result.style.display='block';
-  display.innerHTML=match?`<a href="${match.url}" target="_blank">📄 ${match.label} — Carnival Documentation ↗</a>`:`<a href="https://help.goccl.com/app/answers/detail/a_id/1405" target="_blank">📄 Carnival International Documentation ↗</a>`;
+async function doProfileSetup(){
+  clearFlash('psetup-alert');
+  const citizenship=document.getElementById('psetup-citizenship').value;
+  const country=(document.getElementById('psetup-country')||{value:''}).value.trim();
+  const cabinType=document.getElementById('psetup-cabin-type').value;
+  const isSuite=cabinType==='Suite';
+  const backupCabin=isSuite?document.getElementById('psetup-backup-cabin').value:'';
+  const suitePhone=isSuite?document.getElementById('psetup-suite-phone').value.trim():'';
+
+  if(!citizenship)return flash('psetup-alert','Please select your citizenship status.');
+  if(citizenship==='other'&&!country)return flash('psetup-alert','Please enter your country of citizenship.');
+  if(!cabinType)return flash('psetup-alert','Please select a cabin type.');
+  if(isSuite&&!backupCabin)return flash('psetup-alert','Please select a backup cabin type for your suite request.');
+  if(isSuite&&!suitePhone)return flash('psetup-alert','Please enter a phone number for your suite request.');
+
+  const checkCabin=isSuite?backupCabin:cabinType;
+  const{data:inv}=await sb.from('cabin_inventory').select('available_cabins').eq('cabin_type',checkCabin).single();
+  if(!inv||inv.available_cabins<=0)return flash('psetup-alert',`Sorry, ${checkCabin} cabins are sold out. Please select a different cabin type.`);
+
+  flash('psetup-alert','Saving your profile…','info');
+
+  // Update profile with citizenship
+  await sb.from('profiles').update({
+    citizenship_type:citizenship,
+    country_of_citizenship:citizenship==='other'?country:null,
+    docs_acknowledged:true,
+    needs_doc_info:citizenship==='other'
+  }).eq('id',gUser.id);
+
+  const name=gProfile?.name||gUser.email;
+  const email=gProfile?.email||gUser.email;
+
+  if(isSuite){
+    await sb.from('cabin_assignments').insert({user_id:gUser.id,cabin_type:backupCabin,suite_pending:true});
+    await sb.rpc('decrement_cabin',{cabin:backupCabin});
+    await sb.from('suite_requests').insert({user_id:gUser.id,requestor_name:name,requestor_email:email,requestor_phone:suitePhone,backup_cabin_type:backupCabin});
+    emailSuiteRequestReceived({name,email,citizenship_type:citizenship},backupCabin,suitePhone);
+  } else {
+    await sb.from('cabin_assignments').insert({user_id:gUser.id,cabin_type:cabinType});
+    await sb.rpc('decrement_cabin',{cabin:cabinType});
+    emailAccountCreated({name,email,citizenship_type:citizenship},cabinType);
+  }
+
+  // Close modal, refresh profile, show first-login notice if needed
+  document.getElementById('profile-setup-modal').classList.remove('open');
+  const{data:updatedProfile}=await sb.from('profiles').select('*').eq('id',gUser.id).single();
+  gProfile=updatedProfile;
+  if(!gProfile?.first_login_complete){
+    document.getElementById('first-login-modal').classList.add('open');
+  }
+  loadDashboard();
 }
 
 // ── DASHBOARD ────────────────────────────────────────────────
@@ -919,6 +942,15 @@ async function loadDashboard(){
   const cabin=caRes.data;
   const cabinCost=cabin?.cabin_cost?parseFloat(cabin.cabin_cost):null;
 
+  // If no cabin assignment yet, show profile setup modal first
+  if(!cabin){
+    document.getElementById('dash-loading').style.display='none';
+    document.getElementById('dash-content').style.display='block';
+    loadInventoryForSetup();
+    document.getElementById('profile-setup-modal').classList.add('open');
+    return;
+  }
+
   // Show cabin badge
   const cabinBadge=document.getElementById('dash-cabin-badge');
   if(cabin){
@@ -926,7 +958,7 @@ async function loadDashboard(){
     cabinBadge.style.display='inline-block';
   }
 
-  // First login check
+  // First login check (only after profile is complete)
   if(gProfile&&!gProfile.first_login_complete){
     document.getElementById('first-login-modal').classList.add('open');
   }
