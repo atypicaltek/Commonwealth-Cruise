@@ -39,6 +39,7 @@
     .btn-sm{padding:6px 14px;font-size:.82rem;}
     .btn-danger{background:#fdf0ee;color:var(--danger);border:1px solid #f5c6c0;font-size:.8rem;padding:5px 11px;border-radius:6px;font-weight:600;cursor:pointer;}
     .btn-warn{background:#fffbeb;color:var(--warn);border:1px solid #f6df74;font-size:.8rem;padding:5px 11px;border-radius:6px;font-weight:600;cursor:pointer;}
+    .btn-success{background:#edfbf3;color:var(--success);border:1px solid #b3e6c9;font-size:.8rem;padding:5px 11px;border-radius:6px;font-weight:600;cursor:pointer;}
     .btn-outline{background:transparent;color:var(--secondary);border:2px solid var(--secondary);padding:7px 16px;font-size:.86rem;}
     .btn-accent{background:var(--accent);color:#fff;}
     .alert{padding:10px 14px;border-radius:8px;font-size:.87rem;margin-bottom:13px;display:none;line-height:1.5;}
@@ -2272,46 +2273,94 @@ function switchTab(name,btn){
 }
 
 async function loadTravelers(){
-  // Select all non-admin profiles (including those without cabin assignments)
-  const{data:profiles}=await sb.from('profiles')
-    .select('*, user_payments(amount_due,amount_paid), cabin_assignments(cabin_type,cabin_number,cabin_cost,suite_pending,guest_reservation_number,payment_link,gratuity_paid)')
-    .eq('is_admin',false).order('name');
+  // Fetch profiles, cabin assignments (via SECURITY DEFINER RPC — bypasses RLS + schema cache),
+  // payments, and cancellations all in parallel
+  const[
+    {data:profiles},
+    {data:allCabins},
+    {data:allPayments},
+    {data:allCancellations}
+  ]=await Promise.all([
+    sb.from('profiles').select('id,name,email,status,citizenship_type,country_of_citizenship,needs_doc_info').eq('is_admin',false).order('name'),
+    sb.rpc('admin_get_all_cabin_assignments'),
+    sb.from('user_payments').select('user_id,amount_due,amount_paid'),
+    sb.from('cancellations').select('original_user_id,refund_processed,total_paid').order('canceled_at',{ascending:false})
+  ]);
+
   const el=document.getElementById('admin-travelers');
   if(!profiles||profiles.length===0){el.innerHTML='<div class="empty"><div class="ei">👥</div><p>No travelers yet.</p></div>';return;}
+
+  // Build lookup maps
+  const cabinMap={};
+  (allCabins||[]).forEach(c=>{cabinMap[c.user_id]=c;});
+  const payMap={};
+  (allPayments||[]).forEach(p=>{
+    if(!payMap[p.user_id])payMap[p.user_id]={due:0,paid:0};
+    payMap[p.user_id].due+=parseFloat(p.amount_due||0);
+    payMap[p.user_id].paid+=parseFloat(p.amount_paid||0);
+  });
+  // Keep only the most recent cancellation per user (first in array since sorted desc)
+  const cancelMap={};
+  (allCancellations||[]).forEach(c=>{
+    if(!cancelMap[c.original_user_id])cancelMap[c.original_user_id]=c;
+  });
+
   const citLabel={us:'U.S. Citizen','us-pr':'U.S. Perm. Resident','non-us':'Non-U.S.',canadian:'Canadian',other:'Other'};
   const active=profiles.filter(p=>p.status!=='cancelled');
   const cancelled=profiles.filter(p=>p.status==='cancelled');
 
   function makeRow(p,isCancelled){
-    const paid=(p.user_payments||[]).reduce((s,x)=>s+parseFloat(x.amount_paid||0),0);
-    const ca=p.cabin_assignments;
+    const ca=cabinMap[p.id]||null;
+    const pData=payMap[p.id]||{due:0,paid:0};
+    const paid=pData.paid;
     const cabinCost=ca?.cabin_cost?parseFloat(ca.cabin_cost):null;
-    // Balance = total cabin cost minus total paid; fall back to sum-of-dues if no cabin cost
-    const due=(p.user_payments||[]).reduce((s,x)=>s+parseFloat(x.amount_due||0),0);
-    const bal=cabinCost?Math.max(0,cabinCost-paid):Math.max(0,due-paid);
-    const pct=cabinCost?Math.min(100,Math.round((paid/cabinCost)*100)):(due>0?Math.round((paid/due)*100):0);
+    const bal=cabinCost?Math.max(0,cabinCost-paid):Math.max(0,pData.due-paid);
+    const pct=cabinCost?Math.min(100,Math.round((paid/cabinCost)*100)):(pData.due>0?Math.round((paid/pData.due)*100):0);
     const cabinStr=ca?(ca.cabin_type+(ca.cabin_number?' #'+ca.cabin_number:'')):'—';
-    const cabinCostDisplay=ca?.cabin_cost?fmt(parseFloat(ca.cabin_cost)):'<em style="color:var(--muted)">Not set</em>';
+    const cabinCostDisplay=cabinCost?`<strong>${fmt(cabinCost)}</strong>`:'<em style="color:var(--muted)">Not set</em>';
     const reservNum=ca?.guest_reservation_number||'—';
     const payLink=ca?.payment_link?`<a href="${ca.payment_link}" target="_blank" style="color:var(--secondary);font-size:.79rem;word-break:break-all;">View Link ↗</a>`:'<em style="color:var(--muted);font-size:.79rem;">Not set</em>';
     const docB=p.needs_doc_info?'<span class="badge needs-info">Needs Doc</span> ':'';
     const suiteB=ca?.suite_pending?'<span class="badge badge-warn">Suite⭐</span> ':'';
     const noCabinB=!ca?'<span class="badge badge-gray">No Cabin</span> ':'';
-    const rowStyle=isCancelled?'opacity:.6;background:#fdf0ee;':'';
-    // Escape strings used in onclick attributes
+    const rowStyle=isCancelled?'opacity:.65;background:#fdf0ee;':'';
     const safeName=(p.name||'').replace(/'/g,"\\'");
     const safePayLink=(ca?.payment_link||'').replace(/'/g,"\\'");
+
+    // ── Green tiles when data is already set ───────────────────
+    const cabinNumCls=ca?.cabin_number?'btn-success':'btn-warn';
+    const cabinNumLbl=ca?.cabin_number?'Cabin # ✓':'Cabin #';
+    const costCls=cabinCost?'btn-success':'btn-warn';
+    const costLbl=cabinCost?'Cost ✓':'Cost';
+    const resNumCls=ca?.guest_reservation_number?'btn-success':'btn-warn';
+    const resNumLbl=ca?.guest_reservation_number?'Res. # ✓':'Res. #';
+    const payLinkCls=ca?.payment_link?'btn-success':'btn-warn';
+    const payLinkLbl=ca?.payment_link?'Pay Link ✓':'Pay Link';
+
+    // ── Cancelled row: show refund status ──────────────────────
+    const cancelRec=cancelMap[p.id];
+    let cancelActions;
+    if(isCancelled){
+      const refundBadge=cancelRec?.refund_processed
+        ?'<span class="badge badge-success" style="margin-left:4px;">Refunded ✓</span>'
+        :'<span class="badge badge-danger" style="margin-left:4px;">Pending Refund</span>';
+      const markBtn=cancelRec&&!cancelRec.refund_processed
+        ?`<button class="btn-warn" style="margin-left:4px;" onclick="markRefunded_travelers('${p.id}')">Mark Refunded</button>`:'';
+      cancelActions=`<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;"><span class="badge badge-danger">Cancelled</span>${refundBadge}${markBtn}</div>`;
+    }
+
     const actions=isCancelled
-      ?`<span class="badge badge-danger">Cancelled</span>`
+      ?cancelActions
       :`<div style="display:flex;gap:4px;flex-wrap:wrap;">
-          <button class="btn-warn" onclick="assignCabinNumber('${p.id}','${safeName}','${ca?.cabin_type||''}','${ca?.cabin_number||''}')">Cabin #</button>
-          <button class="btn-warn" onclick="setCabinCost('${p.id}','${safeName}','${ca?.cabin_cost||''}')">Cost</button>
-          <button class="btn-warn" onclick="setReservationNumber('${p.id}','${safeName}','${ca?.guest_reservation_number||''}')">Res. #</button>
-          <button class="btn-warn" onclick="setPaymentLink('${p.id}','${safeName}','${safePayLink}')">Pay Link</button>
+          <button class="${cabinNumCls}" onclick="assignCabinNumber('${p.id}','${safeName}','${ca?.cabin_type||''}','${ca?.cabin_number||''}')">${cabinNumLbl}</button>
+          <button class="${costCls}" onclick="setCabinCost('${p.id}','${safeName}','${ca?.cabin_cost||''}')">${costLbl}</button>
+          <button class="${resNumCls}" onclick="setReservationNumber('${p.id}','${safeName}','${ca?.guest_reservation_number||''}')">${resNumLbl}</button>
+          <button class="${payLinkCls}" onclick="setPaymentLink('${p.id}','${safeName}','${safePayLink}')">${payLinkLbl}</button>
           <button class="${ca?.gratuity_paid?'btn-success':'btn-warn'}" onclick="setGratuityPaid('${p.id}','${safeName}',${!!ca?.gratuity_paid})">Grat ${ca?.gratuity_paid?'✓':'—'}</button>
           <button class="btn-danger" onclick="cancelTraveler('${p.id}','${safeName}','${p.email||''}','${ca?.cabin_type||''}','${ca?.cabin_number||''}','${p.citizenship_type||''}',${paid})">Cancel</button>
           <button class="btn-danger" style="opacity:.7;" onclick="deleteTraveler('${p.id}','${safeName}')">Delete</button>
         </div>`;
+
     return`<tr style="${rowStyle}">
       <td><strong>${p.name||'<em style="font-weight:400;color:var(--muted)">No name yet</em>'}</strong> ${docB}${suiteB}${noCabinB}<br><small style="color:var(--muted)">${p.email||''}</small></td>
       <td style="font-size:.84rem;">${citLabel[p.citizenship_type]||p.citizenship_type||'<em style="color:var(--muted)">—</em>'}${p.country_of_citizenship?'<br><small style="color:var(--muted)">'+p.country_of_citizenship+'</small>':''}</td>
@@ -2332,6 +2381,15 @@ async function loadTravelers(){
     <div class="table-wrap"><table>${thead}<tbody>${cancelled.map(p=>makeRow(p,true)).join('')}</tbody></table></div>`;
   }
   el.innerHTML=html;
+}
+
+// Allow marking refunded directly from Travelers tab cancelled row
+async function markRefunded_travelers(userId){
+  const{data:cancelRec}=await sb.from('cancellations').select('id').eq('original_user_id',userId).order('canceled_at',{ascending:false}).limit(1).single();
+  if(!cancelRec){alert('No cancellation record found for this traveler.');return;}
+  await sb.from('cancellations').update({refund_processed:true}).eq('id',cancelRec.id);
+  loadTravelers();
+  loadCancellationsTab();
 }
 
 async function assignCabinNumber(userId,name,cabinType,currentNum){
@@ -2539,16 +2597,32 @@ async function savePayment(){
   loadAdminPayments();loadTravelers();
 }
 async function loadAdminPayments(){
-  const{data}=await sb.from('user_payments').select('*, profiles(name,email), payment_milestones(label,due_date)').order('created_at',{ascending:false});
+  const[{data},{data:allCabins}]=await Promise.all([
+    sb.from('user_payments').select('*, profiles(name,email), payment_milestones(label,due_date)').order('created_at',{ascending:false}),
+    sb.rpc('admin_get_all_cabin_assignments')
+  ]);
   const el=document.getElementById('admin-payments');
   if(!data||data.length===0){el.innerHTML='<div class="empty"><div class="ei">💳</div><p>No payments recorded yet.</p></div>';return;}
+  // Build cabin lookup: user_id → {cabin_number, guest_reservation_number}
+  const cabinInfoMap={};
+  (allCabins||[]).forEach(c=>{cabinInfoMap[c.user_id]={cabinNum:c.cabin_number||'—',resNum:c.guest_reservation_number||'—'};});
   const rows=data.map(p=>{
     const due=parseFloat(p.amount_due||0),paid=parseFloat(p.amount_paid||0);
     const badge=due>0&&paid>=due?'<span class="badge badge-success">Paid ✓</span>':'<span class="badge badge-warn">Pending</span>';
     const pd=p.paid_at?new Date(p.paid_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—';
-    return`<tr><td><strong>${p.profiles?.name||'—'}</strong></td><td>${p.payment_milestones?.label||'—'}</td><td>${fmtDate(p.payment_milestones?.due_date)}</td><td class="col-r">${fmt(due)}</td><td class="col-r">${fmt(paid)}</td><td>${pd}</td><td>${badge}</td></tr>`;
+    const cabinInfo=cabinInfoMap[p.user_id]||{cabinNum:'—',resNum:'—'};
+    return`<tr>
+      <td><strong>${p.profiles?.name||'—'}</strong><br><small style="color:var(--muted)">${p.profiles?.email||''}</small></td>
+      <td>${p.payment_milestones?.label||'—'}</td>
+      <td>${fmtDate(p.payment_milestones?.due_date)}</td>
+      <td style="font-size:.82rem;"><div style="font-weight:600;">${cabinInfo.cabinNum}</div><div style="color:var(--muted);font-size:.78rem;">Res: ${cabinInfo.resNum}</div></td>
+      <td class="col-r">${fmt(due)}</td>
+      <td class="col-r">${fmt(paid)}</td>
+      <td>${pd}</td>
+      <td>${badge}</td>
+    </tr>`;
   });
-  el.innerHTML=`<table><thead><tr><th>Traveler</th><th>Milestone</th><th>Due Date</th><th class="col-r">Amt Due</th><th class="col-r">Paid</th><th>Paid On</th><th>Status</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  el.innerHTML=`<table><thead><tr><th>Traveler</th><th>Milestone</th><th>Due Date</th><th>Cabin # / Res. #</th><th class="col-r">Amt Due</th><th class="col-r">Paid</th><th>Paid On</th><th>Status</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 
 // ── INVENTORY ─────────────────────────────────────────────────
