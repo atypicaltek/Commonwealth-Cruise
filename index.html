@@ -333,35 +333,35 @@
               <ul><li><strong>Recently married:</strong> Book under maiden name unless you have name-change documents.</li><li><strong>Birth certificate + ID:</strong> Bring name-change documentation if names differ.</li></ul>
               <div class="doc-section">⚠️ Minors Traveling Without Both Parents</div>
               <p style="font-size:.84rem;">Bring a signed letter from the absent parent(s) authorizing travel.</p>
-              <div class="important">📎 <a href="https://www.carnival.com/site-content/static-faq-2018/page-content#section-0" target="_blank">U.S. Citizens Travel Documentation ↗</a><br>Guests are personally responsible for their documents.</div>
-              <div class="ck-group"><input type="checkbox" id="ct-ack-us" onchange="onCtAckChange()"><label for="ct-ack-us">I have read and understand the travel documentation requirements and am personally responsible for my documents.</label></div>
+              <div class="important">📎 <a href="https://www.carnival.com/site-content/static-faq-2018/page-content#section-0" target="_blank" onclick="enableCitDoc('ct-ack-us')">U.S. Citizens Travel Documentation ↗ <em style="font-size:.78rem;opacity:.7;">(opens link — then you may check below)</em></a><br>Guests are personally responsible for their documents.</div>
+              <div class="ck-group"><input type="checkbox" id="ct-ack-us" disabled onchange="onCtAckChange()"><label for="ct-ack-us" id="ct-ack-us-lbl" style="opacity:.5;">I have read and understand the travel documentation requirements and am personally responsible for my documents.</label></div>
             </div>
             <div id="ct-doc-us-pr" class="doc-notice" style="display:none;margin-top:2px;">
               <h4>📋 U.S. Permanent Residents — Travel Documentation</h4>
               <p>Must carry a valid <strong>Permanent Resident Card (Green Card)</strong> and a valid passport from their country of citizenship.</p>
               <ul><li>Passport valid for at least <strong>six months beyond travel completion</strong> strongly recommended.</li><li>Additional entry requirements may apply at ports of call.</li></ul>
-              <div class="important">📎 <a href="https://help.carnival.com/app/answers/detail/a_id/1401" target="_blank">U.S. Permanent Residents Documentation ↗</a><br>Guests are personally responsible for their documents.</div>
-              <div class="ck-group"><input type="checkbox" id="ct-ack-us-pr" onchange="onCtAckChange()"><label for="ct-ack-us-pr">I have read and understand the travel documentation requirements and am personally responsible for my documents.</label></div>
+              <div class="important">📎 <a href="https://help.carnival.com/app/answers/detail/a_id/1401" target="_blank" onclick="enableCitDoc('ct-ack-us-pr')">U.S. Permanent Residents Documentation ↗ <em style="font-size:.78rem;opacity:.7;">(opens link — then you may check below)</em></a><br>Guests are personally responsible for their documents.</div>
+              <div class="ck-group"><input type="checkbox" id="ct-ack-us-pr" disabled onchange="onCtAckChange()"><label for="ct-ack-us-pr" id="ct-ack-us-pr-lbl" style="opacity:.5;">I have read and understand the travel documentation requirements and am personally responsible for my documents.</label></div>
             </div>
             <div id="ct-doc-non-us" class="doc-notice" style="display:none;margin-top:2px;">
               <h4>📋 Non-U.S. Citizens — Travel Documentation</h4>
               <p>Traveling without proper documentation will result in <strong>denial of boarding with no refund</strong>. Passport valid 6+ months beyond travel is strongly recommended.</p>
               <ul><li><strong>VWP eligible:</strong> Valid passport + ESTA required.</li><li><strong>Non-VWP:</strong> Valid U.S. visa required.</li><li><strong>Mexican citizens</strong> with a Border Crossing Card must also carry a valid Mexican passport.</li></ul>
-              <div class="important">📎 <a href="https://help.carnival.com/app/answers/detail/a_id/1405" target="_blank">Non-U.S. Citizens Documentation ↗</a><br>Guests are personally responsible for their documents.</div>
-              <div class="ck-group"><input type="checkbox" id="ct-ack-non-us" onchange="onCtAckChange()"><label for="ct-ack-non-us">I have read and understand the travel documentation requirements and am personally responsible for my documents.</label></div>
+              <div class="important">📎 <a href="https://help.carnival.com/app/answers/detail/a_id/1405" target="_blank" onclick="enableCitDoc('ct-ack-non-us')">Non-U.S. Citizens Documentation ↗ <em style="font-size:.78rem;opacity:.7;">(opens link — then you may check below)</em></a><br>Guests are personally responsible for their documents.</div>
+              <div class="ck-group"><input type="checkbox" id="ct-ack-non-us" disabled onchange="onCtAckChange()"><label for="ct-ack-non-us" id="ct-ack-non-us-lbl" style="opacity:.5;">I have read and understand the travel documentation requirements and am personally responsible for my documents.</label></div>
             </div>
             <div id="ct-doc-canadian" class="doc-notice" style="display:none;margin-top:2px;">
               <h4>📋 Canadian Citizens — Travel Documentation</h4>
               <p>All Canadian citizens, including children, must carry a <strong>valid Canadian passport</strong> (6+ months beyond travel if arriving by air into the U.S.).</p>
               <ul><li>Expedited passports: <a href="http://visacentral.ca/" target="_blank">visacentral.ca ↗</a> or 888-665-9956</li></ul>
-              <div class="important">📎 <a href="https://help.carnival.com/app/answers/detail/a_id/1402" target="_blank">Canadian Citizens Documentation ↗</a><br>Guests are personally responsible for their documents.</div>
-              <div class="ck-group"><input type="checkbox" id="ct-ack-canadian" onchange="onCtAckChange()"><label for="ct-ack-canadian">I have read and understand the travel documentation requirements and am personally responsible for my documents.</label></div>
+              <div class="important">📎 <a href="https://help.carnival.com/app/answers/detail/a_id/1402" target="_blank" onclick="enableCitDoc('ct-ack-canadian')">Canadian Citizens Documentation ↗ <em style="font-size:.78rem;opacity:.7;">(opens link — then you may check below)</em></a><br>Guests are personally responsible for their documents.</div>
+              <div class="ck-group"><input type="checkbox" id="ct-ack-canadian" disabled onchange="onCtAckChange()"><label for="ct-ack-canadian" id="ct-ack-canadian-lbl" style="opacity:.5;">I have read and understand the travel documentation requirements and am personally responsible for my documents.</label></div>
             </div>
             <div id="ct-doc-other" class="doc-notice" style="display:none;margin-top:2px;">
               <h4>📋 Other Citizenship — Travel Documentation</h4>
               <p>The trip organizer will follow up with documentation requirements specific to your country. Please ensure the country of citizenship is entered correctly above.</p>
-              <div class="important">📎 Guests are personally responsible for all required travel documents. The trip organizer assumes no responsibility.</div>
-              <div class="ck-group"><input type="checkbox" id="ct-ack-other" onchange="onCtAckChange()"><label for="ct-ack-other">I understand I am personally responsible for all required travel documents. The trip organizer assumes no responsibility.</label></div>
+              <div class="important">📎 Guests are personally responsible for all required travel documents. The trip organizer assumes no responsibility.<br><button type="button" style="margin-top:6px;font-size:.8rem;padding:4px 10px;cursor:pointer;border:1px solid var(--primary);background:transparent;color:var(--primary);border-radius:5px;" onclick="enableCitDoc('ct-ack-other')">I have reviewed this notice ↗</button></div>
+              <div class="ck-group"><input type="checkbox" id="ct-ack-other" disabled onchange="onCtAckChange()"><label for="ct-ack-other" id="ct-ack-other-lbl" style="opacity:.5;">I understand I am personally responsible for all required travel documents. The trip organizer assumes no responsibility.</label></div>
             </div>
           </div>
 
@@ -1326,12 +1326,15 @@ async function doProfileSetup(){
   const email=gProfile?.email||gUser.email;
 
   if(isSuite){
-    await sb.from('cabin_assignments').insert({user_id:gUser.id,cabin_type:backupCabin,suite_pending:true,num_guests:numGuests});
+    const{error:caErr}=await sb.from('cabin_assignments').insert({user_id:gUser.id,cabin_type:backupCabin,suite_pending:true,num_guests:numGuests});
+    if(caErr){flash('psetup-alert','Reservation error: '+caErr.message+'. Please try again or contact the trip organizer.');return;}
     await sb.rpc('decrement_cabin',{cabin:backupCabin});
-    await sb.from('suite_requests').insert({user_id:gUser.id,requestor_name:name,requestor_email:email,requestor_phone:suitePhone,backup_cabin_type:backupCabin});
+    const{error:srErr}=await sb.from('suite_requests').insert({user_id:gUser.id,requestor_name:name,requestor_email:email,requestor_phone:suitePhone,backup_cabin_type:backupCabin});
+    if(srErr)console.warn('Suite request row failed (non-fatal):',srErr.message);
     emailSuiteRequestReceived({name,email,citizenship_type:null},backupCabin,suitePhone);
   } else {
-    await sb.from('cabin_assignments').insert({user_id:gUser.id,cabin_type:cabinType,num_guests:numGuests});
+    const{error:caErr}=await sb.from('cabin_assignments').insert({user_id:gUser.id,cabin_type:cabinType,num_guests:numGuests});
+    if(caErr){flash('psetup-alert','Reservation error: '+caErr.message+'. Please try again or contact the trip organizer.');return;}
     await sb.rpc('decrement_cabin',{cabin:cabinType});
     emailAccountCreated({name,email,citizenship_type:null},cabinType);
   }
@@ -1608,13 +1611,24 @@ function closeMilestoneWarning(){
 
 // ── CABIN TRAVELERS ──────────────────────────────────────────
 // Citizenship doc panel toggle in traveler form
+function enableCitDoc(ackId){
+  // Called when a user clicks the documentation reference link — unlocks the ack checkbox
+  const el=document.getElementById(ackId);
+  if(el){el.disabled=false;}
+  const lbl=document.getElementById(ackId+'-lbl');
+  if(lbl)lbl.style.opacity='';
+}
 function onCtCitizenshipChange(){
   const val=document.getElementById('ct-citizenship-type').value;
   ['ct-doc-us','ct-doc-us-pr','ct-doc-non-us','ct-doc-canadian','ct-doc-other'].forEach(id=>{
     document.getElementById(id).style.display='none';
   });
+  // Reset and RE-DISABLE ack checkboxes whenever citizenship type changes
   ['ct-ack-us','ct-ack-us-pr','ct-ack-non-us','ct-ack-canadian','ct-ack-other'].forEach(id=>{
-    const e=document.getElementById(id);if(e)e.checked=false;
+    const e=document.getElementById(id);
+    if(e){e.checked=false;e.disabled=true;}
+    const lbl=document.getElementById(id+'-lbl');
+    if(lbl)lbl.style.opacity='.5';
   });
   const map={us:'ct-doc-us','us-pr':'ct-doc-us-pr','non-us':'ct-doc-non-us',canadian:'ct-doc-canadian',other:'ct-doc-other'};
   if(map[val])document.getElementById(map[val]).style.display='block';
@@ -1623,7 +1637,7 @@ function onCtCitizenshipChange(){
   if(val==='us'&&!citField.value)citField.value='United States';
   else if(val==='canadian'&&!citField.value)citField.value='Canada';
 }
-function onCtAckChange(){/* ack checkbox exists per doc section — no blocking needed */}
+function onCtAckChange(){/* acknowledgment is validated in addCabinTraveler before submit */}
 const CT_TEXT_IDS=['ct-salutation','ct-suffix','ct-firstname','ct-middlename','ct-lastname','ct-dob-month','ct-dob-day','ct-dob-year','ct-gender','ct-citizenship-type','ct-citizenship','ct-state','ct-relationship','ct-email','ct-phone','ct-birthday','ct-anniversary'];
 
 function onSrChange(){
@@ -1658,6 +1672,34 @@ function toggleAddTraveler(){
   if(form.classList.contains('open')){clearFlash('cabin-alert');resetTravelerForm();}
 }
 
+function clearAddTravelerForm(){
+  CT_TEXT_IDS.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    if(el.tagName==='SELECT')el.value='';
+    else if(el.type==='checkbox')el.checked=false;
+    else el.value='';
+  });
+  document.querySelectorAll('.sr-cb').forEach(cb=>{cb.checked=false;});
+  document.getElementById('ct-bday-ck').checked=false;
+  document.getElementById('ct-birthday').style.display='none';
+  document.getElementById('ct-anniv-ck').checked=false;
+  document.getElementById('ct-anniversary').style.display='none';
+  document.getElementById('ct-honeymoon').checked=false;
+  // Reset citizenship panels
+  ['ct-doc-us','ct-doc-us-pr','ct-doc-non-us','ct-doc-canadian','ct-doc-other'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.style.display='none';
+  });
+  // Re-disable all ack checkboxes
+  ['ct-ack-us','ct-ack-us-pr','ct-ack-non-us','ct-ack-canadian','ct-ack-other'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.checked=false;el.disabled=true;}
+    const lbl=document.getElementById(id+'-lbl');
+    if(lbl)lbl.style.opacity='.5';
+  });
+  document.getElementById('ct-special-requests-count').textContent='0 of 4 selected';
+}
+
 async function addCabinTraveler(){
   clearFlash('cabin-alert');
   const sal=document.getElementById('ct-salutation').value;
@@ -1686,6 +1728,11 @@ async function addCabinTraveler(){
   if(!gender)return flash('cabin-alert','Please select a gender.');
   if(!citizenType)return flash('cabin-alert',"Please select the traveler's citizenship status.");
   if(!citizen)return flash('cabin-alert',"Please enter the traveler's country of citizenship.");
+  // Require that traveler has clicked the doc link AND checked the acknowledgment
+  const ackMap={us:'ct-ack-us','us-pr':'ct-ack-us-pr','non-us':'ct-ack-non-us',canadian:'ct-ack-canadian',other:'ct-ack-other'};
+  const ackEl=document.getElementById(ackMap[citizenType]);
+  if(ackEl&&ackEl.disabled)return flash('cabin-alert','Please click the Travel Documentation link to open it, then check the acknowledgment box before saving.');
+  if(ackEl&&!ackEl.checked)return flash('cabin-alert','Please check the travel documentation acknowledgment box before saving this traveler.');
   if(document.getElementById('ct-bday-ck').checked&&!birthdayDate)return flash('cabin-alert','Please select a birthday date.');
   if(document.getElementById('ct-anniv-ck').checked&&!anniversaryDate)return flash('cabin-alert','Please select an anniversary date.');
 
@@ -1701,13 +1748,28 @@ async function addCabinTraveler(){
     }
   }
 
+  // Duplicate traveler check — same first name + last name + DOB already on this account
+  const{data:dupCheck}=await sb.from('cabin_travelers')
+    .select('id')
+    .eq('account_owner_id',gUser.id)
+    .ilike('first_name',first)
+    .ilike('last_name',last)
+    .eq('date_of_birth',`${year}-${month}-${day}`)
+    .maybeSingle();
+  if(dupCheck){
+    flash('cabin-alert',`A traveler named ${first} ${last} with that date of birth is already saved on your account. Please review your existing travelers before adding again.`);
+    return;
+  }
+
   // Ensure profile row exists (FK guard — drops not-null on citizenship_type must be run in Supabase first)
   const ownerId=gUser.id;
   const{data:profCheck}=await sb.from('profiles').select('id').eq('id',ownerId).single();
   if(!profCheck){
     const nm=gProfile?.name||gUser?.user_metadata?.full_name||'Traveler';
-    const{error:pErr}=await sb.from('profiles').insert({id:ownerId,name:nm,email:gUser.email,is_admin:false});
-    if(pErr){flash('cabin-alert','Account error: '+pErr.message+'. Please sign out and sign in again.');return;}
+    // citizenship_type:'other' is a safe placeholder — migration drops NOT NULL on profiles.citizenship_type
+    // but this fallback ensures the insert works even if migration hasn't been applied yet
+    const{error:pErr}=await sb.from('profiles').insert({id:ownerId,name:nm,email:gUser.email,is_admin:false,citizenship_type:'other'});
+    if(pErr){flash('cabin-alert','Account error: '+pErr.message+'. Please sign out and sign in again.');clearAddTravelerForm();return;}
   }
 
   const{error}=await sb.from('cabin_travelers').insert({
@@ -1727,7 +1789,7 @@ async function addCabinTraveler(){
     anniversary_date:anniversaryDate||null,
     is_honeymoon:isHoneymoon
   });
-  if(error){flash('cabin-alert','Error saving traveler: '+error.message);return;}
+  if(error){flash('cabin-alert','Error saving traveler: '+error.message);clearAddTravelerForm();return;}
 
   // Send citizenship-specific documentation email to the traveler (if email provided)
   // and notify admin of the new traveler
@@ -2308,73 +2370,82 @@ async function showInventoryDetail(cabinType){
   document.getElementById('inv-detail-content').innerHTML='<div class="loading"><div class="spinner"></div></div>';
   document.getElementById('inv-detail-modal').classList.add('open');
 
-  // Query via profiles (RLS disabled) — embed cabin_assignments + cabin_travelers to bypass RLS
-  const{data:profileRows,error}=await sb.from('profiles')
-    .select('id,name,email,cabin_assignments(cabin_type,cabin_number,suite_pending,assigned_at,gratuity_paid,cabin_cost,num_guests,guest_reservation_number),cabin_travelers(first_name,middle_name,last_name,name_suffix,date_of_birth,gender,country_of_citizenship,relationship,special_requests,email,phone,birthday_date,anniversary_date,is_honeymoon)');
+  // Step 1: Use SECURITY DEFINER RPC to get cabin assignments + profile info.
+  // Direct profiles→cabin_assignments join via PostgREST doesn't work because
+  // cabin_assignments.user_id references auth.users(id), not profiles(id) directly.
+  const{data:caRows,error:caErr}=await sb.rpc('admin_get_cabin_bookings',{p_cabin_type:cabinType});
+  if(caErr){
+    document.getElementById('inv-detail-content').innerHTML=`<p style="color:var(--danger);padding:12px;">Error loading bookings: ${caErr.message}<br><small>Make sure you've run the latest new-columns.sql in Supabase.</small></p>`;
+    return;
+  }
+  const bookings=caRows||[];
+  document.getElementById('inv-detail-title').textContent=`${cabinType} Cabin — ${bookings.length} Booked`;
 
-  if(error){
-    document.getElementById('inv-detail-content').innerHTML=`<p style="color:var(--danger);padding:12px;">Error loading data: ${error.message}</p>`;
+  if(bookings.length===0){
+    document.getElementById('inv-detail-content').innerHTML='<div class="empty"><div class="ei">🛏️</div><p>No travelers booked in this cabin type yet.</p></div>';
     return;
   }
 
-  // Filter client-side to the selected cabin type
-  const matching=(profileRows||[]).filter(p=>{
-    const caArr=Array.isArray(p.cabin_assignments)?p.cabin_assignments:[p.cabin_assignments].filter(Boolean);
-    return caArr.some(ca=>ca&&ca.cabin_type===cabinType);
+  // Step 2: Fetch all cabin_travelers for these accounts in one query
+  const userIds=bookings.map(b=>b.user_id);
+  const{data:allTravelers}=await sb.from('cabin_travelers')
+    .select('account_owner_id,first_name,middle_name,last_name,name_suffix,date_of_birth,gender,citizenship_type,country_of_citizenship,relationship,special_requests,email,phone,birthday_date,anniversary_date,is_honeymoon')
+    .in('account_owner_id',userIds);
+
+  // Build map userId → travelers[]
+  const travelerMap={};
+  (allTravelers||[]).forEach(t=>{
+    if(!travelerMap[t.account_owner_id])travelerMap[t.account_owner_id]=[];
+    travelerMap[t.account_owner_id].push(t);
   });
 
-  document.getElementById('inv-detail-title').textContent=`${cabinType} Cabin — ${matching.length} Booked`;
+  const CT_LABELS={us:'🇺🇸 U.S. Citizen','us-pr':'🇺🇸 U.S. Perm. Resident','non-us':'🌎 Non-U.S.','canadian':'🇨🇦 Canadian','other':'🌐 Other'};
 
-  if(matching.length===0){
-    document.getElementById('inv-detail-content').innerHTML='<div class="empty"><div class="ei">🛏️</div><p>No travelers booked in this cabin type yet.</p></div>';
-  } else {
-    const cards=matching.map(p=>{
-      const caArr=Array.isArray(p.cabin_assignments)?p.cabin_assignments:[p.cabin_assignments].filter(Boolean);
-      const a=caArr.find(ca=>ca&&ca.cabin_type===cabinType)||{};
-      const travelers=Array.isArray(p.cabin_travelers)?p.cabin_travelers:[];
-      const reservedDate=a.assigned_at?new Date(a.assigned_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
-      const statusBadge=a.suite_pending?'<span class="badge badge-warn">⭐ Suite Pending</span>':'<span class="badge badge-success">Confirmed ✓</span>';
-      const gratBadge=a.gratuity_paid?'<span class="badge badge-success">Grat Paid ✓</span>':'<span class="badge badge-gray">Grat Unpaid</span>';
+  const cards=bookings.map(b=>{
+    const travelers=travelerMap[b.user_id]||[];
+    const reservedDate=b.assigned_at?new Date(b.assigned_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+    const statusBadge=b.suite_pending?'<span class="badge badge-warn">⭐ Suite Pending</span>':'<span class="badge badge-success">Confirmed ✓</span>';
+    const gratBadge=b.gratuity_paid?'<span class="badge badge-success">Grat Paid ✓</span>':'<span class="badge badge-gray">Grat Unpaid</span>';
 
-      const travelerRows=travelers.length===0
-        ?`<tr><td colspan="5" style="color:var(--danger);font-style:italic;font-size:.84rem;">⚠️ No cabin travelers entered yet</td></tr>`
-        :travelers.map(t=>{
-          const tName=[t.first_name,t.middle_name,t.last_name,t.name_suffix].filter(Boolean).join(' ');
-          const dob=t.date_of_birth?new Date(t.date_of_birth+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
-          const sr=(t.special_requests||[]).join(', ')||'None';
-          const occasions=[];
-          if(t.birthday_date)occasions.push('🎂 '+new Date(t.birthday_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}));
-          if(t.anniversary_date)occasions.push('💍 '+new Date(t.anniversary_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}));
-          if(t.is_honeymoon)occasions.push('🥂 Honeymoon');
-          return`<tr>
-            <td><strong>${tName}</strong>${t.relationship?`<br><small style="color:var(--muted)">${t.relationship}</small>`:''}</td>
-            <td>${dob}</td>
-            <td>${t.gender||'—'}</td>
-            <td>${t.country_of_citizenship||'—'}</td>
-            <td><small>${[t.email,t.phone].filter(Boolean).join(' · ')||'—'}${sr!=='None'?`<br><span style="color:var(--warn);">⚕️ ${sr}</span>`:''}${occasions.length?`<br>${occasions.join(' · ')}`:''}
-            </small></td>
-          </tr>`;
-        }).join('');
+    const travelerRows=travelers.length===0
+      ?`<tr><td colspan="5" style="color:var(--danger);font-style:italic;font-size:.84rem;">⚠️ No cabin travelers entered yet</td></tr>`
+      :travelers.map(t=>{
+        const tName=[t.first_name,t.middle_name,t.last_name,t.name_suffix].filter(Boolean).join(' ');
+        const dob=t.date_of_birth?new Date(t.date_of_birth+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+        const sr=(t.special_requests||[]).join(', ')||'None';
+        const occasions=[];
+        if(t.birthday_date)occasions.push('🎂 '+new Date(t.birthday_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}));
+        if(t.anniversary_date)occasions.push('💍 '+new Date(t.anniversary_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}));
+        if(t.is_honeymoon)occasions.push('🥂 Honeymoon');
+        const citLabel=(CT_LABELS[t.citizenship_type]||'')+' '+(t.country_of_citizenship||'');
+        return`<tr>
+          <td><strong>${tName}</strong>${t.relationship?`<br><small style="color:var(--muted)">${t.relationship}</small>`:''}</td>
+          <td>${dob}</td>
+          <td>${t.gender||'—'}</td>
+          <td style="font-size:.82rem;">${citLabel.trim()||'—'}</td>
+          <td><small>${[t.email,t.phone].filter(Boolean).join(' · ')||'—'}${sr!=='None'?`<br><span style="color:var(--warn);">⚕️ ${sr}</span>`:''}${occasions.length?`<br>${occasions.join(' · ')}`:''}
+          </small></td>
+        </tr>`;
+      }).join('');
 
-      return`<div style="border:1.5px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;">
-        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;">
-          <strong style="font-size:1rem;">${p.name||'—'}</strong>
-          <small style="color:var(--muted);">${p.email||''}</small>
-          ${statusBadge}${gratBadge}
-        </div>
-        <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:.83rem;color:var(--muted);margin-bottom:10px;">
-          <span>Cabin #: <strong style="color:var(--text);">${a.cabin_number||'Not assigned'}</strong></span>
-          <span>Reserved: <strong style="color:var(--text);">${reservedDate}</strong></span>
-          ${a.cabin_cost?`<span>Cost: <strong style="color:var(--text);">${fmt(parseFloat(a.cabin_cost))}</strong></span>`:''}
-          ${a.num_guests?`<span>Guests: <strong style="color:var(--text);">${a.num_guests}</strong></span>`:''}
-          ${a.guest_reservation_number?`<span>Res. #: <strong style="color:var(--text);">${a.guest_reservation_number}</strong></span>`:''}
-        </div>
-        <div style="font-size:.8rem;font-weight:700;color:var(--primary);margin-bottom:6px;">Cabin Travelers (${travelers.length})</div>
-        <div class="table-wrap" style="margin:0;"><table><thead><tr><th>Name</th><th>DOB</th><th>Gender</th><th>Citizenship</th><th>Contact / Special</th></tr></thead><tbody>${travelerRows}</tbody></table></div>
-      </div>`;
-    }).join('');
-    document.getElementById('inv-detail-content').innerHTML=cards;
-  }
+    return`<div style="border:1.5px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;">
+        <strong style="font-size:1rem;">${b.profile_name||'—'}</strong>
+        <small style="color:var(--muted);">${b.profile_email||''}</small>
+        ${statusBadge}${gratBadge}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:.83rem;color:var(--muted);margin-bottom:10px;">
+        <span>Cabin #: <strong style="color:var(--text);">${b.cabin_number||'Not assigned'}</strong></span>
+        <span>Reserved: <strong style="color:var(--text);">${reservedDate}</strong></span>
+        ${b.cabin_cost?`<span>Cost: <strong style="color:var(--text);">${fmt(parseFloat(b.cabin_cost))}</strong></span>`:''}
+        ${b.num_guests?`<span>Guests: <strong style="color:var(--text);">${b.num_guests}</strong></span>`:''}
+        ${b.guest_reservation_number?`<span>Res. #: <strong style="color:var(--text);">${b.guest_reservation_number}</strong></span>`:''}
+      </div>
+      <div style="font-size:.8rem;font-weight:700;color:var(--primary);margin-bottom:6px;">Cabin Travelers (${travelers.length})</div>
+      <div class="table-wrap" style="margin:0;"><table><thead><tr><th>Name</th><th>DOB</th><th>Gender</th><th>Citizenship</th><th>Contact / Special</th></tr></thead><tbody>${travelerRows}</tbody></table></div>
+    </div>`;
+  }).join('');
+  document.getElementById('inv-detail-content').innerHTML=cards;
 }
 
 // ── CANCELLATIONS ─────────────────────────────────────────────
