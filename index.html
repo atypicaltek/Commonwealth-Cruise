@@ -276,7 +276,7 @@
       <div class="stats-grid">
         <div class="stat-card" onclick="showPaidDetail()" style="cursor:pointer;" title="View payment history"><div class="stat-icon">✅</div><div class="stat-val paid" id="dash-paid-val">$0</div><div class="stat-label">Total Paid</div></div>
         <div class="stat-card" onclick="showBalanceDetail()" style="cursor:pointer;" title="View balance breakdown"><div class="stat-icon">⏳</div><div class="stat-val" id="dash-balance-val" style="color:var(--muted);font-size:1rem;">Pending</div><div class="stat-label">Balance Due</div></div>
-        <div class="stat-card" onclick="showScheduleDetail()" style="cursor:pointer;" title="View full payment schedule"><div class="stat-icon">📅</div><div class="stat-val date" id="dash-nextdue-val">—</div><div class="stat-label">Next Due Date</div><div id="dash-nextdue-label" style="font-size:.72rem;color:var(--muted);margin-top:3px;line-height:1.3;"></div></div>
+        <div class="stat-card" onclick="showScheduleDetail()" style="cursor:pointer;" title="View full payment schedule"><div class="stat-icon">📅</div><div class="stat-val date" id="dash-nextdue-val">—</div><div class="stat-label">Next Due Date</div><div id="dash-nextdue-label" style="font-size:.72rem;color:var(--muted);margin-top:3px;line-height:1.3;"></div><div id="dash-nextdue-amt" style="font-size:.82rem;font-weight:700;color:var(--danger);margin-top:2px;"></div></div>
       </div>
       <div class="card">
         <div class="card-header"><span class="card-title">📋 Payment Schedule</span><span id="dash-cabin-badge" class="badge badge-info" style="display:none;"></span></div>
@@ -1438,6 +1438,7 @@ async function loadDashboard(){
   const cabinCost=cabin?.cabin_cost?parseFloat(cabin.cabin_cost):null;
   // Cache globally so tile-click modals can read them without re-fetching
   gMilestones=milestones;gPayments=payments;gCabinCost=cabinCost;
+  window.gNumGuests=cabin?.num_guests||1;
 
   // If no cabin assignment yet, show profile setup modal first
   if(!cabin && !gProfileSetupComplete){
@@ -1480,28 +1481,54 @@ async function loadDashboard(){
     document.getElementById('first-login-modal').classList.add('open');
   }
 
+  // ── Payment schedule calculations ────────────────────────────
+  // Scale minimums by number of guests in cabin; use cumulative comparison
+  // so overpayments on earlier milestones carry forward and reduce later dues.
+  const numGuests=cabin?.num_guests||1;
   const payMap={};payments.forEach(p=>{payMap[p.milestone_id]=p;});
   const today=new Date();today.setHours(0,0,0,0);
-  let totalPaid=0,nextDue=null,nextDueLabel=null,nextDueAmt=null;
-  milestones.forEach((m,i,arr)=>{
+  const totalPaid=payments.reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+
+  // Pre-compute scaled minimums and cumulative totals for each milestone
+  let cumMin=0;
+  const msData=milestones.map((m,i,arr)=>{
+    const isLast=i===arr.length-1;
+    const isGrat=!m.due_date&&!isLast;
     const p=payMap[m.id]||{};
-    const paid=parseFloat(p.amount_paid||0);
-    totalPaid+=paid;
-    if(!m.due_date)return; // gratuity/no-date milestone — skip for nextDue calculation
-    const minAmt=m.minimum_amount!=null?parseFloat(m.minimum_amount):null;
-    const due=parseFloat(p.amount_due??m.minimum_amount??0);
-    // Milestone is cleared if: no minimum required, or paid >= required amount
-    const isCleared=due<=0||paid>=due;
-    const dDate=new Date(m.due_date+'T00:00:00');
-    if(!isCleared&&(!nextDue||dDate<nextDue)){
-      nextDue=dDate;
-      nextDueLabel=m.label;
-      nextDueAmt=minAmt;
+    const mPaid=parseFloat(p.amount_paid||0);
+    const rawMin=m.minimum_amount!=null?parseFloat(m.minimum_amount):null;
+    // Scale non-last milestones by numGuests; last milestone amount = cabinCost - sum of others
+    const scaledMin=(!isLast&&!isGrat&&rawMin!=null)?rawMin*numGuests:(!isLast&&isGrat&&rawMin!=null)?rawMin*numGuests:null;
+    if(!isLast&&scaledMin!=null)cumMin+=scaledMin;
+    return{m,p,mPaid,isLast,isGrat,scaledMin,cumMinThrough:cumMin};
+  });
+
+  const sumNonLastScaled=cumMin;
+  // Last milestone min = cabinCost minus all other scaled minimums (or null if cost unknown)
+  const lastScaledMin=cabinCost!=null?Math.max(0,cabinCost-sumNonLastScaled):null;
+  if(msData.length>0&&msData[msData.length-1].isLast){
+    msData[msData.length-1].scaledMin=lastScaledMin;
+    msData[msData.length-1].cumMinThrough=cabinCost!=null?cabinCost:null;
+  }
+
+  // Next Due: first milestone where totalPaid < cumulative minimum required
+  let nextDue=null,nextDueLabel=null,nextDueAmt=null;
+  msData.forEach(({m,isLast,cumMinThrough})=>{
+    if(!m.due_date)return; // gratuity/no-date milestone — skip
+    const cumReq=isLast?(cabinCost!=null?cabinCost:Infinity):(cumMinThrough||0);
+    if(cumReq===0)return; // nothing required yet
+    if(totalPaid<cumReq){
+      const dDate=new Date(m.due_date+'T00:00:00');
+      if(!nextDue||dDate<nextDue){
+        nextDue=dDate;
+        nextDueLabel=m.label;
+        nextDueAmt=Math.max(0,cumReq-totalPaid); // net shortfall after carry-forward
+      }
     }
   });
 
   // Progress bar — only show % if cabin cost is known
-  if(cabinCost){
+  if(cabinCost!=null){
     const pct=Math.min(100,Math.round((totalPaid/cabinCost)*100));
     document.getElementById('dash-pct').textContent=pct+'%';
     document.getElementById('dash-pbar').style.width=pct+'%';
@@ -1522,65 +1549,73 @@ async function loadDashboard(){
   if(nextDue){
     const nd=nextDue.toLocaleDateString('en-US',{month:'short',day:'numeric'});
     document.getElementById('dash-nextdue-val').textContent=nd;
-    // Show label under the date if it fits
     const lblEl=document.getElementById('dash-nextdue-label');
     if(lblEl)lblEl.textContent=nextDueLabel||'';
+    // Update Next Due tile amount if element exists
+    const amtEl=document.getElementById('dash-nextdue-amt');
+    if(amtEl)amtEl.textContent=nextDueAmt!=null?fmt(nextDueAmt):'';
   } else {
     document.getElementById('dash-nextdue-val').textContent='All Clear ✓';
     document.getElementById('dash-nextdue-val').style.color='var(--success)';
     const lblEl=document.getElementById('dash-nextdue-label');
     if(lblEl)lblEl.textContent='No payments outstanding';
+    const amtEl=document.getElementById('dash-nextdue-amt');
+    if(amtEl)amtEl.textContent='';
   }
 
-  // Build schedule rows — last milestone (Remaining Balance) uses cabin_cost
-  let runningPaid=0;
-  const isLastMilestone=(m,arr)=>arr.indexOf(m)===arr.length-1;
-  const rows=milestones.map((m,i,arr)=>{
-    const p=payMap[m.id]||{};
-    const minAmt=m.minimum_amount!=null?parseFloat(m.minimum_amount):null;
-    const paid=parseFloat(p.amount_paid||0);
-    runningPaid+=paid;
-    const isLast=i===arr.length-1;
-    const isGrat=!m.due_date&&!isLast; // no due_date = gratuity-type milestone
+  // Build schedule rows
+  // Remaining Balance column = cabinCost minus running sum of all paid so far
+  let runPaid=0;
+  const rows=msData.map(({m,mPaid,isLast,isGrat,scaledMin,cumMinThrough})=>{
+    runPaid+=mPaid;
     const dDate=m.due_date?new Date(m.due_date+'T00:00:00'):null;
-    const due=parseFloat(p.amount_due??m.minimum_amount??0);
-    const isPaid=!isLast&&due>0&&paid>=due;
-    const isOver=!isPaid&&!isLast&&!isGrat&&dDate&&dDate<today;
-    const isSoon=!isPaid&&!isOver&&!isLast&&!isGrat&&dDate&&(dDate-today)<7*24*60*60*1000;
+    const cumReq=isLast?(cabinCost!=null?cabinCost:0):(cumMinThrough||0);
+    // Milestone is cleared when total paid meets or exceeds the cumulative required through this point
+    const isCleared=cumReq>0&&totalPaid>=cumReq;
+    const isOver=!isCleared&&!isGrat&&dDate&&dDate<today;
+    const isSoon=!isCleared&&!isOver&&!isGrat&&dDate&&(dDate-today)<7*24*60*60*1000;
     const dateStr=fmtDate(m.due_date);
     const dateCls=isOver?'overdue':isSoon?'due-soon':'';
-    let badge='<span class="badge badge-gray">TBD</span>';
+
+    // Min Due display
+    let minDueStr;
     if(isLast){
-      badge=cabinCost?'<span class="badge badge-info">Final Payment</span>':'<span class="badge badge-gray">Pending Cost Entry</span>';
+      minDueStr=scaledMin!=null?fmt(scaledMin):'<span style="color:var(--muted);font-style:italic;">Pending</span>';
     } else if(isGrat){
-      badge=isPaid?'<span class="badge badge-success">Paid ✓</span>':'<span class="badge badge-purple">Gratuities</span>';
-    } else if(due>0){
-      if(isPaid)badge='<span class="badge badge-success">Paid ✓</span>';
+      minDueStr=scaledMin!=null?fmt(scaledMin):'—';
+    } else {
+      // If totalPaid already covers this milestone's cumulative requirement, show "Covered ✓"
+      minDueStr=scaledMin!=null?(isCleared?'<span style="color:var(--success);">Covered ✓</span>':fmt(scaledMin)):'—';
+    }
+
+    // Badge
+    let badge;
+    if(isLast){
+      if(!cabinCost)badge='<span class="badge badge-gray">Pending Cost Entry</span>';
+      else if(isCleared)badge='<span class="badge badge-success">Paid ✓</span>';
+      else if(isOver)badge='<span class="badge badge-danger">Overdue!</span>';
+      else if(isSoon)badge='<span class="badge badge-warn">Due Soon</span>';
+      else badge='<span class="badge badge-info">Final Payment</span>';
+    } else if(isGrat){
+      badge=isCleared?'<span class="badge badge-success">Paid ✓</span>':'<span class="badge badge-purple">Gratuities</span>';
+    } else {
+      if(isCleared)badge='<span class="badge badge-success">Paid ✓</span>';
       else if(isOver)badge='<span class="badge badge-danger">Overdue!</span>';
       else if(isSoon)badge='<span class="badge badge-warn">Due Soon</span>';
       else badge='<span class="badge badge-info">Upcoming</span>';
     }
-    // Remaining balance cell
+
+    // Remaining Balance = cabin cost minus all paid through this row's running sum
     let remCell;
-    if(isLast){
-      if(cabinCost){
-        const finalRem=Math.max(0,cabinCost-runningPaid);
-        const cls=finalRem<=0?'rem-zero':'rem-pos';
-        remCell=`<td class="col-r ${cls}">${finalRem<=0?'✓ '+fmt(0):fmt(finalRem)}</td>`;
-      } else {
-        remCell=`<td class="col-r" style="color:var(--muted);font-style:italic;">Pending</td>`;
-      }
-      // Min amount for last row also depends on cabin_cost
-      const lastMin=cabinCost?(cabinCost-850>0?fmt(cabinCost-850):'—'):'Pending';
-      return`<tr><td><strong>${m.label}</strong></td><td class="col-r" style="${!cabinCost?'color:var(--muted);font-style:italic;':''}">${lastMin}</td><td class="${dateCls}">${dateStr}</td><td class="col-r">${paid>0?'<strong>'+fmt(paid)+'</strong>':'—'}</td>${remCell}<td>${badge}</td></tr>`;
+    if(cabinCost!=null){
+      const rem=Math.max(0,cabinCost-runPaid);
+      const cls=rem<=0?'rem-zero':'rem-pos';
+      remCell=`<td class="col-r ${cls}">${rem<=0?'✓ '+fmt(0):fmt(rem)}</td>`;
     } else {
-      const runningDueSoFar=(minAmt||0)*(i+1<=5?1:1); // each row accumulates
-      // For non-last rows, remaining = (sum of minimums so far) - totalPaid
-      const nonLastRemaining=milestones.slice(0,i+1).reduce((s,ms)=>s+parseFloat(ms.minimum_amount||0),0)-runningPaid;
-      const cls=nonLastRemaining<=0?'rem-zero':'rem-pos';
-      const remStr=nonLastRemaining<=0?'✓ '+fmt(0):fmt(nonLastRemaining);
-      return`<tr><td><strong>${m.label}</strong></td><td class="col-r">${minAmt!=null?fmt(minAmt):'—'}</td><td class="${dateCls}">${dateStr}</td><td class="col-r">${paid>0?'<strong>'+fmt(paid)+'</strong>':'—'}</td><td class="col-r ${cls}">${remStr}</td><td>${badge}</td></tr>`;
+      remCell=`<td class="col-r" style="color:var(--muted);font-style:italic;">Pending</td>`;
     }
+
+    return`<tr><td><strong>${m.label}</strong></td><td class="col-r">${minDueStr}</td><td class="${dateCls}">${dateStr}</td><td class="col-r">${mPaid>0?'<strong>'+fmt(mPaid)+'</strong>':'—'}</td>${remCell}<td>${badge}</td></tr>`;
   });
 
   document.getElementById('dash-schedule').innerHTML=rows.length
@@ -1625,36 +1660,41 @@ function checkMilestoneWarning(milestones,payments,cabinCost){
   const today=new Date();today.setHours(0,0,0,0);
   const sevenDays=7*24*60*60*1000;
 
-  // Check if everything is fully paid (last milestone paid = all done)
   const totalPaid=payments.reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
   if(cabinCost&&totalPaid>=cabinCost)return; // fully paid — no warning
 
-  // For each non-last milestone, check if unpaid and within 7 days or overdue
-  const warnings=[];
-  milestones.forEach((m,i,arr)=>{
+  // Re-build the same cumulative scaled structure used in loadDashboard
+  // gProfile.num_guests not available here — use cabin from global or default 1
+  // We just need to know whether totalPaid < cumReq for each milestone
+  let cumMin=0;
+  const msData=milestones.map((m,i,arr)=>{
     const isLast=i===arr.length-1;
-    if(!m.due_date)return; // gratuity/no-date milestone — skip from warning
-    const p=payMap[m.id]||{};
-    const paid=parseFloat(p.amount_paid||0);
-    const minAmt=m.minimum_amount!=null?parseFloat(m.minimum_amount):null;
-    const due=parseFloat(p.amount_due??m.minimum_amount??0);
-    // Skip milestones with no minimum amount required (nothing to warn about)
-    if(due<=0)return;
-    // Skip if already paid
-    if(paid>=due)return;
-    // For the last milestone, only warn if cabin_cost is known and unpaid
-    if(isLast){
-      if(!cabinCost)return;
-      const remaining=Math.max(0,cabinCost-totalPaid);
-      if(remaining<=0)return;
-    }
+    const isGrat=!m.due_date&&!isLast;
+    const rawMin=m.minimum_amount!=null?parseFloat(m.minimum_amount):null;
+    // NOTE: numGuests not passed here; warnings use unscaled cumulative as a conservative check
+    // The main schedule already shows scaled amounts — this is just the popup trigger
+    const scaledMin=(!isLast&&rawMin!=null)?rawMin:null;
+    if(!isLast&&scaledMin!=null)cumMin+=scaledMin;
+    return{m,isLast,isGrat,scaledMin,cumMinThrough:cumMin};
+  });
+  if(msData.length>0&&msData[msData.length-1].isLast){
+    msData[msData.length-1].cumMinThrough=cabinCost!=null?cabinCost:null;
+  }
+
+  const warnings=[];
+  msData.forEach(({m,isLast,isGrat,scaledMin,cumMinThrough})=>{
+    if(!m.due_date)return; // gratuity/no-date milestone — skip
+    const cumReq=isLast?(cabinCost!=null?cabinCost:0):(cumMinThrough||0);
+    if(cumReq<=0)return; // nothing required
+    if(totalPaid>=cumReq)return; // already covered cumulatively
     const dDate=new Date(m.due_date+'T00:00:00');
-    const diff=dDate-today; // ms until due (negative = overdue)
+    const diff=dDate-today;
     const isOverdue=diff<0;
     const isDueSoon=diff>=0&&diff<=sevenDays;
     if(isOverdue||isDueSoon){
       const dStr=dDate.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
-      warnings.push({label:m.label,dStr,due:minAmt,isOverdue,isDueSoon,remaining:isLast?(cabinCost-totalPaid):Math.max(0,due-paid)});
+      const shortfall=Math.max(0,cumReq-totalPaid);
+      warnings.push({label:m.label,dStr,due:scaledMin,isOverdue,isDueSoon,remaining:shortfall});
     }
   });
 
@@ -2165,18 +2205,38 @@ function showBalanceDetail(){
   if(!gMilestones.length){return;}
   const payMap={};gPayments.forEach(p=>{payMap[p.milestone_id]=p;});
   const totalPaid=gPayments.reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
-  const balance=gCabinCost?Math.max(0,gCabinCost-totalPaid):null;
-  const rows=gMilestones.map((m,i,arr)=>{
+  const balance=gCabinCost!=null?Math.max(0,gCabinCost-totalPaid):null;
+
+  // Build cumulative minimum structure (same as loadDashboard — uses gNumGuests if available)
+  const numGuests=(window.gNumGuests)||1;
+  let cumMin=0;
+  const msData=gMilestones.map((m,i,arr)=>{
+    const isLast=i===arr.length-1;
+    const isGrat=!m.due_date&&!isLast;
+    const rawMin=m.minimum_amount!=null?parseFloat(m.minimum_amount):null;
+    const scaledMin=(!isLast&&rawMin!=null)?rawMin*numGuests:null;
+    if(!isLast&&scaledMin!=null)cumMin+=scaledMin;
+    return{m,isLast,isGrat,scaledMin,cumMinThrough:cumMin};
+  });
+  if(msData.length>0&&msData[msData.length-1].isLast){
+    msData[msData.length-1].cumMinThrough=gCabinCost!=null?gCabinCost:null;
+    msData[msData.length-1].scaledMin=gCabinCost!=null?Math.max(0,gCabinCost-cumMin):null;
+  }
+
+  const rows=msData.map(({m,isLast,scaledMin,cumMinThrough})=>{
     const p=payMap[m.id]||{};
     const paid=parseFloat(p.amount_paid||0);
-    const due=parseFloat(p.amount_due??m.minimum_amount??0);
-    const remaining=Math.max(0,due-paid);
-    const isLast=i===arr.length-1;
+    const cumReq=isLast?(gCabinCost!=null?gCabinCost:0):(cumMinThrough||0);
+    const isCleared=cumReq>0&&totalPaid>=cumReq;
+    const shortfall=Math.max(0,cumReq-totalPaid);
     const dateStr=m.due_date?new Date(m.due_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
-    const status=paid>0&&(due<=0||paid>=due)?'<span class="badge badge-success">Paid ✓</span>':remaining>0?`<span class="badge badge-danger">Owed: ${fmt(remaining)}</span>`:'<span class="badge badge-gray">TBD</span>';
+    let status;
+    if(isCleared)status='<span class="badge badge-success">Paid ✓</span>';
+    else if(cumReq>0)status=`<span class="badge badge-danger">Owed: ${fmt(shortfall)}</span>`;
+    else status='<span class="badge badge-gray">TBD</span>';
     return`<tr><td><strong>${m.label}</strong></td><td style="font-size:.82rem;color:var(--muted);">${dateStr}</td><td class="col-r" style="color:var(--success);">${paid>0?fmt(paid):'—'}</td><td>${status}</td></tr>`;
   }).join('');
-  const balStr=gCabinCost?`<div style="text-align:right;font-weight:800;color:var(--danger);font-size:1.05rem;margin-top:10px;padding-top:10px;border-top:2px solid var(--border);">Remaining Balance: ${fmt(balance)}</div>`:'<div style="text-align:right;color:var(--muted);margin-top:10px;font-size:.87rem;">Total cabin cost not yet set by admin.</div>';
+  const balStr=gCabinCost!=null?`<div style="text-align:right;font-weight:800;color:var(--danger);font-size:1.05rem;margin-top:10px;padding-top:10px;border-top:2px solid var(--border);">Remaining Balance: ${fmt(balance)}</div>`:'<div style="text-align:right;color:var(--muted);margin-top:10px;font-size:.87rem;">Total cabin cost not yet set by admin.</div>';
   openPayDetailModal('Balance Due — Payment Breakdown',
     `<table><thead><tr><th>Milestone</th><th>Due Date</th><th class="col-r">Paid</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>${balStr}`
   );
@@ -2186,19 +2246,34 @@ function showScheduleDetail(){
   if(!gMilestones.length){return;}
   const payMap={};gPayments.forEach(p=>{payMap[p.milestone_id]=p;});
   const today=new Date();today.setHours(0,0,0,0);
-  const rows=gMilestones.map((m,i,arr)=>{
-    const p=payMap[m.id]||{};
-    const paid=parseFloat(p.amount_paid||0);
-    const due=parseFloat(p.amount_due??m.minimum_amount??0);
-    const isPaid=due>0&&paid>=due;
+  const totalPaid=gPayments.reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+  const numGuests=(window.gNumGuests)||1;
+
+  let cumMin=0;
+  const msData=gMilestones.map((m,i,arr)=>{
     const isLast=i===arr.length-1;
     const isGrat=!m.due_date&&!isLast;
+    const rawMin=m.minimum_amount!=null?parseFloat(m.minimum_amount):null;
+    const scaledMin=(!isLast&&rawMin!=null)?rawMin*numGuests:null;
+    if(!isLast&&scaledMin!=null)cumMin+=scaledMin;
+    return{m,isLast,isGrat,scaledMin,cumMinThrough:cumMin};
+  });
+  if(msData.length>0&&msData[msData.length-1].isLast){
+    msData[msData.length-1].cumMinThrough=gCabinCost!=null?gCabinCost:null;
+    msData[msData.length-1].scaledMin=gCabinCost!=null?Math.max(0,gCabinCost-cumMin):null;
+  }
+
+  const rows=msData.map(({m,isLast,isGrat,scaledMin,cumMinThrough})=>{
+    const p=payMap[m.id]||{};
+    const paid=parseFloat(p.amount_paid||0);
+    const cumReq=isLast?(gCabinCost!=null?gCabinCost:0):(cumMinThrough||0);
+    const isCleared=cumReq>0&&totalPaid>=cumReq;
     const dDate=m.due_date?new Date(m.due_date+'T00:00:00'):null;
-    const isOver=!isPaid&&dDate&&dDate<today;
-    const isSoon=!isPaid&&dDate&&(dDate-today)<7*24*60*60*1000&&dDate>=today;
+    const isOver=!isCleared&&!isGrat&&dDate&&dDate<today;
+    const isSoon=!isCleared&&!isOver&&!isGrat&&dDate&&(dDate-today)<7*24*60*60*1000&&dDate>=today;
     const dateStr=dDate?dDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'No fixed date';
     let status;
-    if(isPaid)status='<span class="badge badge-success">Paid ✓</span>';
+    if(isCleared)status='<span class="badge badge-success">Paid ✓</span>';
     else if(isGrat)status='<span class="badge badge-purple">Gratuities</span>';
     else if(isOver)status='<span class="badge badge-danger">Overdue</span>';
     else if(isSoon)status='<span class="badge badge-warn">Due Soon</span>';
@@ -2206,10 +2281,11 @@ function showScheduleDetail(){
     else status='<span class="badge badge-gray">Upcoming</span>';
     const paidAmt=paid>0?`<span style="color:var(--success);">+${fmt(paid)} paid</span>`:'—';
     const dateStyle=isOver?'color:var(--danger);font-weight:700;':isSoon?'color:var(--warn);font-weight:700;':'color:var(--muted);';
-    return`<tr><td><strong>${m.label}</strong></td><td style="${dateStyle}font-size:.85rem;">${dateStr}</td><td class="col-r">${due>0?fmt(due):'TBD'}</td><td class="col-r">${paidAmt}</td><td>${status}</td></tr>`;
+    const dueStr=scaledMin!=null?fmt(scaledMin):(isLast?'<span style="color:var(--muted);">Pending</span>':'—');
+    return`<tr><td><strong>${m.label}</strong></td><td style="${dateStyle}font-size:.85rem;">${dateStr}</td><td class="col-r">${dueStr}</td><td class="col-r">${paidAmt}</td><td>${status}</td></tr>`;
   }).join('');
   openPayDetailModal('Full Payment Schedule',
-    `<table><thead><tr><th>Milestone</th><th>Due Date</th><th class="col-r">Amount Due</th><th class="col-r">Paid</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`
+    `<table><thead><tr><th>Milestone</th><th>Due Date</th><th class="col-r">Min. Due</th><th class="col-r">Paid</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`
   );
 }
 
@@ -2395,8 +2471,8 @@ async function markRefunded_travelers(userId){
 async function assignCabinNumber(userId,name,cabinType,currentNum){
   const num=prompt(`Assign cabin number for ${name} (${cabinType}):\nCurrent: ${currentNum||'Not assigned'}`,currentNum||'');
   if(num===null)return;
-  const{error}=await sb.from('cabin_assignments').update({cabin_number:num.trim()||null}).eq('user_id',userId);
-  if(error){alert('Error: '+error.message);return;}
+  const{error}=await sb.rpc('admin_set_cabin_number',{p_user_id:userId,p_val:num.trim()||null});
+  if(error){alert('Error saving cabin number: '+error.message+'\n\nMake sure you have run the latest new-columns.sql in Supabase SQL Editor.');return;}
   loadTravelers();loadInventoryTab();
 }
 
@@ -2406,21 +2482,16 @@ async function setCabinCost(userId,name,currentCost){
   if(input===null)return;
   const parsed=parseFloat(input.replace(/[^0-9.]/g,''));
   if(isNaN(parsed)||parsed<=0){alert('Please enter a valid dollar amount (e.g. 2400 or 2400.50).');return;}
-  // Use a raw RPC to bypass schema cache issues with newly-added columns
-  const{error}=await sb.rpc('set_cabin_cost',{p_user_id:userId,p_cost:parsed}).catch(()=>({error:{message:'rpc_fallback'}}));
-  if(error){
-    // Fallback to direct update if RPC not yet created
-    const{error:err2}=await sb.from('cabin_assignments').update({cabin_cost:parsed}).eq('user_id',userId);
-    if(err2){alert('Error saving cabin cost: '+err2.message+'\n\nIf you see a schema cache error, run the new-columns.sql file in Supabase SQL Editor, then try again.');return;}
-  }
+  const{error}=await sb.rpc('admin_set_cabin_cost_v2',{p_user_id:userId,p_val:parsed});
+  if(error){alert('Error saving cabin cost: '+error.message+'\n\nMake sure you have run the latest new-columns.sql in Supabase SQL Editor.');return;}
   loadTravelers();
 }
 
 async function setReservationNumber(userId,name,current){
   const input=prompt(`Guest reservation number for ${name}:\nCurrent: ${current||'Not set'}\n\nEnter Carnival reservation number:`,current||'');
   if(input===null)return;
-  const{error}=await sb.from('cabin_assignments').update({guest_reservation_number:input.trim()||null}).eq('user_id',userId);
-  if(error){alert('Error: '+error.message);return;}
+  const{error}=await sb.rpc('admin_set_reservation_number',{p_user_id:userId,p_val:input.trim()||null});
+  if(error){alert('Error saving reservation number: '+error.message+'\n\nMake sure you have run the latest new-columns.sql in Supabase SQL Editor.');return;}
   loadTravelers();
 }
 
@@ -2429,16 +2500,16 @@ async function setPaymentLink(userId,name,current){
   if(input===null)return;
   const trimmed=input.trim();
   if(trimmed&&!trimmed.startsWith('http')){alert('Please enter a full URL starting with https://');return;}
-  const{error}=await sb.from('cabin_assignments').update({payment_link:trimmed||null}).eq('user_id',userId);
-  if(error){alert('Error: '+error.message);return;}
+  const{error}=await sb.rpc('admin_set_payment_link',{p_user_id:userId,p_val:trimmed||null});
+  if(error){alert('Error saving payment link: '+error.message+'\n\nMake sure you have run the latest new-columns.sql in Supabase SQL Editor.');return;}
   loadTravelers();
 }
 
 async function setGratuityPaid(userId,name,isPaid){
   const action=isPaid?'Mark gratuities as UNPAID':'Mark gratuities as PAID';
   if(!confirm(`Gratuities for ${name}:\nCurrently: ${isPaid?'PAID ✓':'Unpaid'}\n\n${action}?\n\nThis will ${isPaid?'restore':'hide'} the gratuity reminder banner for this traveler.`))return;
-  const{error}=await sb.from('cabin_assignments').update({gratuity_paid:!isPaid}).eq('user_id',userId);
-  if(error){alert('Error updating gratuity status: '+error.message);return;}
+  const{error}=await sb.rpc('admin_set_gratuity_paid',{p_user_id:userId,p_val:!isPaid});
+  if(error){alert('Error updating gratuity status: '+error.message+'\n\nMake sure you have run the latest new-columns.sql in Supabase SQL Editor.');return;}
   loadTravelers();
 }
 
