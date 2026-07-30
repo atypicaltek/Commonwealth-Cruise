@@ -250,6 +250,19 @@
     <div id="dash-loading" class="loading"><div class="spinner"></div><p>Loading your payment info…</p></div>
     <div id="dash-content" style="display:none;">
       <div class="welcome-banner"><h2 id="dash-welcome">Welcome!</h2><p>Here's your current payment status for the Commonwealth Cruise 2027</p></div>
+      <!-- CABIN INFO CARD -->
+      <div id="dash-cabin-card" style="display:none;background:linear-gradient(135deg,#1a4f7a,#2e88cc);color:#fff;border-radius:14px;padding:16px 20px;margin-bottom:16px;box-shadow:0 4px 16px rgba(26,79,122,.25);">
+        <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;opacity:.75;margin-bottom:6px;">Your Cabin Reservation</div>
+        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;">
+          <div><div id="dash-cabin-type-display" style="font-size:1.35rem;font-weight:800;"></div><div id="dash-cabin-status-display" style="font-size:.8rem;opacity:.8;margin-top:2px;"></div></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-left:auto;">
+            <div style="background:rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;text-align:center;min-width:70px;"><div id="dash-cabin-num-display" style="font-size:1.1rem;font-weight:700;">—</div><div style="font-size:.72rem;opacity:.75;">Cabin #</div></div>
+            <div style="background:rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;text-align:center;min-width:70px;"><div id="dash-guests-display" style="font-size:1.1rem;font-weight:700;">—</div><div style="font-size:.72rem;opacity:.75;">Guests</div></div>
+            <div style="background:rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;text-align:center;min-width:70px;"><div id="dash-travelers-progress" style="font-size:1.1rem;font-weight:700;">0/—</div><div style="font-size:.72rem;opacity:.75;">Travelers Added</div></div>
+          </div>
+        </div>
+        <div id="dash-single-occ-note" style="display:none;background:rgba(255,200,0,.18);border:1px solid rgba(255,200,0,.4);border-radius:7px;padding:8px 12px;margin-top:12px;font-size:.82rem;line-height:1.5;">⚠️ <strong>Single Occupancy Notice:</strong> Single occupancy cabins require a <strong>double deposit</strong> and are charged at the <strong>double occupancy rate</strong>. Please contact the trip organizer if you have questions.</div>
+      </div>
       <div class="progress-card">
         <div class="ticker-wrap" id="grat-ticker"><div class="ticker-track">
           <span class="ticker-item">⚠️ Gratuities are NOT INCLUDED in your cruise cabin costs &nbsp;—&nbsp; <a href="https://www.carnival.com/site-content/static-faq-2018/page-content#collapseOne-3-0" target="_blank" style="color:#fff;text-decoration:underline;">What are Service Gratuities? ↗</a></span>
@@ -269,8 +282,8 @@
         <div id="dash-schedule" class="table-wrap"></div>
       </div>
       <div class="card">
-        <div class="card-header"><span class="card-title">🛳️ My Cabin Travelers</span><button class="btn btn-outline btn-sm" onclick="toggleAddTraveler()">+ Add Traveler</button></div>
-        <p style="font-size:.84rem;color:var(--muted);margin-bottom:12px;">Add all guests sharing your cabin. Required for cruise check-in.</p>
+        <div class="card-header"><span class="card-title">🛳️ My Cabin Travelers</span><div style="display:flex;align-items:center;gap:8px;"><span id="dash-traveler-count-badge" style="font-size:.78rem;font-weight:700;color:var(--muted);"></span><button class="btn btn-outline btn-sm" id="dash-add-traveler-btn" onclick="toggleAddTraveler()">+ Add Traveler</button></div></div>
+        <p style="font-size:.84rem;color:var(--muted);margin-bottom:12px;">Add all guests sharing your cabin including citizenship documentation. Required for cruise check-in.</p>
         <div class="add-traveler-form" id="add-traveler-form">
           <div id="cabin-alert" class="alert"></div>
 
@@ -297,10 +310,64 @@
             <div class="form-group" style="margin-bottom:0;"><label>Year *</label><select id="ct-dob-year"><option value="">Year</option><script>const _y=new Date().getFullYear();for(let y=_y;y>=_y-100;y--)document.write(`<option value="${y}">${y}</option>`);</script></select></div>
           </div>
 
+          <!-- CITIZENSHIP & TRAVEL DOCUMENTATION -->
+          <div class="section-hdr">Citizenship &amp; Travel Documentation</div>
+          <div style="background:#f0f7ff;border:1.5px solid #aed6f1;border-radius:10px;padding:14px 15px;margin-bottom:14px;">
+            <div class="grid-2" style="margin-bottom:10px;">
+              <div class="form-group" style="margin-bottom:0;"><label>Citizenship Status *</label>
+                <select id="ct-citizenship-type" onchange="onCtCitizenshipChange()">
+                  <option value="">— Select citizenship status —</option>
+                  <option value="us">U.S. Citizen</option>
+                  <option value="us-pr">U.S. Permanent Resident</option>
+                  <option value="non-us">Non-U.S. Citizen</option>
+                  <option value="canadian">Canadian Citizen</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom:0;"><label>Country of Citizenship *</label><input type="text" id="ct-citizenship" placeholder="e.g. United States, Jamaica…" autocomplete="off"></div>
+            </div>
+            <!-- Doc notices per citizenship type -->
+            <div id="ct-doc-us" class="doc-notice" style="display:none;margin-top:2px;">
+              <h4>📋 U.S. Citizens — Travel Documentation</h4>
+              <p>Names on reservations must match your unexpired government-issued photo ID.</p>
+              <ul><li><strong>Recently married:</strong> Book under maiden name unless you have name-change documents.</li><li><strong>Birth certificate + ID:</strong> Bring name-change documentation if names differ.</li></ul>
+              <div class="doc-section">⚠️ Minors Traveling Without Both Parents</div>
+              <p style="font-size:.84rem;">Bring a signed letter from the absent parent(s) authorizing travel.</p>
+              <div class="important">📎 <a href="https://www.carnival.com/site-content/static-faq-2018/page-content#section-0" target="_blank">U.S. Citizens Travel Documentation ↗</a><br>Guests are personally responsible for their documents.</div>
+              <div class="ck-group"><input type="checkbox" id="ct-ack-us" onchange="onCtAckChange()"><label for="ct-ack-us">I have read and understand the travel documentation requirements and am personally responsible for my documents.</label></div>
+            </div>
+            <div id="ct-doc-us-pr" class="doc-notice" style="display:none;margin-top:2px;">
+              <h4>📋 U.S. Permanent Residents — Travel Documentation</h4>
+              <p>Must carry a valid <strong>Permanent Resident Card (Green Card)</strong> and a valid passport from their country of citizenship.</p>
+              <ul><li>Passport valid for at least <strong>six months beyond travel completion</strong> strongly recommended.</li><li>Additional entry requirements may apply at ports of call.</li></ul>
+              <div class="important">📎 <a href="https://help.carnival.com/app/answers/detail/a_id/1401" target="_blank">U.S. Permanent Residents Documentation ↗</a><br>Guests are personally responsible for their documents.</div>
+              <div class="ck-group"><input type="checkbox" id="ct-ack-us-pr" onchange="onCtAckChange()"><label for="ct-ack-us-pr">I have read and understand the travel documentation requirements and am personally responsible for my documents.</label></div>
+            </div>
+            <div id="ct-doc-non-us" class="doc-notice" style="display:none;margin-top:2px;">
+              <h4>📋 Non-U.S. Citizens — Travel Documentation</h4>
+              <p>Traveling without proper documentation will result in <strong>denial of boarding with no refund</strong>. Passport valid 6+ months beyond travel is strongly recommended.</p>
+              <ul><li><strong>VWP eligible:</strong> Valid passport + ESTA required.</li><li><strong>Non-VWP:</strong> Valid U.S. visa required.</li><li><strong>Mexican citizens</strong> with a Border Crossing Card must also carry a valid Mexican passport.</li></ul>
+              <div class="important">📎 <a href="https://help.carnival.com/app/answers/detail/a_id/1405" target="_blank">Non-U.S. Citizens Documentation ↗</a><br>Guests are personally responsible for their documents.</div>
+              <div class="ck-group"><input type="checkbox" id="ct-ack-non-us" onchange="onCtAckChange()"><label for="ct-ack-non-us">I have read and understand the travel documentation requirements and am personally responsible for my documents.</label></div>
+            </div>
+            <div id="ct-doc-canadian" class="doc-notice" style="display:none;margin-top:2px;">
+              <h4>📋 Canadian Citizens — Travel Documentation</h4>
+              <p>All Canadian citizens, including children, must carry a <strong>valid Canadian passport</strong> (6+ months beyond travel if arriving by air into the U.S.).</p>
+              <ul><li>Expedited passports: <a href="http://visacentral.ca/" target="_blank">visacentral.ca ↗</a> or 888-665-9956</li></ul>
+              <div class="important">📎 <a href="https://help.carnival.com/app/answers/detail/a_id/1402" target="_blank">Canadian Citizens Documentation ↗</a><br>Guests are personally responsible for their documents.</div>
+              <div class="ck-group"><input type="checkbox" id="ct-ack-canadian" onchange="onCtAckChange()"><label for="ct-ack-canadian">I have read and understand the travel documentation requirements and am personally responsible for my documents.</label></div>
+            </div>
+            <div id="ct-doc-other" class="doc-notice" style="display:none;margin-top:2px;">
+              <h4>📋 Other Citizenship — Travel Documentation</h4>
+              <p>The trip organizer will follow up with documentation requirements specific to your country. Please ensure the country of citizenship is entered correctly above.</p>
+              <div class="important">📎 Guests are personally responsible for all required travel documents. The trip organizer assumes no responsibility.</div>
+              <div class="ck-group"><input type="checkbox" id="ct-ack-other" onchange="onCtAckChange()"><label for="ct-ack-other">I understand I am personally responsible for all required travel documents. The trip organizer assumes no responsibility.</label></div>
+            </div>
+          </div>
+
           <div class="section-hdr">Additional Details</div>
           <div class="grid-3" style="margin-bottom:10px;">
             <div class="form-group" style="margin-bottom:0;"><label>Gender *</label><select id="ct-gender"><option value="">Select</option><option>Male</option><option>Female</option></select></div>
-            <div class="form-group" style="margin-bottom:0;"><label>Country of Citizenship *</label><input type="text" id="ct-citizenship" placeholder="e.g. United States" autocomplete="off"></div>
             <div class="form-group" style="margin-bottom:0;"><label>State of Residency</label><select id="ct-state"><option value="">— Select State —</option><option>Alabama</option><option>Alaska</option><option>Arizona</option><option>Arkansas</option><option>California</option><option>Colorado</option><option>Connecticut</option><option>Delaware</option><option>Florida</option><option>Georgia</option><option>Hawaii</option><option>Idaho</option><option>Illinois</option><option>Indiana</option><option>Iowa</option><option>Kansas</option><option>Kentucky</option><option>Louisiana</option><option>Maine</option><option>Maryland</option><option>Massachusetts</option><option>Michigan</option><option>Minnesota</option><option>Mississippi</option><option>Missouri</option><option>Montana</option><option>Nebraska</option><option>Nevada</option><option>New Hampshire</option><option>New Jersey</option><option>New Mexico</option><option>New York</option><option>North Carolina</option><option>North Dakota</option><option>Ohio</option><option>Oklahoma</option><option>Oregon</option><option>Pennsylvania</option><option>Rhode Island</option><option>South Carolina</option><option>South Dakota</option><option>Tennessee</option><option>Texas</option><option>Utah</option><option>Vermont</option><option>Virginia</option><option>Washington</option><option>West Virginia</option><option>Wisconsin</option><option>Wyoming</option><option>Washington D.C.</option><option>Puerto Rico</option><option>U.S. Virgin Islands</option><option>Guam</option></select></div>
           </div>
           <div class="grid-3" style="margin-bottom:14px;">
@@ -562,8 +629,8 @@
   <div class="modal-box" style="max-width:520px;max-height:90vh;overflow-y:auto;position:relative;">
     <button onclick="document.getElementById('profile-setup-modal').classList.remove('open');gProfileSetupComplete=true;" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted);line-height:1;" title="Close">×</button>
     <div style="font-size:2rem;text-align:center;margin-bottom:8px;">🛳️</div>
-    <h3 style="text-align:center;color:var(--primary);margin-bottom:6px;">Complete Your Profile</h3>
-    <p style="font-size:.86rem;color:var(--muted);text-align:center;margin-bottom:16px;">Step 1: Choose your cabin type. Step 2: Confirm your citizenship documentation.</p>
+    <h3 style="text-align:center;color:var(--primary);margin-bottom:6px;">Reserve Your Cabin</h3>
+    <p style="font-size:.86rem;color:var(--muted);text-align:center;margin-bottom:16px;">Select your cabin type and the number of guests. Citizenship documentation is collected per traveler on your dashboard.</p>
     <div id="psetup-alert" class="alert"></div>
 
     <!-- ── STEP 1: Cabin Selection (always visible first) ─── -->
@@ -608,87 +675,12 @@
       </div>
     </div>
 
-    <!-- ── STEP 2: Citizenship (shows after cabin selected) ─ -->
-    <div id="psetup-citizenship-section">
-    <div class="step-box" style="margin-top:14px;background:#f0f7ff;border-color:#aed6f1;">
-      <div style="font-weight:700;color:var(--primary);margin-bottom:10px;font-size:.9rem;">📋 Step 2 — Citizenship &amp; Documentation</div>
-      <div class="form-group" style="margin-bottom:0;">
-        <label>Citizenship / Country of Origin *</label>
-        <select id="psetup-citizenship" onchange="onPsetupCitizenshipChange()">
-          <option value="">— Select your citizenship status —</option>
-          <option value="us">U.S. Citizens</option>
-          <option value="us-pr">U.S. Permanent Residents</option>
-          <option value="non-us">Non-U.S. Citizens</option>
-          <option value="canadian">Canadian Citizens</option>
-          <option value="other">Other</option>
-        </select>
+        <!-- Submit (shown after occupancy is selected) -->
+    <div id="psetup-submit-section" style="display:none;margin-top:16px;">
+      <div style="background:#edfbf3;border:1.5px solid #b3e6c9;border-radius:9px;padding:11px 14px;margin-bottom:12px;font-size:.85rem;color:#145c36;">
+        📋 After reserving your cabin, you'll add each traveler's citizenship and documentation details from your dashboard.
       </div>
-    </div>
-
-    <!-- U.S. Citizens -->
-    <div id="psetup-doc-us" class="doc-notice">
-      <h4>📋 Travel Documentation — U.S. Citizens</h4>
-      <p>First and last names on cruise and airline reservations must match your government-issued ID.</p>
-      <ul>
-        <li><strong>Recently married guests</strong> — book under maiden name unless you have official name-change documents.</li>
-        <li><strong>Traveling with a birth certificate + government ID</strong> — bring legal name-change documentation if names differ.</li>
-      </ul>
-      <div class="doc-section">⚠️ Traveling with Minors</div>
-      <p>If a minor is traveling without one or both parents/guardians, bring a signed letter from the absent parent(s) authorizing travel.</p>
-      <div class="important">📎 <a href="https://www.carnival.com/site-content/static-faq-2018/page-content#section-0" target="_blank">Travel Documentation: U.S. Citizens ↗</a><br><br>Guests are personally responsible for their documents. The trip organizer assumes no responsibility.</div>
-      <div class="ck-group"><input type="checkbox" id="psetup-ack-us" onchange="onPsetupAckChange()"><label for="psetup-ack-us">I have read and understand the travel documentation requirements. I am personally responsible for ensuring my documents are in order.</label></div>
-    </div>
-
-    <!-- U.S. Permanent Residents -->
-    <div id="psetup-doc-us-pr" class="doc-notice">
-      <h4>📋 Travel Documentation — U.S. Permanent Residents</h4>
-      <p>U.S. Permanent Residents must travel with a valid Permanent Resident Card (Green Card) and a valid passport from their country of citizenship.</p>
-      <ul>
-        <li>A passport valid for at least <strong>six months beyond the completion of travel</strong> is strongly recommended.</li>
-        <li>Additional entry requirements may apply depending on the ports of call on your itinerary.</li>
-      </ul>
-      <div class="important">📎 <a href="https://help.carnival.com/app/answers/detail/a_id/1401?_gl=1*13vjwlh*_gcl_aw*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_dc*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_au*MTk3MTQ1MzE5LjE3ODQ2Njc3Njg.*_ga*NDkzMjg5MDkxLjE3ODI4NDUwNjM.*_ga_SRWFP1ER4J*czE3ODUzMzI2MTIkbzYkZzEkdDE3ODUzMzI2MzgkajM0JGwwJGgw" target="_blank">Travel Documentation: U.S. Permanent Residents ↗</a><br><br>Guests are personally responsible for their documents. The trip organizer assumes no responsibility.</div>
-      <div class="ck-group"><input type="checkbox" id="psetup-ack-us-pr" onchange="onPsetupAckChange()"><label for="psetup-ack-us-pr">I have read and understand the travel documentation requirements. I am personally responsible for ensuring my documents are in order.</label></div>
-    </div>
-
-    <!-- Non-U.S. Citizens -->
-    <div id="psetup-doc-non-us" class="doc-notice">
-      <h4>📋 Travel Documentation — Non-U.S. Citizens</h4>
-      <p>Guests traveling without proper documentation will be denied boarding with no refund. A passport valid for at least <strong>six months beyond travel completion</strong> is strongly recommended.</p>
-      <ul>
-        <li><strong>VWP eligible travelers</strong> — valid passport + ESTA required.</li>
-        <li><strong>Non-VWP citizens</strong> — a valid U.S. visa is required.</li>
-        <li><strong>Mexican citizens</strong> with a Border Crossing Card must also present a valid Mexican passport.</li>
-      </ul>
-      <div class="important">📎 <a href="https://help.carnival.com/app/answers/detail/a_id/1405?_gl=1*xr57qe*_gcl_aw*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_dc*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_au*MTk3MTQ1MzE5LjE3ODQ2Njc3Njg.*_ga*NDkzMjg5MDkxLjE3ODI4NDUwNjM.*_ga_SRWFP1ER4J*czE3ODUzNDA4OTkkbzgkZzEkdDE3ODUzNDI4OTMkajUzJGwwJGgw" target="_blank">Travel Documentation: Non-U.S. Citizens ↗</a><br><br>Guests are personally responsible for their documents. The trip organizer assumes no responsibility.</div>
-      <div class="ck-group"><input type="checkbox" id="psetup-ack-non-us" onchange="onPsetupAckChange()"><label for="psetup-ack-non-us">I have read and understand the travel documentation requirements. I am personally responsible for ensuring my documents are in order.</label></div>
-    </div>
-
-    <!-- Canadian Citizens -->
-    <div id="psetup-doc-canadian" class="doc-notice">
-      <h4>📋 Travel Documentation — Canadian Citizens</h4>
-      <p>All Canadian citizens, including children, must carry a <strong>valid Canadian passport</strong> (at least six months beyond travel completion if arriving by air into the U.S.).</p>
-      <ul>
-        <li>Expedited passports: <a href="http://visacentral.ca/" target="_blank">visacentral.ca ↗</a> or 888-665-9956</li>
-      </ul>
-      <div class="important">📎 <a href="https://help.carnival.com/app/answers/detail/a_id/1402?_gl=1*m9slij*_gcl_aw*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_dc*R0NMLjE3ODQ2NTI0MzkuQ2p3S0NBandzZnpTQmhCNUVpd0FPR3lxU1FVRGZNRGRYTHg3bnFKV0NoVkRqRFcyVmpPTVR5RE95dFhhSVJSeXRlUFllanpjWVF1Skl4b0NuV2NRQXZEX0J3RQ..*_gcl_au*MTk3MTQ1MzE5LjE3ODQ2Njc3Njg.*_ga*NDkzMjg5MDkxLjE3ODI4NDUwNjM.*_ga_SRWFP1ER4J*czE3ODUzMzI2MTIkbzYkZzEkdDE3ODUzMzI4MDAkajUzJGwwJGgw" target="_blank">Travel Documentation: Canadian Citizens ↗</a><br><br>Guests are personally responsible for their documents. The trip organizer assumes no responsibility.</div>
-      <div class="ck-group"><input type="checkbox" id="psetup-ack-canadian" onchange="onPsetupAckChange()"><label for="psetup-ack-canadian">I have read and understand the travel documentation requirements. I am personally responsible for ensuring my documents are in order.</label></div>
-    </div>
-
-    <!-- Other -->
-    <div id="psetup-doc-other" class="doc-notice">
-      <h4>📋 Travel Documentation — Other Citizenship</h4>
-      <p>Enter your country of citizenship below. The trip organizer will follow up by email with the documentation requirements specific to your country.</p>
-      <div class="form-group" style="margin-top:9px;"><label>Country of Citizenship *</label><input type="text" id="psetup-country" placeholder="e.g. Jamaica, Germany…" autocomplete="off"></div>
-      <div class="important">📎 Guests are personally responsible for their documents. The trip organizer assumes no responsibility.</div>
-      <div class="ck-group"><input type="checkbox" id="psetup-ack-other" onchange="onPsetupAckChange()"><label for="psetup-ack-other">I understand I am personally responsible for all required travel documents. The trip organizer assumes no responsibility.</label></div>
-    </div>
-
-    </div><!-- end psetup-citizenship-section -->
-
-    <!-- Submit -->
-    <div id="psetup-submit-section" style="display:none;">
-      <button class="btn btn-primary btn-full" style="margin-top:14px;" onclick="doProfileSetup()">Complete My Profile</button>
+      <button class="btn btn-primary btn-full" onclick="doProfileSetup()">Reserve My Cabin</button>
     </div>
   </div>
 </div>
@@ -1241,28 +1233,9 @@ function updatePsetupCabinAvail(){
   }
 }
 
-function onPsetupCitizenshipChange(){
-  const val=document.getElementById('psetup-citizenship').value;
-  ['psetup-doc-us','psetup-doc-us-pr','psetup-doc-non-us','psetup-doc-canadian','psetup-doc-other'].forEach(id=>document.getElementById(id).classList.remove('show'));
-  ['psetup-ack-us','psetup-ack-us-pr','psetup-ack-non-us','psetup-ack-canadian','psetup-ack-other'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
-  document.getElementById('psetup-submit-section').style.display='none';
-  const map={us:'psetup-doc-us','us-pr':'psetup-doc-us-pr','non-us':'psetup-doc-non-us',canadian:'psetup-doc-canadian',other:'psetup-doc-other'};
-  if(map[val])document.getElementById(map[val]).classList.add('show');
-}
-
-function onPsetupAckChange(){
-  const cit=document.getElementById('psetup-citizenship').value;
-  const ackMap={us:'psetup-ack-us','us-pr':'psetup-ack-us-pr','non-us':'psetup-ack-non-us',canadian:'psetup-ack-canadian',other:'psetup-ack-other'};
-  const el=document.getElementById(ackMap[cit]);
-  const show=el&&el.checked;
-  document.getElementById('psetup-submit-section').style.display=show?'block':'none';
-}
-
 async function onPsetupCabinTypeChange(){
   const val=document.getElementById('psetup-cabin-type').value;
-  const csEl=document.getElementById('psetup-citizenship-section');
   if(!val){
-    if(csEl)csEl.style.display='none';
     document.getElementById('psetup-suite-backup').style.display='none';
     document.getElementById('psetup-submit-section').style.display='none';
     const occEl2=document.getElementById('psetup-occupancy-section');if(occEl2)occEl2.style.display='none';
@@ -1278,20 +1251,14 @@ async function onPsetupCabinTypeChange(){
       const altList=(allInv||[]).map(i=>`<strong>${i.cabin_type}</strong> (${i.available_cabins} remaining)`).join(', ');
       const avEl=document.getElementById('psetup-cabin-avail');
       if(avEl)avEl.innerHTML=`<span style="color:var(--danger);font-weight:700;">❌ ${val} cabins are SOLD OUT.</span>${altList?'<br>Available options: '+altList:'<br>No cabin types currently available.'}`;
-      if(csEl)csEl.style.display='none';
       document.getElementById('psetup-suite-backup').style.display='none';
       document.getElementById('psetup-submit-section').style.display='none';
       return;
     }
   }
 
-  // Valid selection — reset citizenship and reveal Step 2
-  ['psetup-doc-us','psetup-doc-us-pr','psetup-doc-non-us','psetup-doc-canadian','psetup-doc-other'].forEach(id=>document.getElementById(id).classList.remove('show'));
-  ['psetup-ack-us','psetup-ack-us-pr','psetup-ack-non-us','psetup-ack-canadian','psetup-ack-other'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
-  const citSel=document.getElementById('psetup-citizenship');if(citSel)citSel.value='';
   document.getElementById('psetup-submit-section').style.display='none';
   document.getElementById('psetup-suite-backup').style.display=isSuite?'block':'none';
-  if(csEl)csEl.style.display='block';
   if(isSuite)document.getElementById('suite-modal').classList.add('open');
   // Refresh availability display
   if(Object.keys(gInventory).length===0)await loadInventoryForSetup();
@@ -1302,7 +1269,7 @@ async function onPsetupCabinTypeChange(){
   const guestSel=document.getElementById('psetup-num-guests');
   if(occEl&&guestSel){
     guestSel.innerHTML='<option value="">— Select number of guests —</option>';
-    for(let i=1;i<=maxGuests;i++){guestSel.innerHTML+=`<option value="${i}">${i} ${i===1?'guest (just me)':`guests`}</option>`;}
+    for(let i=1;i<=maxGuests;i++){guestSel.innerHTML+=`<option value="${i}">${i===1?'1 guest (single occupancy — see note)':i+' guests'}</option>`;}
     document.getElementById('psetup-occupancy-note').textContent='';
     occEl.style.display='block';
   }
@@ -1325,16 +1292,12 @@ function cancelSuiteModal(){
 
 async function doProfileSetup(){
   clearFlash('psetup-alert');
-  const citizenship=document.getElementById('psetup-citizenship').value;
-  const country=(document.getElementById('psetup-country')||{value:''}).value.trim();
   const cabinType=document.getElementById('psetup-cabin-type').value;
   const isSuite=cabinType==='Suite';
   const backupCabin=isSuite?document.getElementById('psetup-backup-cabin').value:'';
   const suitePhone=isSuite?document.getElementById('psetup-suite-phone').value.trim():'';
   const numGuests=parseInt(document.getElementById('psetup-num-guests')?.value||'0')||null;
 
-  if(!citizenship)return flash('psetup-alert','Please select your citizenship status.');
-  if(citizenship==='other'&&!country)return flash('psetup-alert','Please enter your country of citizenship.');
   if(!cabinType)return flash('psetup-alert','Please select a cabin type.');
   if(!numGuests)return flash('psetup-alert','Please select the number of people in your cabin.');
   if(isSuite&&!backupCabin)return flash('psetup-alert','Please select a backup cabin type for your suite request.');
@@ -1355,13 +1318,8 @@ async function doProfileSetup(){
 
   flash('psetup-alert','Saving your profile…','info');
 
-  // Update profile with citizenship
-  await sb.from('profiles').update({
-    citizenship_type:citizenship,
-    country_of_citizenship:citizenship==='other'?country:null,
-    docs_acknowledged:true,
-    needs_doc_info:citizenship==='other'
-  }).eq('id',gUser.id);
+  // Mark profile as having completed cabin setup
+  await sb.from('profiles').update({docs_acknowledged:true}).eq('id',gUser.id);
 
   // Reliably get the traveler's real name (auth metadata is the safest fallback)
   const name=gProfile?.name||gUser?.user_metadata?.full_name||gUser?.user_metadata?.name||'Traveler';
@@ -1371,11 +1329,11 @@ async function doProfileSetup(){
     await sb.from('cabin_assignments').insert({user_id:gUser.id,cabin_type:backupCabin,suite_pending:true,num_guests:numGuests});
     await sb.rpc('decrement_cabin',{cabin:backupCabin});
     await sb.from('suite_requests').insert({user_id:gUser.id,requestor_name:name,requestor_email:email,requestor_phone:suitePhone,backup_cabin_type:backupCabin});
-    emailSuiteRequestReceived({name,email,citizenship_type:citizenship},backupCabin,suitePhone);
+    emailSuiteRequestReceived({name,email,citizenship_type:null},backupCabin,suitePhone);
   } else {
     await sb.from('cabin_assignments').insert({user_id:gUser.id,cabin_type:cabinType,num_guests:numGuests});
     await sb.rpc('decrement_cabin',{cabin:cabinType});
-    emailAccountCreated({name,email,citizenship_type:citizenship},cabinType);
+    emailAccountCreated({name,email,citizenship_type:null},cabinType);
   }
 
   // Mark setup done so loadDashboard won't re-open the modal
@@ -1434,6 +1392,26 @@ async function loadDashboard(){
   if(cabin){
     cabinBadge.textContent=`🛳️ ${cabin.cabin_type}${cabin.cabin_number?' — '+cabin.cabin_number:''}`;
     cabinBadge.style.display='inline-block';
+  }
+
+  // ── Cabin Info Card ───────────────────────────────────────
+  if(cabin){
+    const cabinCard=document.getElementById('dash-cabin-card');
+    cabinCard.style.display='block';
+    // Cabin type + status label
+    const typeLabel=cabin.suite_pending?`${cabin.cabin_type} (Suite Requested)`:cabin.cabin_type;
+    document.getElementById('dash-cabin-type-display').textContent=typeLabel;
+    const statusTxt=cabin.suite_pending?'Waitlisted — Suite pending availability':cabin.cabin_number?'Confirmed':'Reservation Pending';
+    document.getElementById('dash-cabin-status-display').textContent=statusTxt;
+    // Cabin # and guest count
+    document.getElementById('dash-cabin-num-display').textContent=cabin.cabin_number||'TBD';
+    document.getElementById('dash-guests-display').textContent=cabin.num_guests||'—';
+    // Single occupancy notice
+    const singleNote=document.getElementById('dash-single-occ-note');
+    singleNote.style.display=(cabin.num_guests===1)?'block':'none';
+    // Traveler progress will be updated by loadCabinTravelers()
+    const prog=document.getElementById('dash-travelers-progress');
+    prog.textContent=`—/${cabin.num_guests||'—'}`;
   }
 
   // First login check (only after profile is complete)
@@ -1629,7 +1607,24 @@ function closeMilestoneWarning(){
 }
 
 // ── CABIN TRAVELERS ──────────────────────────────────────────
-const CT_TEXT_IDS=['ct-salutation','ct-suffix','ct-firstname','ct-middlename','ct-lastname','ct-dob-month','ct-dob-day','ct-dob-year','ct-gender','ct-citizenship','ct-state','ct-relationship','ct-email','ct-phone','ct-birthday','ct-anniversary'];
+// Citizenship doc panel toggle in traveler form
+function onCtCitizenshipChange(){
+  const val=document.getElementById('ct-citizenship-type').value;
+  ['ct-doc-us','ct-doc-us-pr','ct-doc-non-us','ct-doc-canadian','ct-doc-other'].forEach(id=>{
+    document.getElementById(id).style.display='none';
+  });
+  ['ct-ack-us','ct-ack-us-pr','ct-ack-non-us','ct-ack-canadian','ct-ack-other'].forEach(id=>{
+    const e=document.getElementById(id);if(e)e.checked=false;
+  });
+  const map={us:'ct-doc-us','us-pr':'ct-doc-us-pr','non-us':'ct-doc-non-us',canadian:'ct-doc-canadian',other:'ct-doc-other'};
+  if(map[val])document.getElementById(map[val]).style.display='block';
+  // Auto-fill country if US citizen
+  const citField=document.getElementById('ct-citizenship');
+  if(val==='us'&&!citField.value)citField.value='United States';
+  else if(val==='canadian'&&!citField.value)citField.value='Canada';
+}
+function onCtAckChange(){/* ack checkbox exists per doc section — no blocking needed */}
+const CT_TEXT_IDS=['ct-salutation','ct-suffix','ct-firstname','ct-middlename','ct-lastname','ct-dob-month','ct-dob-day','ct-dob-year','ct-gender','ct-citizenship-type','ct-citizenship','ct-state','ct-relationship','ct-email','ct-phone','ct-birthday','ct-anniversary'];
 
 function onSrChange(){
   const cbs=document.querySelectorAll('.sr-cb');
@@ -1674,10 +1669,11 @@ async function addCabinTraveler(){
   const day=document.getElementById('ct-dob-day').value;
   const year=document.getElementById('ct-dob-year').value;
   const gender=document.getElementById('ct-gender').value;
+  const citizenType=document.getElementById('ct-citizenship-type').value;
   const citizen=document.getElementById('ct-citizenship').value.trim();
   const state=document.getElementById('ct-state').value;
   const rel=document.getElementById('ct-relationship').value;
-  const email=document.getElementById('ct-email').value.trim();
+  const tEmail=document.getElementById('ct-email').value.trim();
   const phone=document.getElementById('ct-phone').value.trim();
   const specialRequests=[...document.querySelectorAll('.sr-cb:checked')].map(cb=>cb.value);
   const birthdayDate=document.getElementById('ct-bday-ck').checked?document.getElementById('ct-birthday').value:null;
@@ -1688,17 +1684,30 @@ async function addCabinTraveler(){
   if(!last)return flash('cabin-alert',"Please enter the traveler's last name.");
   if(!month||!day||!year)return flash('cabin-alert','Please select a complete date of birth.');
   if(!gender)return flash('cabin-alert','Please select a gender.');
-  if(!citizen)return flash('cabin-alert','Please enter a country of citizenship.');
+  if(!citizenType)return flash('cabin-alert',"Please select the traveler's citizenship status.");
+  if(!citizen)return flash('cabin-alert',"Please enter the traveler's country of citizenship.");
   if(document.getElementById('ct-bday-ck').checked&&!birthdayDate)return flash('cabin-alert','Please select a birthday date.');
   if(document.getElementById('ct-anniv-ck').checked&&!anniversaryDate)return flash('cabin-alert','Please select an anniversary date.');
 
-  // Ensure profile row exists before inserting (guards against FK violation)
+  // Enforce traveler limit vs. declared num_guests
+  const{data:caData}=await sb.from('cabin_assignments').select('num_guests').eq('user_id',gUser.id).single();
+  const numGuests=caData?.num_guests||null;
+  if(numGuests){
+    const{data:existingTravelers}=await sb.from('cabin_travelers').select('id',{count:'exact'}).eq('account_owner_id',gUser.id);
+    const currentCount=(existingTravelers?.length||0);
+    // Account owner is the +1; so max cabin_travelers = numGuests - 1
+    if(currentCount>=numGuests-1){
+      return flash('cabin-alert',`Your cabin is set for ${numGuests} guest${numGuests>1?'s':''}. You've already added the maximum number of additional travelers (${numGuests-1}). If your group size has changed, contact the trip organizer.`);
+    }
+  }
+
+  // Ensure profile row exists (FK guard — drops not-null on citizenship_type must be run in Supabase first)
   const ownerId=gUser.id;
   const{data:profCheck}=await sb.from('profiles').select('id').eq('id',ownerId).single();
   if(!profCheck){
     const nm=gProfile?.name||gUser?.user_metadata?.full_name||'Traveler';
     const{error:pErr}=await sb.from('profiles').insert({id:ownerId,name:nm,email:gUser.email,is_admin:false});
-    if(pErr){flash('cabin-alert','Profile error: '+pErr.message+'. Please sign out and back in.');return;}
+    if(pErr){flash('cabin-alert','Account error: '+pErr.message+'. Please sign out and sign in again.');return;}
   }
 
   const{error}=await sb.from('cabin_travelers').insert({
@@ -1706,11 +1715,12 @@ async function addCabinTraveler(){
     salutation:sal||null,
     name_suffix:suffix||null,
     first_name:first,middle_name:middle||null,last_name:last,
+    citizenship_type:citizenType,
     date_of_birth:`${year}-${month}-${day}`,
     gender,country_of_citizenship:citizen,
     state_of_residency:state||null,
     relationship:rel||null,
-    email:email||null,
+    email:tEmail||null,
     phone:phone||null,
     special_requests:specialRequests.length?specialRequests:null,
     birthday_date:birthdayDate||null,
@@ -1718,22 +1728,102 @@ async function addCabinTraveler(){
     is_honeymoon:isHoneymoon
   });
   if(error){flash('cabin-alert','Error saving traveler: '+error.message);return;}
+
+  // Send citizenship-specific documentation email to the traveler (if email provided)
+  // and notify admin of the new traveler
+  const tFullName=[sal,first,middle,last,suffix].filter(Boolean).join(' ');
+  const ownerEmail=gProfile?.email||gUser?.email||'';
+  const ownerName=gProfile?.name||'Traveler';
+  sendTravelerDocEmail(tFullName,tEmail||ownerEmail,citizenType,citizen,ownerName);
+
   toggleAddTraveler();loadCabinTravelers();
 }
 
+// ── CITIZENSHIP DOCUMENTATION EMAIL PER TRAVELER ─────────────
+const CT_DOC_INFO={
+  us:{label:'U.S. Citizen',body:`• Names on reservations must match your government-issued photo ID.\n• Recently married guests: book under maiden name unless you have name-change documents.\n• Traveling with a birth certificate + government ID: bring legal name-change documentation if names differ.\n• Minors traveling without both parents: bring a signed letter from the absent parent(s).\n\nReference: https://www.carnival.com/site-content/static-faq-2018/page-content#section-0`},
+  'us-pr':{label:'U.S. Permanent Resident',body:`• Must carry a valid Permanent Resident Card (Green Card) AND a valid passport from your country of citizenship.\n• Passport valid for at least 6 months beyond travel completion is strongly recommended.\n• Additional entry requirements may apply at ports of call.\n\nReference: https://help.carnival.com/app/answers/detail/a_id/1401`},
+  'non-us':{label:'Non-U.S. Citizen',body:`• Traveling without proper documentation = denied boarding with no refund.\n• Passport valid for at least 6 months beyond travel completion is strongly recommended.\n• VWP eligible travelers: valid passport + ESTA required.\n• Non-VWP citizens: valid U.S. visa required.\n• Mexican citizens with a Border Crossing Card must also carry a valid Mexican passport.\n\nReference: https://help.carnival.com/app/answers/detail/a_id/1405`},
+  canadian:{label:'Canadian Citizen',body:`• All Canadian citizens, including children, must carry a valid Canadian passport.\n• Passport must be valid at least 6 months beyond travel completion if arriving by air into the U.S.\n• Expedited passports: visacentral.ca or 888-665-9956\n\nReference: https://help.carnival.com/app/answers/detail/a_id/1402`},
+  other:{label:'Other Citizenship',body:`• The trip organizer will follow up with documentation requirements specific to your country of citizenship.\n• All guests are personally responsible for their required travel documents.\n• Guests traveling without proper documentation will be denied boarding with no refund.`}
+};
+function sendTravelerDocEmail(travelerName,toEmail,citizenType,country,ownerName){
+  if(!toEmail)return;
+  const info=CT_DOC_INFO[citizenType]||{label:'Traveler',body:'Please contact the trip organizer for documentation requirements.'};
+  const subject=`${TRIP_NAME} — Travel Documentation: ${travelerName}`;
+  const body=`Hi ${ownerName},\n\nA cabin traveler has been added to your reservation:\n\nTraveler: ${travelerName}\nCountry of Citizenship: ${country}\nCitizenship Status: ${info.label}\n\n── TRAVEL DOCUMENTATION REQUIREMENTS ──\n\n${info.body}\n\n⚠️ Guests are personally responsible for all required travel documents. The trip organizer assumes no responsibility for denied boarding due to improper documentation.\n\nIf you have questions, contact the trip organizer at ${ADMIN_EMAIL}.`;
+  sendEmail(toEmail,ownerName,subject,body);
+  // Also notify admin
+  sendEmail(ADMIN_EMAIL,'Admin',`${TRIP_NAME} — New Traveler Added: ${travelerName}`,`${ownerName} added a traveler.\n\nTraveler: ${travelerName}\nCitizenship: ${info.label} (${country})\nDocumentation email sent to: ${toEmail}`);
+}
+
 async function loadCabinTravelers(){
-  const{data:travelers}=await sb.from('cabin_travelers').select('*').eq('account_owner_id',gUser.id).order('created_at',{ascending:true});
+  // Fetch traveler records and cabin assignment (for num_guests cap)
+  const[travRes,caRes]=await Promise.all([
+    sb.from('cabin_travelers').select('*').eq('account_owner_id',gUser.id).order('created_at',{ascending:true}),
+    sb.from('cabin_assignments').select('num_guests').eq('user_id',gUser.id).single()
+  ]);
+  const travelers=travRes.data||[];
+  const numGuests=caRes.data?.num_guests||null;
+  // Account owner counts as guest 1; cabin_travelers holds additional guests.
+  const totalAdded=1+travelers.length;
+  const atCapacity=numGuests&&totalAdded>=numGuests;
+
+  // Update cabin card progress counter
+  const progEl=document.getElementById('dash-travelers-progress');
+  if(progEl)progEl.textContent=`${totalAdded}/${numGuests||'—'}`;
+
+  // Update badge beside card header
+  const badgeEl=document.getElementById('dash-traveler-count-badge');
+  if(badgeEl){
+    if(numGuests){
+      const remaining=numGuests-totalAdded;
+      if(atCapacity){
+        badgeEl.textContent='✓ All travelers added';
+        badgeEl.style.color='var(--success)';
+      } else {
+        badgeEl.textContent=`${totalAdded} of ${numGuests} added — ${remaining} more needed`;
+        badgeEl.style.color='var(--danger)';
+      }
+    } else {
+      badgeEl.textContent=`${travelers.length} traveler${travelers.length!==1?'s':''} added`;
+      badgeEl.style.color='var(--muted)';
+    }
+  }
+
+  // Add Traveler button: disable when at capacity
+  const addBtn=document.getElementById('dash-add-traveler-btn');
+  if(addBtn){
+    if(atCapacity){
+      addBtn.disabled=true;
+      addBtn.textContent='All Travelers Added';
+      addBtn.title=`Cabin is set for ${numGuests} guests — maximum reached`;
+      addBtn.style.opacity='.5';addBtn.style.cursor='not-allowed';
+    } else {
+      addBtn.disabled=false;
+      addBtn.textContent='+ Add Traveler';
+      addBtn.style.opacity='';addBtn.style.cursor='';
+    }
+  }
+
   const el=document.getElementById('cabin-travelers-list');
-  // Show a warning banner if cabin is reserved but no travelers are entered
-  const numGuests=gProfile?.cabin_assignments?.num_guests||null;
-  if(!travelers||travelers.length===0){
-    el.innerHTML=`<div style="background:#fdf0ee;border:2px solid #f5c6c0;border-radius:10px;padding:14px 16px;margin-top:6px;">
-      <strong style="color:var(--danger);">⚠️ Action Required — Traveler Information Missing</strong>
-      <p style="font-size:.86rem;color:#7b1c14;margin-top:6px;line-height:1.5;">Your cabin has been reserved but no traveler information has been entered. <strong>All cabin guests must be added before your reservation is considered complete.</strong> Click "+ Add Traveler" above to add guests now.</p>
-    </div>`;
+  // Warning banner when no additional travelers yet
+  if(travelers.length===0){
+    if(numGuests&&numGuests>1){
+      el.innerHTML=`<div style="background:#fdf0ee;border:2px solid #f5c6c0;border-radius:10px;padding:14px 16px;margin-top:6px;">
+        <strong style="color:var(--danger);">⚠️ Action Required — Additional Traveler Information Missing</strong>
+        <p style="font-size:.86rem;color:#7b1c14;margin-top:6px;line-height:1.5;">Your cabin is reserved for <strong>${numGuests} guests</strong> but only your own information is on file. <strong>Please add the remaining ${numGuests-1} traveler${numGuests-1>1?'s':''}</strong> using the "+ Add Traveler" button above. Traveler details including citizenship documentation are required for cruise check-in.</p>
+      </div>`;
+    } else {
+      el.innerHTML=`<div style="background:#f0f7ff;border:1.5px solid #aed6f1;border-radius:10px;padding:12px 16px;color:var(--muted);font-size:.87rem;margin-top:6px;">Your traveler information has been recorded. No additional guests are listed for this cabin.</div>`;
+    }
     return;
   }
-  el.innerHTML=travelers.map(t=>{
+
+  // Citizenship label map
+  const CT_LABELS={us:'🇺🇸 U.S. Citizen','us-pr':'🇺🇸 U.S. Permanent Resident','non-us':'🌎 Non-U.S. Citizen',canadian:'🇨🇦 Canadian Citizen',other:'🌐 Other'};
+
+  el.innerHTML=travelers.map((t,i)=>{
     const dob=fmtDate(t.date_of_birth);
     const name=[t.salutation,t.first_name,t.middle_name,t.last_name,t.name_suffix].filter(Boolean).join(' ');
     const sr=(t.special_requests||[]);
@@ -1741,10 +1831,13 @@ async function loadCabinTravelers(){
     if(t.birthday_date)occasions.push('🎂 Birthday: '+fmtDate(t.birthday_date));
     if(t.anniversary_date)occasions.push('💍 Anniversary: '+fmtDate(t.anniversary_date));
     if(t.is_honeymoon)occasions.push('🥂 Honeymoon');
+    const citizenLabel=CT_LABELS[t.citizenship_type]||(t.citizenship_type||'');
+    const citizenText=citizenLabel+(t.country_of_citizenship?' — '+t.country_of_citizenship:'');
     return`<div class="traveler-card">
       <div style="flex:1;">
-        <div class="traveler-card-name">${name}</div>
-        <div class="traveler-card-meta">DOB: ${dob} · ${t.gender} · ${t.relationship}${t.state_of_residency?' · '+t.state_of_residency:''}</div>
+        <div class="traveler-card-name">Traveler ${i+2}: ${name}</div>
+        <div class="traveler-card-meta">DOB: ${dob} · ${t.gender}${t.relationship?' · '+t.relationship:''}${t.state_of_residency?' · '+t.state_of_residency:''}</div>
+        ${citizenText?`<div class="traveler-card-meta" style="color:#1a4f7a;font-weight:600;">📋 ${citizenText}</div>`:''}
         ${t.email||t.phone?`<div class="traveler-card-meta">${[t.email,t.phone].filter(Boolean).join(' · ')}</div>`:''}
         ${sr.length?`<div class="traveler-card-meta" style="color:var(--warn);">⚕️ ${sr.join(', ')}</div>`:''}
         ${occasions.length?`<div class="traveler-card-meta" style="color:var(--accent);">${occasions.join(' · ')}</div>`:''}
@@ -1866,10 +1959,25 @@ const CABIN_MAX={Balcony:4,'Ocean View':4,Interior:4,Suite:6};
 function onPsetupGuestsChange(){
   const val=document.getElementById('psetup-num-guests').value;
   const noteEl=document.getElementById('psetup-occupancy-note');
-  if(!val){noteEl.textContent='';return;}
+  const submitEl=document.getElementById('psetup-submit-section');
+  const cabinType=document.getElementById('psetup-cabin-type').value;
+  const isSuite=cabinType==='Suite';
+  if(!val){
+    noteEl.innerHTML='';
+    // For suite, submit is controlled by backup cabin selection
+    if(!isSuite)submitEl.style.display='none';
+    return;
+  }
   const n=parseInt(val);
-  noteEl.textContent=n===1?'Just you — no additional travelers needed.':
-    `You'll need to add ${n-1} additional traveler${n>2?'s':''} in the Cabin Travelers section after setup.`;
+  const maxGuests=CABIN_MAX[cabinType]||4;
+  if(n===1){
+    noteEl.innerHTML='<span style="color:var(--danger);font-weight:700;">⚠️ Single Occupancy: This cabin will be charged at the double occupancy rate (double deposit + double price). Contact the trip organizer with any questions.</span>';
+  } else {
+    const remaining=n-1;
+    noteEl.innerHTML=`<span style="color:var(--success);">✓ You'll add ${remaining} additional traveler${remaining>1?'s':''} with their citizenship documentation from your dashboard after reserving.</span>${n<maxGuests?'':''} `;
+  }
+  // Show submit for non-suite; suite submit is controlled by backup cabin change handler
+  if(!isSuite)submitEl.style.display='block';
 }
 
 // ── ADMIN ────────────────────────────────────────────────────
