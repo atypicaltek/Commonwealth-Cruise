@@ -1138,9 +1138,18 @@ async function doSignup(){
 
   if(data.user){
     const isAdmin=email.toLowerCase()===ADMIN_EMAIL.toLowerCase();
-    const profileData={id:data.user.id,name:fullName,email,is_admin:isAdmin};
+    // citizenship_type:'other' is a placeholder — it can be removed once the
+    // new-columns.sql migration (drop not null on profiles.citizenship_type) has been run.
+    // Without it, the insert fails silently when NOT NULL is still enforced, leaving the
+    // user with an Auth account but no profiles row, which causes cabin FK errors later.
+    const profileData={id:data.user.id,name:fullName,email,is_admin:isAdmin,citizenship_type:'other'};
     const{error:pErr}=await sb.from('profiles').insert(profileData);
-    if(pErr)console.error('Profile error:',pErr.message);
+    if(pErr){
+      // Profile creation failed — user has an Auth account but no profile.
+      // Show a clear error rather than silently continuing.
+      flash('signup-alert','Account created but profile setup failed: '+pErr.message+'. Please contact the trip organizer at '+ADMIN_EMAIL+' before signing in.');
+      console.error('Profile insert error:',pErr.message);
+    }
     // Welcome email — citizenship & cabin will be set at first login
     sendEmail(email,fullName,`${TRIP_NAME} — Account Created`,`Hi ${fullName},\n\nYour account for the ${TRIP_NAME} payment portal has been created!\n\nAfter confirming your email, sign in to complete your profile (citizenship and cabin selection).\n\nIf you have questions, contact the trip organizer at ${ADMIN_EMAIL}.\n\nSafe travels!`);
   }
@@ -1317,6 +1326,26 @@ async function doProfileSetup(){
   if(!inv||inv.available_cabins<=0)return flash('psetup-alert',`Sorry, ${checkCabin} cabins are sold out. Please select a different cabin type.`);
 
   flash('psetup-alert','Saving your profile…','info');
+
+  // ── Profile FK guard ─────────────────────────────────────
+  // cabin_assignments.user_id references profiles(id).
+  // If the profile row doesn't exist (e.g. signup insert silently failed because
+  // profiles.citizenship_type was NOT NULL), create it now before inserting.
+  const{data:profGuard}=await sb.from('profiles').select('id').eq('id',gUser.id).single();
+  if(!profGuard){
+    const gName=gUser?.user_metadata?.full_name||gUser?.user_metadata?.name||gUser.email.split('@')[0];
+    const{error:gErr}=await sb.from('profiles').upsert(
+      {id:gUser.id,name:gName,email:gUser.email,is_admin:false,citizenship_type:'other'},
+      {onConflict:'id'}
+    );
+    if(gErr){
+      flash('psetup-alert','Could not create your profile: '+gErr.message+'. Please sign out and sign in again, or contact the trip organizer.');
+      return;
+    }
+    // Refresh local profile cache
+    const{data:freshP}=await sb.from('profiles').select('*').eq('id',gUser.id).single();
+    if(freshP)gProfile=freshP;
+  }
 
   // Mark profile as having completed cabin setup
   await sb.from('profiles').update({docs_acknowledged:true}).eq('id',gUser.id);
