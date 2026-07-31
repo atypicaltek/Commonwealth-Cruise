@@ -277,7 +277,7 @@
   <div class="dash-body">
     <div id="dash-loading" class="loading"><div class="spinner"></div><p>Loading your payment info…</p></div>
     <div id="dash-content" style="display:none;">
-      <div class="welcome-banner"><h2 id="dash-welcome">Welcome!</h2><p>Here's your current payment status for the Commonwealth Cruise 2027</p><p style="margin-top:8px;"><a href="#" onclick="toggleItinerary();document.getElementById('itin-body').scrollIntoView({behavior:'smooth',block:'start'});return false;" style="color:#1a4a7c;font-weight:700;font-size:.93rem;text-decoration:none;">View Cruise Itinerary ↓</a></p></div>
+      <div class="welcome-banner"><h2 id="dash-welcome">Welcome!</h2><p>Here's your current payment status for the Commonwealth Cruise 2027</p></div>
       <!-- CABIN INFO CARD -->
       <div id="dash-cabin-card" style="display:none;background:linear-gradient(135deg,#1a4f7a,#2e88cc);color:#fff;border-radius:14px;padding:16px 20px;margin-bottom:16px;box-shadow:0 4px 16px rgba(26,79,122,.25);">
         <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;opacity:.75;margin-bottom:6px;">Your Cabin Reservation</div>
@@ -992,6 +992,58 @@
     <div style="display:flex;gap:10px;justify-content:flex-end;">
       <button class="btn btn-ghost" onclick="document.getElementById('admin-add-modal').classList.remove('open')">Cancel</button>
       <button class="btn btn-primary" id="aad-submit-btn" onclick="adminAddTraveler()">Create Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN MANAGE ALL TRAVELERS MODAL -->
+<div class="modal-overlay" id="admin-mt-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box" style="max-width:680px;max-height:92vh;overflow-y:auto;">
+    <h3 style="margin:0 0 4px;color:var(--primary);">&#x1F465; Manage Cabin Travelers</h3>
+    <p id="mt-subtitle" style="margin:0 0 14px;font-size:.85rem;color:var(--muted);"></p>
+    <div id="mt-alert" class="alert"></div>
+    <div id="mt-slots"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-ghost" onclick="document.getElementById('admin-mt-modal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" id="mt-submit-btn" onclick="saveManageTravelers()">Save All Travelers</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN EDIT TRAVELER PROFILE MODAL -->
+<div class="modal-overlay" id="admin-edit-profile-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box" style="max-width:520px;max-height:90vh;overflow-y:auto;">
+    <h3 style="margin:0 0 4px;color:var(--primary);">&#x270F;&#xFE0F; Edit Traveler Info</h3>
+    <p style="margin:0 0 14px;font-size:.85rem;color:var(--muted);">Changes update both the account profile and the primary traveler record.</p>
+    <div id="aep-alert" class="alert"></div>
+    <input type="hidden" id="aep-user-id">
+    <input type="hidden" id="aep-traveler-id">
+    <div class="grid-2" style="margin-bottom:12px;">
+      <div class="form-group" style="margin:0;"><label>First Name *</label><input type="text" id="aep-firstname" autocomplete="off"></div>
+      <div class="form-group" style="margin:0;"><label>Last Name *</label><input type="text" id="aep-lastname" autocomplete="off"></div>
+    </div>
+    <div class="form-group"><label>Email Address *</label><input type="email" id="aep-email" autocomplete="off"></div>
+    <div style="background:#f0f7ff;border-radius:9px;padding:13px 15px;margin-bottom:14px;">
+      <p style="margin:0 0 10px;font-weight:700;font-size:.87rem;color:var(--primary);">Primary Traveler Details</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div class="form-group" style="margin:0;"><label style="font-size:.77rem;">Birth Month</label><input type="number" id="aep-dob-m" placeholder="MM" min="1" max="12"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:.77rem;">Day</label><input type="number" id="aep-dob-d" placeholder="DD" min="1" max="31"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:.77rem;">Year</label><input type="number" id="aep-dob-y" placeholder="YYYY" min="1920"></div>
+      </div>
+      <div class="grid-2" style="margin-bottom:8px;">
+        <div class="form-group" style="margin:0;"><label style="font-size:.77rem;">Gender</label>
+          <select id="aep-gender"><option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option><option value="Prefer Not to Answer">Prefer Not to Answer</option></select>
+        </div>
+        <div class="form-group" style="margin:0;"><label style="font-size:.77rem;">Citizenship</label>
+          <select id="aep-citizenship"><option value="">Select</option><option value="us">U.S. Citizen</option><option value="us-pr">U.S. Perm. Resident</option><option value="non-us">Non-U.S. Citizen</option><option value="canadian">Canadian</option><option value="other">Other</option></select>
+        </div>
+      </div>
+      <div class="form-group" style="margin:0 0 8px;"><label style="font-size:.77rem;">Country of Citizenship</label><input type="text" id="aep-country" placeholder="e.g. United States"></div>
+      <div class="form-group" style="margin:0;"><label style="font-size:.77rem;">Phone</label><input type="tel" id="aep-phone" placeholder="(555) 000-0000"></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="document.getElementById('admin-edit-profile-modal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" id="aep-submit-btn" onclick="saveAdminEditProfile()">Save Changes</button>
     </div>
   </div>
 </div>
@@ -3161,7 +3213,7 @@ async function loadTravelers(){
     const safePayLink=(ca?.payment_link||'').replace(/'/g,"\\'");
     window.gTravelerData[p.id]={userId:p.id,name:p.name||'',email:p.email||'',
       cabinType:ca?.cabin_type||'',cabinNumber:ca?.cabin_number||'',
-      citizenshipType:'',paid,
+      citizenshipType:'',paid,numGuests:ca?.num_guests||1,
       cabinCost:ca?.cabin_cost||'',resNum:ca?.guest_reservation_number||'',
       payLink:ca?.payment_link||'',gratPaid:!!ca?.gratuity_paid};
     const gratChk=ca?.gratuity_paid?' &#x2713;':'';
@@ -3180,6 +3232,8 @@ async function loadTravelers(){
         '<option value="gratuity">&#x1F91D; Gratuity'+gratChk+'</option>'+
       '</optgroup>'+
       '<optgroup label="Account">'+
+      '<option value="edit_profile">&#x270F;&#xFE0F; Edit Traveler Info</option>'+
+      '<option value="manage_travelers">&#x1F465; Manage All Travelers</option>'+
         '<option value="send_welcome">&#x1F4E7; Send Welcome Email</option>'+
         '<option value="cancel">&#x1F6AB; Cancel Reservation</option>'+
         '<option value="delete">&#x1F5D1; Delete Account</option>'+
@@ -3818,6 +3872,219 @@ async function changeCabinType(userId,name,currentType){
   document.body.appendChild(div);
 }
 
+
+// ── ADMIN MANAGE ALL TRAVELERS ────────────────────────────────
+let gMtOwnerId='', gMtExisting=[];
+
+function mtSlotHtml(idx, t){
+  const isFirst = idx===0;
+  const label = isFirst ? 'Traveler 1 (Account Holder / Primary)' : `Traveler ${idx+1}`;
+  const bg = isFirst ? '#f0f7ff' : '#f8fafc';
+  const border = isFirst ? '#aed6f1' : '#e2e8f0';
+  const tid = t?.id||'';
+  const sal = t?.salutation||'';
+  const fn  = t?.first_name||'';
+  const mn  = t?.middle_name||'';
+  const ln  = t?.last_name||'';
+  const sfx = t?.name_suffix||'';
+  const dob = t?.date_of_birth||'';
+  const dobParts = dob ? dob.split('-') : ['','',''];
+  const dobY=dobParts[0], dobM=dobParts[1]?parseInt(dobParts[1]):'', dobD=dobParts[2]?parseInt(dobParts[2]):'';
+  const gen = t?.gender||'';
+  const cit = t?.citizenship_type||'';
+  const cty = t?.country_of_citizenship||'';
+  const ph  = t?.phone||'';
+
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const monthOpts = months.map((m,i)=>`<option value="${String(i+1).padStart(2,'0')}" ${dobM===i+1?'selected':''}>${m}</option>`).join('');
+  const dayOpts = Array.from({length:31},(_,i)=>`<option value="${String(i+1).padStart(2,'0')}" ${dobD===i+1?'selected':''}>${i+1}</option>`).join('');
+  const curY=new Date().getFullYear();
+  const yearOpts = Array.from({length:101},(_,i)=>`<option value="${curY-i}" ${dobY==curY-i?'selected':''}>${curY-i}</option>`).join('');
+
+  const salOpts=['','Mr.','Mrs.','Ms.','Dr.','Rev.'].map(s=>`<option value="${s}" ${sal===s?'selected':''}>${s||'—'}</option>`).join('');
+  const sfxOpts=['','Jr.','Sr.','II','III','IV','V'].map(s=>`<option value="${s}" ${sfx===s?'selected':''}>${s||'—'}</option>`).join('');
+  const genOpts=['','Male','Female','Other','Prefer Not to Answer'].map(g=>`<option value="${g}" ${gen===g?'selected':''}>${g||'Select'}</option>`).join('');
+  const citOpts=[['','— Select —'],['us','U.S. Citizen'],['us-pr','U.S. Perm. Resident'],['non-us','Non-U.S. Citizen'],['canadian','Canadian'],['other','Other']].map(([v,l])=>`<option value="${v}" ${cit===v?'selected':''}>${l}</option>`).join('');
+
+  return `<div style="background:${bg};border:1.5px solid ${border};border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+    <div style="font-weight:800;color:var(--primary);margin-bottom:12px;font-size:.93rem;">${label}</div>
+    <input type="hidden" id="mt-id-${idx}" value="${tid}">
+    <div style="display:grid;grid-template-columns:80px 1fr 1fr 1fr 80px;gap:8px;margin-bottom:10px;">
+      <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">Title</label><select id="mt-sal-${idx}">${salOpts}</select></div>
+      <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">First Name *</label><input type="text" id="mt-fn-${idx}" value="${fn}" autocomplete="off"></div>
+      <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">Middle Name</label><input type="text" id="mt-mn-${idx}" value="${mn}" autocomplete="off"></div>
+      <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">Last Name *</label><input type="text" id="mt-ln-${idx}" value="${ln}" autocomplete="off"></div>
+      <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">Suffix</label><select id="mt-sfx-${idx}">${sfxOpts}</select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+      <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">Birth Month *</label><select id="mt-dob-m-${idx}"><option value="">Month</option>${monthOpts}</select></div>
+      <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">Day *</label><select id="mt-dob-d-${idx}"><option value="">Day</option>${dayOpts}</select></div>
+      <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">Year *</label><select id="mt-dob-y-${idx}"><option value="">Year</option>${yearOpts}</select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+      <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">Gender *</label><select id="mt-gen-${idx}">${genOpts}</select></div>
+      <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">Citizenship *</label><select id="mt-cit-${idx}">${citOpts}</select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">Country of Citizenship *</label><input type="text" id="mt-cty-${idx}" value="${cty}" placeholder="e.g. United States" autocomplete="off"></div>
+      <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">Phone</label><input type="tel" id="mt-ph-${idx}" value="${ph}" placeholder="(555) 000-0000"></div>
+    </div>
+  </div>`;
+}
+
+async function openManageTravelers(ownerId, ownerName, numGuests){
+  gMtOwnerId = ownerId;
+  document.getElementById('mt-subtitle').textContent = ownerName + ' — ' + numGuests + ' guest slot' + (numGuests>1?'s':'');
+  document.getElementById('mt-alert').style.display='none';
+  document.getElementById('mt-submit-btn').disabled=false;
+  document.getElementById('mt-submit-btn').textContent='Save All Travelers';
+  const slotsEl = document.getElementById('mt-slots');
+  slotsEl.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  document.getElementById('admin-mt-modal').classList.add('open');
+
+  const{data:existing}=await sb.from('cabin_travelers')
+    .select('id,salutation,first_name,middle_name,last_name,name_suffix,date_of_birth,gender,citizenship_type,country_of_citizenship,phone,account_owner_id')
+    .eq('account_owner_id',ownerId)
+    .order('created_at',{ascending:true});
+  gMtExisting = existing||[];
+
+  let slots='';
+  for(let i=0;i<numGuests;i++){
+    slots += mtSlotHtml(i, gMtExisting[i]||null);
+  }
+  slotsEl.innerHTML=slots;
+}
+
+async function saveManageTravelers(){
+  const slotsEl=document.getElementById('mt-slots');
+  const numSlots=slotsEl.querySelectorAll('input[id^="mt-fn-"]').length;
+  const alertEl=document.getElementById('mt-alert');
+  alertEl.style.display='none';
+  const btn=document.getElementById('mt-submit-btn');
+  btn.disabled=true; btn.textContent='Saving...';
+
+  try{
+    for(let i=0;i<numSlots;i++){
+      const fn=document.getElementById('mt-fn-'+i)?.value.trim()||'';
+      const ln=document.getElementById('mt-ln-'+i)?.value.trim()||'';
+      const mn=document.getElementById('mt-mn-'+i)?.value.trim()||'';
+      const sal=document.getElementById('mt-sal-'+i)?.value||'';
+      const sfx=document.getElementById('mt-sfx-'+i)?.value||'';
+      const dobM=document.getElementById('mt-dob-m-'+i)?.value||'';
+      const dobD=document.getElementById('mt-dob-d-'+i)?.value||'';
+      const dobY=document.getElementById('mt-dob-y-'+i)?.value||'';
+      const gen=document.getElementById('mt-gen-'+i)?.value||'';
+      const cit=document.getElementById('mt-cit-'+i)?.value||'';
+      const cty=document.getElementById('mt-cty-'+i)?.value.trim()||'';
+      const ph=document.getElementById('mt-ph-'+i)?.value.trim()||'';
+      const existingId=document.getElementById('mt-id-'+i)?.value||'';
+
+      if(!fn&&!ln) continue; // skip empty slots
+      if(!fn||!ln){alertEl.className='alert alert-error';alertEl.textContent=`Traveler ${i+1}: first and last name are required.`;alertEl.style.display='block';btn.disabled=false;btn.textContent='Save All Travelers';return;}
+
+      const dob=(dobM&&dobD&&dobY)?`${dobY}-${dobM}-${dobD.padStart(2,'0')}`:null;
+      const payload={
+        account_owner_id:gMtOwnerId,
+        salutation:sal||null, first_name:fn, middle_name:mn||null, last_name:ln,
+        name_suffix:sfx||null, date_of_birth:dob, gender:gen||null,
+        citizenship_type:cit||null, country_of_citizenship:cty||null, phone:ph||null
+      };
+
+      if(existingId){
+        const{error}=await sb.from('cabin_travelers').update(payload).eq('id',existingId);
+        if(error)throw new Error(`Traveler ${i+1} update failed: `+error.message);
+      } else {
+        const{error}=await sb.from('cabin_travelers').insert(payload);
+        if(error)throw new Error(`Traveler ${i+1} insert failed: `+error.message);
+      }
+
+      // If primary traveler (slot 0), also update profiles.name
+      if(i===0){
+        const fullName=[fn,ln].filter(Boolean).join(' ');
+        await sb.from('profiles').update({name:fullName}).eq('id',gMtOwnerId);
+      }
+    }
+    document.getElementById('admin-mt-modal').classList.remove('open');
+    alert('All traveler records saved successfully.');
+    await loadTravelers();
+  }catch(e){
+    alertEl.className='alert alert-error';alertEl.textContent=e.message;alertEl.style.display='block';
+  }finally{
+    btn.disabled=false; btn.textContent='Save All Travelers';
+  }
+}
+
+async function openAdminEditProfile(userId,name,email){
+  // Load existing profile and primary cabin_traveler record
+  const[{data:prof},{data:travelers}]=await Promise.all([
+    sb.from('profiles').select('id,name,email').eq('id',userId).single(),
+    sb.from('cabin_travelers').select('*').eq('account_owner_id',userId).order('created_at',{ascending:true})
+  ]);
+  const t=travelers?.[0];
+  const parts=(prof?.name||name||'').split(' ');
+  document.getElementById('aep-user-id').value=userId;
+  document.getElementById('aep-traveler-id').value=t?.id||'';
+  document.getElementById('aep-firstname').value=t?.first_name||parts[0]||'';
+  document.getElementById('aep-lastname').value=t?.last_name||parts.slice(1).join(' ')||'';
+  document.getElementById('aep-email').value=prof?.email||email||'';
+  if(t?.date_of_birth){
+    const[y,m,d]=t.date_of_birth.split('-');
+    document.getElementById('aep-dob-m').value=parseInt(m)||'';
+    document.getElementById('aep-dob-d').value=parseInt(d)||'';
+    document.getElementById('aep-dob-y').value=y||'';
+  } else {
+    ['aep-dob-m','aep-dob-d','aep-dob-y'].forEach(id=>document.getElementById(id).value='');
+  }
+  document.getElementById('aep-gender').value=t?.gender||'';
+  document.getElementById('aep-citizenship').value=t?.citizenship_type||'';
+  document.getElementById('aep-country').value=t?.country_of_citizenship||'';
+  document.getElementById('aep-phone').value=t?.phone||'';
+  document.getElementById('aep-alert').style.display='none';
+  document.getElementById('aep-submit-btn').disabled=false;
+  document.getElementById('aep-submit-btn').textContent='Save Changes';
+  document.getElementById('admin-edit-profile-modal').classList.add('open');
+}
+
+async function saveAdminEditProfile(){
+  const userId=document.getElementById('aep-user-id').value;
+  const travelerId=document.getElementById('aep-traveler-id').value;
+  const firstName=document.getElementById('aep-firstname').value.trim();
+  const lastName=document.getElementById('aep-lastname').value.trim();
+  const emailVal=document.getElementById('aep-email').value.trim();
+  const dobM=document.getElementById('aep-dob-m').value;
+  const dobD=document.getElementById('aep-dob-d').value;
+  const dobY=document.getElementById('aep-dob-y').value;
+  const gender=document.getElementById('aep-gender').value;
+  const citizenship=document.getElementById('aep-citizenship').value;
+  const country=document.getElementById('aep-country').value.trim();
+  const phone=document.getElementById('aep-phone').value.trim();
+  const alertEl=document.getElementById('aep-alert');
+  function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';}
+  if(!firstName||!lastName)return showErr('First and last name are required.');
+  if(!emailVal||!emailVal.includes('@'))return showErr('Valid email address required.');
+  const btn=document.getElementById('aep-submit-btn');
+  btn.disabled=true;btn.textContent='Saving...';alertEl.style.display='none';
+  try{
+    const fullName=firstName+' '+lastName;
+    // Update profiles table
+    const{error:profErr}=await sb.from('profiles').update({name:fullName,email:emailVal}).eq('id',userId);
+    if(profErr)throw new Error('Profile update failed: '+profErr.message);
+    // Update primary cabin_traveler record if it exists
+    if(travelerId){
+      const tPayload={first_name:firstName,last_name:lastName,phone:phone||null,gender:gender||null,citizenship_type:citizenship||null,country_of_citizenship:country||null};
+      if(dobM&&dobD&&dobY){
+        tPayload.date_of_birth=dobY+'-'+String(dobM).padStart(2,'0')+'-'+String(dobD).padStart(2,'0');
+      }
+      const{error:tErr}=await sb.from('cabin_travelers').update(tPayload).eq('id',travelerId);
+      if(tErr)throw new Error('Traveler record update failed: '+tErr.message);
+    }
+    document.getElementById('admin-edit-profile-modal').classList.remove('open');
+    alert('Profile updated for '+fullName+'.');
+    await loadTravelers();
+  }catch(e){showErr(e.message);}
+  finally{btn.disabled=false;btn.textContent='Save Changes';}
+}
+
 async function confirmChangeCabinType(userId,name,oldType){
   const newType=document.getElementById('cct-select')?.value;
   if(!newType)return;
@@ -3856,6 +4123,8 @@ function handleTravelerAction(sel,userId){
       emailAccountCreated({name:d.name,email:d.email},'their reserved cabin');
     }
   }
+  else if(v==='edit_profile')openAdminEditProfile(d.userId,d.name,d.email);
+  else if(v==='manage_travelers')openManageTravelers(d.userId,d.name,d.numGuests||1);
   else if(v==='cancel'){cancelTraveler(d.userId,d.name,d.email,d.cabinType,d.cabinNumber,d.citizenshipType,d.paid);}
   else if(v==='delete'){deleteTraveler(d.userId,d.name);}
 }
