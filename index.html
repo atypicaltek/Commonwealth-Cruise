@@ -192,7 +192,7 @@
       <div class="pin-row"><input class="pin-box" id="lp0" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp1" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp2" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp3" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp4" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp5" maxlength="1" inputmode="numeric" autocomplete="off"></div>
     </div>
     <button class="btn btn-primary btn-full" onclick="doLogin()">Sign In</button>
-    <button class="btn btn-ghost btn-full" style="margin-top:8px;" onclick="showPage('forgot')">Forgot PIN? Send Reset Link</button>
+    <button class="btn btn-ghost btn-full" style="margin-top:8px;" onclick="document.getElementById('forgot-pin-modal').classList.add('open')">Forgot PIN? Send Reset Link</button>
   </div>
 
   <div class="auth-wrap" style="padding-top:60px;">
@@ -732,11 +732,78 @@
   </div>
 </div>
 
+<!-- FORGOT PIN MODAL -->
+<div class="modal-overlay" id="forgot-pin-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box" style="max-width:380px;">
+    <h3 style="margin:0 0 4px;color:var(--primary);font-size:1rem;">Contact Your Commonwealth Cruise Team</h3>
+    <p style="font-size:.85rem;color:var(--muted);margin:0 0 16px;">Fill in your details and a team member will reach out to help you.</p>
+
+    <!-- Step 1: Name + Email -->
+    <div id="fp-step1">
+      <div id="forgot-pin-alert" class="alert"></div>
+      <div class="form-group"><label>Your Name *</label><input type="text" id="fp-name" placeholder="Jane Smith" autocomplete="off"></div>
+      <div class="form-group"><label>Email Address *</label><input type="email" id="fp-email" placeholder="you@email.com" autocomplete="off"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px;">
+        <button class="btn btn-ghost" onclick="document.getElementById('forgot-pin-modal').classList.remove('open')">Cancel</button>
+        <button class="btn btn-primary" id="fp-submit-btn" onclick="doForgotModal()">Send One-Time Code</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Enter OTP code -->
+    <div id="fp-step2" style="display:none;">
+      <div id="forgot-otp-alert" class="alert"></div>
+      <p id="fp-otp-msg" style="font-size:.86rem;color:var(--text);margin-bottom:14px;line-height:1.5;"></p>
+      <div class="form-group"><label>Enter 6-Digit Code</label>
+        <div class="pin-row">
+          <input class="pin-box" id="otp0" maxlength="1" inputmode="numeric" autocomplete="one-time-code">
+          <input class="pin-box" id="otp1" maxlength="1" inputmode="numeric" autocomplete="one-time-code">
+          <input class="pin-box" id="otp2" maxlength="1" inputmode="numeric" autocomplete="one-time-code">
+          <input class="pin-box" id="otp3" maxlength="1" inputmode="numeric" autocomplete="one-time-code">
+          <input class="pin-box" id="otp4" maxlength="1" inputmode="numeric" autocomplete="one-time-code">
+          <input class="pin-box" id="otp5" maxlength="1" inputmode="numeric" autocomplete="one-time-code">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px;">
+        <button class="btn btn-ghost" onclick="fpGoStep(1)">&#x2190; Back</button>
+        <button class="btn btn-primary" id="fp-verify-btn" onclick="doVerifyOtp()">Verify Code</button>
+      </div>
+      <p style="text-align:center;margin-top:10px;font-size:.79rem;color:var(--muted);">Didn't receive it? <a style="color:var(--secondary);cursor:pointer;" onclick="doForgotModal()">Resend code</a></p>
+    </div>
+
+    <!-- Step 3: Set new PIN -->
+    <div id="fp-step3" style="display:none;">
+      <div id="forgot-newpin-alert" class="alert"></div>
+      <p style="font-size:.86rem;color:var(--text);margin-bottom:14px;">Code verified! Now create your new 6-digit PIN.</p>
+      <div class="form-group"><label>New PIN</label>
+        <div class="pin-row">
+          <input class="pin-box" id="np0" maxlength="1" inputmode="numeric" autocomplete="new-password">
+          <input class="pin-box" id="np1" maxlength="1" inputmode="numeric" autocomplete="new-password">
+          <input class="pin-box" id="np2" maxlength="1" inputmode="numeric" autocomplete="new-password">
+          <input class="pin-box" id="np3" maxlength="1" inputmode="numeric" autocomplete="new-password">
+          <input class="pin-box" id="np4" maxlength="1" inputmode="numeric" autocomplete="new-password">
+          <input class="pin-box" id="np5" maxlength="1" inputmode="numeric" autocomplete="new-password">
+        </div>
+      </div>
+      <div class="form-group"><label>Confirm New PIN</label>
+        <div class="pin-row">
+          <input class="pin-box" id="nc20" maxlength="1" inputmode="numeric" autocomplete="new-password">
+          <input class="pin-box" id="nc21" maxlength="1" inputmode="numeric" autocomplete="new-password">
+          <input class="pin-box" id="nc22" maxlength="1" inputmode="numeric" autocomplete="new-password">
+          <input class="pin-box" id="nc23" maxlength="1" inputmode="numeric" autocomplete="new-password">
+          <input class="pin-box" id="nc24" maxlength="1" inputmode="numeric" autocomplete="new-password">
+          <input class="pin-box" id="nc25" maxlength="1" inputmode="numeric" autocomplete="new-password">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" id="fp-newpin-btn" style="margin-top:6px;" onclick="doSetNewPin()">Set New PIN</button>
+    </div>
+  </div>
+</div>
+
 <!-- HELP CONTACT MODAL -->
 <div class="modal-overlay" id="help-contact-modal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal-box" style="max-width:380px;">
-    <h3 style="margin:0 0 4px;color:var(--primary);">&#x1F4E7; Contact Trip Organizer</h3>
-    <p style="font-size:.85rem;color:var(--muted);margin:0 0 16px;">Fill in your details and we'll reach out to help you.</p>
+    <h3 style="margin:0 0 4px;color:var(--primary);font-size:1rem;">Contact Your Commonwealth Cruise Team</h3>
+    <p style="font-size:.85rem;color:var(--muted);margin:0 0 16px;">Fill in your details and a team member will reach out to help you.</p>
     <div class="form-group"><label>Your Name *</label><input type="text" id="hc-name" placeholder="Jane Smith" autocomplete="off"></div>
     <div class="form-group"><label>Your Email Address *</label><input type="email" id="hc-email" placeholder="you@email.com" autocomplete="off"></div>
     <div class="form-group"><label>Phone Number</label><input type="tel" id="hc-phone" placeholder="(555) 000-0000" autocomplete="off"></div>
@@ -1603,6 +1670,22 @@ function toggleLoginPanel(){
   if(p)p.style.display=(p.style.display==='none'?'block':'none');
 }
 
+function closeHelpModal(){
+  const m=document.getElementById('help-contact-modal');
+  if(m)m.classList.remove('open');
+  const box=m?.querySelector('.modal-box');
+  if(box)box.innerHTML='';
+}
+function closeForgotModal(){
+  const m=document.getElementById('forgot-pin-modal');
+  if(m)m.classList.remove('open');
+  const box=m?.querySelector('.modal-box');
+  if(box)box.innerHTML='';
+  // Re-show step 1 next time
+  setTimeout(()=>{const s=document.getElementById('fp-step1');if(s)s.style.display='block';
+    const s2=document.getElementById('fp-step2');if(s2)s2.style.display='none';
+    const s3=document.getElementById('fp-step3');if(s3)s3.style.display='none';},300);
+}
 function submitHelpContact(){
   const name=document.getElementById('hc-name')?.value?.trim()||'';
   const email=document.getElementById('hc-email')?.value?.trim()||'';
@@ -1622,7 +1705,7 @@ function submitHelpContact(){
       '<div style="font-size:2.5rem;margin-bottom:10px;">&#x2705;</div>'+
       '<h3 style="margin:0 0 10px;color:var(--success);">Message Sent!</h3>'+
       '<p style="font-size:.9rem;color:var(--text);line-height:1.6;margin-bottom:18px;">Your email has been sent to the trip organizer.<br>You will be contacted shortly.</p>'+
-      '<button class="btn btn-primary" onclick="document.getElementById('help-contact-modal').classList.remove('open');this.closest('.modal-box').innerHTML='';">Close</button>'+
+      '<button class="btn btn-primary" onclick="closeHelpModal()">Close</button>'+
     '</div>';
   },1000);
 }
@@ -1702,6 +1785,70 @@ async function doSignup(){
     setTimeout(()=>showPage('login'),2000);
   }
 }
+
+let gFpEmail=''; // stores email across OTP steps
+
+function fpGoStep(n){
+  [1,2,3].forEach(i=>{const el=document.getElementById('fp-step'+i);if(el)el.style.display=(i===n?'block':'none');});
+}
+
+async function doForgotModal(){
+  const alertEl=document.getElementById('forgot-pin-alert');
+  function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';}
+  alertEl.style.display='none';
+  const name=document.getElementById('fp-name')?.value?.trim()||'';
+  const email=document.getElementById('fp-email')?.value?.trim()||'';
+  if(!name)return showErr('Please enter your name.');
+  if(!email||!email.includes('@'))return showErr('Please enter your email address.');
+  const btn=document.getElementById('fp-submit-btn');
+  btn.disabled=true;btn.textContent='Sending...';
+  const{error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:false}});
+  btn.disabled=false;btn.textContent='Send One-Time Code';
+  if(error){showErr(error.message);return;}
+  gFpEmail=email;
+  document.getElementById('fp-otp-msg').innerHTML='A 6-digit code was sent to <strong>'+email+'</strong>. Enter it below to continue. Check your spam folder if you do not see it.';
+  fpGoStep(2);
+}
+
+async function doVerifyOtp(){
+  const alertEl=document.getElementById('forgot-otp-alert');
+  function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';}
+  alertEl.style.display='none';
+  const token=getPin('otp');
+  if(token.length<6)return showErr('Please enter the complete 6-digit code.');
+  const btn=document.getElementById('fp-verify-btn');
+  btn.disabled=true;btn.textContent='Verifying...';
+  const{error}=await sb.auth.verifyOtp({email:gFpEmail,token,type:'email'});
+  btn.disabled=false;btn.textContent='Verify Code';
+  if(error){showErr('Invalid or expired code. Please try again or resend.');return;}
+  fpGoStep(3);
+}
+
+async function doSetNewPin(){
+  const alertEl=document.getElementById('forgot-newpin-alert');
+  function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';}
+  alertEl.style.display='none';
+  const newPin=getPin('np');
+  const confirmPin=getPin('nc2');
+  if(newPin.length<6)return showErr('Please enter a complete 6-digit PIN.');
+  if(newPin!==confirmPin)return showErr('PINs do not match. Please try again.');
+  const btn=document.getElementById('fp-newpin-btn');
+  btn.disabled=true;btn.textContent='Saving...';
+  const{error}=await sb.auth.updateUser({password:newPin});
+  btn.disabled=false;btn.textContent='Set New PIN';
+  if(error){showErr(error.message);return;}
+  // Sign out after reset so they log in fresh with new PIN
+  await sb.auth.signOut();
+  sessionStorage.removeItem('fresh_login');
+  const box=document.getElementById('forgot-pin-modal').querySelector('.modal-box');
+  box.innerHTML='<div style="text-align:center;padding:20px 10px;">'+
+    '<div style="font-size:2.5rem;margin-bottom:10px;">&#x2705;</div>'+
+    '<h3 style="margin:0 0 10px;color:var(--success);">PIN Updated!</h3>'+
+    '<p style="font-size:.9rem;color:var(--text);line-height:1.6;margin-bottom:18px;">Your new PIN has been set. You can now sign in with your new PIN.</p>'+
+    '<button class="btn btn-primary" onclick="closeForgotModal()">Sign In</button>'+
+  '</div>';
+}
+
 
 async function doForgot(){
   clearFlash('forgot-alert');
@@ -3566,8 +3713,6 @@ async function loadDocRequests(){
     '</tr>';
   }).join('');
   el.innerHTML='<table><thead><tr><th>Traveler</th><th>Country</th><th>Email</th><th>Phone</th><th>Action</th></tr></thead><tbody>'+rows+'</tbody></table>';
-}
-
 }
 function draftDocEmail(name,email,country){
   const subject=`${TRIP_NAME} — Travel Documentation for ${country} Citizens`;
