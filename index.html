@@ -180,7 +180,15 @@
 <div id="page-login" class="page active">
   <div class="auth-wrap">
     <div class="auth-card">
-      <div class="auth-logo"><img src="./cruise-flyer.jpg" alt="Commonwealth Cruise 2027 to Bermuda" style="width:100%;border-radius:10px;margin-bottom:14px;display:block;"><p style="font-size:.88rem;margin:0;">Sign in to view your payment status</p></div>
+      <div class="auth-logo"><img src="./cruise-flyer.jpg" alt="Commonwealth Cruise 2027 to Bermuda" style="width:100%;border-radius:10px;margin-bottom:14px;display:block;"></div>
+
+      <!-- Create Account CTA — above sign-in section -->
+      <div style="margin-bottom:14px;background:linear-gradient(135deg,#e8a020,#f5c842);border-radius:10px;padding:14px 16px;text-align:center;">
+        <p style="margin:0 0 6px;font-weight:800;font-size:1rem;color:#1a1a00;">&#x1F3AB; Not signed up yet?</p>
+        <button class="btn btn-full" onclick="showPage('signup')" style="background:#1a1a00;color:#f5c842;font-weight:800;font-size:.95rem;border:none;border-radius:8px;padding:10px;">Create Your Account</button>
+      </div>
+
+      <p style="font-size:.88rem;margin:0 0 14px;text-align:center;color:var(--muted);">Sign in to view your payment status</p>
       <div id="login-alert" class="alert"></div>
       <div class="form-group"><label>Email Address</label><input type="email" id="login-email" placeholder="you@email.com" autocomplete="off"></div>
       <div class="form-group"><label>Your 6-Digit PIN</label>
@@ -189,7 +197,12 @@
       <button class="btn btn-primary btn-full" onclick="doLogin()">Sign In</button>
       <div class="divider">or</div>
       <button class="btn btn-ghost btn-full" onclick="showPage('forgot')">Forgot PIN? Send Reset Link</button>
-      <div class="auth-switch">New traveler? <a onclick="showPage('signup')">Create your account</a></div>
+
+      <!-- Help / Issue Box -->
+      <div style="margin-top:10px;background:#f0f4ff;border:1.5px solid #c7d7f9;border-radius:10px;padding:12px 16px;text-align:center;">
+        <p style="margin:0 0 7px;font-size:.86rem;color:#374151;font-weight:600;">Issue with account creation or log in?</p>
+        <button onclick="sendLoginHelpEmail()" class="btn btn-full" style="background:#2176ae;color:#fff;font-weight:700;font-size:.87rem;border:none;border-radius:8px;padding:9px;">&#x1F4E7; Click Here</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1552,6 +1565,13 @@ async function sendRefundDeadlineReminders(){
 }
 
 // ── AUTH ────────────────────────────────────────────────────
+function sendLoginHelpEmail(){
+  const email=document.getElementById('login-email')?.value?.trim()||'';
+  const subject=encodeURIComponent('Account Creation or PIN Issue');
+  const body=encodeURIComponent('Hello,\n\nI am having trouble with my account.\n\nMy email address: '+(email||'(please enter your email above first)')+'\n\nPlease assist. Thank you.');
+  window.location.href='mailto:glowjetters@gmail.com?subject='+subject+'&body='+body;
+}
+
 async function doLogin(){
   clearFlash('login-alert');
   const email=document.getElementById('login-email').value.trim();
@@ -1600,16 +1620,25 @@ async function doSignup(){
     // Welcome email — citizenship & cabin will be set at first login
     const _wUrl=window.location.href.split('?')[0];
     const _wHtml=buildEmailHtml(fullName,
-      `<p>Your account for the <strong>${TRIP_NAME}</strong> payment portal has been created!</p>
-       <p>After confirming your email, sign in to complete your profile (citizenship and cabin selection).</p>`
+      `<p>Your account for the <strong>${TRIP_NAME}</strong> payment portal has been created successfully!</p>
+       <p>You can now sign in and complete your cabin traveler information. We look forward to sailing with you!</p>
+       <p style="margin-top:14px;"><a href="${window.location.href.split('?')[0]}" style="display:inline-block;background:var(--secondary);color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-weight:700;">Sign In to Your Account &#x2192;</a></p>`
     );
     sendEmail(email,fullName,`${TRIP_NAME} — Account Created`,
-      `Hello ${fullName},\n\nYour account for the ${TRIP_NAME} payment portal has been created!\n\nAfter confirming your email, sign in to complete your profile (citizenship and cabin selection).\n\nLog in here:\n${_wUrl}\n\nYour Commonwealth Cruise Team\n\nIf you have any questions, please reply to this email or contact the trip organizer at ${ADMIN_EMAIL}.`,
+      `Hello ${fullName},\n\nYour account for the ${TRIP_NAME} payment portal has been created successfully!\n\nYou can now sign in and complete your cabin traveler information.\n\nSign in here:\n${_wUrl}\n\nYour Commonwealth Cruise Team\n\nIf you have any questions, please contact the trip organizer at ${ADMIN_EMAIL}.`,
       _wHtml
     );
   }
-  flash('signup-alert','🎉 Account created! Check your email to confirm your address, then sign in.','success');
-  setTimeout(()=>showPage('login'),3500);
+  // If Supabase returned a session (email confirmation disabled), go straight to dashboard
+  if(data?.session){
+    sessionStorage.setItem('fresh_login','1');
+    flash('signup-alert','&#x1F389; Account created! Taking you to your dashboard…','success');
+    setTimeout(()=>loadAndRoute(data.session.user),1200);
+  } else {
+    // Supabase still requires confirmation — show login with softer message
+    flash('signup-alert','&#x1F389; Account created! You can now sign in below.','success');
+    setTimeout(()=>showPage('login'),2000);
+  }
 }
 
 async function doForgot(){
