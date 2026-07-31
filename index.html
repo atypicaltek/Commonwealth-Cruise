@@ -277,7 +277,7 @@
   <div class="dash-body">
     <div id="dash-loading" class="loading"><div class="spinner"></div><p>Loading your payment info…</p></div>
     <div id="dash-content" style="display:none;">
-      <div class="welcome-banner"><h2 id="dash-welcome">Welcome!</h2><p>Here's your current payment status for the Commonwealth Cruise 2027</p><p style="margin-top:8px;"><a href="#" onclick="toggleItinerary();document.getElementById('itin-body').scrollIntoView({behavior:'smooth',block:'start'});return false;" style="color:#1a4a7c;font-weight:700;font-size:.93rem;text-decoration:none;">🗺️ View Cruise Itinerary ↓</a></p></div>
+      <div class="welcome-banner"><h2 id="dash-welcome">Welcome!</h2><p>Here's your current payment status for the Commonwealth Cruise 2027</p><p style="margin-top:8px;"><a href="#" onclick="toggleItinerary();document.getElementById('itin-body').scrollIntoView({behavior:'smooth',block:'start'});return false;" style="color:#1a4a7c;font-weight:700;font-size:.93rem;text-decoration:none;">View Cruise Itinerary ↓</a></p></div>
       <!-- CABIN INFO CARD -->
       <div id="dash-cabin-card" style="display:none;background:linear-gradient(135deg,#1a4f7a,#2e88cc);color:#fff;border-radius:14px;padding:16px 20px;margin-bottom:16px;box-shadow:0 4px 16px rgba(26,79,122,.25);">
         <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;opacity:.75;margin-bottom:6px;">Your Cabin Reservation</div>
@@ -292,10 +292,7 @@
         <div id="dash-single-occ-note" style="display:none;background:rgba(255,200,0,.18);border:1px solid rgba(255,200,0,.4);border-radius:7px;padding:8px 12px;margin-top:12px;font-size:.82rem;line-height:1.5;">⚠️ <strong>Single Occupancy Notice:</strong> Single occupancy cabins require a <strong>double deposit</strong> and are charged at the <strong>double occupancy rate</strong>. Please contact the trip organizer if you have questions.</div>
       </div>
       <div class="progress-card">
-        <div class="ticker-wrap" id="grat-ticker"><div class="ticker-track">
-          <span class="ticker-item">⚠️ Gratuities are NOT INCLUDED in your cruise cabin costs &nbsp;—&nbsp; <a href="https://www.carnival.com/site-content/static-faq-2018/page-content#collapseOne-3-0" target="_blank" style="color:#fff;text-decoration:underline;">What are Service Gratuities? ↗</a></span>
-          <span class="ticker-item">⚠️ Gratuities are NOT INCLUDED in your cruise cabin costs &nbsp;—&nbsp; <a href="https://www.carnival.com/site-content/static-faq-2018/page-content#collapseOne-3-0" target="_blank" style="color:#fff;text-decoration:underline;">What are Service Gratuities? ↗</a></span>
-        </div></div>
+        
         <div class="progress-meta"><span>Payment Progress</span><span class="progress-pct" id="dash-pct"></span></div>
         <div class="pbar-track"><div class="pbar-fill" id="dash-pbar" style="width:0%"></div></div>
         <div class="progress-labels"><span id="dash-paid-label">$0 paid</span><span id="dash-total-label" style="color:var(--muted);font-style:italic;">Total: Pending admin update</span></div>
@@ -823,16 +820,16 @@
     <h3 style="text-align:center;color:var(--primary);margin-bottom:14px;">Before You Get Started</h3>
 
     <!-- Gratuities Info -->
-    <div style="background:#eef6fb;border:2px solid #bde0f5;border-radius:10px;padding:14px;margin-bottom:14px;">
+    <div style="background:#eef6fb;border:2px solid #bde0f5;border-radius:10px;padding:14px;margin-bottom:14px;overflow:hidden;">
       <div style="font-weight:800;color:var(--primary);margin-bottom:8px;">&#x1F4B3; Service Gratuities</div>
       <p style="font-size:.87rem;line-height:1.6;color:#1e3a52;margin-bottom:10px;">Gratuities are automatically charged to your <strong>Sail &amp; Sign Card</strong> and applied to your onboard account during the cruise. No separate payment is required before sailing.</p>
-      <table style="width:100%;border-collapse:collapse;font-size:.85rem;margin-bottom:10px;">
+      <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.82rem;margin-bottom:10px;">
         <thead><tr style="background:#c5e4f5;"><th style="padding:6px 10px;text-align:left;border-radius:6px 0 0 0;">Stateroom Type</th><th style="padding:6px 10px;text-align:center;">Per Person / Per Day</th><th style="padding:6px 10px;text-align:right;border-radius:0 6px 0 0;">6-Night Total (per person)</th></tr></thead>
         <tbody>
           <tr style="border-bottom:1px solid #bde0f5;"><td style="padding:7px 10px;">Standard Staterooms</td><td style="padding:7px 10px;text-align:center;font-weight:700;">$17.00 USD</td><td style="padding:7px 10px;text-align:right;font-weight:700;">$102.00 USD</td></tr>
           <tr><td style="padding:7px 10px;">Suite Staterooms</td><td style="padding:7px 10px;text-align:center;font-weight:700;">$19.00 USD</td><td style="padding:7px 10px;text-align:right;font-weight:700;">$114.00 USD</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p style="font-size:.82rem;color:#2563a8;margin:0;"><strong>Payment method:</strong> Sail &amp; Sign Card — charged automatically to your onboard account during the cruise.</p>
     </div>
 
@@ -1657,16 +1654,7 @@ async function sendRefundDeadlineReminders(){
 }
 
 // ── AUTH ────────────────────────────────────────────────────
-// Close login panel when clicking outside (but not when clicking toggle button)
-document.addEventListener('click',function(e){
-  const panel=document.getElementById('login-panel');
-  if(!panel)return;
-  const toggleBtn=document.getElementById('login-toggle-btn');
-  if(toggleBtn&&toggleBtn.contains(e.target))return;
-  if(!panel.contains(e.target)&&panel.style.display!=='none'){
-    panel.style.display='none';
-  }
-});
+
 
 function toggleLoginPanel(){
   const p=document.getElementById('login-panel');
