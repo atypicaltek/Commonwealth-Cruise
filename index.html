@@ -168,6 +168,10 @@
     /* REFRESH BTN */
     .btn-refresh{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.35);color:#fff;padding:5px 13px;border-radius:20px;cursor:pointer;font-size:.82rem;margin-right:6px;}
     .btn-refresh:hover{background:rgba(255,255,255,.25);}
+    .action-sel{padding:5px 8px;border-radius:7px;border:1.5px solid #e2e8f0;font-size:.8rem;cursor:pointer;background:#fff;color:var(--text);min-width:120px;max-width:160px;}
+    .action-sel:focus{outline:none;border-color:var(--secondary);}
+    .action-sel-sm{min-width:90px;font-size:.76rem;padding:3px 6px;max-width:130px;}
+    .occ-row td{padding:5px 10px 5px 26px !important;font-size:.82rem;background:#f8fafc;border-top:1px solid #f1f5f9;}
   </style>
 </head>
 <body>
@@ -250,7 +254,7 @@
   <div class="dash-body">
     <div id="dash-loading" class="loading"><div class="spinner"></div><p>Loading your payment info…</p></div>
     <div id="dash-content" style="display:none;">
-      <div class="welcome-banner"><h2 id="dash-welcome">Welcome!</h2><p>Here's your current payment status for the Commonwealth Cruise 2027</p><p style="margin-top:8px;"><a href="https://www.carnival.com/itinerary/6-day-bermuda-cruise/norfolk/freedom/6-days/brd?itinportcode=ORF&sailDate=06202027&numGuests=2&military=N&senior=N&pastGuest=Y&evsel=&hideSailingEvents=true&locality=1&currency=USD&roomType=IS" target="_blank" style="color:#1a4a7c;font-weight:700;font-size:.93rem;text-decoration:none;">🗺️ Cruise Itinerary ↗</a></p></div>
+      <div class="welcome-banner"><h2 id="dash-welcome">Welcome!</h2><p>Here's your current payment status for the Commonwealth Cruise 2027</p><p style="margin-top:8px;"><a href="#" onclick="toggleItinerary();document.getElementById('itin-body').scrollIntoView({behavior:'smooth',block:'start'});return false;" style="color:#1a4a7c;font-weight:700;font-size:.93rem;text-decoration:none;">🗺️ View Cruise Itinerary ↓</a></p></div>
       <!-- CABIN INFO CARD -->
       <div id="dash-cabin-card" style="display:none;background:linear-gradient(135deg,#1a4f7a,#2e88cc);color:#fff;border-radius:14px;padding:16px 20px;margin-bottom:16px;box-shadow:0 4px 16px rgba(26,79,122,.25);">
         <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;opacity:.75;margin-bottom:6px;">Your Cabin Reservation</div>
@@ -278,6 +282,110 @@
         <div class="stat-card" onclick="showBalanceDetail()" style="cursor:pointer;" title="View balance breakdown"><div class="stat-icon">⏳</div><div class="stat-val" id="dash-balance-val" style="color:var(--muted);font-size:1rem;">Pending</div><div class="stat-label">Balance Due</div><div id="dash-balance-grat" style="font-size:.7rem;color:var(--muted);margin-top:3px;line-height:1.3;"></div></div>
         <div class="stat-card" onclick="showScheduleDetail()" style="cursor:pointer;" title="View full payment schedule"><div class="stat-icon">📅</div><div class="stat-val date" id="dash-nextdue-val">—</div><div class="stat-label">Next Due Date</div><div id="dash-nextdue-label" style="font-size:.72rem;color:var(--muted);margin-top:3px;line-height:1.3;"></div><div id="dash-nextdue-amt" style="font-size:.82rem;font-weight:700;color:var(--danger);margin-top:2px;"></div></div>
       </div>
+      <!-- ══ CRUISE ITINERARY ══════════════════════════════════════ -->
+      <div class="card" style="overflow:hidden;padding:0;">
+        <div style="background:linear-gradient(135deg,#0f2744 0%,#1a4a7c 60%,#1e5a94 100%);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleItinerary()">
+          <span style="color:#fff;font-weight:800;font-size:.97rem;">🗺️ Cruise Itinerary — 6-Day Bermuda</span>
+          <span id="itin-chevron" style="color:#c8ddf4;font-size:1.1rem;transition:transform .25s;">▼</span>
+        </div>
+        <div id="itin-body" style="display:none;padding:20px;">
+
+          <!-- Ship & Departure Info -->
+          <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;">
+            <div style="flex:1;min-width:140px;background:linear-gradient(135deg,#f0f7ff,#e8f0fb);border-radius:10px;padding:13px 15px;border-left:4px solid #1a4a7c;">
+              <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:4px;">Ship</div>
+              <div style="font-weight:800;color:#1a4a7c;font-size:.95rem;">Carnival Freedom</div>
+            </div>
+            <div style="flex:1;min-width:140px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:10px;padding:13px 15px;border-left:4px solid #16a34a;">
+              <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:4px;">Departure</div>
+              <div style="font-weight:800;color:#16a34a;font-size:.95rem;">Sun, June 20 @ 4:00 PM</div>
+              <div style="font-size:.78rem;color:#374151;">Norfolk, VA</div>
+            </div>
+            <div style="flex:1;min-width:140px;background:linear-gradient(135deg,#fff7ed,#fed7aa);border-radius:10px;padding:13px 15px;border-left:4px solid #ea580c;">
+              <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:4px;">Return</div>
+              <div style="font-weight:800;color:#ea580c;font-size:.95rem;">Sat, June 26 @ 8:00 AM</div>
+              <div style="font-size:.78rem;color:#374151;">Norfolk, VA</div>
+            </div>
+          </div>
+
+          <!-- Day-by-Day -->
+          <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:10px;">Day-by-Day Schedule</div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+
+            <div style="display:flex;gap:12px;align-items:flex-start;">
+              <div style="min-width:68px;background:#1a4a7c;color:#fff;border-radius:8px;padding:7px 10px;text-align:center;font-weight:800;font-size:.8rem;line-height:1.3;">Day 1<br><span style="font-size:.68rem;font-weight:600;opacity:.85;">Jun 20</span></div>
+              <div style="flex:1;background:#f8fafc;border-radius:8px;padding:10px 13px;border:1px solid #e2e8f0;">
+                <div style="font-weight:800;color:#1e293b;">📍 Norfolk, Virginia</div>
+                <div style="font-size:.83rem;color:#64748b;margin-top:2px;">Embarkation — Departs 4:00 PM · Enjoy the ship, settle in, and get ready to sail!</div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:12px;align-items:flex-start;">
+              <div style="min-width:68px;background:#0e7490;color:#fff;border-radius:8px;padding:7px 10px;text-align:center;font-weight:800;font-size:.8rem;line-height:1.3;">Days 2–3<br><span style="font-size:.68rem;font-weight:600;opacity:.85;">Jun 21–22</span></div>
+              <div style="flex:1;background:#f8fafc;border-radius:8px;padding:10px 13px;border:1px solid #e2e8f0;">
+                <div style="font-weight:800;color:#1e293b;">🌊 Fun Days at Sea</div>
+                <div style="font-size:.83rem;color:#64748b;margin-top:2px;">Two full days at sea — pools, waterslides, entertainment, worship experiences, dining, and more aboard Carnival Freedom.</div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:12px;align-items:flex-start;">
+              <div style="min-width:68px;background:#0f766e;color:#fff;border-radius:8px;padding:7px 10px;text-align:center;font-weight:800;font-size:.8rem;line-height:1.3;">Day 4<br><span style="font-size:.68rem;font-weight:600;opacity:.85;">Jun 23</span></div>
+              <div style="flex:1;background:#f0fdfa;border-radius:8px;padding:10px 13px;border:1.5px solid #99f6e4;">
+                <div style="font-weight:800;color:#0f766e;">🏝️ Bermuda — Arrives 10:00 AM</div>
+                <div style="font-size:.83rem;color:#374151;margin-top:2px;">First day in Bermuda! Crystal-clear waters, pink sand beaches, snorkeling, and world-class shore excursions await.</div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:12px;align-items:flex-start;">
+              <div style="min-width:68px;background:#0f766e;color:#fff;border-radius:8px;padding:7px 10px;text-align:center;font-weight:800;font-size:.8rem;line-height:1.3;">Day 5<br><span style="font-size:.68rem;font-weight:600;opacity:.85;">Jun 24</span></div>
+              <div style="flex:1;background:#f0fdfa;border-radius:8px;padding:10px 13px;border:1.5px solid #99f6e4;">
+                <div style="font-weight:800;color:#0f766e;">🏝️ Bermuda — Departs 4:00 PM</div>
+                <div style="font-size:.83rem;color:#374151;margin-top:2px;">Second full day in Bermuda — explore the island, visit the beaches, or join a shore excursion before we set sail.</div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:12px;align-items:flex-start;">
+              <div style="min-width:68px;background:#0e7490;color:#fff;border-radius:8px;padding:7px 10px;text-align:center;font-weight:800;font-size:.8rem;line-height:1.3;">Day 6<br><span style="font-size:.68rem;font-weight:600;opacity:.85;">Jun 25</span></div>
+              <div style="flex:1;background:#f8fafc;border-radius:8px;padding:10px 13px;border:1px solid #e2e8f0;">
+                <div style="font-weight:800;color:#1e293b;">🌊 Fun Day at Sea</div>
+                <div style="font-size:.83rem;color:#64748b;margin-top:2px;">One last day on the water — relax, enjoy final worship experiences, entertainment, and make memories before we head home.</div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:12px;align-items:flex-start;">
+              <div style="min-width:68px;background:#1a4a7c;color:#fff;border-radius:8px;padding:7px 10px;text-align:center;font-weight:800;font-size:.8rem;line-height:1.3;">Day 7<br><span style="font-size:.68rem;font-weight:600;opacity:.85;">Jun 26</span></div>
+              <div style="flex:1;background:#f8fafc;border-radius:8px;padding:10px 13px;border:1px solid #e2e8f0;">
+                <div style="font-weight:800;color:#1e293b;">🏠 Norfolk, Virginia — Arrives 8:00 AM</div>
+                <div style="font-size:.83rem;color:#64748b;margin-top:2px;">Disembarkation — We return to Norfolk. Safe travels home and see you on the next one!</div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- What's Included -->
+          <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:10px;">What's Included</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:20px;">
+            <div style="background:#f0f7ff;border-radius:8px;padding:9px 12px;font-size:.84rem;font-weight:600;color:#1a4a7c;border-left:3px solid #1a4a7c;">🍽️ Unlimited Meals at 15+ Venues</div>
+            <div style="background:#f0f7ff;border-radius:8px;padding:9px 12px;font-size:.84rem;font-weight:600;color:#1a4a7c;border-left:3px solid #1a4a7c;">🎭 Unlimited Entertainment</div>
+            <div style="background:#f0f7ff;border-radius:8px;padding:9px 12px;font-size:.84rem;font-weight:600;color:#1a4a7c;border-left:3px solid #1a4a7c;">⚽ Unlimited Sporting Activities</div>
+            <div style="background:#f0f7ff;border-radius:8px;padding:9px 12px;font-size:.84rem;font-weight:600;color:#1a4a7c;border-left:3px solid #1a4a7c;">💧 Unlimited Waterpark</div>
+            <div style="background:#f0fdf4;border-radius:8px;padding:9px 12px;font-size:.84rem;font-weight:600;color:#166534;border-left:3px solid #16a34a;">🏝️ Two Days in Bermuda</div>
+            <div style="background:#fdf4ff;border-radius:8px;padding:9px 12px;font-size:.84rem;font-weight:600;color:#6b21a8;border-left:3px solid #9333ea;">🙏 Three Worship Experiences at Sea</div>
+          </div>
+
+          <!-- Ship Highlights -->
+          <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:10px;">Carnival Freedom Highlights</div>
+          <div style="background:#f8fafc;border-radius:10px;padding:13px 15px;font-size:.85rem;line-height:1.7;color:#374151;border:1px solid #e2e8f0;">
+            <strong>Dining:</strong> Guy's Burger Joint, BlueIguana Cantina, Bonsai Sushi Express, two full dining rooms &amp; more<br>
+            <strong>Drinks &amp; Bars:</strong> Alchemy Bar, Heroes Tribute Bar, RedFrog Rum Bar, BlueIguana Tequila Bar, RedFrog Pub<br>
+            <strong>Entertainment:</strong> Scott's Piano Bar, 70's Nightclub, Playlist Productions live shows<br>
+            <strong>Kids &amp; Family:</strong> Camp Ocean, CarnivalWaterWorks waterslides, mini-golf<br>
+            <strong>Adults:</strong> Serenity adult-only retreat &amp; Cherry On Top sweet shop
+          </div>
+
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-header"><span class="card-title">📋 Payment Schedule</span><span id="dash-cabin-badge" class="badge badge-info" style="display:none;"></span></div>
         <div id="dash-schedule" class="table-wrap"></div>
@@ -436,13 +544,14 @@
       <button class="tab-btn" onclick="switchTab('cancellations',this)">Cancellations</button>
       <button class="tab-btn" onclick="switchTab('docrequests',this)">Doc Requests</button>
       <button class="tab-btn" onclick="switchTab('suiterequests',this)">Suite Requests</button>
+      <button class="tab-btn" onclick="switchTab('cclentry',this);loadCCLEntry()">📋 CCL Entry</button>
       <button class="tab-btn" onclick="switchTab('reports',this)">📊 Reports</button>
     </div>
 
     <!-- TRAVELERS -->
     <div id="tab-travelers" class="tab-pane active">
       <div class="card">
-        <div class="card-header"><span class="card-title">All Travelers</span></div>
+        <div class="card-header"><span class="card-title">All Travelers</span><button class="btn btn-primary btn-sm" onclick="showAdminAddTraveler()" style="font-size:.79rem;">+ Add Manually</button></div>
         <div id="admin-travelers" class="table-wrap"><div class="loading"><div class="spinner"></div></div></div>
       </div>
     </div>
@@ -532,6 +641,14 @@
       </div>
     </div>
 
+    <!-- CCL ENTRY -->
+    <div id="tab-cclentry" class="tab-pane">
+      <div class="card">
+        <div class="card-header"><span class="card-title">&#x1F4CB; CCL Entry — Ready for Carnival Submission</span></div>
+        <div id="admin-cclentry" class="table-wrap"><div class="empty"><div class="ei">&#x1F4CB;</div><p>Click the CCL Entry tab to load.</p></div></div>
+      </div>
+    </div>
+
     <!-- REPORTS -->
     <div id="tab-reports" class="tab-pane">
       <div class="card">
@@ -600,34 +717,18 @@
     <div style="font-size:2rem;text-align:center;margin-bottom:10px;">🛳️ Welcome Aboard!</div>
     <h3 style="text-align:center;color:var(--primary);margin-bottom:14px;">Before You Get Started</h3>
 
-    <!-- Gratuities Notice -->
-    <div style="background:#fdf0ee;border:2px solid #f5c6c0;border-radius:10px;padding:14px;margin-bottom:14px;">
-      <div style="font-weight:800;color:var(--danger);margin-bottom:8px;">⚠️ Gratuities Notice</div>
-      <p style="font-size:.87rem;line-height:1.6;color:#7b1c14;margin-bottom:10px;">Gratuities are <strong>NOT INCLUDED</strong> in your cruise cabin costs. These are a separate charge. <a href="https://help.carnival.com/app/answers/category/c/481" target="_blank" style="color:var(--danger);font-weight:700;">What are Service Gratuities? ↗</a></p>
-      <table style="width:100%;border-collapse:collapse;font-size:.85rem;margin-bottom:12px;">
-        <thead><tr style="background:#f9d6d2;"><th style="padding:6px 10px;text-align:left;border-radius:6px 0 0 0;">Stateroom Type</th><th style="padding:6px 10px;text-align:right;border-radius:0 6px 0 0;">Per Person / Per Day</th></tr></thead>
+    <!-- Gratuities Info -->
+    <div style="background:#eef6fb;border:2px solid #bde0f5;border-radius:10px;padding:14px;margin-bottom:14px;">
+      <div style="font-weight:800;color:var(--primary);margin-bottom:8px;">&#x1F4B3; Service Gratuities</div>
+      <p style="font-size:.87rem;line-height:1.6;color:#1e3a52;margin-bottom:10px;">Gratuities are automatically charged to your <strong>Sail &amp; Sign Card</strong> and applied to your onboard account during the cruise. No separate payment is required before sailing.</p>
+      <table style="width:100%;border-collapse:collapse;font-size:.85rem;margin-bottom:10px;">
+        <thead><tr style="background:#c5e4f5;"><th style="padding:6px 10px;text-align:left;border-radius:6px 0 0 0;">Stateroom Type</th><th style="padding:6px 10px;text-align:center;">Per Person / Per Day</th><th style="padding:6px 10px;text-align:right;border-radius:0 6px 0 0;">6-Night Total (per person)</th></tr></thead>
         <tbody>
-          <tr style="border-bottom:1px solid #f5c6c0;"><td style="padding:7px 10px;">Standard Staterooms</td><td style="padding:7px 10px;text-align:right;font-weight:700;">$17.00 USD</td></tr>
-          <tr><td style="padding:7px 10px;">Suite Staterooms</td><td style="padding:7px 10px;text-align:right;font-weight:700;">$19.00 USD</td></tr>
+          <tr style="border-bottom:1px solid #bde0f5;"><td style="padding:7px 10px;">Standard Staterooms</td><td style="padding:7px 10px;text-align:center;font-weight:700;">$17.00 USD</td><td style="padding:7px 10px;text-align:right;font-weight:700;">$102.00 USD</td></tr>
+          <tr><td style="padding:7px 10px;">Suite Staterooms</td><td style="padding:7px 10px;text-align:center;font-weight:700;">$19.00 USD</td><td style="padding:7px 10px;text-align:right;font-weight:700;">$114.00 USD</td></tr>
         </tbody>
       </table>
-      <p style="font-size:.83rem;color:#7b1c14;margin-bottom:8px;font-weight:700;">How would you like to handle gratuities?</p>
-      <div id="grat-link-notice" style="background:#fffbeb;border:1px solid #f6df74;border-radius:7px;padding:9px 12px;margin-bottom:10px;font-size:.83rem;">
-        📖 You must read about Service Gratuities before selecting an option:&nbsp;
-        <a href="https://help.carnival.com/app/answers/category/c/481" target="_blank" style="color:var(--danger);font-weight:700;" onclick="onGratLinkOpened()">What are Service Gratuities? ↗</a>
-        <span id="grat-link-check" style="display:none;color:var(--success);font-weight:700;margin-left:6px;">✓ Read</span>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:4px;">
-        <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;font-weight:500;font-size:.86rem;background:#fff8f7;border:1.5px solid #f5c6c0;border-radius:8px;padding:10px;" onclick="return gratChoiceClick(event)">
-          <input type="radio" name="grat-choice" id="grat-prepay" value="prepay" onchange="checkFirstLoginReady()" style="margin-top:2px;accent-color:var(--danger);">
-          <span><strong>Prepay Gratuities</strong> — Pay your gratuity amount before sailing. Contact the trip organizer or call Carnival directly to prepay.</span>
-        </label>
-        <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;font-weight:500;font-size:.86rem;background:#fff8f7;border:1.5px solid #f5c6c0;border-radius:8px;padding:10px;" onclick="return gratChoiceClick(event)">
-          <input type="radio" name="grat-choice" id="grat-sail" value="sail-sign" onchange="checkFirstLoginReady()" style="margin-top:2px;accent-color:var(--danger);">
-          <span><strong>Pay through Sail &amp; Sign Card</strong> — Gratuities will be charged automatically to your onboard account during the cruise.</span>
-        </label>
-      </div>
-      <div id="grat-choice-msg" style="display:none;color:var(--danger);font-size:.82rem;margin-top:4px;font-weight:600;">⚠️ Please open the "What are Service Gratuities?" link above before making a selection.</div>
+      <p style="font-size:.82rem;color:#2563a8;margin:0;"><strong>Payment method:</strong> Sail &amp; Sign Card — charged automatically to your onboard account during the cruise.</p>
     </div>
 
     <!-- Cabin Travelers Reminder -->
@@ -636,8 +737,12 @@
       <p style="font-size:.87rem;line-height:1.6;color:#0c4a6e;">You are required to add <strong>all travelers sharing your cabin</strong> using the Cabin Travelers section on your dashboard. This information is required for cruise check-in and must be completed before your first payment.</p>
     </div>
 
-    <div class="ck-group"><input type="checkbox" id="first-login-ack" onchange="checkFirstLoginReady()"><label for="first-login-ack" style="font-size:.87rem;">I understand that gratuities are <strong>NOT included</strong> in my cabin cost and are a separate charge, and that I must add all cabin travelers to my account.</label></div>
-    <button id="first-login-ok" class="btn btn-primary btn-full" style="margin-top:14px;" onclick="dismissFirstLogin()" disabled>Continue to Dashboard</button>
+    <div style="display:flex;flex-direction:column;gap:9px;margin-top:6px;">
+      <button class="btn btn-primary btn-full" onclick="firstLoginGoTravelers()">&#x1F9F3; Complete Cabin Traveler Info</button>
+      <button class="btn btn-full" style="background:#f1f5f9;color:var(--text);border:1.5px solid #e2e8f0;" onclick="firstLoginCloseLater()">&#x1F552; Close and Complete Later</button>
+      <button class="btn btn-full" style="background:#fff;color:var(--danger);border:1.5px solid #fca5a5;" onclick="firstLoginSignOut()">&#x1F6AA; Sign Out</button>
+    </div>
+    <p style="text-align:center;margin-top:10px;font-size:.79rem;color:var(--muted);">&#x24D8; This notice will reappear each login until your cabin traveler info is complete.</p>
   </div>
 </div>
 
@@ -739,6 +844,69 @@
     <div id="milestone-warning-content" style="background:#fdf0ee;border:2px solid #f5c6c0;border-radius:10px;padding:16px;margin-bottom:16px;font-size:.9rem;line-height:1.7;color:#7b1c14;"></div>
     <p style="font-size:.83rem;color:var(--muted);text-align:center;margin-bottom:16px;">Please make your payment as soon as possible to stay on schedule. Contact the trip organizer if you have any questions.</p>
     <button class="btn btn-primary btn-full" onclick="closeMilestoneWarning()">I Understand — View My Dashboard</button>
+  </div>
+</div>
+
+<!-- ADMIN ADD TRAVELER MODAL -->
+<div class="modal-overlay" id="admin-add-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box" style="max-width:560px;max-height:90vh;overflow-y:auto;">
+    <h3 style="margin:0 0 14px;color:var(--primary);">&#x2795; Add Traveler Manually</h3>
+    <div id="admin-add-alert" class="alert"></div>
+    <div class="grid-2" style="margin-bottom:12px;">
+      <div class="form-group" style="margin:0;"><label>First Name *</label><input type="text" id="aad-firstname" placeholder="Jane" autocomplete="off"></div>
+      <div class="form-group" style="margin:0;"><label>Last Name *</label><input type="text" id="aad-lastname" placeholder="Smith" autocomplete="off"></div>
+    </div>
+    <div class="form-group"><label>Email Address *</label><input type="email" id="aad-email" placeholder="jane@email.com" autocomplete="off"></div>
+    <div class="grid-2" style="margin-bottom:12px;">
+      <div class="form-group" style="margin:0;"><label>Cabin Type *</label>
+        <select id="aad-cabin-type"><option value="">— Select —</option><option value="Balcony">Balcony</option><option value="Ocean View">Ocean View</option><option value="Interior">Interior</option><option value="Suite">Suite</option></select>
+      </div>
+      <div class="form-group" style="margin:0;"><label>Number of Guests *</label>
+        <select id="aad-num-guests"><option value="">— Select —</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select>
+      </div>
+    </div>
+    <div style="background:#f0f7ff;border-radius:9px;padding:13px 15px;margin-bottom:14px;">
+      <p style="margin:0 0 10px;font-weight:700;font-size:.87rem;color:var(--primary);">Primary Traveler Details</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div class="form-group" style="margin:0;"><label style="font-size:.77rem;">Birth Month *</label><input type="number" id="aad-dob-m" placeholder="MM" min="1" max="12"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:.77rem;">Day *</label><input type="number" id="aad-dob-d" placeholder="DD" min="1" max="31"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:.77rem;">Year *</label><input type="number" id="aad-dob-y" placeholder="YYYY" min="1920"></div>
+      </div>
+      <div class="grid-2" style="margin-bottom:8px;">
+        <div class="form-group" style="margin:0;"><label style="font-size:.77rem;">Gender *</label>
+          <select id="aad-gender"><option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option><option value="Prefer Not to Answer">Prefer Not to Answer</option></select>
+        </div>
+        <div class="form-group" style="margin:0;"><label style="font-size:.77rem;">Citizenship *</label>
+          <select id="aad-citizenship"><option value="">Select</option><option value="us">U.S. Citizen</option><option value="us-pr">U.S. Perm. Resident</option><option value="non-us">Non-U.S. Citizen</option><option value="canadian">Canadian</option><option value="other">Other</option></select>
+        </div>
+      </div>
+      <div class="form-group" style="margin:0 0 8px;"><label style="font-size:.77rem;">Country of Citizenship *</label><input type="text" id="aad-country" placeholder="e.g. United States"></div>
+      <div class="form-group" style="margin:0;"><label style="font-size:.77rem;">Phone</label><input type="tel" id="aad-phone" placeholder="(555) 000-0000"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:10px 12px;background:#fffbeb;border-radius:8px;border:1px solid #fde68a;">
+      <input type="checkbox" id="aad-send-email" checked style="width:15px;height:15px;accent-color:var(--secondary);">
+      <label for="aad-send-email" style="font-size:.87rem;font-weight:600;color:#92400e;cursor:pointer;">Send welcome email with temporary PIN to traveler</label>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="document.getElementById('admin-add-modal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" id="aad-submit-btn" onclick="adminAddTraveler()">Create Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN RESET MODAL -->
+<div class="modal-overlay" id="pin-reset-modal">
+  <div class="modal-box" style="max-width:360px;">
+    <h3 style="margin:0 0 6px;color:var(--primary);">&#x1F512; Set Your Personal PIN</h3>
+    <p style="font-size:.87rem;color:var(--muted);margin:0 0 16px;">Your account was created by the trip organizer. Please set a personal 6-digit PIN to secure your account.</p>
+    <div id="pin-reset-alert" class="alert"></div>
+    <div class="form-group"><label>New 6-Digit PIN</label>
+      <div class="pin-row"><input class="pin-box" id="nr0" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="nr1" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="nr2" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="nr3" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="nr4" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="nr5" maxlength="1" inputmode="numeric" autocomplete="new-password"></div>
+    </div>
+    <div class="form-group"><label>Confirm PIN</label>
+      <div class="pin-row"><input class="pin-box" id="nc0" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="nc1" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="nc2" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="nc3" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="nc4" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="nc5" maxlength="1" inputmode="numeric" autocomplete="new-password"></div>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="savePinReset()">Set My PIN</button>
   </div>
 </div>
 
@@ -1325,6 +1493,15 @@ function emailCancellationToAdmin(travelerName,travelerEmail,cabinType,cabinNumb
   sendEmail(ADMIN_EMAIL,'Admin',subject,message);
 }
 
+// ── CRUISE ITINERARY TOGGLE ─────────────────────────────────
+function toggleItinerary(){
+  const body=document.getElementById('itin-body');
+  const chev=document.getElementById('itin-chevron');
+  const open=body.style.display==='block';
+  body.style.display=open?'none':'block';
+  chev.style.transform=open?'':'rotate(180deg)';
+}
+
 // ── REFUND DEADLINE REMINDER ────────────────────────────────
 function emailFullRefundReminder(name, email, totalPaid){
   const subject=`${TRIP_NAME} — Action Required: Full Refund Deadline Approaching`;
@@ -1383,6 +1560,7 @@ async function doLogin(){
   if(pin.length<6)return flash('login-alert','Please enter your complete 6-digit PIN.');
   const{data,error}=await sb.auth.signInWithPassword({email,password:pin});
   if(error){flash('login-alert','Invalid email or PIN. Please try again.');clearPin('lp');document.getElementById('lp0').focus();return;}
+  sessionStorage.setItem('fresh_login','1');
   await loadAndRoute(data.user);
 }
 
@@ -1454,7 +1632,7 @@ async function doReset(){
   setTimeout(()=>{sb.auth.signOut();showPage('login');},2500);
 }
 
-async function doLogout(){await sb.auth.signOut();gUser=null;gProfile=null;showPage('login');}
+async function doLogout(){sessionStorage.removeItem('fresh_login');await sb.auth.signOut();gUser=null;gProfile=null;showPage('login');}
 
 function onGratLinkOpened(){
   gGratLinkOpened=true;
@@ -1477,14 +1655,17 @@ function gratChoiceClick(e){
 }
 function checkFirstLoginReady(){
   const ack=document.getElementById('first-login-ack')?.checked;
-  const grat=document.querySelector('input[name="grat-choice"]:checked');
-  document.getElementById('first-login-ok').disabled=!(ack&&grat&&gGratLinkOpened);
+  document.getElementById('first-login-ok').disabled=!ack;
 }
 
 async function dismissFirstLogin(){
+  // Legacy — kept for any residual calls
+  firstLoginGoTravelers();
+}
+async function firstLoginGoTravelers(){
   document.getElementById('first-login-modal').classList.remove('open');
   await sb.from('profiles').update({first_login_complete:true}).eq('id',gUser.id);
-  // Auto-open the Add Cabin Traveler form so they can get started immediately
+  if(gProfile)gProfile.first_login_complete=true;
   const form=document.getElementById('add-traveler-form');
   if(form&&!form.classList.contains('open')){
     form.classList.add('open');
@@ -1494,6 +1675,15 @@ async function dismissFirstLogin(){
     setTimeout(()=>form.scrollIntoView({behavior:'smooth',block:'start'}),200);
   }
 }
+function firstLoginCloseLater(){
+  document.getElementById('first-login-modal').classList.remove('open');
+  // Do NOT set first_login_complete — modal will reappear next login
+}
+async function firstLoginSignOut(){
+  sessionStorage.removeItem('fresh_login');
+  await sb.auth.signOut();
+  location.reload();
+}
 
 // ── ROUTE ────────────────────────────────────────────────────
 async function loadAndRoute(user){
@@ -1502,7 +1692,15 @@ async function loadAndRoute(user){
   const{data:prof}=await sb.from('profiles').select('*').eq('id',user.id).single();
   gProfile=prof;
   if(isAdminByEmail||prof?.is_admin){showPage('admin');adminInit();}
-  else{showPage('dashboard');loadDashboard();}
+  else{
+    showPage('dashboard');
+    if(prof?.needs_pin_reset){
+      document.getElementById('pin-reset-modal').classList.add('open');
+      wirePins();
+    } else {
+      loadDashboard();
+    }
+  }
 }
 
 // ── PROFILE SETUP MODAL ──────────────────────────────────────
@@ -2687,124 +2885,107 @@ function switchTab(name,btn){
 }
 
 async function loadTravelers(){
-  // Fetch profiles, cabin assignments (via SECURITY DEFINER RPC — bypasses RLS + schema cache),
-  // payments, and cancellations all in parallel
   const[
     {data:profiles},
     {data:allCabins},
     {data:allPayments},
-    {data:allCancellations}
+    {data:allCabinTravelers}
   ]=await Promise.all([
-    sb.from('profiles').select('id,name,email,status,citizenship_type,country_of_citizenship,needs_doc_info').eq('is_admin',false).order('name'),
+    sb.from('profiles').select('id,name,email,status,needs_doc_info').eq('is_admin',false).order('name'),
     sb.rpc('admin_get_all_cabin_assignments'),
     sb.from('user_payments').select('user_id,amount_due,amount_paid'),
-    sb.from('cancellations').select('original_user_id,refund_processed,total_paid').order('canceled_at',{ascending:false})
+    sb.from('cabin_travelers').select('id,account_owner_id,first_name,middle_name,last_name,name_suffix,citizenship_type,country_of_citizenship,phone,date_of_birth,gender').order('created_at',{ascending:true})
   ]);
 
   const el=document.getElementById('admin-travelers');
-  if(!profiles||profiles.length===0){el.innerHTML='<div class="empty"><div class="ei">👥</div><p>No travelers yet.</p></div>';return;}
+  if(!profiles||profiles.length===0){el.innerHTML='<div class="empty"><div class="ei">&#x1F465;</div><p>No travelers yet.</p></div>';return;}
 
-  // Build lookup maps
-  const cabinMap={};
-  (allCabins||[]).forEach(c=>{cabinMap[c.user_id]=c;});
-  const payMap={};
-  (allPayments||[]).forEach(p=>{
+  const cabinMap={};(allCabins||[]).forEach(c=>{cabinMap[c.user_id]=c;});
+  const payMap={};(allPayments||[]).forEach(p=>{
     if(!payMap[p.user_id])payMap[p.user_id]={due:0,paid:0};
     payMap[p.user_id].due+=parseFloat(p.amount_due||0);
     payMap[p.user_id].paid+=parseFloat(p.amount_paid||0);
   });
-  // Keep only the most recent cancellation per user (first in array since sorted desc)
-  const cancelMap={};
-  (allCancellations||[]).forEach(c=>{
-    if(!cancelMap[c.original_user_id])cancelMap[c.original_user_id]=c;
+  const occupantMap={};(allCabinTravelers||[]).forEach(t=>{
+    if(!occupantMap[t.account_owner_id])occupantMap[t.account_owner_id]=[];
+    occupantMap[t.account_owner_id].push(t);
   });
+  window.gTravelerData={};
 
-  const citLabel={us:'U.S. Citizen','us-pr':'U.S. Perm. Resident','non-us':'Non-U.S.',canadian:'Canadian',other:'Other'};
   const active=profiles.filter(p=>p.status!=='cancelled');
-  const cancelled=profiles.filter(p=>p.status==='cancelled');
 
-  function makeRow(p,isCancelled){
+  function makeRow(p){
     const ca=cabinMap[p.id]||null;
     const pData=payMap[p.id]||{due:0,paid:0};
     const paid=pData.paid;
     const cabinCost=ca?.cabin_cost?parseFloat(ca.cabin_cost):null;
-    const bal=cabinCost?Math.max(0,cabinCost-paid):Math.max(0,pData.due-paid);
+    const bal=cabinCost?Math.max(0,cabinCost-paid):null;
     const pct=cabinCost?Math.min(100,Math.round((paid/cabinCost)*100)):(pData.due>0?Math.round((paid/pData.due)*100):0);
-    const cabinStr=ca?(ca.cabin_type+(ca.cabin_number?' #'+ca.cabin_number:'')):'—';
-    const cabinCostDisplay=cabinCost?`<strong>${fmt(cabinCost)}</strong>`:'<em style="color:var(--muted)">Not set</em>';
+    const cabinStr=ca?(ca.cabin_type+(ca.cabin_number?' #'+ca.cabin_number:'')):'No Cabin';
+    const cabinCostDisplay=cabinCost?('<strong>'+fmt(cabinCost)+'</strong>'):'<em style="color:var(--muted)">Not set</em>';
     const reservNum=ca?.guest_reservation_number||'—';
-    const payLink=ca?.payment_link?`<a href="${ca.payment_link}" target="_blank" style="color:var(--secondary);font-size:.79rem;word-break:break-all;">View Link ↗</a>`:'<em style="color:var(--muted);font-size:.79rem;">Not set</em>';
+    const payLink=ca?.payment_link?('<a href="'+ca.payment_link+'" target="_blank" style="color:var(--secondary);font-size:.79rem;">View &#x2197;</a>'):'—';
     const docB=p.needs_doc_info?'<span class="badge needs-info">Needs Doc</span> ':'';
-    const suiteB=ca?.suite_pending?'<span class="badge badge-warn">Suite⭐</span> ':'';
+    const suiteB=ca?.suite_pending?'<span class="badge badge-warn">Suite&#x2B50;</span> ':'';
     const noCabinB=!ca?'<span class="badge badge-gray">No Cabin</span> ':'';
-    const rowStyle=isCancelled?'opacity:.65;background:#fdf0ee;':'';
-    const safeName=(p.name||'').replace(/'/g,"\\'");
+    const safeN=(p.name||'').replace(/'/g,"\\'");
     const safePayLink=(ca?.payment_link||'').replace(/'/g,"\\'");
-
-    // ── Green tiles when data is already set ───────────────────
-    const cabinNumCls=ca?.cabin_number?'btn-success':'btn-warn';
-    const cabinNumLbl=ca?.cabin_number?'Cabin # ✓':'Cabin #';
-    const costCls=cabinCost?'btn-success':'btn-warn';
-    const costLbl=cabinCost?'Cost ✓':'Cost';
-    const resNumCls=ca?.guest_reservation_number?'btn-success':'btn-warn';
-    const resNumLbl=ca?.guest_reservation_number?'Res. # ✓':'Res. #';
-    const payLinkCls=ca?.payment_link?'btn-success':'btn-warn';
-    const payLinkLbl=ca?.payment_link?'Pay Link ✓':'Pay Link';
-
-    // ── Cancelled row: show refund status ──────────────────────
-    const cancelRec=cancelMap[p.id];
-    let cancelActions;
-    if(isCancelled){
-      const refundBadge=cancelRec?.refund_processed
-        ?'<span class="badge badge-success" style="margin-left:4px;">Refunded ✓</span>'
-        :'<span class="badge badge-danger" style="margin-left:4px;">Pending Refund</span>';
-      const markBtn=cancelRec&&!cancelRec.refund_processed
-        ?`<button class="btn-warn" style="margin-left:4px;" onclick="markRefunded_travelers('${p.id}')">Mark Refunded</button>`:'';
-      cancelActions=`<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;"><span class="badge badge-danger">Cancelled</span>${refundBadge}${markBtn}</div>`;
-    }
-
-    const actions=isCancelled
-      ?cancelActions
-      :`<div style="display:flex;gap:4px;flex-wrap:wrap;">
-          <button class="${cabinNumCls}" onclick="assignCabinNumber('${p.id}','${safeName}','${ca?.cabin_type||''}','${ca?.cabin_number||''}')">${cabinNumLbl}</button>
-          <button class="${costCls}" onclick="setCabinCost('${p.id}','${safeName}','${ca?.cabin_cost||''}')">${costLbl}</button>
-          <button class="${resNumCls}" onclick="setReservationNumber('${p.id}','${safeName}','${ca?.guest_reservation_number||''}')">${resNumLbl}</button>
-          <button class="${payLinkCls}" onclick="setPaymentLink('${p.id}','${safeName}','${safePayLink}')">${payLinkLbl}</button>
-          <button class="${ca?.gratuity_paid?'btn-success':'btn-warn'}" onclick="setGratuityPaid('${p.id}','${safeName}',${!!ca?.gratuity_paid})">Grat ${ca?.gratuity_paid?'✓':'—'}</button>
-          <button class="btn-danger" onclick="cancelTraveler('${p.id}','${safeName}','${p.email||''}','${ca?.cabin_type||''}','${ca?.cabin_number||''}','${p.citizenship_type||''}',${paid})">Cancel</button>
-          <button class="btn-danger" style="opacity:.7;" onclick="deleteTraveler('${p.id}','${safeName}')">Delete</button>
-        </div>`;
-
-    return`<tr style="${rowStyle}">
-      <td><strong>${p.name||'<em style="font-weight:400;color:var(--muted)">No name yet</em>'}</strong> ${docB}${suiteB}${noCabinB}<br><small style="color:var(--muted)">${p.email||''}</small></td>
-      <td style="font-size:.84rem;">${citLabel[p.citizenship_type]||p.citizenship_type||'<em style="color:var(--muted)">—</em>'}${p.country_of_citizenship?'<br><small style="color:var(--muted)">'+p.country_of_citizenship+'</small>':''}</td>
-      <td><span class="badge badge-purple">${cabinStr}</span></td>
-      <td class="col-r">${cabinCostDisplay}</td>
-      <td style="font-size:.82rem;min-width:110px;"><div style="font-weight:600;color:var(--text);">${reservNum}</div><div style="margin-top:3px;">${payLink}</div></td>
-      <td class="col-r" style="color:var(--success)"><strong>${fmt(paid)}</strong></td>
-      <td class="col-r" style="color:${isCancelled?'var(--muted)':cabinCost?'var(--danger)':'var(--muted)'}">${isCancelled?'<em style="font-size:.82rem;">—</em>':cabinCost?fmt(bal):'<em style="font-size:.82rem;">—</em>'}</td>
-      <td><div class="pbar-row"><div class="mpbar-track"><div class="mpbar-fill" style="width:${isCancelled?0:pct}%"></div></div><small>${isCancelled?'—':pct+'%'}</small></div></td>
-      <td>${actions}</td>
-    </tr>`;
+    window.gTravelerData[p.id]={userId:p.id,name:p.name||'',email:p.email||'',
+      cabinType:ca?.cabin_type||'',cabinNumber:ca?.cabin_number||'',
+      citizenshipType:'',paid,
+      cabinCost:ca?.cabin_cost||'',resNum:ca?.guest_reservation_number||'',
+      payLink:ca?.payment_link||'',gratPaid:!!ca?.gratuity_paid};
+    const gratChk=ca?.gratuity_paid?' &#x2713;':'';
+    const cnChk=ca?.cabin_number?' &#x2713;':'';
+    const costChk=cabinCost?' &#x2713;':'';
+    const resChk=ca?.guest_reservation_number?' &#x2713;':'';
+    const plChk=ca?.payment_link?' &#x2713;':'';
+    const actionSel='<select class="action-sel" onchange="handleTravelerAction(this,\''+p.id+'\')">'+
+      '<option value="">&#x26A1; Actions...</option>'+
+      '<optgroup label="Cabin Details">'+
+        '<option value="cabin_num">&#x1F6AA; Cabin #'+cnChk+'</option>'+
+        '<option value="cost">&#x1F4B0; Cost'+costChk+'</option>'+
+        '<option value="res_num">&#x1F4CB; Res. #'+resChk+'</option>'+
+        '<option value="pay_link">&#x1F517; Pay Link'+plChk+'</option>'+
+        '<option value="gratuity">&#x1F91D; Gratuity'+gratChk+'</option>'+
+      '</optgroup>'+
+      '<optgroup label="Account">'+
+        '<option value="send_welcome">&#x1F4E7; Send Welcome Email</option>'+
+        '<option value="cancel">&#x1F6AB; Cancel Reservation</option>'+
+        '<option value="delete">&#x1F5D1; Delete Account</option>'+
+      '</optgroup>'+
+    '</select>';
+    const occupants=occupantMap[p.id]||[];
+    const occRows=occupants.slice(1).map(t=>{
+      const tName=[t.first_name,t.middle_name,t.last_name,t.name_suffix].filter(Boolean).join(' ')||'—';
+      const tid=t.id||'';
+      const tSafe=tName.replace(/'/g,"\\'");
+      return'<tr class="occ-row">'+
+        '<td colspan="5"><span style="color:var(--muted);margin-right:6px;">&#x2514;</span><strong>'+tName+'</strong><span style="font-size:.76rem;color:var(--muted);margin-left:8px;">'+(t.country_of_citizenship||'')+'</span></td>'+
+        '<td class="col-r" style="color:var(--muted);font-size:.79rem;">—</td>'+
+        '<td class="col-r" style="color:var(--muted);font-size:.79rem;">—</td>'+
+        '<td><select class="action-sel action-sel-sm" onchange="handleOccupantAction(this,\''+tid+'\',\''+tSafe+'\',\''+p.id+'\')">'+
+          '<option value="">Actions...</option>'+
+          '<option value="remove">&#x1F5D1; Remove from Cabin</option>'+
+        '</select></td>'+
+      '</tr>';
+    }).join('');
+    return'<tr>'+
+      '<td><strong>'+(p.name||'<em style="color:var(--muted)">No name</em>')+'</strong> '+docB+suiteB+noCabinB+'<br><small style="color:var(--muted)">'+(p.email||'')+'</small></td>'+
+      '<td><span class="badge badge-purple">'+cabinStr+'</span></td>'+
+      '<td class="col-r">'+cabinCostDisplay+'</td>'+
+      '<td style="font-size:.82rem;min-width:100px;">'+reservNum+'<br>'+payLink+'</td>'+
+      '<td class="col-r" style="color:var(--success)"><strong>'+fmt(paid)+'</strong></td>'+
+      '<td class="col-r" style="color:'+(cabinCost?'var(--danger)':'var(--muted)')+'">'+((bal!=null)?fmt(bal):'—')+'</td>'+
+      '<td><div class="pbar-row"><div class="mpbar-track"><div class="mpbar-fill" style="width:'+pct+'%"></div></div><small>'+pct+'%</small></div></td>'+
+      '<td>'+actionSel+'</td>'+
+    '</tr>'+occRows;
   }
 
-  const thead=`<thead><tr><th>Traveler</th><th>Citizenship</th><th>Cabin</th><th class="col-r">Cabin Cost</th><th>Res. # / Pay Link</th><th class="col-r">Total Paid</th><th class="col-r">Balance</th><th>Progress</th><th>Actions</th></tr></thead>`;
-  let html=`<div class="table-wrap"><table>${thead}<tbody>${active.map(p=>makeRow(p,false)).join('')}</tbody></table></div>`;
-  if(cancelled.length>0){
-    html+=`<div class="section-hdr" style="margin-top:22px;">Cancelled Travelers (${cancelled.length})</div>
-    <div class="table-wrap"><table>${thead}<tbody>${cancelled.map(p=>makeRow(p,true)).join('')}</tbody></table></div>`;
-  }
-  el.innerHTML=html;
+  const thead='<thead><tr><th>Traveler</th><th>Cabin</th><th class="col-r">Cost</th><th>Res. / Link</th><th class="col-r">Paid</th><th class="col-r">Balance</th><th>Progress</th><th>Actions</th></tr></thead>';
+  el.innerHTML='<div class="table-wrap"><table>'+thead+'<tbody>'+active.map(makeRow).join('')+'</tbody></table></div>';
 }
 
-// Allow marking refunded directly from Travelers tab cancelled row
-async function markRefunded_travelers(userId){
-  const{data:cancelRec}=await sb.from('cancellations').select('id').eq('original_user_id',userId).order('canceled_at',{ascending:false}).limit(1).single();
-  if(!cancelRec){alert('No cancellation record found for this traveler.');return;}
-  await sb.from('cancellations').update({refund_processed:true}).eq('id',cancelRec.id);
-  loadTravelers();
-  loadCancellationsTab();
-}
 
 async function assignCabinNumber(userId,name,cabinType,currentNum){
   const num=prompt(`Assign cabin number for ${name} (${cabinType}):\nCurrent: ${currentNum||'Not assigned'}`,currentNum||'');
@@ -3161,24 +3342,42 @@ async function showInventoryDetail(cabinType){
 
 // ── CANCELLATIONS ─────────────────────────────────────────────
 async function loadCancellationsTab(){
-  const{data}=await sb.from('cancellations').select('*').order('canceled_at',{ascending:false});
   const el=document.getElementById('admin-cancellations');
-  if(!data||data.length===0){el.innerHTML='<div class="empty"><div class="ei">✅</div><p>No cancellations.</p></div>';return;}
-  const rows=data.map(c=>{
-    const refundBadge=c.refund_processed?'<span class="badge badge-success">Refunded</span>':'<span class="badge badge-danger">Pending Refund</span>';
-    const btn=!c.refund_processed?`<button class="btn-warn" onclick="markRefunded('${c.id}')">Mark Refunded</button>`:'';
-    return`<tr>
-      <td><strong>${c.traveler_name}</strong><br><small style="color:var(--muted)">${c.traveler_email}</small></td>
-      <td>${c.cabin_type||'—'}</td>
-      <td>${c.cabin_number||'—'}</td>
-      <td class="col-r"><strong>${fmt(c.total_paid)}</strong></td>
-      <td>${c.refund_processed?'<span class="badge badge-success">Refunded ✓</span>':'<span class="badge badge-danger">Pending</span>'}</td>
-      <td>${new Date(c.canceled_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td>
-      <td>${btn}</td>
-    </tr>`;
-  });
-  el.innerHTML=`<table><thead><tr><th>Traveler</th><th>Cabin Type</th><th>Cabin #</th><th class="col-r">Total Paid</th><th>Refund</th><th>Canceled On</th><th>Action</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  const[{data:cancelledProfiles},{data:cancelRecs},{data:cancelCabins},{data:cancelPayments}]=await Promise.all([
+    sb.from('profiles').select('id,name,email,status').eq('status','cancelled').order('name'),
+    sb.from('cancellations').select('*').order('canceled_at',{ascending:false}),
+    sb.rpc('admin_get_all_cabin_assignments'),
+    sb.from('user_payments').select('user_id,amount_paid')
+  ]);
+  if((!cancelledProfiles||cancelledProfiles.length===0)&&(!cancelRecs||cancelRecs.length===0)){
+    el.innerHTML='<div class="empty"><div class="ei">&#x2705;</div><p>No cancellations.</p></div>';return;
+  }
+  const cancelRecMap={};
+  (cancelRecs||[]).forEach(c=>{if(!cancelRecMap[c.original_user_id])cancelRecMap[c.original_user_id]=c;});
+  const cabinMap={};(cancelCabins||[]).forEach(c=>{cabinMap[c.user_id]=c;});
+  const payMap={};(cancelPayments||[]).forEach(p=>{if(!payMap[p.user_id])payMap[p.user_id]=0;payMap[p.user_id]+=parseFloat(p.amount_paid||0);});
+  const rows=(cancelledProfiles||[]).map(p=>{
+    const cr=cancelRecMap[p.id];
+    const ca=cabinMap[p.id];
+    const totalPaid=cr?.total_paid??payMap[p.id]??0;
+    const cabinStr=cr?(cr.cabin_type||'—')+(cr.cabin_number?' #'+cr.cabin_number:''):(ca?(ca.cabin_type+(ca.cabin_number?' #'+ca.cabin_number:'')):'—');
+    const refundBadge=cr?.refund_processed?'<span class="badge badge-success">Refunded &#x2713;</span>':'<span class="badge badge-danger">Pending Refund</span>';
+    const cancelDate=cr?.canceled_at?new Date(cr.canceled_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+    const markBtn=cr&&!cr.refund_processed?('<button class="btn-warn" onclick="markRefunded(\''+cr.id+'\')">Mark Refunded</button>'):'';
+    const safeN=(p.name||'').replace(/'/g,"\\'");
+    const emailBtn='<button class="btn btn-ghost btn-sm" style="font-size:.76rem;padding:3px 8px;" onclick="emailCancellationToTraveler(\''+safeN+'\',\''+p.email+'\',\''+(cr?.cabin_type||'')+'\',\''+(cr?.cabin_number||'')+'\','+totalPaid+')">&#x1F4E7; Re-send</button>';
+    return'<tr>'+
+      '<td><strong>'+(p.name||'—')+'</strong><br><small style="color:var(--muted)">'+(p.email||'')+'</small></td>'+
+      '<td style="font-size:.83rem;">'+cabinStr+'</td>'+
+      '<td class="col-r"><strong style="color:var(--success)">'+fmt(totalPaid)+'</strong></td>'+
+      '<td>'+refundBadge+'</td>'+
+      '<td style="font-size:.82rem;color:var(--muted);">'+cancelDate+'</td>'+
+      '<td><div style="display:flex;gap:4px;flex-wrap:wrap;">'+markBtn+emailBtn+'</div></td>'+
+    '</tr>';
+  }).join('');
+  el.innerHTML='<table><thead><tr><th>Traveler</th><th>Cabin</th><th class="col-r">Paid</th><th>Refund</th><th>Cancelled On</th><th>Actions</th></tr></thead><tbody>'+rows+'</tbody></table>';
 }
+
 async function markRefunded(id){
   await sb.from('cancellations').update({refund_processed:true}).eq('id',id);
   loadCancellationsTab();
@@ -3252,16 +3451,212 @@ async function declineSuite(reqId,userId,backupCabin,name,email){
 
 // ── DOC REQUESTS ──────────────────────────────────────────────
 async function loadDocRequests(){
-  const{data}=await sb.from('profiles').select('*').eq('needs_doc_info',true).order('name');
   const el=document.getElementById('admin-docrequests');
-  if(!data||data.length===0){el.innerHTML='<div class="empty"><div class="ei">✅</div><p>No outstanding requests.</p></div>';return;}
-  const rows=data.map(p=>`<tr><td><strong>${p.name}</strong></td><td>${p.country_of_citizenship||'Not specified'}</td><td>${new Date(p.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td><td><button class="btn-accent btn btn-sm" onclick="draftDocEmail('${p.name}','${p.email||''}','${p.country_of_citizenship||''}')">✉️ Draft Email</button></td></tr>`);
-  el.innerHTML=`<table><thead><tr><th>Traveler</th><th>Country</th><th>Signed Up</th><th>Action</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  const{data:otherTravelers}=await sb.from('cabin_travelers')
+    .select('id,account_owner_id,first_name,last_name,country_of_citizenship,phone,profiles(name,email)')
+    .eq('citizenship_type','other')
+    .order('created_at',{ascending:true});
+  if(!otherTravelers||otherTravelers.length===0){
+    el.innerHTML='<div class="empty"><div class="ei">&#x2705;</div><p>No travelers with "Other" citizenship.</p></div>';return;
+  }
+  const rows=otherTravelers.map(t=>{
+    const tName=[t.first_name,t.last_name].filter(Boolean).join(' ')||'—';
+    const acctName=(t.profiles?.name||'—');
+    const acctEmail=t.profiles?.email||'—';
+    const phone=t.phone||'—';
+    const country=t.country_of_citizenship||'Not specified';
+    const safeN=acctName.replace(/'/g,"\\'");
+    return'<tr>'+
+      '<td><strong>'+tName+'</strong><br><small style="color:var(--muted)">Account: '+acctName+'</small></td>'+
+      '<td>'+country+'</td>'+
+      '<td>'+acctEmail+'</td>'+
+      '<td>'+phone+'</td>'+
+      '<td><button class="btn-accent btn btn-sm" style="font-size:.79rem;" onclick="draftDocEmail(\''+safeN+'\',\''+acctEmail+'\',\''+country+'\')">&#x2709;&#xFE0F; Draft Email</button></td>'+
+    '</tr>';
+  }).join('');
+  el.innerHTML='<table><thead><tr><th>Traveler</th><th>Country</th><th>Email</th><th>Phone</th><th>Action</th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+
 }
 function draftDocEmail(name,email,country){
   const subject=`${TRIP_NAME} — Travel Documentation for ${country} Citizens`;
   const body=`Hi ${name},\n\nThank you for signing up for the ${TRIP_NAME}!\n\nSince you are a citizen of ${country}, please review the travel documentation requirements specific to your country:\n\n[ADD DOCUMENTATION REQUIREMENTS HERE]\n\nFor general international requirements: https://help.goccl.com/app/answers/detail/a_id/1405\n\nPlease ensure all documents are in order before the cruise.\n\nBest regards,\n${ADMIN_EMAIL}`;
   sendEmail(email||ADMIN_EMAIL,name,subject,body);
+}
+
+// ── CCL ENTRY ─────────────────────────────────────────────────
+async function loadCCLEntry(){
+  const el=document.getElementById('admin-cclentry');
+  if(!el)return;
+  el.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  const[{data:profiles},{data:allCabins},{data:allTravelers}]=await Promise.all([
+    sb.from('profiles').select('id,name,email,status').eq('is_admin',false).neq('status','cancelled').order('name'),
+    sb.rpc('admin_get_all_cabin_assignments'),
+    sb.from('cabin_travelers').select('id,account_owner_id,salutation,first_name,middle_name,last_name,name_suffix,date_of_birth,gender,citizenship_type,country_of_citizenship,phone').order('created_at',{ascending:true})
+  ]);
+  const cabinMap={};(allCabins||[]).forEach(c=>{cabinMap[c.user_id]=c;});
+  const travelersByOwner={};(allTravelers||[]).forEach(t=>{
+    if(!travelersByOwner[t.account_owner_id])travelersByOwner[t.account_owner_id]=[];
+    travelersByOwner[t.account_owner_id].push(t);
+  });
+  function isComplete(t){return t.first_name&&t.last_name&&t.date_of_birth&&t.gender&&t.citizenship_type&&t.country_of_citizenship;}
+  const ready=[];
+  (profiles||[]).forEach(p=>{
+    const ca=cabinMap[p.id];
+    if(!ca||!ca.num_guests)return;
+    const travelers=travelersByOwner[p.id]||[];
+    if(travelers.length<ca.num_guests)return;
+    if(!travelers.every(isComplete))return;
+    ready.push({p,ca,travelers});
+  });
+  if(ready.length===0){
+    el.innerHTML='<div class="empty"><div class="ei">&#x23F3;</div><p>No accounts with complete traveler information yet. Accounts appear here once all cabin traveler slots are filled with complete info.</p></div>';return;
+  }
+  const cards=ready.map(({p,ca,travelers})=>{
+    const resNum=ca.guest_reservation_number?`<span style="font-weight:700;color:var(--success)">${ca.guest_reservation_number}</span>`:'<span style="color:var(--danger);font-weight:700;">MISSING</span>';
+    const tRows=travelers.map((t,i)=>{
+      const dob=t.date_of_birth?new Date(t.date_of_birth+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'2-digit',year:'numeric'}):'—';
+      const fn=[t.salutation,t.first_name,t.middle_name,t.last_name,t.name_suffix].filter(Boolean).join(' ');
+      return`<tr style="background:${i%2?'#f9fafb':'#fff'}">
+        <td style="padding:7px 10px;font-size:.82rem;font-weight:700;color:#64748b;">Guest ${i+1}</td>
+        <td style="padding:7px 10px;font-size:.82rem;">${fn}</td>
+        <td style="padding:7px 10px;font-size:.82rem;">${dob}</td>
+        <td style="padding:7px 10px;font-size:.82rem;">${t.gender||'—'}</td>
+        <td style="padding:7px 10px;font-size:.82rem;">${t.citizenship_type||'—'}</td>
+        <td style="padding:7px 10px;font-size:.82rem;">${t.country_of_citizenship||'—'}</td>
+        <td style="padding:7px 10px;font-size:.82rem;">${t.phone||'—'}</td>
+      </tr>`;
+    }).join('');
+    return`<div style="margin-bottom:14px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+      <div style="background:linear-gradient(135deg,#0f2744,#1a4a7c);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div><span style="color:#fff;font-weight:700;">${p.name}</span><span style="color:#94b8d4;font-size:.82rem;margin-left:8px;">${p.email}</span></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <span style="background:rgba(255,255,255,.18);color:#fff;border-radius:6px;padding:3px 10px;font-size:.8rem;font-weight:700;">${ca.cabin_type}${ca.cabin_number?' #'+ca.cabin_number:''}</span>
+          <span style="color:#c8ddf4;font-size:.82rem;">Res #: ${resNum}</span>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:#f1f5f9;"><th style="padding:7px 10px;text-align:left;font-size:.73rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px;">Guest</th><th style="padding:7px 10px;text-align:left;font-size:.73rem;color:#64748b;text-transform:uppercase;">Full Name</th><th style="padding:7px 10px;text-align:left;font-size:.73rem;color:#64748b;text-transform:uppercase;">Date of Birth</th><th style="padding:7px 10px;text-align:left;font-size:.73rem;color:#64748b;text-transform:uppercase;">Gender</th><th style="padding:7px 10px;text-align:left;font-size:.73rem;color:#64748b;text-transform:uppercase;">Citizenship</th><th style="padding:7px 10px;text-align:left;font-size:.73rem;color:#64748b;text-transform:uppercase;">Country</th><th style="padding:7px 10px;text-align:left;font-size:.73rem;color:#64748b;text-transform:uppercase;">Phone</th></tr></thead>
+        <tbody>${tRows}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+  el.innerHTML=`<p style="font-size:.87rem;color:var(--muted);margin-bottom:12px;">${ready.length} account${ready.length===1?'':'s'} ready — all cabin travelers have complete information.</p>${cards}`;
+}
+
+// ── TRAVELER ACTION HANDLERS ──────────────────────────────────
+function handleTravelerAction(sel,userId){
+  const d=window.gTravelerData?.[userId];
+  if(!d){sel.value='';return;}
+  const v=sel.value;sel.value='';
+  if(v==='cabin_num')assignCabinNumber(d.userId,d.name,d.cabinType,d.cabinNumber);
+  else if(v==='cost')setCabinCost(d.userId,d.name,d.cabinCost);
+  else if(v==='res_num')setReservationNumber(d.userId,d.name,d.resNum);
+  else if(v==='pay_link')setPaymentLink(d.userId,d.name,d.payLink);
+  else if(v==='gratuity')setGratuityPaid(d.userId,d.name,d.gratPaid);
+  else if(v==='send_welcome'){
+    if(confirm('Send welcome email to '+d.name+' at '+d.email+'?\n\nThis will remind them to log in and set their PIN.')){
+      emailAccountCreated({name:d.name,email:d.email},'their reserved cabin');
+    }
+  }
+  else if(v==='cancel'){cancelTraveler(d.userId,d.name,d.email,d.cabinType,d.cabinNumber,d.citizenshipType,d.paid);}
+  else if(v==='delete'){deleteTraveler(d.userId,d.name);}
+}
+
+async function handleOccupantAction(sel,travelerId,name,ownerId){
+  const v=sel.value;sel.value='';
+  if(v==='remove'){
+    if(!travelerId){alert('Cannot remove — traveler ID not found.');return;}
+    if(!confirm('Remove '+name+' from the cabin?\n\nThis will delete their traveler record. The account holder can re-add them from their dashboard.\n\nContinue?'))return;
+    const{error}=await sb.from('cabin_travelers').delete().eq('id',travelerId);
+    if(error){alert('Error removing traveler: '+error.message);return;}
+    loadTravelers();
+  }
+}
+
+// ── ADMIN MANUAL ADD TRAVELER ─────────────────────────────────
+function showAdminAddTraveler(){
+  ['aad-firstname','aad-lastname','aad-email','aad-dob-m','aad-dob-d','aad-dob-y','aad-phone','aad-country'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['aad-cabin-type','aad-num-guests','aad-gender','aad-citizenship'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  document.getElementById('aad-send-email').checked=true;
+  document.getElementById('admin-add-alert').innerHTML='';
+  document.getElementById('admin-add-modal').classList.add('open');
+}
+
+async function adminAddTraveler(){
+  const fv=n=>document.getElementById(n)?.value?.trim()||'';
+  const firstName=fv('aad-firstname'),lastName=fv('aad-lastname');
+  const emailVal=fv('aad-email'),cabinType=fv('aad-cabin-type');
+  const numGuests=parseInt(fv('aad-num-guests'))||0;
+  const dobM=fv('aad-dob-m'),dobD=fv('aad-dob-d'),dobY=fv('aad-dob-y');
+  const gender=fv('aad-gender'),citizenship=fv('aad-citizenship'),country=fv('aad-country');
+  const phone=fv('aad-phone');
+  const sendWelcome=document.getElementById('aad-send-email').checked;
+  const alertEl=document.getElementById('admin-add-alert');
+  function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';}
+  if(!firstName||!lastName)return showErr('First and last name are required.');
+  if(!emailVal||!emailVal.includes('@'))return showErr('Valid email address required.');
+  if(!cabinType)return showErr('Please select a cabin type.');
+  if(!numGuests)return showErr('Please select number of guests.');
+  if(!dobM||!dobD||!dobY||!gender||!citizenship||!country)return showErr('All primary traveler fields (DOB, gender, citizenship) are required.');
+  const btn=document.getElementById('aad-submit-btn');
+  btn.disabled=true;btn.textContent='Creating...';alertEl.style.display='none';
+  try{
+    const tempPin=String(Math.floor(100000+Math.random()*900000));
+    const fullName=firstName+' '+lastName;
+    // Use separate non-persistent client so admin stays logged in
+    const sbTemp=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+    const{data:authData,error:authErr}=await sbTemp.auth.signUp({
+      email:emailVal,password:tempPin,
+      options:{data:{full_name:fullName},emailRedirectTo:window.location.href}
+    });
+    if(authErr)throw new Error('Auth error: '+authErr.message);
+    const newUserId=authData?.user?.id;
+    if(!newUserId)throw new Error('Account creation returned no user ID. Email may already be in use.');
+    const{error:profErr}=await sb.rpc('admin_create_profile',{p_user_id:newUserId,p_name:fullName,p_email:emailVal,p_needs_pin_reset:true});
+    if(profErr)throw new Error('Profile error: '+profErr.message);
+    const{error:caErr}=await sb.rpc('admin_create_cabin_assignment',{p_user_id:newUserId,p_cabin_type:cabinType,p_num_guests:numGuests});
+    if(caErr)throw new Error('Cabin error: '+caErr.message);
+    await sb.rpc('decrement_cabin',{cabin:cabinType});
+    const dob=dobY+'-'+String(dobM).padStart(2,'0')+'-'+String(dobD).padStart(2,'0');
+    await sb.from('cabin_travelers').insert({account_owner_id:newUserId,first_name:firstName,last_name:lastName,date_of_birth:dob,gender,citizenship_type:citizenship,country_of_citizenship:country,phone:phone||null});
+    if(sendWelcome){
+      const emailHtml=buildEmailHtml(fullName,
+        '<p>Your account for the <strong>'+TRIP_NAME+'</strong> payment portal has been created by the trip organizer.</p>'+
+        '<div style="margin:18px 0;padding:14px 18px;background:#f0fdf4;border-left:4px solid #16a34a;border-radius:0 8px 8px 0;">'+
+        '<p style="margin:0 0 4px;font-weight:700;color:#16a34a;">Your Temporary PIN</p>'+
+        '<p style="margin:0;font-size:1.6rem;font-weight:800;letter-spacing:8px;color:#1e293b;">'+tempPin+'</p>'+
+        '<p style="margin:6px 0 0;font-size:.83rem;color:#64748b;">You will be prompted to create a personal PIN when you first log in.</p>'+
+        '</div>'+
+        '<p>Sign in at <a href="'+window.location.href.split('?')[0]+'" style="color:var(--secondary)">the portal</a> to view your cabin details and payment schedule.</p>'
+      );
+      postEmail(emailVal,fullName,TRIP_NAME+' — Your Account is Ready',
+        'Your account for '+TRIP_NAME+' has been created. Temporary PIN: '+tempPin+'. Sign in at '+window.location.href.split('?')[0]+' and you will be prompted to set a personal PIN.',
+        emailHtml
+      );
+    }
+    document.getElementById('admin-add-modal').classList.remove('open');
+    alert('Account created for '+fullName+'.\n\nCabin: '+cabinType+' ('+numGuests+' guest'+(numGuests>1?'s':'')+')\nTemp PIN: '+tempPin+(sendWelcome?'\nWelcome email sent!':'\nNo email sent — share the temp PIN manually.'));
+    await Promise.all([loadTravelers(),loadInventoryTab(),loadPaymentFormSelects()]);
+  }catch(e){showErr(e.message);}
+  finally{btn.disabled=false;btn.textContent='Create Account';}
+}
+
+// ── PIN RESET (for admin-created accounts) ────────────────────
+async function savePinReset(){
+  const newPin=getPin('nr');
+  const confirmPin=getPin('nc');
+  const alertEl=document.getElementById('pin-reset-alert');
+  function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';}
+  if(newPin.length<6)return showErr('Please enter a complete 6-digit PIN.');
+  if(newPin!==confirmPin)return showErr('PINs do not match.');
+  const{error}=await sb.auth.updateUser({password:newPin});
+  if(error)return showErr('Error setting PIN: '+error.message);
+  await sb.from('profiles').update({needs_pin_reset:false}).eq('id',gUser.id);
+  gProfile={...gProfile,needs_pin_reset:false};
+  document.getElementById('pin-reset-modal').classList.remove('open');
+  clearPin('nr');clearPin('nc');
+  loadDashboard();
 }
 
 // ── REPORTS ──────────────────────────────────────────────────
@@ -3393,7 +3788,18 @@ window.addEventListener('load',async()=>{
     if(data.session){showPage('reset');return;}
   }
   const{data:{session}}=await sb.auth.getSession();
-  if(session){await loadAndRoute(session.user);return;}
+  if(session){
+    const isAdmin=session.user.email.toLowerCase()===ADMIN_EMAIL.toLowerCase();
+    const freshLogin=sessionStorage.getItem('fresh_login')==='1';
+    if(!isAdmin&&!freshLogin){
+      // Page reload — sign non-admin users out and return to login
+      await sb.auth.signOut();
+      showPage('login');
+    } else {
+      await loadAndRoute(session.user);
+    }
+    return;
+  }
   showPage('login');
   sb.auth.onAuthStateChange(async(event,session)=>{
     if(event==='PASSWORD_RECOVERY')showPage('reset');
