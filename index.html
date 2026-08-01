@@ -588,6 +588,7 @@
       <button class="tab-btn" onclick="switchTab('schedule',this)">Schedule</button>
       <button class="tab-btn" onclick="switchTab('payments',this)">Payments</button>
       <button class="tab-btn" onclick="switchTab('inventory',this)">Inventory</button>
+      <button class="tab-btn" onclick="switchTab('cabinchanges',this);loadCabinChanges()">🔄 Cabin Changes</button>
       <button class="tab-btn" onclick="switchTab('cancellations',this)">Cancellations</button>
       <button class="tab-btn" onclick="switchTab('docrequests',this)">Doc Requests</button>
       <button class="tab-btn" onclick="switchTab('suiterequests',this)">Suite Requests</button>
@@ -679,6 +680,15 @@
       <div class="card">
         <div class="card-header"><span class="card-title">Cancellation Requests</span></div>
         <div id="admin-cancellations" class="table-wrap"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- CABIN CHANGE REQUESTS -->
+    <div id="tab-cabinchanges" class="tab-pane">
+      <div class="card">
+        <div class="card-header"><span class="card-title">🔄 Cabin Change Requests</span></div>
+        <p style="font-size:.86rem;color:var(--muted);margin-bottom:12px;">Travelers who have submitted a cabin type change request. Approve to update their assignment and adjust inventory; decline to keep their current cabin.</p>
+        <div id="admin-cabin-changes" class="table-wrap"><div class="empty"><div class="ei">🔄</div><p>Click the Cabin Changes tab to load.</p></div></div>
       </div>
     </div>
 
@@ -3809,6 +3819,53 @@ async function submitCabinChangeRequest(){
     btn.disabled=false;btn.textContent='Submit Request';
   }
 }
+async function loadCabinChanges(){
+  const el=document.getElementById('admin-cabin-changes');
+  if(!el)return;
+  el.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+
+  // Fetch all cabin assignments with a pending change request
+  const{data:allCabins,error:caErr}=await sb.rpc('admin_get_all_cabin_assignments');
+  if(caErr){el.innerHTML='<div class="alert alert-error show">'+caErr.message+'</div>';return;}
+
+  const pending=(allCabins||[]).filter(c=>c.cabin_change_pending&&c.requested_cabin_type);
+
+  if(pending.length===0){
+    el.innerHTML='<div class="empty"><div class="ei">✅</div><p>No pending cabin change requests.</p></div>';
+    return;
+  }
+
+  // Get profile info (name + email) for each user
+  const userIds=pending.map(c=>c.user_id);
+  const{data:profiles}=await sb.from('profiles').select('id,name,email').in('id',userIds);
+  const profMap={};(profiles||[]).forEach(p=>{profMap[p.id]=p;});
+
+  const rows=pending.map(c=>{
+    const prof=profMap[c.user_id]||{};
+    const name=(prof.name||'Unknown').replace(/'/g,"\\'");
+    const email=prof.email||'';
+    const safeEmail=email.replace(/'/g,"\\'");
+    const userId=c.user_id;
+    const currentType=c.cabin_type||'Unknown';
+    const requestedType=c.requested_cabin_type;
+    return`<tr>
+      <td><strong>${prof.name||'—'}</strong><br><small style="color:var(--muted)">${email}</small></td>
+      <td><span class="badge badge-info">${currentType}</span></td>
+      <td style="font-size:1.1rem;">→</td>
+      <td><span class="badge badge-warn">${requestedType}</span></td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-success btn-sm" style="margin-right:6px;font-size:.79rem;" onclick="adminApproveCabinChange('${userId}','${name}','${safeEmail}','${currentType}','${requestedType}')">✅ Approve</button>
+        <button class="btn btn-danger btn-sm" style="font-size:.79rem;" onclick="adminDeclineCabinChange('${userId}','${name}','${safeEmail}','${currentType}','${requestedType}')">❌ Decline</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML=`<table>
+    <thead><tr><th>Traveler</th><th>Current Cabin</th><th></th><th>Requested</th><th>Action</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
 async function adminApproveCabinChange(userId,name,email,currentType,requestedType){
   if(!confirm('Approve cabin change for '+name+'?\n\nChange: '+currentType+' → '+requestedType+'\n\nInventory will be updated automatically.'))return;
   try{
@@ -3833,7 +3890,7 @@ async function adminApproveCabinChange(userId,name,email,currentType,requestedTy
     const approvedPlain='Dear '+name+',\n\nYour cabin type change request has been approved.\n\nPrevious: '+currentType+'\nNew: '+requestedType+'\n\nPlease log in to review your updated payment schedule.\n\nYour Commonwealth Cruise Team';
     sendEmail(email,name,TRIP_NAME+' — Cabin Change Approved',approvedPlain,approvedHtml);
     alert('Cabin change approved for '+name+'. Inventory updated. Confirmation email sent.');
-    await Promise.all([loadTravelers(),loadInventoryTab()]);
+    await Promise.all([loadTravelers(),loadInventoryTab(),loadCabinChanges()]);
   }catch(e){alert('Error approving change: '+e.message);}
 }
 async function adminDeclineCabinChange(userId,name,email,currentType,requestedType){
@@ -3854,7 +3911,7 @@ async function adminDeclineCabinChange(userId,name,email,currentType,requestedTy
     const declinedPlain='Dear '+name+',\n\nYour cabin change request from '+currentType+' to '+requestedType+' could not be approved at this time.\n\nYour current cabin reservation remains active.\n\nYour Commonwealth Cruise Team';
     sendEmail(email,name,TRIP_NAME+' — Cabin Change Request Update',declinedPlain,declinedHtml);
     alert('Request declined. '+name+' will keep their '+currentType+' cabin. Decline email sent.');
-    await loadTravelers();
+    await Promise.all([loadTravelers(),loadCabinChanges()]);
   }catch(e){alert('Error declining change: '+e.message);}
 }
 
@@ -3959,7 +4016,7 @@ async function notifyWaitlistSelected(){
 
 // ── ADMIN ────────────────────────────────────────────────────
 async function adminInit(){
-  await Promise.all([loadTravelers(),loadAdminMilestones(),loadPaymentFormSelects(),loadAdminPayments(),loadInventoryTab(),loadCancellationsTab(),loadDocRequests(),loadSuiteRequests(),loadReportMilestones()]);
+  await Promise.all([loadTravelers(),loadAdminMilestones(),loadPaymentFormSelects(),loadAdminPayments(),loadInventoryTab(),loadCancellationsTab(),loadDocRequests(),loadSuiteRequests(),loadReportMilestones(),loadCabinChanges()]);
 }
 function switchTab(name,btn){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
