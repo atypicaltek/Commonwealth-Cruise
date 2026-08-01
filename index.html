@@ -290,6 +290,8 @@
           </div>
         </div>
         <div id="dash-single-occ-note" style="display:none;background:rgba(255,200,0,.18);border:1px solid rgba(255,200,0,.4);border-radius:7px;padding:8px 12px;margin-top:12px;font-size:.82rem;line-height:1.5;">⚠️ <strong>Single Occupancy Notice:</strong> Single occupancy cabins require a <strong>double deposit</strong> and are charged at the <strong>double occupancy rate</strong>. Please contact the trip organizer if you have questions.</div>
+        <div id="dash-backup-cabin-row" style="display:none;margin-top:8px;font-size:.8rem;opacity:.85;">🔄 Backup Cabin Preference: <span id="dash-backup-cabin-display" style="font-weight:700;"></span></div>
+        <div id="dash-high-occ-note" style="display:none;background:rgba(255,200,0,.18);border:1px solid rgba(255,200,0,.4);border-radius:7px;padding:8px 12px;margin-top:8px;font-size:.82rem;line-height:1.5;">⏳ <strong>Occupancy Pending Review:</strong> Your cabin occupancy request is pending review by the Commonwealth Cruise Team for compliance with Carnival's cabin occupancy policy.</div>
       </div>
       <div class="progress-card">
         
@@ -426,7 +428,7 @@
 
           <div class="section-hdr">Personal Information</div>
           <div style="display:grid;grid-template-columns:80px 1fr 1fr 1fr 80px;gap:10px;margin-bottom:14px;">
-            <div class="form-group" style="margin-bottom:0;"><label>Title</label><select id="ct-salutation"><option value="">—</option><option>Mr.</option><option>Mrs.</option><option>Ms.</option><option>Dr.</option><option>Rev.</option></select></div>
+            <div class="form-group" style="margin-bottom:0;"><label>Title</label><select id="ct-salutation"><option value="">—</option><option>Mr.</option><option>Mrs.</option><option>Ms.</option><option>Miss.</option><option>Mstr.</option><option>Dr.</option><option>Rev.</option></select></div>
             <div class="form-group" style="margin-bottom:0;"><label>First Name *</label><input type="text" id="ct-firstname" placeholder="First" autocomplete="off"></div>
             <div class="form-group" style="margin-bottom:0;"><label>Middle Name</label><input type="text" id="ct-middlename" placeholder="(optional)" autocomplete="off"></div>
             <div class="form-group" style="margin-bottom:0;"><label>Last Name *</label><input type="text" id="ct-lastname" placeholder="Last" autocomplete="off"></div>
@@ -631,10 +633,21 @@
       <div class="card" style="margin-bottom:16px;">
         <div class="card-header"><span class="card-title">⏰ Full Refund Deadline Reminders</span></div>
         <div style="padding:16px 20px;">
-          <p style="margin:0 0 8px;font-size:.93rem;color:#374151;">Sends a reminder email to every traveler who has made any payment, advising them of the <strong>March 14, 2027</strong> full-refund deadline (one week before Carnival's 91-day cutoff for the 6/20/27 departure).</p>
-          <button id="btn-send-reminders" class="btn btn-warning" onclick="sendRefundDeadlineReminders()" style="background:#d97706;border-color:#b45309;color:#fff;">
-            Send Refund Deadline Reminders
-          </button>
+          <p style="margin:0 0 12px;font-size:.93rem;color:#374151;">Sends a reminder email to travelers who have made any payment, advising them of the <strong>March 14, 2027</strong> full-refund deadline. Load the list, select who to notify, then send.</p>
+          <button id="btn-load-reminders" class="btn btn-outline" onclick="loadReminderList()" style="margin-bottom:12px;">&#128196; Load Traveler List</button>
+          <div id="reminder-list-area" style="display:none;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:700;font-size:.9rem;">
+                <input type="checkbox" id="reminder-select-all" onchange="toggleAllReminders(this.checked)" style="width:16px;height:16px;">
+                Select All
+              </label>
+              <span id="reminder-count-label" style="font-size:.83rem;color:var(--muted);"></span>
+            </div>
+            <div id="reminder-checklist" style="border:1px solid #e2e8f0;border-radius:8px;max-height:320px;overflow-y:auto;margin-bottom:12px;"></div>
+            <button id="btn-send-reminders" class="btn btn-warning" onclick="sendSelectedReminders()" style="background:#d97706;border-color:#b45309;color:#fff;">
+              &#9993; Send to Selected
+            </button>
+          </div>
         </div>
       </div>
       <div class="card">
@@ -878,6 +891,28 @@
             </select>
           </div>
           <div id="psetup-occupancy-note" style="font-size:.81rem;color:var(--muted);margin-top:4px;line-height:1.4;"></div>
+          <!-- High-occupancy disclaimer (>3 guests) -->
+          <div id="psetup-high-occ-section" style="display:none;margin-top:12px;background:#fef3c7;border:1.5px solid #f6c440;border-radius:9px;padding:12px 14px;">
+            <p style="font-weight:700;color:#78460a;margin-bottom:8px;font-size:.88rem;">⚠️ High Cabin Occupancy Notice</p>
+            <p style="font-size:.84rem;color:#78460a;line-height:1.55;margin-bottom:10px;">Not all cabins allow more than 2 Guests. Your request is pending until the Commonwealth Cruise Team manually reviews for compliance with Carnival's cabin occupancy policy.</p>
+            <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;">
+              <input type="checkbox" id="psetup-high-occ-ack" style="margin-top:2px;width:16px;height:16px;flex-shrink:0;" onchange="onHighOccAckChange()">
+              <span style="font-size:.84rem;color:#78460a;line-height:1.4;">I understand and acknowledge this policy.</span>
+            </label>
+          </div>
+          <!-- Backup cabin preference (non-suite) -->
+          <div id="psetup-backup-section" style="display:none;margin-top:12px;">
+            <div class="form-group" style="margin:0;">
+              <label style="font-size:.85rem;">Backup Cabin Preference <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
+              <select id="psetup-backup-pref">
+                <option value="">— No preference —</option>
+                <option value="Balcony">Balcony Cabin</option>
+                <option value="Ocean View">Ocean View Cabin</option>
+                <option value="Interior">Interior Cabin</option>
+              </select>
+              <p style="font-size:.78rem;color:var(--muted);margin-top:4px;line-height:1.4;">If your selected cabin type is unavailable, which would you prefer as a backup? The trip organizer will contact you if a change is needed.</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1018,9 +1053,15 @@
     <div id="aep-alert" class="alert"></div>
     <input type="hidden" id="aep-user-id">
     <input type="hidden" id="aep-traveler-id">
-    <div class="grid-2" style="margin-bottom:12px;">
+    <div style="display:grid;grid-template-columns:90px 1fr 1fr 90px;gap:8px;margin-bottom:12px;">
+      <div class="form-group" style="margin:0;"><label>Title</label>
+        <select id="aep-salutation"><option value="">—</option><option>Mr.</option><option>Mrs.</option><option>Ms.</option><option>Miss.</option><option>Mstr.</option><option>Dr.</option><option>Rev.</option></select>
+      </div>
       <div class="form-group" style="margin:0;"><label>First Name *</label><input type="text" id="aep-firstname" autocomplete="off"></div>
       <div class="form-group" style="margin:0;"><label>Last Name *</label><input type="text" id="aep-lastname" autocomplete="off"></div>
+      <div class="form-group" style="margin:0;"><label>Suffix</label>
+        <select id="aep-suffix"><option value="">—</option><option>Jr.</option><option>Sr.</option><option>II</option><option>III</option><option>IV</option><option>Esq.</option></select>
+      </div>
     </div>
     <div class="form-group"><label>Email Address *</label><input type="email" id="aep-email" autocomplete="off"></div>
     <div style="background:#f0f7ff;border-radius:9px;padding:13px 15px;margin-bottom:14px;">
@@ -1817,27 +1858,79 @@ async function runMinorAndCompleteChecks(ownerId,travelers,ownerName,ownerEmail)
   await emailTravelerInfoComplete(travelers,ownerName,ownerEmail,issues.length>0?issues:null);
 }
 
-async function sendRefundDeadlineReminders(){
-  const btn=document.getElementById('btn-send-reminders');
-  if(btn){btn.disabled=true;btn.textContent='Sending…';}
+let gReminderTravelers=[];
+async function loadReminderList(){
+  const loadBtn=document.getElementById('btn-load-reminders');
+  const area=document.getElementById('reminder-list-area');
+  const list=document.getElementById('reminder-checklist');
+  const countLbl=document.getElementById('reminder-count-label');
+  if(loadBtn){loadBtn.disabled=true;loadBtn.textContent='Loading…';}
   try{
     const{data:travelers,error}=await sb.rpc('get_travelers_with_payments');
     if(error)throw new Error(error.message);
     if(!travelers||travelers.length===0){
-      alert('No travelers with payments found. No reminders sent.');
+      alert('No travelers with payments found.');
       return;
     }
+    gReminderTravelers=travelers;
+    list.innerHTML=travelers.map((t,i)=>{
+      const paid=parseFloat(t.total_paid||0);
+      return `<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:.9rem;" class="reminder-row">
+        <input type="checkbox" class="reminder-cb" data-idx="${i}" checked style="width:16px;height:16px;flex-shrink:0;">
+        <span style="flex:1;min-width:0;">
+          <span style="font-weight:700;display:block;">${t.name||'(No name)'}</span>
+          <span style="color:var(--muted);font-size:.82rem;">${t.email||''}</span>
+        </span>
+        <span style="color:var(--success);font-weight:700;font-size:.88rem;white-space:nowrap;">$${paid.toFixed(2)} paid</span>
+      </label>`;
+    }).join('');
+    document.getElementById('reminder-select-all').checked=true;
+    updateReminderCount();
+    area.style.display='block';
+    // Wire checkboxes to update count
+    list.querySelectorAll('.reminder-cb').forEach(cb=>{
+      cb.addEventListener('change',updateReminderCount);
+    });
+  }catch(err){
+    alert('Error loading travelers: '+err.message);
+  }finally{
+    if(loadBtn){loadBtn.disabled=false;loadBtn.textContent='↻ Reload List';}
+  }
+}
+function updateReminderCount(){
+  const checked=document.querySelectorAll('.reminder-cb:checked').length;
+  const total=gReminderTravelers.length;
+  const lbl=document.getElementById('reminder-count-label');
+  if(lbl)lbl.textContent=checked+' of '+total+' selected';
+  // Sync select-all state
+  const sa=document.getElementById('reminder-select-all');
+  if(sa)sa.checked=(checked===total&&total>0);
+}
+function toggleAllReminders(checked){
+  document.querySelectorAll('.reminder-cb').forEach(cb=>{cb.checked=checked;});
+  updateReminderCount();
+}
+async function sendSelectedReminders(){
+  const selected=[...document.querySelectorAll('.reminder-cb:checked')].map(cb=>{
+    const idx=parseInt(cb.dataset.idx);
+    return gReminderTravelers[idx];
+  }).filter(Boolean);
+  if(selected.length===0){alert('No travelers selected. Please check at least one name.');return;}
+  if(!confirm(`Send refund deadline reminders to ${selected.length} traveler${selected.length===1?'':'s'}?`))return;
+  const btn=document.getElementById('btn-send-reminders');
+  if(btn){btn.disabled=true;btn.textContent='Sending…';}
+  try{
     let sent=0;
-    for(const t of travelers){
+    for(const t of selected){
       emailFullRefundReminder(t.name,t.email,parseFloat(t.total_paid||0));
       sent++;
       await new Promise(r=>setTimeout(r,400));
     }
-    alert(`✅ Refund deadline reminders sent to ${sent} traveler${sent===1?'':'s'}.`);
+    alert('✅ Refund deadline reminders sent to '+sent+' traveler'+(sent===1?'':'s')+'.');
   }catch(err){
     alert('Error sending reminders: '+err.message);
   }finally{
-    if(btn){btn.disabled=false;btn.textContent='Send Refund Deadline Reminders';}
+    if(btn){btn.disabled=false;btn.textContent='✉ Send to Selected';}
   }
 }
 
@@ -2219,8 +2312,12 @@ async function doProfileSetup(){
   const suitePhone=isSuite?document.getElementById('psetup-suite-phone').value.trim():'';
   const numGuests=parseInt(document.getElementById('psetup-num-guests')?.value||'0')||null;
 
+  const backupPref=!isSuite?(document.getElementById('psetup-backup-pref')?.value||''):'';
+  const isHighOcc=numGuests>3;
+  const highOccAck=isHighOcc?document.getElementById('psetup-high-occ-ack')?.checked:true;
   if(!cabinType)return flash('psetup-alert','Please select a cabin type.');
   if(!numGuests)return flash('psetup-alert','Please select the number of people in your cabin.');
+  if(isHighOcc&&!highOccAck)return flash('psetup-alert','Please acknowledge the high cabin occupancy policy before continuing.');
   if(isSuite&&!backupCabin)return flash('psetup-alert','Please select a backup cabin type for your suite request.');
   if(isSuite&&!suitePhone)return flash('psetup-alert','Please enter a phone number for your suite request.');
 
@@ -2267,17 +2364,36 @@ async function doProfileSetup(){
   const email=gProfile?.email||gUser.email;
 
   if(isSuite){
-    const{error:caErr}=await sb.from('cabin_assignments').insert({user_id:gUser.id,cabin_type:backupCabin,suite_pending:true,num_guests:numGuests});
+    const{error:caErr}=await sb.from('cabin_assignments').insert({user_id:gUser.id,cabin_type:backupCabin,suite_pending:true,num_guests:numGuests,backup_cabin_type:backupCabin});
     if(caErr){flash('psetup-alert','Reservation error: '+caErr.message+'. Please try again or contact the trip organizer.');return;}
     await sb.rpc('decrement_cabin',{cabin:backupCabin});
     const{error:srErr}=await sb.from('suite_requests').insert({user_id:gUser.id,requestor_name:name,requestor_email:email,requestor_phone:suitePhone,backup_cabin_type:backupCabin});
     if(srErr)console.warn('Suite request row failed (non-fatal):',srErr.message);
     emailSuiteRequestReceived({name,email,citizenship_type:null},backupCabin,suitePhone);
   } else {
-    const{error:caErr}=await sb.from('cabin_assignments').insert({user_id:gUser.id,cabin_type:cabinType,num_guests:numGuests});
+    const caPayload={user_id:gUser.id,cabin_type:cabinType,num_guests:numGuests};
+    if(backupPref)caPayload.backup_cabin_type=backupPref;
+    if(isHighOcc)caPayload.high_occupancy_pending=true;
+    const{error:caErr}=await sb.from('cabin_assignments').insert(caPayload);
     if(caErr){flash('psetup-alert','Reservation error: '+caErr.message+'. Please try again or contact the trip organizer.');return;}
     await sb.rpc('decrement_cabin',{cabin:cabinType});
     emailAccountCreated({name,email,citizenship_type:null},cabinType);
+    // High-occupancy: send admin alert email
+    if(isHighOcc){
+      const highOccHtml=buildEmailHtml('Admin',
+        '<p><strong>A traveler has submitted a high cabin occupancy request requiring review.</strong></p>'+
+        buildPayTable([
+          {label:'Name',value:name},
+          {label:'Email',value:email},
+          {label:'Cabin Type',value:cabinType},
+          {label:'Number of Guests',value:String(numGuests)},
+          {label:'Backup Preference',value:backupPref||'None specified'},
+        ])+
+        '<p style="color:#b45309;font-weight:700;">Please manually review for compliance with Carnival\'s cabin occupancy policy before confirming.</p>'
+      );
+      const highOccPlain='High Cabin Occupancy Request\n\nName: '+name+'\nEmail: '+email+'\nCabin Type: '+cabinType+'\nNumber of Guests: '+numGuests+'\nBackup Preference: '+(backupPref||'None specified')+'\n\nPlease review for compliance with Carnival\'s cabin occupancy policy.';
+      sendEmail(ADMIN_EMAIL,'Admin',TRIP_NAME+' — High Cabin Occupancy Request',highOccPlain,highOccHtml);
+    }
   }
 
   // Mark setup done so loadDashboard won't re-open the modal
@@ -2354,6 +2470,20 @@ async function loadDashboard(){
     // Single occupancy notice
     const singleNote=document.getElementById('dash-single-occ-note');
     singleNote.style.display=(cabin.num_guests===1)?'block':'none';
+    // Backup cabin preference
+    const backupRow=document.getElementById('dash-backup-cabin-row');
+    const backupDisplay=document.getElementById('dash-backup-cabin-display');
+    if(backupRow&&backupDisplay){
+      if(cabin.backup_cabin_type&&!cabin.suite_pending){
+        backupDisplay.textContent=cabin.backup_cabin_type;
+        backupRow.style.display='block';
+      } else {
+        backupRow.style.display='none';
+      }
+    }
+    // High-occupancy pending notice
+    const highOccNote=document.getElementById('dash-high-occ-note');
+    if(highOccNote)highOccNote.style.display=cabin.high_occupancy_pending?'block':'none';
     // Traveler progress will be updated by loadCabinTravelers()
     const prog=document.getElementById('dash-travelers-progress');
     prog.textContent=`—/${cabin.num_guests||'—'}`;
@@ -2872,8 +3002,19 @@ async function addCabinTraveler(){
 
   if(gEditingTravelerId){
     // ── UPDATE existing traveler ────────────────────────────
-    const{error}=await sb.from('cabin_travelers').update(travelerPayload).eq('id',gEditingTravelerId);
+    const editedId=gEditingTravelerId;
+    const{error}=await sb.from('cabin_travelers').update(travelerPayload).eq('id',editedId);
     if(error){flash('cabin-alert','Error updating traveler: '+error.message);clearAddTravelerForm();return;}
+    // Sync profiles.name if this is the primary traveler (first by created_at = account holder)
+    const{data:firstSlot}=await sb.from('cabin_travelers').select('id').eq('account_owner_id',ownerId).order('created_at',{ascending:true}).limit(1).single();
+    if(firstSlot&&firstSlot.id===editedId){
+      const newFullName=[first,last].filter(Boolean).join(' ');
+      await sb.from('profiles').update({name:newFullName}).eq('id',ownerId);
+      if(gProfile)gProfile.name=newFullName;
+      // Refresh live name in topbar and welcome banner
+      const tb=document.getElementById('dash-topbar-name');if(tb)tb.textContent=newFullName;
+      const wb=document.getElementById('dash-welcome');if(wb)wb.textContent='Welcome, '+newFullName+'!';
+    }
     // Send change notification email
     sendTravelerChangeEmail(tFullName,ownerEmail,ownerName,gEditingTravelerOld,travelerPayload);
     gEditingTravelerId=null;gEditingTravelerOld=null;
@@ -3286,9 +3427,12 @@ function onPsetupGuestsChange(){
   const submitEl=document.getElementById('psetup-submit-section');
   const cabinType=document.getElementById('psetup-cabin-type').value;
   const isSuite=cabinType==='Suite';
+  const highOccEl=document.getElementById('psetup-high-occ-section');
+  const backupSecEl=document.getElementById('psetup-backup-section');
   if(!val){
     noteEl.innerHTML='';
-    // For suite, submit is controlled by backup cabin selection
+    if(highOccEl)highOccEl.style.display='none';
+    if(backupSecEl&&!isSuite)backupSecEl.style.display='none';
     if(!isSuite)submitEl.style.display='none';
     return;
   }
@@ -3298,10 +3442,35 @@ function onPsetupGuestsChange(){
     noteEl.innerHTML='<span style="color:var(--danger);font-weight:700;">⚠️ Single Occupancy: This cabin will be charged at the double occupancy rate (double deposit + double price). Contact the trip organizer with any questions.</span>';
   } else {
     const remaining=n-1;
-    noteEl.innerHTML=`<span style="color:var(--success);">✓ You'll add ${remaining} additional traveler${remaining>1?'s':''} with their citizenship documentation from your dashboard after reserving.</span>${n<maxGuests?'':''} `;
+    noteEl.innerHTML='<span style="color:var(--success);">✓ You\'ll add '+remaining+' additional traveler'+(remaining>1?'s':'')+' with their citizenship documentation from your dashboard after reserving.</span>';
   }
-  // Show submit for non-suite; suite submit is controlled by backup cabin change handler
-  if(!isSuite)submitEl.style.display='block';
+  // High-occupancy disclaimer for >3 guests
+  const isHighOcc=n>3;
+  if(highOccEl&&!isSuite){
+    highOccEl.style.display=isHighOcc?'block':'none';
+    if(!isHighOcc){
+      const ackCb=document.getElementById('psetup-high-occ-ack');
+      if(ackCb)ackCb.checked=false;
+    }
+  }
+  // Backup cabin preference for non-suite
+  if(backupSecEl&&!isSuite)backupSecEl.style.display=val?'block':'none';
+  // For non-suite: show submit only if high-occ ack satisfied (or not required)
+  if(!isSuite){
+    if(isHighOcc){
+      submitEl.style.display='none'; // wait for ack
+    } else {
+      submitEl.style.display='block';
+    }
+  }
+}
+function onHighOccAckChange(){
+  const ackCb=document.getElementById('psetup-high-occ-ack');
+  const submitEl=document.getElementById('psetup-submit-section');
+  const isSuite=document.getElementById('psetup-cabin-type').value==='Suite';
+  if(!isSuite&&ackCb&&submitEl){
+    submitEl.style.display=ackCb.checked?'block':'none';
+  }
 }
 
 // ── ADMIN ────────────────────────────────────────────────────
@@ -3364,7 +3533,8 @@ async function loadTravelers(){
       cabinType:ca?.cabin_type||'',cabinNumber:ca?.cabin_number||'',
       citizenshipType:'',paid,numGuests:ca?.num_guests||1,
       cabinCost:ca?.cabin_cost||'',resNum:ca?.guest_reservation_number||'',
-      payLink:ca?.payment_link||'',gratPaid:!!ca?.gratuity_paid};
+      payLink:ca?.payment_link||'',gratPaid:!!ca?.gratuity_paid,
+      backupCabinType:ca?.backup_cabin_type||'',highOccPending:!!ca?.high_occupancy_pending};
     const gratChk=ca?.gratuity_paid?' &#x2713;':'';
     const cnChk=ca?.cabin_number?' &#x2713;':'';
     const costChk=cabinCost?' &#x2713;':'';
@@ -3384,6 +3554,7 @@ async function loadTravelers(){
       '<option value="edit_profile">&#x270F;&#xFE0F; Edit Traveler Info</option>'+
       '<option value="manage_travelers">&#x1F465; Manage All Travelers</option>'+
         '<option value="send_welcome">&#x1F4E7; Send Welcome Email</option>'+
+        (ca?.high_occupancy_pending?'<option value="clear_high_occ">&#x2705; Clear High Occ. Flag</option>':'')+
         '<option value="cancel">&#x1F6AB; Cancel Reservation</option>'+
         '<option value="delete">&#x1F5D1; Delete Account</option>'+
       '</optgroup>'+
@@ -3405,7 +3576,10 @@ async function loadTravelers(){
     }).join('');
     return'<tr>'+
       '<td><a href="#" onclick="openManageTravelers(\''+p.id+'\',\''+safeN+'\','+( ca?.num_guests||1)+');return false;" style="font-weight:800;color:var(--primary);text-decoration:none;">'+(p.name||'<em style="color:var(--muted)">No name</em>')+'</a> '+docB+suiteB+noCabinB+'<br><small style="color:var(--muted)">'+(p.email||'')+'</small></td>'+
-      '<td><span class="badge badge-purple">'+cabinStr+'</span></td>'+
+      '<td><span class="badge badge-purple">'+cabinStr+'</span>'+
+        (ca?.backup_cabin_type&&!ca?.suite_pending?'<br><span style="font-size:.74rem;color:var(--muted);">🔄 Backup: '+ca.backup_cabin_type+'</span>':'')+
+        (ca?.high_occupancy_pending?'<br><span class="badge badge-warn" style="font-size:.72rem;">⚠️ High Occ. Pending</span>':'')+
+      '</td>'+
       '<td class="col-r">'+cabinCostDisplay+'</td>'+
       '<td style="font-size:.82rem;min-width:100px;">'+reservNum+'<br>'+payLink+'</td>'+
       '<td class="col-r" style="color:var(--success)"><strong>'+fmt(paid)+'</strong></td>'+
@@ -4050,7 +4224,7 @@ function mtSlotHtml(idx, t){
   const curY=new Date().getFullYear();
   const yearOpts = Array.from({length:101},(_,i)=>`<option value="${curY-i}" ${dobY==curY-i?'selected':''}>${curY-i}</option>`).join('');
 
-  const salOpts=['','Mr.','Mrs.','Ms.','Dr.','Rev.'].map(s=>`<option value="${s}" ${sal===s?'selected':''}>${s||'—'}</option>`).join('');
+  const salOpts=['','Mr.','Mrs.','Ms.','Miss.','Mstr.','Dr.','Rev.'].map(s=>`<option value="${s}" ${sal===s?'selected':''}>${s||'—'}</option>`).join('');
   const sfxOpts=['','Jr.','Sr.','II','III','IV','V'].map(s=>`<option value="${s}" ${sfx===s?'selected':''}>${s||'—'}</option>`).join('');
   const genOpts=['','Male','Female','Other','Prefer Not to Answer'].map(g=>`<option value="${g}" ${gen===g?'selected':''}>${g||'Select'}</option>`).join('');
   const citOpts=[['','— Select —'],['us','U.S. Citizen'],['us-pr','U.S. Perm. Resident'],['non-us','Non-U.S. Citizen'],['canadian','Canadian'],['other','Other']].map(([v,l])=>`<option value="${v}" ${cit===v?'selected':''}>${l}</option>`).join('');
@@ -4178,11 +4352,43 @@ async function saveManageTravelers(){
       ]);
       const ownerName=ownerProf?.name||'Traveler';
       const ownerEmail=ownerProf?.email||'';
-      // Run minor policy checks and send traveler verification email (non-blocking)
-      runMinorAndCompleteChecks(gMtOwnerId,savedTravelers||[],ownerName,ownerEmail);
+      const travelers=savedTravelers||[];
+      // Always: run minor policy check and send admin alert if needed
+      (async()=>{
+        try{
+          const issues=getMinorPolicyIssues(travelers);
+          const ownerPhone=travelers[0]?.phone||'';
+          if(issues.length>0){
+            emailMinorTravelAlert(ownerName,ownerEmail,ownerPhone,issues);
+            showMinorPolicyPopup(issues);
+          }
+          // Always send admin summary of all travelers entered
+          const hdBg='background:#0f2744;color:#fff;padding:6px 10px;text-align:left;font-size:.82rem;';
+          const tdSt='padding:6px 10px;font-size:.82rem;border-bottom:1px solid #e2e8f0;';
+          const rowsHtml=travelers.map(function(t,i){
+            const name=[t.salutation,t.first_name,t.middle_name,t.last_name,t.name_suffix].filter(Boolean).join(' ');
+            const dob=t.date_of_birth?fmtDate(t.date_of_birth):'—';
+            const age=calcAgeOnEmbarkation(t.date_of_birth);
+            return '<tr><td style="'+tdSt+'font-weight:600;">T'+(i+1)+'</td><td style="'+tdSt+'">'+name+'</td><td style="'+tdSt+'">'+dob+(age!==null?' ('+age+'y)':'')+' · '+(t.gender||'—')+'</td><td style="'+tdSt+'">'+(t.country_of_citizenship||'—')+'</td><td style="'+tdSt+'">'+(t.phone||'—')+'</td></tr>';
+          }).join('');
+          const adminTable='<table style="width:100%;border-collapse:collapse;margin:10px 0;"><thead><tr><th style="'+hdBg+'">#</th><th style="'+hdBg+'">Name</th><th style="'+hdBg+'">DOB / Gender</th><th style="'+hdBg+'">Citizenship</th><th style="'+hdBg+'">Phone</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>';
+          const adminHtml=buildEmailHtml('Admin',
+            '<p>Admin has entered traveler information for <strong>'+ownerName+'</strong> ('+ownerEmail+').</p>'+adminTable+
+            (issues.length>0?'<p style="color:#b45309;font-weight:700;">⚠️ Minor traveler(s) flagged — review required.</p>':'<p style="color:#16a34a;">✅ No minor policy issues detected.</p>')
+          );
+          const adminPlain='Traveler info entered by admin for: '+ownerName+' ('+ownerEmail+')\n\n'+travelers.map((t,i)=>{const n=[t.salutation,t.first_name,t.last_name].filter(Boolean).join(' ');return 'T'+(i+1)+': '+n+' | DOB: '+(t.date_of_birth||'—')+' | '+(t.gender||'—')+' | '+(t.country_of_citizenship||'—');}).join('\n');
+          sendEmail(ADMIN_EMAIL,'Admin',TRIP_NAME+' — Traveler Info Entered: '+ownerName,adminPlain,adminHtml);
+        }catch(e){console.warn('Admin post-save email failed:',e);}
+      })();
+      // Ask before sending verification email to traveler
+      document.getElementById('admin-mt-modal').classList.remove('open');
+      if(confirm('Send a verification email to '+ownerName+' ('+ownerEmail+') asking them to confirm their cabin traveler information?')){
+        emailTravelerInfoComplete(travelers,ownerName,ownerEmail,getMinorPolicyIssues(travelers));
+      }
+    } else {
+      document.getElementById('admin-mt-modal').classList.remove('open');
     }
-    document.getElementById('admin-mt-modal').classList.remove('open');
-    alert('All traveler records saved successfully.'+(allComplete?'\n\nAll required fields are complete — traveler will see their dashboard directly on next login. A verification email has been sent to the traveler.':'\n\nSome fields are incomplete — traveler will still see the setup prompt on login.'));
+    alert('All traveler records saved successfully.'+(allComplete?'\n\nAll required fields are complete — traveler will see their dashboard directly on next login.':'\n\nSome fields are incomplete — traveler will still see the setup prompt on login.'));
     await loadTravelers();
   }catch(e){
     alertEl.className='alert alert-error';alertEl.textContent=e.message;alertEl.style.display='block';
@@ -4201,8 +4407,10 @@ async function openAdminEditProfile(userId,name,email){
   const parts=(prof?.name||name||'').split(' ');
   document.getElementById('aep-user-id').value=userId;
   document.getElementById('aep-traveler-id').value=t?.id||'';
+  document.getElementById('aep-salutation').value=t?.salutation||'';
   document.getElementById('aep-firstname').value=t?.first_name||parts[0]||'';
   document.getElementById('aep-lastname').value=t?.last_name||parts.slice(1).join(' ')||'';
+  document.getElementById('aep-suffix').value=t?.name_suffix||'';
   document.getElementById('aep-email').value=prof?.email||email||'';
   if(t?.date_of_birth){
     const[y,m,d]=t.date_of_birth.split('-');
@@ -4227,6 +4435,8 @@ async function saveAdminEditProfile(){
   const travelerId=document.getElementById('aep-traveler-id').value;
   const firstName=document.getElementById('aep-firstname').value.trim();
   const lastName=document.getElementById('aep-lastname').value.trim();
+  const salutation=document.getElementById('aep-salutation').value;
+  const suffix=document.getElementById('aep-suffix').value;
   const emailVal=document.getElementById('aep-email').value.trim();
   const dobM=document.getElementById('aep-dob-m').value;
   const dobD=document.getElementById('aep-dob-d').value;
@@ -4242,13 +4452,13 @@ async function saveAdminEditProfile(){
   const btn=document.getElementById('aep-submit-btn');
   btn.disabled=true;btn.textContent='Saving...';alertEl.style.display='none';
   try{
-    const fullName=firstName+' '+lastName;
-    // Update profiles table
-    const{error:profErr}=await sb.from('profiles').update({name:fullName,email:emailVal}).eq('id',userId);
+    const fullName=[salutation,firstName,lastName,suffix].filter(Boolean).join(' ');
+    // Update profiles table (name uses full formatted name)
+    const{error:profErr}=await sb.from('profiles').update({name:[firstName,lastName].filter(Boolean).join(' '),email:emailVal}).eq('id',userId);
     if(profErr)throw new Error('Profile update failed: '+profErr.message);
     // Update primary cabin_traveler record if it exists
     if(travelerId){
-      const tPayload={first_name:firstName,last_name:lastName,phone:phone||null,gender:gender||null,citizenship_type:citizenship||null,country_of_citizenship:country||null};
+      const tPayload={salutation:salutation||null,first_name:firstName,last_name:lastName,name_suffix:suffix||null,phone:phone||null,gender:gender||null,citizenship_type:citizenship||null,country_of_citizenship:country||null};
       if(dobM&&dobD&&dobY){
         tPayload.date_of_birth=dobY+'-'+String(dobM).padStart(2,'0')+'-'+String(dobD).padStart(2,'0');
       }
@@ -4302,6 +4512,15 @@ function handleTravelerAction(sel,userId){
   }
   else if(v==='edit_profile')openAdminEditProfile(d.userId,d.name,d.email);
   else if(v==='manage_travelers')openManageTravelers(d.userId,d.name,d.numGuests||1);
+  else if(v==='clear_high_occ'){
+    if(confirm('Mark high occupancy review as complete for '+d.name+'?\n\nThis will remove the pending flag from their cabin card.')){
+      sb.from('cabin_assignments').update({high_occupancy_pending:false}).eq('user_id',d.userId)
+        .then(({error})=>{
+          if(error)alert('Error: '+error.message);
+          else loadTravelers();
+        });
+    }
+  }
   else if(v==='cancel'){cancelTraveler(d.userId,d.name,d.email,d.cabinType,d.cabinNumber,d.citizenshipType,d.paid);}
   else if(v==='delete'){deleteTraveler(d.userId,d.name);}
 }
