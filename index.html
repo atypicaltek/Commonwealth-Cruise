@@ -172,6 +172,14 @@
     .action-sel:focus{outline:none;border-color:var(--secondary);}
     .action-sel-sm{min-width:90px;font-size:.76rem;padding:3px 6px;max-width:130px;}
     .occ-row td{padding:5px 10px 5px 26px !important;font-size:.82rem;background:#f8fafc;border-top:1px solid #f1f5f9;}
+    /* TRAVELER SLOT TABS */
+    .slot-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+    .slot-tab{padding:7px 13px;border-radius:8px;border:2px solid var(--border);background:#fff;color:var(--text);font-weight:700;font-size:.82rem;cursor:pointer;transition:all .18s;white-space:nowrap;line-height:1.3;}
+    .slot-tab.filled{border-color:var(--success);background:#edfbf3;color:var(--success);}
+    .slot-tab.active{border-color:var(--secondary);background:var(--secondary);color:#fff;}
+    .slot-tab.active.filled{border-color:var(--secondary);background:var(--secondary);color:#fff;}
+    /* WAITLIST CARD */
+    .waitlist-card{background:linear-gradient(135deg,#78350f,#b45309);color:#fff;border-radius:14px;padding:16px 20px;margin-bottom:16px;box-shadow:0 4px 16px rgba(120,53,15,.25);}
   </style>
 </head>
 <body>
@@ -278,6 +286,12 @@
     <div id="dash-loading" class="loading"><div class="spinner"></div><p>Loading your payment info…</p></div>
     <div id="dash-content" style="display:none;">
       <div class="welcome-banner"><h2 id="dash-welcome">Welcome!</h2><p>Here's your current payment status for the Commonwealth Cruise 2027</p></div>
+      <!-- WAITLIST STATUS CARD -->
+      <div id="dash-waitlist-card" class="waitlist-card" style="display:none;">
+        <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;opacity:.75;margin-bottom:6px;">⏳ Waitlist Status</div>
+        <div id="dash-waitlist-type" style="font-size:1.2rem;font-weight:800;margin-bottom:6px;"></div>
+        <div style="font-size:.84rem;opacity:.9;line-height:1.55;">You're on the waitlist for this cabin type. We'll email you as soon as a spot becomes available. No payment is required at this time.</div>
+      </div>
       <!-- CABIN INFO CARD -->
       <div id="dash-cabin-card" style="display:none;background:linear-gradient(135deg,#1a4f7a,#2e88cc);color:#fff;border-radius:14px;padding:16px 20px;margin-bottom:16px;box-shadow:0 4px 16px rgba(26,79,122,.25);">
         <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;opacity:.75;margin-bottom:6px;">Your Cabin Reservation</div>
@@ -417,6 +431,7 @@
       <div class="card">
         <div class="card-header"><span class="card-title">🛳️ My Cabin Travelers</span><div style="display:flex;align-items:center;gap:8px;"><span id="dash-traveler-count-badge" style="font-size:.78rem;font-weight:700;color:var(--muted);"></span><button class="btn btn-outline btn-sm" id="dash-add-traveler-btn" onclick="toggleAddTraveler()">+ Add Traveler</button></div></div>
         <p style="font-size:.84rem;color:var(--muted);margin-bottom:12px;">Add all guests sharing your cabin including citizenship documentation. Required for cruise check-in.</p>
+        <div id="traveler-slot-tabs" class="slot-tabs"></div>
         <div class="add-traveler-form" id="add-traveler-form">
           <div id="cabin-alert" class="alert"></div>
           <div id="ct-form-title" style="font-size:1rem;font-weight:800;color:var(--primary);margin-bottom:10px;"></div>
@@ -568,6 +583,7 @@
       <button class="tab-btn" onclick="switchTab('cancellations',this)">Cancellations</button>
       <button class="tab-btn" onclick="switchTab('docrequests',this)">Doc Requests</button>
       <button class="tab-btn" onclick="switchTab('suiterequests',this)">Suite Requests</button>
+      <button class="tab-btn" onclick="switchTab('waitlist',this);loadWaitlist()">⏳ Waitlist</button>
       <button class="tab-btn" onclick="switchTab('cclentry',this);loadCCLEntry()">📋 CCL Entry</button>
       <button class="tab-btn" onclick="switchTab('reports',this)">📊 Reports</button>
     </div>
@@ -676,6 +692,18 @@
       </div>
     </div>
 
+    <!-- WAITLIST -->
+    <div id="tab-waitlist" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">⏳ Cabin Waitlist</span>
+          <button id="btn-notify-waitlist" class="btn btn-primary btn-sm" onclick="notifyWaitlistSelected()" style="display:none;">📧 Notify Selected</button>
+        </div>
+        <p style="font-size:.86rem;color:var(--muted);margin-bottom:12px;">Travelers who requested a sold-out cabin type. Select and notify them when a spot becomes available.</p>
+        <div id="admin-waitlist" class="table-wrap"><div class="empty"><div class="ei">⏳</div><p>Click the Waitlist tab to load.</p></div></div>
+      </div>
+    </div>
+
     <!-- CCL ENTRY -->
     <div id="tab-cclentry" class="tab-pane">
       <div class="card">
@@ -743,6 +771,17 @@
       <button onclick="document.getElementById('inv-detail-modal').classList.remove('open')" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px;">×</button>
     </div>
     <div id="inv-detail-content"></div>
+  </div>
+</div>
+
+<!-- WAITLIST TRAVELER DETAIL MODAL -->
+<div id="waitlist-detail-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box" style="max-width:480px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 style="color:var(--primary);font-size:1rem;margin:0;">👤 Waitlist Traveler Details</h3>
+      <button onclick="document.getElementById('waitlist-detail-modal').classList.remove('open')" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px;">×</button>
+    </div>
+    <div id="waitlist-detail-content"></div>
   </div>
 </div>
 
@@ -1183,6 +1222,7 @@ const sb=createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,
 let gUser=null,gProfile=null,gInventory={},gProfileSetupComplete=false,gInventoryAssignments=[],gReportData=[],gMilestoneWarningShown=false;
 let gMilestones=[],gPayments=[],gCabinCost=null,gDupConfirmed=false,gPendingSetup=null;
 let gEditingTravelerId=null,gEditingTravelerOld=null,gGratLinkOpened=false,gCitLinkOpened={};
+let gActiveTravelerSlot=-1,gWaitlistData=[];
 
 // ── ROUTER ─────────────────────────────────────────────────
 function showPage(name){
@@ -1860,17 +1900,41 @@ async function emailTravelerInfoComplete(travelers,ownerName,ownerEmail,minorIss
     minorSection='<p style="margin-top:18px;"><strong>&#9888;&#65039; Minor Travel Policy Notice:</strong></p>'+pBlocks;
   }
 
-  const subject=TRIP_NAME+' — Please Verify Your Cabin Traveler Information';
+  // ── Travel documentation section — per unique citizenship type ────
+  function txt2html(txt){
+    return txt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" style="color:#1a3a5c;">$1</a>')
+      .replace(/\n/g,'<br>');
+  }
+  // Build one doc block per unique citizenship type seen across all travelers
+  const seenCitTypes={};
+  travelers.forEach(function(t){if(t.citizenship_type)seenCitTypes[t.citizenship_type]=(seenCitTypes[t.citizenship_type]||0)+1;});
+  let docSectionHtml='';let docSectionPlain='';
+  Object.keys(seenCitTypes).forEach(function(ct){
+    const info=(typeof CT_DOC_INFO!=='undefined'&&CT_DOC_INFO[ct])||{label:ct||'Traveler',body:'Please contact the trip organizer for documentation requirements.'};
+    const names=travelers.filter(function(t){return t.citizenship_type===ct;}).map(function(t){return[t.first_name,t.last_name].filter(Boolean).join(' ');});
+    docSectionHtml+='<div style="margin-top:14px;background:#f0f7ff;border:1.5px solid #aed6f1;border-radius:8px;padding:12px 14px;">'+
+      '<strong style="color:#1a4f7a;">📋 '+info.label+'</strong>'+
+      (names.length?'<span style="font-size:.83rem;color:#475569;"> — applies to: '+names.join(', ')+'</span>':'')+
+      '<div style="font-size:.87rem;line-height:1.65;margin-top:6px;color:#374151;">'+txt2html(info.body)+'</div>'+
+      '</div>';
+    docSectionPlain+='\n\n'+(info.label)+(names.length?' ('+names.join(', ')+')':'')+'\n'+info.body;
+  });
+
+  const subject=TRIP_NAME+' — Cabin Traveler Information Complete — Please Verify';
   const html=buildEmailHtml(ownerName,
     '<p>Dear '+ownerName+',</p>'+
-    '<p>Your cabin traveler information has been entered. Please review the details below and verify that everything is correct.</p>'+
+    '<p>All cabin traveler information has been entered. Please review the details below and verify that everything is correct.</p>'+
     travelerTable+
     minorSection+
     '<p style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px 14px;font-size:.88rem;margin-top:16px;">'+
     '<strong>&#10003; If this information is correct:</strong> No action is needed.<br>'+
     '<strong>&#9998; If any information is incorrect:</strong> Please log in to the portal and update your traveler information at <a href="https://atypicaltek.github.io/Commonwealth-Cruise/" style="color:#1a3a5c;">the payment portal</a>.'+
     '</p>'+
-    '<p style="font-size:.85rem;color:#6b7280;border-top:1px solid #e2e8f0;padding-top:14px;margin-top:14px;">'+
+    '<p style="font-size:.9rem;font-weight:700;color:#1a4f7a;margin-top:20px;border-top:2px solid #e2e8f0;padding-top:14px;">✈️ Travel Documentation Requirements</p>'+
+    '<p style="font-size:.86rem;color:#374151;margin-bottom:4px;">Each traveler is personally responsible for the required documents listed below. Traveling without proper documentation will result in denial of boarding with no refund or compensation.</p>'+
+    docSectionHtml+
+    '<p style="font-size:.85rem;color:#6b7280;border-top:1px solid #e2e8f0;padding-top:14px;margin-top:16px;">'+
     '<strong>Age Policy Reminder:</strong> Guests are required to be 21 years of age (on embarkation day) to travel on their own. Guest ages will be verified at embarkation. Guests not conforming to this policy will result in denied boarding and no compensation will be provided at embarkation.'+
     '</p>'
   );
@@ -1885,7 +1949,7 @@ async function emailTravelerInfoComplete(travelers,ownerName,ownerEmail,minorIss
     const brackets=[...new Set(minorIssues.map(i=>i.bracket))];
     minorPlain='\n\n⚠️ Minor Travel Policy Notice:\n'+brackets.map(b=>MINOR_POLICY_TEXT[b]).join('\n\n');
   }
-  const plain='Dear '+ownerName+',\n\nYour cabin traveler information has been entered. Please review the details below.\n\nCabin Travelers:\n'+travelerPlain+minorPlain+'\n\nIf this information is correct: No action is needed.\nIf any information is incorrect: Please log in to the portal and update your traveler information.\n\nAge Policy Reminder: Guests are required to be 21 years of age (on embarkation day) to travel on their own. Guest ages will be verified at embarkation. Guests not conforming to this policy will result in denied boarding and no compensation will be provided at embarkation.\n\nYour Commonwealth Cruise Team';
+  const plain='Dear '+ownerName+',\n\nAll cabin traveler information has been entered. Please review the details below.\n\nCABIN TRAVELERS:\n'+travelerPlain+minorPlain+'\n\nIf this information is correct: No action is needed.\nIf any information is incorrect: Please log in to the portal and update your traveler information.\n\n── TRAVEL DOCUMENTATION REQUIREMENTS ──'+docSectionPlain+'\n\n⚠️ Each traveler is personally responsible for their required documents. Traveling without proper documentation will result in denial of boarding with no refund.\n\nAge Policy Reminder: Guests are required to be 21 years of age (on embarkation day) to travel on their own. Guest ages will be verified at embarkation. Guests not conforming to this policy will result in denied boarding and no compensation will be provided at embarkation.\n\nYour Commonwealth Cruise Team';
   sendEmail(ownerEmail,ownerName,subject,plain,html);
 }
 
@@ -2257,10 +2321,19 @@ async function loadAndRoute(user){
 
 // ── PROFILE SETUP MODAL ──────────────────────────────────────
 async function loadInventoryForSetup(){
-  const{data}=await sb.from('cabin_inventory').select('*');
-  if(!data)return;
+  const[{data:invData},{data:asgData}]=await Promise.all([
+    sb.from('cabin_inventory').select('*'),
+    sb.from('cabin_assignments').select('cabin_type')
+  ]);
+  if(!invData)return;
+  // Compute actual booked counts from cabin_assignments
+  const actualBooked={};
+  (asgData||[]).forEach(a=>{actualBooked[a.cabin_type]=(actualBooked[a.cabin_type]||0)+1;});
   gInventory={};
-  data.forEach(r=>{gInventory[r.cabin_type]=r;});
+  invData.forEach(r=>{
+    const booked=actualBooked[r.cabin_type]||0;
+    gInventory[r.cabin_type]={...r,available_cabins:Math.max(0,r.total_cabins-booked)};
+  });
   updatePsetupCabinAvail();
 }
 
@@ -2299,12 +2372,13 @@ async function onPsetupCabinTypeChange(){
   }
   const isSuite=val==='Suite';
 
-  // Check sold-out for non-suite types
+  // Check sold-out for non-suite types (use actual count, not stored counter)
   if(!isSuite){
-    const{data:invData}=await sb.from('cabin_inventory').select('available_cabins').eq('cabin_type',val).single();
-    if(invData&&invData.available_cabins<=0){
-      const{data:allInv}=await sb.from('cabin_inventory').select('cabin_type,available_cabins').gt('available_cabins',0).neq('cabin_type','Suite');
-      const altList=(allInv||[]).map(i=>`<strong>${i.cabin_type}</strong> (${i.available_cabins} remaining)`).join(', ');
+    const inv=gInventory[val];
+    if(inv&&inv.available_cabins<=0){
+      const altList=Object.entries(gInventory)
+        .filter(([t,v])=>t!=='Suite'&&v.available_cabins>0)
+        .map(([t,v])=>`<strong>${t}</strong> (${v.available_cabins} remaining)`).join(', ');
       const avEl=document.getElementById('psetup-cabin-avail');
       if(avEl)avEl.innerHTML=`<span style="color:var(--danger);font-weight:700;">❌ ${val} cabins are SOLD OUT.</span>${altList?'<br>Available options: '+altList:'<br>No cabin types currently available.'}`;
       document.getElementById('psetup-suite-backup').style.display='none';
@@ -2373,8 +2447,38 @@ async function doProfileSetup(){
   }
 
   const checkCabin=isSuite?backupCabin:cabinType;
-  const{data:inv}=await sb.from('cabin_inventory').select('available_cabins').eq('cabin_type',checkCabin).single();
-  if(!inv||inv.available_cabins<=0)return flash('psetup-alert',`Sorry, ${checkCabin} cabins are sold out. Please select a different cabin type.`);
+  // Use actual cabin_assignments count as source of truth (available_cabins counter can drift)
+  const[{data:invRow},{count:actualBooked}]=await Promise.all([
+    sb.from('cabin_inventory').select('total_cabins').eq('cabin_type',checkCabin).single(),
+    sb.from('cabin_assignments').select('id',{count:'exact',head:true}).eq('cabin_type',checkCabin)
+  ]);
+  const soldOut=!invRow||(actualBooked!=null&&actualBooked>=invRow.total_cabins);
+  if(soldOut){
+    // ── SOLD OUT: Join waitlist ───────────────────────────────
+    flash('psetup-alert','That cabin type is currently sold out. Adding you to the waitlist…','info');
+    const wlName=gProfile?.name||gUser?.user_metadata?.full_name||gUser?.user_metadata?.name||'Traveler';
+    const wlEmail=gProfile?.email||gUser.email;
+    const wlPayload={user_id:gUser.id,name:wlName,email:wlEmail,
+      cabin_type:checkCabin,num_guests:numGuests||null,
+      backup_cabin_type:(!isSuite&&backupPref?backupPref:null)};
+    const{error:wlErr}=await sb.from('cabin_waitlist').insert(wlPayload);
+    if(wlErr){flash('psetup-alert','Waitlist error: '+wlErr.message+'. Please try again or contact the trip organizer.');return;}
+    // Email traveler
+    const wlHtml=buildEmailHtml(wlName,
+      `<p>You've been added to the waitlist for a <strong>${checkCabin} Cabin</strong> on the ${TRIP_NAME}.</p>`+
+      buildPayTable([{label:'Cabin Type Requested',value:checkCabin},{label:'Number of Guests',value:numGuests||'—'}])+
+      `<p>We'll notify you by email as soon as a spot becomes available. <strong>No payment is required at this time.</strong></p>`+
+      `<p>If you have questions, please contact the trip organizer.</p>`
+    );
+    const wlPlain=`You've been added to the ${checkCabin} Cabin waitlist for the ${TRIP_NAME}.\n\nGuests: ${numGuests||'—'}\n\nWe'll notify you when a spot opens up. No payment is required at this time.\n\n${TRIP_NAME} Team`;
+    sendEmail(wlEmail,wlName,`${TRIP_NAME} — You're on the Waitlist: ${checkCabin} Cabin`,wlPlain,wlHtml);
+    sendEmail(ADMIN_EMAIL,'Admin',`${TRIP_NAME} — New Waitlist Entry: ${checkCabin}`,
+      `${wlName} (${wlEmail}) has joined the ${checkCabin} waitlist.\n\nGuests: ${numGuests||'—'}`,'');
+    gProfileSetupComplete=true;
+    document.getElementById('profile-setup-modal').classList.remove('open');
+    loadDashboard();
+    return;
+  }
 
   flash('psetup-alert','Saving your profile…','info');
 
@@ -2481,10 +2585,20 @@ async function loadDashboard(){
   gMilestones=milestones;gPayments=payments;gCabinCost=cabinCost;
   window.gNumGuests=cabin?.num_guests||1;
 
-  // If no cabin assignment yet, show profile setup modal first
+  // If no cabin assignment yet, check waitlist first
   if(!cabin && !gProfileSetupComplete){
+    const{data:wlEntry}=await sb.from('cabin_waitlist').select('cabin_type,num_guests,created_at').eq('user_id',gUser.id).maybeSingle();
     document.getElementById('dash-loading').style.display='none';
     document.getElementById('dash-content').style.display='block';
+    if(wlEntry){
+      const wlCard=document.getElementById('dash-waitlist-card');
+      if(wlCard){
+        wlCard.style.display='block';
+        document.getElementById('dash-waitlist-type').textContent=`${wlEntry.cabin_type} Cabin — ${wlEntry.num_guests||'—'} Guest(s)`;
+      }
+      gProfileSetupComplete=true;
+      return;
+    }
     loadInventoryForSetup();
     document.getElementById('profile-setup-modal').classList.add('open');
     return;
@@ -2918,9 +3032,11 @@ function prefillAccountHolder(){
 }
 function cancelTravelerForm(){
   gEditingTravelerId=null;gEditingTravelerOld=null;
+  gActiveTravelerSlot=-1;
   const form=document.getElementById('add-traveler-form');
   form.classList.remove('open');
   resetTravelerForm();
+  loadCabinTravelers();
 }
 function toggleAddTraveler(){
   const form=document.getElementById('add-traveler-form');
@@ -2932,6 +3048,29 @@ function toggleAddTraveler(){
     const existing=document.querySelectorAll('#cabin-travelers-list .traveler-card');
     if(existing.length===0) prefillAccountHolder();
   }
+}
+
+function openTravelerSlot(slotIndex){
+  gActiveTravelerSlot=slotIndex;
+  const travelers=window.gCabinTravelers||[];
+  const t=travelers[slotIndex];
+  const form=document.getElementById('add-traveler-form');
+  clearFlash('cabin-alert');
+
+  if(t){
+    // Existing traveler — pre-fill for edit (re-use editCabinTraveler)
+    editCabinTraveler(t.id);
+  } else {
+    // Empty slot — open blank form
+    form.classList.add('open');
+    resetTravelerForm();
+    const titleEl=document.getElementById('ct-form-title');
+    if(titleEl)titleEl.textContent=`Traveler ${slotIndex+1}${slotIndex===0?' — Your Information (Account Holder)':''}`;
+    if(slotIndex===0)prefillAccountHolder();
+    form.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  // Refresh tabs to show active state
+  loadCabinTravelers();
 }
 
 function clearAddTravelerForm(){
@@ -3078,8 +3217,8 @@ async function addCabinTraveler(){
     // ── INSERT new traveler ─────────────────────────────────
     const{error}=await sb.from('cabin_travelers').insert({account_owner_id:ownerId,...travelerPayload});
     if(error){flash('cabin-alert','Error saving traveler: '+error.message);clearAddTravelerForm();return;}
-    // Send citizenship-specific documentation email
-    sendTravelerDocEmail(tFullName,tEmail||ownerEmail,citizenType,citizen,ownerName);
+    // Note: individual doc email removed — a single consolidated email is sent
+    // by runMinorAndCompleteChecks() when ALL traveler slots are filled.
     // Check if cabin is now at capacity — if so, run minor policy + traveler verification email
     (async()=>{
       try{
@@ -3095,7 +3234,32 @@ async function addCabinTraveler(){
     })();
   }
 
-  cancelTravelerForm();loadCabinTravelers();
+  if(gEditingTravelerId){
+    // edit path — just close and refresh
+    gActiveTravelerSlot=-1;
+    cancelTravelerForm();
+    loadCabinTravelers();
+  } else {
+    // insert path — close form, refresh, then auto-advance to next empty slot
+    gEditingTravelerId=null;gEditingTravelerOld=null;
+    const form=document.getElementById('add-traveler-form');
+    form.classList.remove('open');
+    resetTravelerForm();
+    await loadCabinTravelers();
+    // Auto-advance: open next unfilled slot if any remain
+    const travelers2=window.gCabinTravelers||[];
+    const{data:caForAdv}=await sb.from('cabin_assignments').select('num_guests').eq('user_id',ownerId).single();
+    const numGAdv=caForAdv?.num_guests||null;
+    const nextSlot=travelers2.length; // = count of travelers now saved (0-based index of next slot)
+    if(numGAdv&&nextSlot<numGAdv){
+      const remaining=numGAdv-nextSlot;
+      alert(`✓ Traveler ${nextSlot} saved!\n\n⚠️ All traveler information must be entered before your cabin information is complete.\n\n${remaining} more traveler${remaining>1?'s':''} still needed. You'll be taken to Traveler ${nextSlot+1} now.`);
+      openTravelerSlot(nextSlot);
+    } else {
+      gActiveTravelerSlot=-1;
+      loadCabinTravelers();
+    }
+  }
 }
 
 // ── CITIZENSHIP DOCUMENTATION EMAIL PER TRAVELER ─────────────
@@ -3167,30 +3331,42 @@ async function loadCabinTravelers(){
     }
   }
 
-  // Add Traveler button: disable when at capacity
+  // Cache travelers globally for slot navigation
+  window.gCabinTravelers=travelers;
+
+  // ── Render per-traveler slot tabs ─────────────────────────────
+  const tabsEl=document.getElementById('traveler-slot-tabs');
+  if(tabsEl&&numGuests){
+    tabsEl.innerHTML=Array.from({length:numGuests},(_,i)=>{
+      const t=travelers[i];
+      const tName=t?[t.first_name,t.last_name].filter(Boolean).join(' '):'';
+      const filled=!!t;
+      const isActive=gActiveTravelerSlot===i;
+      return`<button class="slot-tab${filled?' filled':''}${isActive?' active':''}" onclick="openTravelerSlot(${i})">
+        ${filled?'✓':'○'} Traveler ${i+1}${filled&&tName?'<br><span style="font-size:.72rem;font-weight:500;">'+tName+'</span>':''}
+      </button>`;
+    }).join('');
+  } else if(tabsEl){
+    tabsEl.innerHTML='';
+  }
+  // Hide legacy button when tabs handle navigation; show it only when numGuests not set
   const addBtn=document.getElementById('dash-add-traveler-btn');
   if(addBtn){
-    if(atCapacity){
-      addBtn.disabled=true;
-      addBtn.textContent='All Travelers Added';
-      addBtn.title=`Cabin is set for ${numGuests} guests — maximum reached`;
-      addBtn.style.opacity='.5';addBtn.style.cursor='not-allowed';
+    if(numGuests){
+      addBtn.style.display='none'; // tabs replace it
     } else {
-      addBtn.disabled=false;
-      addBtn.textContent='+ Add Traveler';
+      addBtn.style.display='';
+      addBtn.disabled=false;addBtn.textContent='+ Add Traveler';
       addBtn.style.opacity='';addBtn.style.cursor='';
     }
   }
 
   const el=document.getElementById('cabin-travelers-list');
-  // Warning banner when no additional travelers yet
-  if(travelers.length===0){
-    const msg=numGuests
-      ?`Your cabin is reserved for <strong>${numGuests} guest${numGuests>1?'s':''}</strong>. Please click "+ Add Traveler" to add your own information first, then each additional cabin guest. All travelers including yourself must be entered with full citizenship documentation.`
-      :`No travelers have been added yet. Click "+ Add Traveler" to get started.`;
+  // Warning banner when no travelers yet (shown below tabs)
+  if(travelers.length===0&&!numGuests){
     el.innerHTML=`<div style="background:#fdf0ee;border:2px solid #f5c6c0;border-radius:10px;padding:14px 16px;margin-top:6px;">
       <strong style="color:var(--danger);">⚠️ Action Required — Traveler Information Missing</strong>
-      <p style="font-size:.86rem;color:#7b1c14;margin-top:6px;line-height:1.5;">${msg}</p>
+      <p style="font-size:.86rem;color:#7b1c14;margin-top:6px;line-height:1.5;">No travelers have been added yet. Click "+ Add Traveler" to get started.</p>
     </div>`;
     return;
   }
@@ -3638,6 +3814,105 @@ async function adminDeclineCabinChange(userId,name,email,currentType,requestedTy
   }catch(e){alert('Error declining change: '+e.message);}
 }
 
+// ── ADMIN WAITLIST ───────────────────────────────────────────
+async function loadWaitlist(){
+  const el=document.getElementById('admin-waitlist');
+  const notifyBtn=document.getElementById('btn-notify-waitlist');
+  if(!el)return;
+  el.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  const{data:wl,error}=await sb.rpc('admin_get_waitlist');
+  if(error){el.innerHTML='<div class="alert alert-error show">'+error.message+'</div>';if(notifyBtn)notifyBtn.style.display='none';return;}
+  gWaitlistData=wl||[];
+  if(!gWaitlistData.length){
+    el.innerHTML='<div class="empty"><div class="ei">⏳</div><p>No waitlist entries.</p></div>';
+    if(notifyBtn)notifyBtn.style.display='none';
+    return;
+  }
+  // Group by cabin_type, sort by created_at
+  const groups={};
+  gWaitlistData.forEach(w=>{if(!groups[w.cabin_type])groups[w.cabin_type]=[];groups[w.cabin_type].push(w);});
+  Object.values(groups).forEach(g=>g.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)));
+  let html='';
+  const cabinOrder=['Balcony','Ocean View','Interior','Suite'];
+  const sortedTypes=Object.keys(groups).sort((a,b)=>{const ia=cabinOrder.indexOf(a),ib=cabinOrder.indexOf(b);return(ia<0?99:ia)-(ib<0?99:ib);});
+  sortedTypes.forEach(cabinType=>{
+    const entries=groups[cabinType];
+    const safeKey=cabinType.replace(/\s/g,'_');
+    html+=`<div class="section-hdr" style="margin-top:16px;">🛳️ ${cabinType} Waitlist — ${entries.length} entr${entries.length===1?'y':'ies'}</div>`;
+    html+='<div class="table-wrap"><table><thead><tr>'+
+      `<th style="width:28px;"><input type="checkbox" id="wl-all-${safeKey}" onchange="toggleWaitlistGroup(this,'${cabinType}')" title="Select all ${cabinType}"></th>`+
+      '<th>Name</th><th>Email</th><th>Phone</th><th style="text-align:center;">Guests</th><th>Backup Pref.</th><th>Date Joined</th><th>Status</th>'+
+      '</tr></thead><tbody>';
+    entries.forEach(w=>{
+      const dt=new Date(w.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      html+=`<tr>`+
+        `<td><input type="checkbox" class="wl-cb" data-id="${w.id}" data-cabin="${cabinType}" onchange="updateWaitlistNotifyBtn()" ${w.notified?'disabled title="Already notified"':''}></td>`+
+        `<td><a href="#" onclick="viewWaitlistTraveler('${w.id}');return false;" style="font-weight:700;color:var(--primary);text-decoration:none;">${w.name||'—'}</a></td>`+
+        `<td style="font-size:.83rem;color:var(--text);">${w.email||'—'}</td>`+
+        `<td style="font-size:.83rem;">${w.phone||'—'}</td>`+
+        `<td style="text-align:center;font-weight:700;">${w.num_guests||'—'}</td>`+
+        `<td style="font-size:.83rem;">${w.backup_cabin_type||'—'}</td>`+
+        `<td style="font-size:.83rem;">${dt}</td>`+
+        `<td>${w.notified?'<span class="badge badge-success">Notified</span>':'<span class="badge badge-gray">Waiting</span>'}</td>`+
+      '</tr>';
+    });
+    html+='</tbody></table></div>';
+  });
+  el.innerHTML=html;
+  if(notifyBtn)notifyBtn.style.display='inline-flex';
+  updateWaitlistNotifyBtn();
+}
+
+function toggleWaitlistGroup(ckbox,cabinType){
+  document.querySelectorAll(`.wl-cb[data-cabin="${cabinType}"]:not([disabled])`).forEach(cb=>cb.checked=ckbox.checked);
+  updateWaitlistNotifyBtn();
+}
+function updateWaitlistNotifyBtn(){
+  const n=[...document.querySelectorAll('.wl-cb:checked')].length;
+  const btn=document.getElementById('btn-notify-waitlist');
+  if(btn)btn.textContent=`📧 Notify Selected${n?' ('+n+')':''}`;
+}
+
+function viewWaitlistTraveler(id){
+  const w=gWaitlistData.find(x=>x.id===id);
+  if(!w)return;
+  const dt=new Date(w.created_at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+  const notifiedAt=w.notified_at?new Date(w.notified_at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+  document.getElementById('waitlist-detail-content').innerHTML=buildPayTable([
+    {label:'Name',value:w.name||'—'},
+    {label:'Email',value:w.email||'—'},
+    {label:'Phone',value:w.phone||'—'},
+    {label:'Cabin Type Requested',value:w.cabin_type||'—'},
+    {label:'Number of Guests',value:w.num_guests||'—'},
+    {label:'Backup Preference',value:w.backup_cabin_type||'—'},
+    {label:'Date Joined Waitlist',value:dt},
+    {label:'Notification Sent',value:w.notified?'Yes — '+notifiedAt:'No'},
+  ]);
+  document.getElementById('waitlist-detail-modal').classList.add('open');
+}
+
+async function notifyWaitlistSelected(){
+  const checked=[...document.querySelectorAll('.wl-cb:checked')];
+  if(!checked.length){alert('Please select at least one traveler to notify.');return;}
+  const selected=checked.map(cb=>gWaitlistData.find(w=>w.id===cb.dataset.id)).filter(Boolean);
+  if(!confirm(`Send "spot available" email to ${selected.length} selected traveler(s)?`))return;
+  const portalUrl=window.location.href.split('?')[0];
+  for(const w of selected){
+    const html=buildEmailHtml(w.name,
+      `<p>&#127881; <strong>Great news!</strong> A <strong>${w.cabin_type} Cabin</strong> spot has become available on the ${TRIP_NAME}!</p>`+
+      buildPayTable([{label:'Cabin Type',value:w.cabin_type},{label:'Guests Requested',value:w.num_guests||'—'}])+
+      `<p>Please log back in to the portal <strong>as soon as possible</strong> to confirm your reservation and pay your deposit. Spots are confirmed on a first-come, first-served basis.</p>`+
+      `<p style="text-align:center;margin:16px 0;"><a href="${portalUrl}" style="background:#1a4f7a;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:800;font-size:.95rem;">Log In &amp; Secure Your Cabin &#x2192;</a></p>`+
+      `<p style="color:#c0392b;font-weight:700;">&#9888;&#65039; Please respond promptly — availability cannot be held indefinitely.</p>`
+    );
+    const plain=`Great news, ${w.name}!\n\nA ${w.cabin_type} Cabin spot is now available on the ${TRIP_NAME}.\n\nLog in now to confirm your reservation and pay your deposit:\n${portalUrl}\n\nPlease respond promptly — availability cannot be held indefinitely.\n\n${TRIP_NAME} Team`;
+    sendEmail(w.email,w.name,`${TRIP_NAME} — Cabin Now Available: Please Confirm Your Reservation`,plain,html);
+    await sb.rpc('admin_mark_waitlist_notified',{p_id:w.id});
+  }
+  alert(`Notification sent to ${selected.length} traveler(s).`);
+  loadWaitlist();
+}
+
 // ── ADMIN ────────────────────────────────────────────────────
 async function adminInit(){
   await Promise.all([loadTravelers(),loadAdminMilestones(),loadPaymentFormSelects(),loadAdminPayments(),loadInventoryTab(),loadCancellationsTab(),loadDocRequests(),loadSuiteRequests(),loadReportMilestones()]);
@@ -4010,14 +4285,24 @@ async function loadInventoryTab(){
   // Store globally so the detail modal can reference without re-fetching
   gInventoryAssignments=assignments||[];
 
+  // ── Derive reserved counts from ACTUAL cabin_assignments rows ──
+  // This is the source of truth — do NOT trust available_cabins counter
+  // (it can drift if decrement_cabin RPC was not yet run by the user).
+  const actualReserved={};
+  (assignments||[]).forEach(a=>{
+    if(!actualReserved[a.cabin_type])actualReserved[a.cabin_type]=0;
+    actualReserved[a.cabin_type]++;
+  });
+
   const colors={Balcony:'balcony','Ocean View':'oceanview',Interior:'interior',Suite:'suite'};
   const cards=(inv||[]).map(r=>{
-    const reserved=r.total_cabins-r.available_cabins;
+    const reserved=actualReserved[r.cabin_type]||0;
+    const available=Math.max(0,r.total_cabins-reserved);
     const pct=r.total_cabins>0?Math.round((reserved/r.total_cabins)*100):0;
-    const barColor=r.available_cabins===0?'#c0392b':r.available_cabins<=5?'#d68910':'#2176ae';
+    const barColor=available===0?'#c0392b':available<=5?'#d68910':'#2176ae';
     return`<div class="inv-card ${colors[r.cabin_type]||''}" onclick="showInventoryDetail('${r.cabin_type}')">
       <div style="font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">${r.cabin_type}</div>
-      <div class="inv-num">${r.available_cabins}</div>
+      <div class="inv-num">${available}</div>
       <div class="inv-label">Available</div>
       <div class="inv-sub">${reserved} reserved of ${r.total_cabins} total</div>
       <div class="pbar-track" style="margin-top:10px;height:6px;"><div class="mpbar-fill" style="width:${pct}%;background:${barColor};"></div></div>
