@@ -292,6 +292,8 @@
         <div id="dash-single-occ-note" style="display:none;background:rgba(255,200,0,.18);border:1px solid rgba(255,200,0,.4);border-radius:7px;padding:8px 12px;margin-top:12px;font-size:.82rem;line-height:1.5;">⚠️ <strong>Single Occupancy Notice:</strong> Single occupancy cabins require a <strong>double deposit</strong> and are charged at the <strong>double occupancy rate</strong>. Please contact the trip organizer if you have questions.</div>
         <div id="dash-backup-cabin-row" style="display:none;margin-top:8px;font-size:.8rem;opacity:.85;">🔄 Backup Cabin Preference: <span id="dash-backup-cabin-display" style="font-weight:700;"></span></div>
         <div id="dash-high-occ-note" style="display:none;background:rgba(255,200,0,.18);border:1px solid rgba(255,200,0,.4);border-radius:7px;padding:8px 12px;margin-top:8px;font-size:.82rem;line-height:1.5;">⏳ <strong>Occupancy Pending Review:</strong> Your cabin occupancy request is pending review by the Commonwealth Cruise Team for compliance with Carnival's cabin occupancy policy.</div>
+        <div id="dash-cabin-change-pending" style="display:none;background:rgba(255,200,0,.18);border:1px solid rgba(255,200,0,.4);border-radius:7px;padding:8px 12px;margin-top:8px;font-size:.82rem;line-height:1.5;">⏳ <strong>Cabin Change Request Pending:</strong> Your request to change to <span id="dash-cabin-change-requested" style="font-weight:800;"></span> is pending approval by the Commonwealth Cruise Team.</div>
+        <div style="margin-top:12px;"><button id="dash-cabin-change-btn" onclick="openCabinChangeRequest()" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:7px;padding:6px 14px;font-size:.82rem;cursor:pointer;font-weight:600;">🔄 Request Cabin Type Change</button></div>
       </div>
       <div class="progress-card">
         
@@ -1085,6 +1087,46 @@
     <div style="display:flex;gap:10px;justify-content:flex-end;">
       <button class="btn btn-ghost" onclick="document.getElementById('admin-edit-profile-modal').classList.remove('open')">Cancel</button>
       <button class="btn btn-primary" id="aep-submit-btn" onclick="saveAdminEditProfile()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- CABIN CHANGE REQUEST MODAL -->
+<div class="modal-overlay" id="cabin-change-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box" style="max-width:480px;">
+    <h3 style="margin:0 0 4px;color:var(--primary);">🔄 Request Cabin Type Change</h3>
+    <p style="margin:0 0 14px;font-size:.85rem;color:var(--muted);">Select the cabin type you'd like to switch to. Your request will be reviewed by the Commonwealth Cruise Team.</p>
+    <div id="ccr-alert" class="alert"></div>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Current Cabin Type</label>
+      <div id="ccr-current" style="font-weight:700;color:var(--primary);padding:6px 0;font-size:.95rem;"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:14px;">
+      <label>Requested Cabin Type *</label>
+      <select id="ccr-new-type" onchange="document.getElementById('ccr-submit-btn').disabled=!this.value||!document.getElementById('ccr-ack').checked;">
+        <option value="">— Select new cabin type —</option>
+        <option value="Balcony">Balcony Cabin</option>
+        <option value="Ocean View">Ocean View Cabin</option>
+        <option value="Interior">Interior Cabin</option>
+        <option value="Suite">Suite ⭐ (Request — Subject to Availability)</option>
+      </select>
+    </div>
+    <div style="background:#fef3c7;border:1.5px solid #f6c440;border-radius:9px;padding:13px 15px;margin-bottom:14px;">
+      <p style="font-weight:700;color:#78460a;margin:0 0 8px;font-size:.88rem;">⚠️ Important — Please Read</p>
+      <ul style="margin:0 0 10px;padding-left:18px;font-size:.85rem;color:#78460a;line-height:1.6;">
+        <li>Your cabin type will <strong>not change</strong> until the Commonwealth Cruise Team manually reviews and approves your request.</li>
+        <li>Changing cabin type may affect your payment schedule and total cost.</li>
+        <li>Availability is not guaranteed — the team will contact you if your requested type is unavailable.</li>
+        <li>Your current cabin type and payment obligations remain in effect until a change is confirmed.</li>
+      </ul>
+      <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;">
+        <input type="checkbox" id="ccr-ack" style="margin-top:2px;width:16px;height:16px;flex-shrink:0;" onchange="document.getElementById('ccr-submit-btn').disabled=!this.checked||!document.getElementById('ccr-new-type').value;">
+        <span style="font-size:.84rem;color:#78460a;line-height:1.4;">I understand this is a request and my current cabin type remains active until the change is approved by the Commonwealth Cruise Team.</span>
+      </label>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="document.getElementById('cabin-change-modal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" id="ccr-submit-btn" disabled onclick="submitCabinChangeRequest()">Submit Request</button>
     </div>
   </div>
 </div>
@@ -2457,6 +2499,7 @@ async function loadDashboard(){
 
   // ── Cabin Info Card ───────────────────────────────────────
   if(cabin){
+    window.gCurrentCabin=cabin; // store for cabin change request modal
     const cabinCard=document.getElementById('dash-cabin-card');
     cabinCard.style.display='block';
     // Cabin type + status label
@@ -2484,6 +2527,19 @@ async function loadDashboard(){
     // High-occupancy pending notice
     const highOccNote=document.getElementById('dash-high-occ-note');
     if(highOccNote)highOccNote.style.display=cabin.high_occupancy_pending?'block':'none';
+    // Cabin change request pending
+    const ccrPending=document.getElementById('dash-cabin-change-pending');
+    const ccrRequested=document.getElementById('dash-cabin-change-requested');
+    const ccrBtn=document.getElementById('dash-cabin-change-btn');
+    if(cabin.cabin_change_pending&&cabin.requested_cabin_type){
+      if(ccrPending)ccrPending.style.display='block';
+      if(ccrRequested)ccrRequested.textContent=cabin.requested_cabin_type;
+      if(ccrBtn)ccrBtn.style.display='none'; // hide button while change is pending
+    } else {
+      if(ccrPending)ccrPending.style.display='none';
+      // Hide change button for suite-pending accounts (they have a separate suite flow)
+      if(ccrBtn)ccrBtn.style.display=cabin.suite_pending?'none':'inline-block';
+    }
     // Traveler progress will be updated by loadCabinTravelers()
     const prog=document.getElementById('dash-travelers-progress');
     prog.textContent=`—/${cabin.num_guests||'—'}`;
@@ -3473,6 +3529,115 @@ function onHighOccAckChange(){
   }
 }
 
+// ── TRAVELER CABIN CHANGE REQUEST ─────────────────────────────
+function openCabinChangeRequest(){
+  const cabin=window.gCurrentCabin;
+  if(!cabin)return;
+  document.getElementById('ccr-current').textContent=cabin.cabin_type+(cabin.cabin_number?' — Cabin '+cabin.cabin_number:'');
+  // Remove current type from options (can't request same type)
+  const sel=document.getElementById('ccr-new-type');
+  [...sel.options].forEach(o=>{o.disabled=(o.value===cabin.cabin_type);});
+  sel.value='';
+  document.getElementById('ccr-ack').checked=false;
+  document.getElementById('ccr-submit-btn').disabled=true;
+  document.getElementById('ccr-alert').style.display='none';
+  document.getElementById('cabin-change-modal').classList.add('open');
+}
+async function submitCabinChangeRequest(){
+  const newType=document.getElementById('ccr-new-type').value;
+  const ack=document.getElementById('ccr-ack').checked;
+  const alertEl=document.getElementById('ccr-alert');
+  if(!newType){alertEl.className='alert alert-error';alertEl.textContent='Please select a cabin type.';alertEl.style.display='block';return;}
+  if(!ack){alertEl.className='alert alert-error';alertEl.textContent='Please acknowledge the policy before submitting.';alertEl.style.display='block';return;}
+  const btn=document.getElementById('ccr-submit-btn');
+  btn.disabled=true;btn.textContent='Submitting...';alertEl.style.display='none';
+  try{
+    const{error}=await sb.from('cabin_assignments').update({requested_cabin_type:newType,cabin_change_pending:true}).eq('user_id',gUser.id);
+    if(error)throw new Error(error.message);
+    const ownerName=gProfile?.name||'Traveler';
+    const ownerEmail=gProfile?.email||gUser?.email||'';
+    const currentType=window.gCurrentCabin?.cabin_type||'—';
+    // Email to admin
+    const adminHtml=buildEmailHtml('Admin',
+      '<p><strong>A traveler has requested a cabin type change.</strong></p>'+
+      buildPayTable([
+        {label:'Traveler',value:ownerName},
+        {label:'Email',value:ownerEmail},
+        {label:'Current Cabin Type',value:currentType},
+        {label:'Requested Cabin Type',value:newType},
+      ])+
+      '<p>Please review and approve or decline in the admin Travelers tab.</p>'
+    );
+    const adminPlain='Cabin Change Request\n\nTraveler: '+ownerName+'\nEmail: '+ownerEmail+'\nCurrent: '+currentType+'\nRequested: '+newType+'\n\nPlease review in the admin portal.';
+    sendEmail(ADMIN_EMAIL,'Admin',TRIP_NAME+' — Cabin Change Request: '+ownerName,adminPlain,adminHtml);
+    // Confirmation email to traveler
+    const travelerHtml=buildEmailHtml(ownerName,
+      '<p>Dear '+ownerName+',</p>'+
+      '<p>Your cabin type change request has been received and is pending review by the Commonwealth Cruise Team.</p>'+
+      buildPayTable([
+        {label:'Current Cabin Type',value:currentType},
+        {label:'Requested Cabin Type',value:newType,color:''},
+      ])+
+      '<p style="background:#fef3c7;border-left:4px solid #d97706;padding:10px 14px;border-radius:4px;font-size:.88rem;">Your current cabin type remains active until a change is approved. You will receive an email confirmation once a decision has been made.</p>'
+    );
+    const travelerPlain='Dear '+ownerName+',\n\nYour cabin type change request has been received.\n\nCurrent: '+currentType+'\nRequested: '+newType+'\n\nYour current cabin type remains active until approved.\n\nYour Commonwealth Cruise Team';
+    sendEmail(ownerEmail,ownerName,TRIP_NAME+' — Cabin Change Request Received',travelerPlain,travelerHtml);
+    document.getElementById('cabin-change-modal').classList.remove('open');
+    loadDashboard();
+  }catch(e){
+    alertEl.className='alert alert-error';alertEl.textContent='Error submitting request: '+e.message;alertEl.style.display='block';
+    btn.disabled=false;btn.textContent='Submit Request';
+  }
+}
+async function adminApproveCabinChange(userId,name,email,currentType,requestedType){
+  if(!confirm('Approve cabin change for '+name+'?\n\nChange: '+currentType+' → '+requestedType+'\n\nInventory will be updated automatically.'))return;
+  try{
+    // Update cabin type
+    const{error:upErr}=await sb.rpc('admin_set_cabin_type',{p_user_id:userId,p_val:requestedType});
+    if(upErr)throw new Error(upErr.message);
+    // Update inventory: return old type, take new type
+    if(currentType&&currentType!=='Suite')await sb.rpc('increment_cabin',{cabin:currentType});
+    if(requestedType&&requestedType!=='Suite')await sb.rpc('decrement_cabin',{cabin:requestedType});
+    // Clear pending flags
+    await sb.from('cabin_assignments').update({cabin_change_pending:false,requested_cabin_type:null}).eq('user_id',userId);
+    // Email traveler — approved
+    const approvedHtml=buildEmailHtml(name,
+      '<p>Dear '+name+',</p>'+
+      '<p>Great news! Your cabin type change request has been <strong style="color:#16a34a;">approved</strong>.</p>'+
+      buildPayTable([
+        {label:'Previous Cabin Type',value:currentType},
+        {label:'New Cabin Type',value:requestedType,color:'green'},
+      ])+
+      '<p>Your payment schedule has been updated to reflect your new cabin type. Please log in to the portal to review your updated details.</p>'
+    );
+    const approvedPlain='Dear '+name+',\n\nYour cabin type change request has been approved.\n\nPrevious: '+currentType+'\nNew: '+requestedType+'\n\nPlease log in to review your updated payment schedule.\n\nYour Commonwealth Cruise Team';
+    sendEmail(email,name,TRIP_NAME+' — Cabin Change Approved',approvedPlain,approvedHtml);
+    alert('Cabin change approved for '+name+'. Inventory updated. Confirmation email sent.');
+    await Promise.all([loadTravelers(),loadInventoryTab()]);
+  }catch(e){alert('Error approving change: '+e.message);}
+}
+async function adminDeclineCabinChange(userId,name,email,currentType,requestedType){
+  if(!confirm('Decline cabin change request for '+name+'?\n\n'+requestedType+' will remain unchanged (they keep '+currentType+').'))return;
+  try{
+    await sb.from('cabin_assignments').update({cabin_change_pending:false,requested_cabin_type:null}).eq('user_id',userId);
+    // Email traveler — declined
+    const declinedHtml=buildEmailHtml(name,
+      '<p>Dear '+name+',</p>'+
+      '<p>We have reviewed your cabin type change request. Unfortunately, we are unable to process the requested change at this time.</p>'+
+      buildPayTable([
+        {label:'Current Cabin Type',value:currentType},
+        {label:'Requested Cabin Type',value:requestedType},
+        {label:'Status',value:'Declined',color:'red'},
+      ])+
+      '<p>Your current cabin reservation remains active. If you have questions, please contact the trip organizer at <a href="mailto:'+ADMIN_EMAIL+'" style="color:#1a3a5c;">'+ADMIN_EMAIL+'</a>.</p>'
+    );
+    const declinedPlain='Dear '+name+',\n\nYour cabin change request from '+currentType+' to '+requestedType+' could not be approved at this time.\n\nYour current cabin reservation remains active.\n\nYour Commonwealth Cruise Team';
+    sendEmail(email,name,TRIP_NAME+' — Cabin Change Request Update',declinedPlain,declinedHtml);
+    alert('Request declined. '+name+' will keep their '+currentType+' cabin. Decline email sent.');
+    await loadTravelers();
+  }catch(e){alert('Error declining change: '+e.message);}
+}
+
 // ── ADMIN ────────────────────────────────────────────────────
 async function adminInit(){
   await Promise.all([loadTravelers(),loadAdminMilestones(),loadPaymentFormSelects(),loadAdminPayments(),loadInventoryTab(),loadCancellationsTab(),loadDocRequests(),loadSuiteRequests(),loadReportMilestones()]);
@@ -3534,7 +3699,8 @@ async function loadTravelers(){
       citizenshipType:'',paid,numGuests:ca?.num_guests||1,
       cabinCost:ca?.cabin_cost||'',resNum:ca?.guest_reservation_number||'',
       payLink:ca?.payment_link||'',gratPaid:!!ca?.gratuity_paid,
-      backupCabinType:ca?.backup_cabin_type||'',highOccPending:!!ca?.high_occupancy_pending};
+      backupCabinType:ca?.backup_cabin_type||'',highOccPending:!!ca?.high_occupancy_pending,
+      cabinChangePending:!!ca?.cabin_change_pending,requestedCabinType:ca?.requested_cabin_type||''};
     const gratChk=ca?.gratuity_paid?' &#x2713;':'';
     const cnChk=ca?.cabin_number?' &#x2713;':'';
     const costChk=cabinCost?' &#x2713;':'';
@@ -3545,6 +3711,8 @@ async function loadTravelers(){
       '<optgroup label="Cabin Details">'+
         '<option value="cabin_num">&#x1F6AA; Cabin #'+cnChk+'</option>'+
         '<option value="cabin_type_change">&#x1F504; Change Cabin Type</option>'+
+        (ca?.cabin_change_pending&&ca?.requested_cabin_type?'<option value="approve_cabin_change">&#x2705; Approve Change → '+ca.requested_cabin_type+'</option>':'')+
+        (ca?.cabin_change_pending&&ca?.requested_cabin_type?'<option value="decline_cabin_change">&#x274C; Decline Change Request</option>':'')+
         '<option value="cost">&#x1F4B0; Cost'+costChk+'</option>'+
         '<option value="res_num">&#x1F4CB; Res. #'+resChk+'</option>'+
         '<option value="pay_link">&#x1F517; Pay Link'+plChk+'</option>'+
@@ -3579,6 +3747,7 @@ async function loadTravelers(){
       '<td><span class="badge badge-purple">'+cabinStr+'</span>'+
         (ca?.backup_cabin_type&&!ca?.suite_pending?'<br><span style="font-size:.74rem;color:var(--muted);">🔄 Backup: '+ca.backup_cabin_type+'</span>':'')+
         (ca?.high_occupancy_pending?'<br><span class="badge badge-warn" style="font-size:.72rem;">⚠️ High Occ. Pending</span>':'')+
+        (ca?.cabin_change_pending&&ca?.requested_cabin_type?'<br><span class="badge badge-warn" style="font-size:.72rem;">🔄 Change Req: '+ca.requested_cabin_type+'</span>':'')+
       '</td>'+
       '<td class="col-r">'+cabinCostDisplay+'</td>'+
       '<td style="font-size:.82rem;min-width:100px;">'+reservNum+'<br>'+payLink+'</td>'+
@@ -4512,6 +4681,12 @@ function handleTravelerAction(sel,userId){
   }
   else if(v==='edit_profile')openAdminEditProfile(d.userId,d.name,d.email);
   else if(v==='manage_travelers')openManageTravelers(d.userId,d.name,d.numGuests||1);
+  else if(v==='approve_cabin_change'){
+    adminApproveCabinChange(d.userId,d.name,d.email,d.cabinType,d.requestedCabinType);
+  }
+  else if(v==='decline_cabin_change'){
+    adminDeclineCabinChange(d.userId,d.name,d.email,d.cabinType,d.requestedCabinType);
+  }
   else if(v==='clear_high_occ'){
     if(confirm('Mark high occupancy review as complete for '+d.name+'?\n\nThis will remove the pending flag from their cabin card.')){
       sb.from('cabin_assignments').update({high_occupancy_pending:false}).eq('user_id',d.userId)
