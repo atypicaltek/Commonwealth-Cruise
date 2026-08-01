@@ -1493,7 +1493,6 @@ Full documentation reference: https://help.carnival.com/app/answers/detail/a_id/
   const detailTable=buildPayTable([
     {label:'Name',value:profile.name},
     {label:'Email',value:profile.email},
-    {label:'Cabin Type',value:cabinType||'Pending'},
   ]);
   function toHtmlSection(txt){
     return txt
@@ -1511,7 +1510,7 @@ Full documentation reference: https://help.carnival.com/app/answers/detail/a_id/
   ].filter(Boolean).join('<br><br>');
 
   const htmlBody=buildEmailHtml(profile.name,`
-    <p>Welcome to the <strong>${TRIP_NAME}</strong> payment portal! Your cabin selection has been received.</p>
+    <p>Your account has been created for the <strong>${TRIP_NAME}</strong> payment portal.</p>
     <p><strong>Account Details:</strong></p>
     ${detailTable}
     <br>${toHtmlSection(namesSection)}<br><br>
@@ -1610,33 +1609,35 @@ function emailDepositComplete(name,email,totalPaid,travelerCount){
      <p><strong>Next Steps:</strong></p>
      <ol><li>Your cabin number will be assigned and sent to you by a separate email shortly.</li>
      <li>A personalized payment link for all future payments will also be sent to you by email.</li></ol>
-     <p>Thank you for securing your spot on the Commonwealth Cruise 2027! We can't wait to sail with you.</p>`
+     <p>Thank you for securing your spot on the Commonwealth Cruise 2027!</p>
+     <p>We can't wait to sail with you!</p>
+     <p style="font-weight:700;">Your Commonwealth Cruise Team</p>`
   );
-  const plain=`Hello ${name},\n\nFantastic news! Your full deposit for the ${TRIP_NAME} has been received.\n\nDeposit Summary:\n• Travelers in Your Cabin: ${travelerCount}\n• Deposit Per Person: $250.00\n• Total Deposit Received: ${fmt(totalPaid)}\n\nNext Steps:\n1. Your cabin number will be assigned and sent to you by a separate email shortly.\n2. A personalized payment link for all future payments will also be sent to you by email.\n\nLog into your account to view your full payment schedule:\n${window.location.href.split('?')[0]}\n\nThank you for securing your spot on the Commonwealth Cruise 2027! We can't wait to sail with you.\n\nYour Commonwealth Cruise Team\n\nIf you have any questions, please reply to this email or contact the trip organizer at ${ADMIN_EMAIL}.`;
+  const plain=`Hello ${name},\n\nFantastic news! Your full deposit for the ${TRIP_NAME} has been received.\n\nDeposit Summary:\n• Travelers in Your Cabin: ${travelerCount}\n• Deposit Per Person: $250.00\n• Total Deposit Received: ${fmt(totalPaid)}\n\nNext Steps:\n1. Your cabin number will be assigned and sent to you by a separate email shortly.\n2. A personalized payment link for all future payments will also be sent to you by email.\n\nLog into your account to view your full payment schedule:\n${window.location.href.split('?')[0]}\n\nThank you for securing your spot on the Commonwealth Cruise 2027!\n\nWe can't wait to sail with you!\n\nYour Commonwealth Cruise Team\n\nIf you have any questions, please reply to this email or contact the trip organizer at ${ADMIN_EMAIL}.`;
   sendEmail(email,name,subject,plain,html);
 }
 
 function emailCancellationToTraveler(travelerName,travelerEmail,cabinType,cabinNumber,totalPaid){
   const subject=`${TRIP_NAME} — Reservation Cancellation`;
   const cancelDate=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
-  const table=buildPayTable([
-    {label:'Name',value:travelerName},
-    {label:'Cabin Type',value:cabinType||'N/A'},
-    {label:'Cabin Number',value:cabinNumber||'Not yet assigned'},
-    {label:'Total Amount Paid',value:fmt(totalPaid),color:'red'},
-    {label:'Cancellation Date',value:cancelDate},
-  ]);
-  const refundTable=buildRefundTable();
   const html=buildEmailHtml(travelerName,
-    `<p>This email confirms that your reservation for the <strong>${TRIP_NAME}</strong> has been cancelled.</p>
-     <p><strong>Cancellation Details:</strong></p>${table}
-     <p>Any payments applied to your cruise will be processed for refund per the applicable schedule below.</p>
-     <p style="font-weight:700;margin-bottom:6px;">6 Day or Longer Cruises — Cancellation Schedule:</p>
-     ${refundTable}
-     <p style="color:#666;font-size:.88rem;">* Cancellation charges are calculated based on the number of days prior to departure that the cancellation is received. Charges are per guest based on total fare.</p>
-     <p>If you believe this cancellation was made in error, please contact the trip organizer immediately at <a href="mailto:${ADMIN_EMAIL}" style="color:#1a3a5c;">${ADMIN_EMAIL}</a>.</p>`
+    `<p>Dear ${travelerName},</p>
+     <p>This email confirms that your reservation for the <strong>${TRIP_NAME}</strong> has been cancelled.</p>
+     <p><strong>Cancellation Details:</strong></p>
+     <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+       <tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;width:40%;">Name</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${travelerName}</td></tr>
+       <tr style="background:#f8fafc;"><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;">Cabin Type</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${cabinType||'N/A'}</td></tr>
+       <tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;">Cabin Number</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${cabinNumber||'Not yet assigned'}</td></tr>
+       <tr style="background:#f8fafc;"><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;">Total Amount Paid</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#c0392b;font-weight:700;">${fmt(totalPaid)}</td></tr>
+       <tr><td style="padding:8px 12px;font-weight:600;">Cancellation Date</td><td style="padding:8px 12px;">${cancelDate}</td></tr>
+     </table>
+     <p>Please note that any funds applied toward your cruise will be refunded, if applicable, in accordance with the cruise line's cancellation and refund policy. Refund eligibility and processing are subject to the cruise line's terms and conditions.</p>
+     <p>If you believe this cancellation was made in error, please contact the trip organizer immediately at <a href="mailto:${ADMIN_EMAIL}" style="color:#1a3a5c;">${ADMIN_EMAIL}</a>.</p>
+     <p>&nbsp;</p>
+     <p>We're sorry to see you go!</p>
+     <p style="font-weight:700;">Your Commonwealth Cruise Team</p>`
   );
-  const plain=`Hello ${travelerName},\n\nThis email confirms that your reservation for the ${TRIP_NAME} has been cancelled.\n\nCancellation Details:\n• Name: ${travelerName}\n• Cabin Type: ${cabinType||'N/A'}\n• Cabin Number: ${cabinNumber||'Not yet assigned'}\n• Total Amount Paid: ${fmt(totalPaid)}\n• Cancellation Date: ${cancelDate}\n\nAny payments applied to your cruise will be processed for refund.\n\nCancellation Schedule (6+ Day Cruises, Per Guest):\n• Up to 91 days: None (except non-refundable charges)\n• 90 to 56 days: Deposit\n• 55 to 30 days: Deposit or 50% of Total Fare, whichever is greater\n• 29 to 15 days: Deposit or 75% of Total Fare, whichever is greater\n• 14 days or less: 100% of Total Fare\n\nIf you believe this cancellation was made in error, please contact us at ${ADMIN_EMAIL}.\n\nYour Commonwealth Cruise Team\n\nIf you have any questions, please reply to this email or contact the trip organizer at ${ADMIN_EMAIL}.`;
+  const plain=`Dear ${travelerName},\n\nThis email confirms that your reservation for the ${TRIP_NAME} has been cancelled.\n\nCancellation Details:\n\u2022 Name: ${travelerName}\n\u2022 Cabin Type: ${cabinType||'N/A'}\n\u2022 Cabin Number: ${cabinNumber||'Not yet assigned'}\n\u2022 Total Amount Paid: ${fmt(totalPaid)}\n\u2022 Cancellation Date: ${cancelDate}\n\nPlease note that any funds applied toward your cruise will be refunded, if applicable, in accordance with the cruise line's cancellation and refund policy. Refund eligibility and processing are subject to the cruise line's terms and conditions.\n\nIf you believe this cancellation was made in error, please contact the trip organizer at ${ADMIN_EMAIL}.\n\nWe're sorry to see you go!\n\nYour Commonwealth Cruise Team`;
   sendEmail(travelerEmail,travelerName,subject,plain,html);
 }
 
@@ -1663,7 +1664,6 @@ function emailFullRefundReminder(name, email, totalPaid){
   const table=buildPayTable([
     {label:'Total Paid to Date',value:fmt(totalPaid),color:'green'},
     {label:'Full Refund Deadline',value:deadlineDate,color:''},
-    {label:'Carnival Cutoff',value:'March 21, 2027 (91 days before departure)',color:''},
   ]);
   const bodyHtml=`
     <div style="margin:0 0 18px;padding:14px 18px;background:#fffbeb;border-left:4px solid #d97706;border-radius:0 8px 8px 0;">
@@ -1679,6 +1679,142 @@ function emailFullRefundReminder(name, email, totalPaid){
   const plain=`FULL REFUND DEADLINE NOTICE\n\nHello ${name},\n\nThis is a reminder that the deadline for a full refund on the ${TRIP_NAME} is ${deadlineDate}.\n\nTotal Paid: ${fmt(totalPaid)}\n\nAfter this date, cancellation charges apply per Carnival's policy. If you are not cancelling, no action is required.\n\nQuestions? Contact ${ADMIN_EMAIL}.`;
   const html=buildEmailHtml(name,bodyHtml);
   sendEmail(email,name,subject,plain,html);
+}
+
+// ── MINOR POLICY & TRAVELER VERIFICATION ─────────────────────
+const EMBARKATION_DATE=new Date('2027-06-20');
+
+function calcAgeOnEmbarkation(dobStr){
+  if(!dobStr)return null;
+  const dob=new Date(dobStr+'T00:00:00');
+  let age=EMBARKATION_DATE.getFullYear()-dob.getFullYear();
+  const m=EMBARKATION_DATE.getMonth()-dob.getMonth();
+  if(m<0||(m===0&&EMBARKATION_DATE.getDate()<dob.getDate()))age--;
+  return age;
+}
+
+const MINOR_POLICY_TEXT={
+  under14:'Guests 14 years of age and younger must be booked with a relative or guardian (25 years of age or older) in the same cabin or a connecting cabin. Your request is pending until the Commonwealth Cruise Team manually reviews for compliance with Carnival\'s minor policy.',
+  age15to17:'Guests 15 – 17 years of age can only be separated by up to 3 staterooms from a relative or guardian (25 years of age or older). Your request is pending until the Commonwealth Cruise Team manually reviews for compliance with Carnival\'s minor policy.',
+  age18to20:'Guests 18 – 20 years of age must be linked as “Travel With” a relative or guardian 25 years of age or older. Your request is pending until the Commonwealth Cruise Team manually reviews for compliance with Carnival\'s minor policy.'
+};
+
+function getMinorPolicyIssues(travelers){
+  const ages=travelers.map(t=>({
+    name:[t.first_name,t.last_name].filter(Boolean).join(' '),
+    age:calcAgeOnEmbarkation(t.date_of_birth),
+    phone:t.phone||''
+  }));
+  const hasGuardian=ages.some(a=>a.age!==null&&a.age>=25);
+  const issues=[];
+  ages.forEach(a=>{
+    if(a.age===null)return;
+    if(a.age<=14&&!hasGuardian)issues.push({name:a.name,age:a.age,bracket:'under14'});
+    else if(a.age>=15&&a.age<=17&&!hasGuardian)issues.push({name:a.name,age:a.age,bracket:'age15to17'});
+    else if(a.age>=18&&a.age<=20&&!hasGuardian)issues.push({name:a.name,age:a.age,bracket:'age18to20'});
+  });
+  return issues;
+}
+
+function showMinorPolicyPopup(issues){
+  if(!issues||issues.length===0)return;
+  let bracket=null;
+  if(issues.some(i=>i.bracket==='under14'))bracket='under14';
+  else if(issues.some(i=>i.bracket==='age15to17'))bracket='age15to17';
+  else bracket='age18to20';
+  const policyText=MINOR_POLICY_TEXT[bracket];
+  const minorNames=issues.map(i=>i.name+' (age '+i.age+')').join(', ');
+  let modal=document.getElementById('minor-policy-modal');
+  if(!modal){modal=document.createElement('div');modal.id='minor-policy-modal';document.body.appendChild(modal);}
+  modal.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);';
+  modal.innerHTML=`<div style="background:#fff;border-radius:14px;padding:28px 24px;max-width:540px;width:95%;box-shadow:0 8px 40px rgba(0,0,0,.3);">
+    <div style="color:#b45309;font-size:1.4rem;font-weight:800;margin-bottom:10px;">&#9888;&#65039; Minor Travel Policy</div>
+    <p style="font-weight:700;margin-bottom:12px;color:#0f2744;">Traveler(s): ${minorNames}</p>
+    <p style="line-height:1.65;color:#1a1a2e;margin-bottom:18px;font-size:.95rem;">${policyText}</p>
+    <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:18px;">
+      <input type="checkbox" id="minor-ack-cb" style="margin-top:3px;width:17px;height:17px;flex-shrink:0;" onchange="document.getElementById('minor-ack-btn').disabled=!this.checked;">
+      <span style="font-size:.9rem;line-height:1.4;">I understand and acknowledge this policy. I will contact the Commonwealth Cruise Team if I have questions.</span>
+    </label>
+    <button id="minor-ack-btn" class="btn btn-primary" disabled onclick="document.getElementById('minor-policy-modal').style.display='none';">Acknowledge</button>
+  </div>`;
+}
+
+function emailMinorTravelAlert(ownerName,ownerEmail,ownerPhone,issues){
+  const minorListHtml=issues.map(i=>'<li>'+i.name+' (age '+i.age+')</li>').join('');
+  const minorListPlain=issues.map(i=>'• '+i.name+' (age '+i.age+')').join('\n');
+  const brackets=[...new Set(issues.map(i=>i.bracket))];
+  const policyHtml=brackets.map(b=>'<p style="background:#fef3c7;border-left:4px solid #d97706;padding:10px 14px;margin:6px 0;border-radius:4px;font-size:.87rem;">'+MINOR_POLICY_TEXT[b]+'</p>').join('');
+  const policyPlain=brackets.map(b=>MINOR_POLICY_TEXT[b]).join('\n\n');
+  const subject=TRIP_NAME+' — Minor Travel';
+  const html=buildEmailHtml('Admin',
+    '<p><strong>A cabin has been flagged for minor traveler review.</strong></p>'+
+    buildPayTable([{label:'Account Holder Name',value:ownerName},{label:'Email',value:ownerEmail},{label:'Phone',value:ownerPhone||'Not provided'}])+
+    '<p><strong>Minor Traveler(s):</strong></p><ul style="margin:0 0 12px;padding-left:20px;">'+minorListHtml+'</ul>'+
+    policyHtml+
+    '<p>Please manually review this cabin for compliance with Carnival\'s minor policy before confirming the reservation.</p>'
+  );
+  const plain='A cabin has been flagged for minor traveler review.\n\nAccount Holder:\n• Name: '+ownerName+'\n• Email: '+ownerEmail+'\n• Phone: '+(ownerPhone||'Not provided')+'\n\nMinor Traveler(s):\n'+minorListPlain+'\n\nMinor Policy:\n'+policyPlain+'\n\nPlease manually review for compliance before confirming the reservation.';
+  sendEmail(ADMIN_EMAIL,'Admin',subject,plain,html);
+}
+
+async function emailTravelerInfoComplete(travelers,ownerName,ownerEmail,minorIssues){
+  if(!ownerEmail)return;
+  const hdBg='background:#0f2744;color:#fff;padding:8px 12px;text-align:left;font-size:.83rem;';
+  const tdSt='padding:8px 12px;font-size:.85rem;border-bottom:1px solid #e2e8f0;';
+  const rowsHtml=travelers.map(function(t,i){
+    const name=[t.salutation,t.first_name,t.middle_name,t.last_name,t.name_suffix].filter(Boolean).join(' ');
+    const dob=t.date_of_birth?fmtDate(t.date_of_birth):'—';
+    const age=calcAgeOnEmbarkation(t.date_of_birth);
+    const ageStr=age!==null?' (age '+age+' at embarkation)':'';
+    return '<tr><td style="'+tdSt+'font-weight:600;">Traveler '+(i+1)+(i===0?' (Account Holder)':'')+'</td><td style="'+tdSt+'">'+name+'</td><td style="'+tdSt+'">'+dob+ageStr+'</td><td style="'+tdSt+'">'+( t.gender||'—')+'</td><td style="'+tdSt+'">'+(t.country_of_citizenship||'—')+'</td></tr>';
+  }).join('');
+  const travelerTable='<table style="width:100%;border-collapse:collapse;margin:12px 0;"><thead><tr><th style="'+hdBg+'">#</th><th style="'+hdBg+'">Name</th><th style="'+hdBg+'">Date of Birth</th><th style="'+hdBg+'">Gender</th><th style="'+hdBg+'">Citizenship</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>';
+
+  let minorSection='';
+  if(minorIssues&&minorIssues.length>0){
+    const brackets=[...new Set(minorIssues.map(i=>i.bracket))];
+    const pBlocks=brackets.map(b=>'<p style="background:#fef3c7;border-left:4px solid #d97706;padding:10px 14px;margin:6px 0;border-radius:4px;font-size:.87rem;line-height:1.55;">'+MINOR_POLICY_TEXT[b]+'</p>').join('');
+    minorSection='<p style="margin-top:18px;"><strong>&#9888;&#65039; Minor Travel Policy Notice:</strong></p>'+pBlocks;
+  }
+
+  const subject=TRIP_NAME+' — Please Verify Your Cabin Traveler Information';
+  const html=buildEmailHtml(ownerName,
+    '<p>Dear '+ownerName+',</p>'+
+    '<p>Your cabin traveler information has been entered. Please review the details below and verify that everything is correct.</p>'+
+    travelerTable+
+    minorSection+
+    '<p style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px 14px;font-size:.88rem;margin-top:16px;">'+
+    '<strong>&#10003; If this information is correct:</strong> No action is needed.<br>'+
+    '<strong>&#9998; If any information is incorrect:</strong> Please log in to the portal and update your traveler information at <a href="https://atypicaltek.github.io/Commonwealth-Cruise/" style="color:#1a3a5c;">the payment portal</a>.'+
+    '</p>'+
+    '<p style="font-size:.85rem;color:#6b7280;border-top:1px solid #e2e8f0;padding-top:14px;margin-top:14px;">'+
+    '<strong>Age Policy Reminder:</strong> Guests are required to be 21 years of age (on embarkation day) to travel on their own. Guest ages will be verified at embarkation. Guests not conforming to this policy will result in denied boarding and no compensation will be provided at embarkation.'+
+    '</p>'
+  );
+  const travelerPlain=travelers.map(function(t,i){
+    const name=[t.salutation,t.first_name,t.middle_name,t.last_name,t.name_suffix].filter(Boolean).join(' ');
+    const dob=t.date_of_birth?fmtDate(t.date_of_birth):'—';
+    const age=calcAgeOnEmbarkation(t.date_of_birth);
+    return 'Traveler '+(i+1)+(i===0?' (Account Holder)':'')+':\n  Name: '+name+'\n  DOB: '+dob+(age!==null?' (age '+age+' at embarkation)':'')+'\n  Gender: '+(t.gender||'—')+'\n  Citizenship: '+(t.country_of_citizenship||'—');
+  }).join('\n\n');
+  let minorPlain='';
+  if(minorIssues&&minorIssues.length>0){
+    const brackets=[...new Set(minorIssues.map(i=>i.bracket))];
+    minorPlain='\n\n⚠️ Minor Travel Policy Notice:\n'+brackets.map(b=>MINOR_POLICY_TEXT[b]).join('\n\n');
+  }
+  const plain='Dear '+ownerName+',\n\nYour cabin traveler information has been entered. Please review the details below.\n\nCabin Travelers:\n'+travelerPlain+minorPlain+'\n\nIf this information is correct: No action is needed.\nIf any information is incorrect: Please log in to the portal and update your traveler information.\n\nAge Policy Reminder: Guests are required to be 21 years of age (on embarkation day) to travel on their own. Guest ages will be verified at embarkation. Guests not conforming to this policy will result in denied boarding and no compensation will be provided at embarkation.\n\nYour Commonwealth Cruise Team';
+  sendEmail(ownerEmail,ownerName,subject,plain,html);
+}
+
+async function runMinorAndCompleteChecks(ownerId,travelers,ownerName,ownerEmail){
+  if(!travelers||travelers.length===0)return;
+  const issues=getMinorPolicyIssues(travelers);
+  const ownerPhone=travelers[0]?.phone||'';
+  if(issues.length>0){
+    emailMinorTravelAlert(ownerName,ownerEmail,ownerPhone,issues);
+    showMinorPolicyPopup(issues);
+  }
+  await emailTravelerInfoComplete(travelers,ownerName,ownerEmail,issues.length>0?issues:null);
 }
 
 async function sendRefundDeadlineReminders(){
@@ -2747,6 +2883,19 @@ async function addCabinTraveler(){
     if(error){flash('cabin-alert','Error saving traveler: '+error.message);clearAddTravelerForm();return;}
     // Send citizenship-specific documentation email
     sendTravelerDocEmail(tFullName,tEmail||ownerEmail,citizenType,citizen,ownerName);
+    // Check if cabin is now at capacity — if so, run minor policy + traveler verification email
+    (async()=>{
+      try{
+        const[{data:caData},{data:allTravelers}]=await Promise.all([
+          sb.from('cabin_assignments').select('num_guests').eq('user_id',ownerId).single(),
+          sb.from('cabin_travelers').select('*').eq('account_owner_id',ownerId).order('created_at',{ascending:true})
+        ]);
+        const numG=caData?.num_guests||null;
+        if(numG&&allTravelers&&allTravelers.length>=numG){
+          await runMinorAndCompleteChecks(ownerId,allTravelers,ownerName,ownerEmail);
+        }
+      }catch(e){console.warn('Post-save checks failed:',e);}
+    })();
   }
 
   cancelTravelerForm();loadCabinTravelers();
@@ -3255,7 +3404,7 @@ async function loadTravelers(){
       '</tr>';
     }).join('');
     return'<tr>'+
-      '<td><strong>'+(p.name||'<em style="color:var(--muted)">No name</em>')+'</strong> '+docB+suiteB+noCabinB+'<br><small style="color:var(--muted)">'+(p.email||'')+'</small></td>'+
+      '<td><a href="#" onclick="openManageTravelers(\''+p.id+'\',\''+safeN+'\','+( ca?.num_guests||1)+');return false;" style="font-weight:800;color:var(--primary);text-decoration:none;">'+(p.name||'<em style="color:var(--muted)">No name</em>')+'</a> '+docB+suiteB+noCabinB+'<br><small style="color:var(--muted)">'+(p.email||'')+'</small></td>'+
       '<td><span class="badge badge-purple">'+cabinStr+'</span></td>'+
       '<td class="col-r">'+cabinCostDisplay+'</td>'+
       '<td style="font-size:.82rem;min-width:100px;">'+reservNum+'<br>'+payLink+'</td>'+
@@ -4004,8 +4153,36 @@ async function saveManageTravelers(){
         await sb.from('profiles').update({name:fullName}).eq('id',gMtOwnerId);
       }
     }
+    // After all slots saved: check if ALL required fields are complete for every slot
+    const allComplete=(()=>{
+      const slots=document.getElementById('mt-slots')?.querySelectorAll('input[id^="mt-fn-"]')||[];
+      for(let i=0;i<slots.length;i++){
+        const fn=document.getElementById('mt-fn-'+i)?.value.trim();
+        const ln=document.getElementById('mt-ln-'+i)?.value.trim();
+        const dobM=document.getElementById('mt-dob-m-'+i)?.value;
+        const dobD=document.getElementById('mt-dob-d-'+i)?.value;
+        const dobY=document.getElementById('mt-dob-y-'+i)?.value;
+        const gen=document.getElementById('mt-gen-'+i)?.value;
+        const cit=document.getElementById('mt-cit-'+i)?.value;
+        const cty=document.getElementById('mt-cty-'+i)?.value.trim();
+        if(!fn||!ln||!dobM||!dobD||!dobY||!gen||!cit||!cty) return false;
+      }
+      return slots.length>0;
+    })();
+    if(allComplete){
+      await sb.from('profiles').update({first_login_complete:true}).eq('id',gMtOwnerId);
+      // Fetch saved travelers + owner profile for post-save checks
+      const[{data:savedTravelers},{data:ownerProf}]=await Promise.all([
+        sb.from('cabin_travelers').select('*').eq('account_owner_id',gMtOwnerId).order('created_at',{ascending:true}),
+        sb.from('profiles').select('name,email').eq('id',gMtOwnerId).single()
+      ]);
+      const ownerName=ownerProf?.name||'Traveler';
+      const ownerEmail=ownerProf?.email||'';
+      // Run minor policy checks and send traveler verification email (non-blocking)
+      runMinorAndCompleteChecks(gMtOwnerId,savedTravelers||[],ownerName,ownerEmail);
+    }
     document.getElementById('admin-mt-modal').classList.remove('open');
-    alert('All traveler records saved successfully.');
+    alert('All traveler records saved successfully.'+(allComplete?'\n\nAll required fields are complete — traveler will see their dashboard directly on next login. A verification email has been sent to the traveler.':'\n\nSome fields are incomplete — traveler will still see the setup prompt on login.'));
     await loadTravelers();
   }catch(e){
     alertEl.className='alert alert-error';alertEl.textContent=e.message;alertEl.style.display='block';
@@ -4186,6 +4363,15 @@ async function adminAddTraveler(){
     await sb.rpc('decrement_cabin',{cabin:cabinType});
     const dob=dobY+'-'+String(dobM).padStart(2,'0')+'-'+String(dobD).padStart(2,'0');
     await sb.from('cabin_travelers').insert({account_owner_id:newUserId,first_name:firstName,last_name:lastName,date_of_birth:dob,gender,citizenship_type:citizenship,country_of_citizenship:country,phone:phone||null});
+    // Mark first_login_complete so traveler goes straight to dashboard (primary info is done)
+    await sb.from('profiles').update({first_login_complete:true}).eq('id',newUserId);
+    // Run minor policy check and send traveler verification email
+    (async()=>{
+      try{
+        const{data:addedTravelers}=await sb.from('cabin_travelers').select('*').eq('account_owner_id',newUserId).order('created_at',{ascending:true});
+        await runMinorAndCompleteChecks(newUserId,addedTravelers||[],fullName,emailVal);
+      }catch(e){console.warn('Post-add checks failed:',e);}
+    })();
     if(sendWelcome){
       const emailHtml=buildEmailHtml(fullName,
         '<p>Your account for the <strong>'+TRIP_NAME+'</strong> payment portal has been created by the trip organizer.</p>'+
