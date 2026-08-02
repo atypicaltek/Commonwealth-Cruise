@@ -1385,6 +1385,7 @@ const SUPABASE_URL      = 'https://ctumpdzdibzixywnxfyg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN0dW1wZHpkaWJ6aXh5d254ZnlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxODUyNDcsImV4cCI6MjEwMDc2MTI0N30.qCLKV8lnCst_0Un0rdxDrAq6BLcO1vP088S33X0l23A';
 const ADMIN_EMAIL       = 'glowjetters@gmail.com';
 const TRIP_NAME         = 'Commonwealth Cruise 2027';
+const PORTAL_URL        = 'https://atypicaltek.github.io/Commonwealth-Cruise/';
 
 // ── Google Apps Script Email Web App ──────────────────────
 // Paste your deployed Web App URL below (see send-email.gs for setup steps).
@@ -5018,7 +5019,7 @@ async function loadCCLEntry(){
   pendEl.innerHTML='<div class="loading"><div class="spinner"></div></div>';
   if(compEl)compEl.innerHTML='';
   const[{data:profiles},{data:allCabins},{data:allTravelers},{data:allPayments}]=await Promise.all([
-    sb.from('profiles').select('id,name,email,phone,status,ccl_submitted').eq('is_admin',false).neq('status','cancelled').order('name'),
+    sb.from('profiles').select('*').eq('is_admin',false).neq('status','cancelled').order('name'),
     sb.rpc('admin_get_all_cabin_assignments'),
     sb.from('cabin_travelers').select('id,account_owner_id,salutation,first_name,middle_name,last_name,name_suffix,date_of_birth,gender,citizenship_type,country_of_citizenship,phone').order('created_at',{ascending:true}),
     sb.from('user_payments').select('user_id,amount_paid')
@@ -6674,14 +6675,24 @@ function showNameVerificationPopup(){
 let gEmailHoldEnabled=false;
 
 async function loadEmailHoldSetting(){
+  // localStorage is authoritative — DB is secondary sync
+  const lsVal=localStorage.getItem('admin_email_hold');
+  if(lsVal!==null){gEmailHoldEnabled=lsVal==='true';return;}
   try{
     const{data}=await sb.from('system_settings').select('value').eq('key','email_hold').maybeSingle();
-    gEmailHoldEnabled=data?.value==='true';
-  }catch(e){gEmailHoldEnabled=false;}
+    if(data?.value!==undefined){
+      gEmailHoldEnabled=data.value==='true';
+      localStorage.setItem('admin_email_hold',String(gEmailHoldEnabled));
+    }
+    // If table doesn't exist yet, keep gEmailHoldEnabled as false but don't overwrite localStorage
+  }catch(e){}
 }
 
 async function toggleEmailHold(btn){
   gEmailHoldEnabled=!gEmailHoldEnabled;
+  // Always save to localStorage first — this is the source of truth
+  localStorage.setItem('admin_email_hold',String(gEmailHoldEnabled));
+  // Also try to sync to Supabase (non-blocking)
   try{
     await sb.from('system_settings').upsert({key:'email_hold',value:String(gEmailHoldEnabled)},{onConflict:'key'});
   }catch(e){}
@@ -6834,14 +6845,15 @@ async function loadEmailQueueTab(){
   const el=document.getElementById('admin-emailqueue');
   const heldEl=document.getElementById('admin-heldemails');
 
-  // Use RPC to bypass RLS; fall back to direct table query if RPC not yet deployed
+  // Use RPC first (bypasses RLS); fall back to direct table query if RPC not deployed yet
   const fetchQueue=async(status_in)=>{
     const rpcRes=await sb.rpc('admin_get_email_queue',{p_status:status_in});
     if(!rpcRes.error)return rpcRes;
-    // RPC not found — fall back to direct table access
-    const q=sb.from('email_queue').select('*').order('created_at',{ascending:false}).limit(500);
-    if(status_in&&status_in!=='all')q.eq('status',status_in);
-    return await q;
+    // RPC not found — fall back to direct table (works after running urgent-fixes.sql)
+    let q=sb.from('email_queue').select('*').order('created_at',{ascending:false}).limit(500);
+    if(status_in&&status_in!=='all')q=q.eq('status',status_in);
+    const res=await q;
+    return res;
   };
 
   // Held emails
@@ -6849,7 +6861,7 @@ async function loadEmailQueueTab(){
     heldEl.innerHTML='<div class="loading"><div class="spinner"></div></div>';
     const{data:held,error:heldErr}=await fetchQueue('held');
     if(heldErr){
-      heldEl.innerHTML=`<p style="color:var(--danger);">Error: ${heldErr.message}</p>`;
+      heldEl.innerHTML=`<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:14px 16px;font-size:.84rem;color:#991b1b;"><strong>⚠️ Database setup required.</strong> Run <strong>urgent-fixes.sql</strong> in Supabase → SQL Editor, then reload this tab.<br><small style="opacity:.75;">${heldErr.message}</small></div>`;
     } else if(!held||held.length===0){
       heldEl.innerHTML='<div class="empty"><div class="ei">📭</div><p>No held emails.</p></div>';
     } else {
@@ -6865,7 +6877,7 @@ async function loadEmailQueueTab(){
   if(!el)return;
   el.innerHTML='<div class="loading"><div class="spinner"></div></div>';
   const{data,error}=await fetchQueue('all');
-  if(error){el.innerHTML=`<p style="color:var(--danger);">Error: ${error.message}</p>`;return;}
+  if(error){el.innerHTML=`<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:14px 16px;font-size:.84rem;color:#991b1b;"><strong>⚠️ Database setup required.</strong> Run <strong>urgent-fixes.sql</strong> in Supabase → SQL Editor, then reload this tab.<br><small style="opacity:.75;">${error.message}</small></div>`;return;}
   const nonHeld=(data||[]).filter(e=>e.status!=='held');
   if(nonHeld.length===0){el.innerHTML='<div class="empty"><div class="ei">📭</div><p>No emails in queue yet.</p></div>';return;}
   const pending=nonHeld.filter(e=>e.status==='queued'||e.status==='failed');
