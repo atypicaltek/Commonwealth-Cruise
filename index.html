@@ -2334,14 +2334,20 @@ async function doSignup(){
       console.error('Profile insert error:',pErr.message);
     }
     // Welcome email — citizenship & cabin will be set at first login
-    const _wUrl=window.location.href.split('?')[0];
+    const _wUrl=PORTAL_URL;
     const _wHtml=buildEmailHtml(fullName,
-      `<p>Your account for the <strong>${TRIP_NAME}</strong> Commonwealth Cruise Travel Portal account has been created successfully!</p>
-       <p>You can now sign in and complete your cabin traveler information. We look forward to sailing with you!</p>
-       <p style="margin-top:14px;"><a href="${window.location.href.split('?')[0]}" style="display:inline-block;background:var(--secondary);color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-weight:700;">Sign In to Your Account &#x2192;</a></p>`
+      `<p>Welcome to the <strong>${TRIP_NAME}</strong>!</p>
+       <p>Thank you for registering! We're excited to have you with us.</p>
+       <p>Your account has been successfully created.</p>
+       <p style="margin-top:14px;margin-bottom:4px;"><strong>The next step is easy!</strong></p>
+       <p style="margin-top:0;margin-bottom:16px;"><strong style="font-size:1.08rem;color:#0f2744;">RESERVE YOUR SPOT TODAY!</strong></p>
+       <p>Simply return to the login page, sign in using your username and complete your cabin traveler information.</p>
+       <p>No worries if you can't complete it all today — you can log back into your account anytime to update or finish your traveler information at your convenience.</p>
+       <p>If you have any questions or need assistance along the way, we're always happy to help.</p>
+       <p style="margin-top:20px;"><a href="${_wUrl}" style="display:inline-block;background:#1a4a7c;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:.95rem;">Commonwealth Cruise Travel Portal &#x2192;</a></p>`
     );
-    sendEmail(email,fullName,`${TRIP_NAME} — Account Created`,
-      `Hello ${fullName},\n\nYour Commonwealth Cruise Travel Portal account has been created successfully!\n\nYou can now sign in and complete your cabin traveler information.\n\nCommonwealth Cruise Travel Portal:\n${_wUrl}\n\nYour Commonwealth Cruise Team\n\nIf you have any questions, please contact the trip organizer at ${ADMIN_EMAIL}.`,
+    sendEmail(email,fullName,`${TRIP_NAME} — Your Account Has Been Created`,
+      `Hello ${fullName},\n\nWelcome to the ${TRIP_NAME}!\n\nThank you for registering! We're excited to have you with us.\nYour account has been successfully created.\n\nThe next step is easy!\n\nRESERVE YOUR SPOT TODAY!\n\nSimply return to the login page, sign in using your username and complete your cabin traveler information.\n\nNo worries if you can't complete it all today — you can log back into your account anytime to update or finish your traveler information at your convenience.\n\nIf you have any questions or need assistance along the way, we're always happy to help.\n\nThank you again for registering!\n\nCommonwealth Cruise Travel Portal:\n${_wUrl}\n\nThank you,\nYour Commonwealth Cruise Team`,
       _wHtml
     );
   }
@@ -4197,6 +4203,10 @@ async function notifyWaitlistSelected(){
 
 // ── ADMIN ────────────────────────────────────────────────────
 async function adminInit(){
+  // Load email hold state immediately on login so the variable is correct
+  // before any emails are sent and before the Email Queue tab is ever opened.
+  await loadEmailHoldSetting();
+  updateEmailHoldUI();
   await Promise.all([loadTravelers(),loadAdminMilestones(),loadPaymentFormSelects(),loadAdminPayments(),loadInventoryTab(),loadCancellationsTab(),loadDocRequests(),loadSuiteRequests(),loadReportMilestones(),loadCabinChanges()]);
   showAdminPendingPopup();
 }
@@ -5320,6 +5330,7 @@ Your account has been successfully created.
 Username: [Recorded Username]
 
 The next step is easy!
+
 RESERVE YOUR SPOT TODAY!
 
 Simply return to the login page, sign in using your username and complete your cabin traveler information.
@@ -5330,9 +5341,10 @@ If you have any questions or need assistance along the way, we're always happy t
 
 Thank you again for registering!
 
-Commonwealth Cruise Travel Portal: https://atypicaltek.github.io/Commonwealth-Cruise/
+Commonwealth Cruise Travel Portal
 
-Your Commonwealth Cruise Travel Team`
+Thank you,
+Your Commonwealth Cruise Team`
       };
     }
   },
@@ -5722,13 +5734,24 @@ async function sendGeneratedEmail(){
     return;
   }
   if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
-  // Convert body to HTML: bold lines that are ALL CAPS (e.g. "RESERVE YOUR SPOT TODAY!")
+  // Convert body to HTML with formatting rules:
+  // 1. ALL-CAPS lines → bold dark heading
+  // 2. "Commonwealth Cruise Travel Portal" line → clickable button link
+  // 3. Blank lines → paragraph break (extra spacing)
   const bodyHtmlLines=body.split('\n').map(line=>{
-    const escaped=line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    if(/^[A-Z][A-Z\s!?.,'"-]{4,}$/.test(line.trim())&&line.trim().length>0){
-      return`<strong style="font-size:1.05rem;color:#0f2744;">${escaped}</strong>`;
+    const trimmed=line.trim();
+    const escaped=trimmed.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    // Portal link line — render as a button
+    if(/^commonwealth cruise travel portal\s*:?\s*$/i.test(trimmed)){
+      return`<a href="${PORTAL_URL}" style="display:inline-block;background:#1a4a7c;color:#fff;padding:11px 26px;border-radius:8px;text-decoration:none;font-weight:700;font-size:.92rem;margin:6px 0;">🛳️ Commonwealth Cruise Travel Portal →</a>`;
     }
-    return escaped||'&nbsp;';
+    // ALL-CAPS lines → bold heading (must be 5+ chars, allow spaces/punctuation)
+    if(/^[A-Z][A-Z\s!?.,'"-]{4,}$/.test(trimmed)&&trimmed.length>0){
+      return`<strong style="font-size:1.08rem;color:#0f2744;display:block;margin:4px 0;">${escaped}</strong>`;
+    }
+    // Blank line → spacer
+    if(trimmed==='')return'<div style="height:10px;"></div>';
+    return escaped;
   });
   const htmlBody=buildEmailHtml(toName,`<p style="line-height:1.85;font-size:.95rem;">${bodyHtmlLines.join('<br>')}</p>`);
   sendEmail(toEmail,toName,subject,body,htmlBody);
@@ -6675,17 +6698,24 @@ function showNameVerificationPopup(){
 let gEmailHoldEnabled=false;
 
 async function loadEmailHoldSetting(){
-  // localStorage is authoritative — DB is secondary sync
+  // localStorage is the single source of truth.
+  // DB is only consulted on the very first ever load (localStorage empty).
+  // Once the admin has ever toggled hold, localStorage always wins.
   const lsVal=localStorage.getItem('admin_email_hold');
-  if(lsVal!==null){gEmailHoldEnabled=lsVal==='true';return;}
+  if(lsVal!==null){
+    // Already set by admin — never override from DB
+    gEmailHoldEnabled=lsVal==='true';
+    return;
+  }
+  // First ever load on this browser — check DB for a previously-saved state
   try{
     const{data}=await sb.from('system_settings').select('value').eq('key','email_hold').maybeSingle();
-    if(data?.value!==undefined){
-      gEmailHoldEnabled=data.value==='true';
-      localStorage.setItem('admin_email_hold',String(gEmailHoldEnabled));
+    // Only trust 'true' from DB — ignore 'false' seed so we never auto-resume
+    if(data?.value==='true'){
+      gEmailHoldEnabled=true;
+      localStorage.setItem('admin_email_hold','true');
     }
-    // If table doesn't exist yet, keep gEmailHoldEnabled as false but don't overwrite localStorage
-  }catch(e){}
+  }catch(e){/* table not set up yet — default stays false */}
 }
 
 async function toggleEmailHold(btn){
@@ -6838,8 +6868,7 @@ function renderEmailQueueRows(rows,includeHeldBtn=false){
 }
 
 async function loadEmailQueueTab(){
-  // Load hold setting and update toggle UI
-  await loadEmailHoldSetting();
+  // Refresh hold UI (state was already loaded at admin login)
   updateEmailHoldUI();
 
   const el=document.getElementById('admin-emailqueue');
