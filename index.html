@@ -329,6 +329,8 @@
     <div id="dash-loading" class="loading"><div class="spinner"></div><p>Loading your payment info…</p></div>
     <div id="dash-content" style="display:none;">
       <div class="welcome-banner"><h2 id="dash-welcome">Welcome!</h2><p>Here's your current payment status for the Commonwealth Cruise 2027</p></div>
+      <!-- MISSING INFO BANNER — shown every login until all required info is complete -->
+      <div id="dash-missing-info-banner" style="display:none;"></div>
       <!-- WAITLIST STATUS CARD -->
       <div id="dash-waitlist-card" class="waitlist-card" style="display:none;">
         <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;opacity:.75;margin-bottom:6px;">⏳ Waitlist Status</div>
@@ -494,7 +496,7 @@
         <div class="card-header"><span class="card-title">📋 Payment Schedule</span><span id="dash-cabin-badge" class="badge badge-info" style="display:none;"></span></div>
         <div id="dash-schedule" class="table-wrap"></div>
       </div>
-      <div class="card">
+      <div class="card" id="dash-travelers-section">
         <div class="card-header"><span class="card-title">🛳️ My Cabin Travelers</span><div style="display:flex;align-items:center;gap:8px;"><span id="dash-traveler-count-badge" style="font-size:.78rem;font-weight:700;color:var(--muted);"></span><button class="btn btn-outline btn-sm" id="dash-add-traveler-btn" onclick="toggleAddTraveler()">+ Add Traveler</button></div></div>
         <p style="font-size:.84rem;color:var(--muted);margin-bottom:12px;">Add all guests sharing your cabin including citizenship documentation. Required for cruise check-in.</p>
         <div id="traveler-slot-tabs" class="slot-tabs"></div>
@@ -1416,6 +1418,7 @@ const PORTAL_URL        = 'https://atypicaltek.github.io/Commonwealth-Cruise/';
 // the Travelers tab and it will override this for that traveler only.
 const WIX_PAYMENT_URL   = ''; // ← paste your Wix payment page URL here
 const LOGO_GIF_URL      = ''; // ← hosted URL for Glowjetters animated GIF (data URIs are blocked by email clients)
+const CC_AUTH_FORM_URL  = 'https://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf'; // ← CC Authorization PDF (deploy to GitHub Pages alongside index.html)
 
 // ── Google Apps Script Email Web App ──────────────────────
 // Paste your deployed Web App URL below (see send-email.gs for setup steps).
@@ -3213,7 +3216,8 @@ async function loadDashboard(){
 
   document.getElementById('dash-loading').style.display='none';
   document.getElementById('dash-content').style.display='block';
-  loadCabinTravelers();
+  await loadCabinTravelers();
+  checkMissingInfoBanner(cabin, window.gCabinTravelers||[]);
   // Show name verification popup if in window and not yet confirmed
   setTimeout(()=>showNameVerificationPopup(),600);
 
@@ -3675,6 +3679,70 @@ This email was sent by the ${TRIP_NAME} portal.`;
   sendEmail(ADMIN_EMAIL,'Admin',`${TRIP_NAME} — New Traveler Added: ${travelerName}`,`${ownerName} added a traveler.\n\nTraveler: ${travelerName}\nCitizenship: ${info.label} (${country})\nDocumentation email sent to: ${toEmail}`,newTravAdminHtml);
 }
 
+// ── MISSING INFO BANNER ───────────────────────────────────────
+// Runs after every login for non-cancelled users. Checks for any
+// mandatory information still outstanding and shows a prominent
+// banner at the top of the dashboard until everything is complete.
+function checkMissingInfoBanner(cabin, travelers){
+  const bannerEl=document.getElementById('dash-missing-info-banner');
+  if(!bannerEl)return;
+
+  const missing=[];
+
+  // 1. No cabin assignment at all (should be caught by profile setup modal,
+  //    but guard here in case they reach the dashboard another way)
+  if(!cabin){
+    bannerEl.style.display='block';
+    bannerEl.innerHTML=`<div style="background:#fef2f2;border:2px solid #dc2626;border-radius:12px;padding:16px 20px;margin-bottom:16px;">
+      <strong style="color:#dc2626;font-size:.95rem;">⚠️ Action Required — Cabin Reservation Incomplete</strong>
+      <p style="margin:8px 0 0;font-size:.86rem;color:#7f1d1d;line-height:1.5;">You have not yet selected a cabin type. Please complete your cabin reservation to proceed.</p>
+      <button onclick="loadInventoryForSetup();document.getElementById('profile-setup-modal').classList.add('open');" style="margin-top:12px;background:#dc2626;color:#fff;border:none;border-radius:7px;padding:8px 18px;font-size:.85rem;font-weight:700;cursor:pointer;">🛳️ Reserve My Cabin →</button>
+    </div>`;
+    return;
+  }
+
+  // 2. Traveler slots not yet filled
+  const numGuests=cabin.num_guests||0;
+  const filled=travelers.length;
+  if(numGuests>0&&filled<numGuests){
+    const rem=numGuests-filled;
+    missing.push(`Add <strong>${rem} more cabin traveler${rem>1?'s':''}</strong> (${filled} of ${numGuests} entered)`);
+  }
+
+  // 3. Incomplete records for travelers already entered
+  travelers.forEach((t,i)=>{
+    const tNum=i+1;
+    const tName=[t.first_name,t.last_name].filter(Boolean).join(' ')||`Traveler ${tNum}`;
+    const tMissing=[];
+    if(!t.first_name||!t.last_name) tMissing.push('full name');
+    if(!t.date_of_birth) tMissing.push('date of birth');
+    if(!t.gender) tMissing.push('gender');
+    if(!t.citizenship_type) tMissing.push('citizenship type');
+    if(tMissing.length>0){
+      missing.push(`<strong>${tName}</strong> — missing: ${tMissing.join(', ')}`);
+    }
+  });
+
+  if(missing.length===0){
+    bannerEl.style.display='none';
+    return;
+  }
+
+  bannerEl.style.display='block';
+  bannerEl.innerHTML=`<div style="background:#fef2f2;border:2px solid #dc2626;border-radius:12px;padding:16px 20px;margin-bottom:16px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <span style="font-size:1.3rem;">⚠️</span>
+      <strong style="color:#dc2626;font-size:.97rem;">Action Required — Profile Incomplete</strong>
+    </div>
+    <p style="margin:0 0 10px;font-size:.86rem;color:#7f1d1d;line-height:1.5;">The following information is still needed. This must be completed before your first payment and will appear at every login until resolved:</p>
+    <ul style="margin:0 0 14px;padding-left:20px;font-size:.85rem;color:#7f1d1d;line-height:2;">
+      ${missing.map(m=>`<li>${m}</li>`).join('')}
+    </ul>
+    <button onclick="document.getElementById('dash-travelers-section').scrollIntoView({behavior:'smooth'});" style="background:#dc2626;color:#fff;border:none;border-radius:7px;padding:9px 20px;font-size:.86rem;font-weight:700;cursor:pointer;">📋 Go to Cabin Travelers →</button>
+    <p style="margin:10px 0 0;font-size:.79rem;color:#9b1c1c;font-style:italic;">This notice disappears once all required information is complete.</p>
+  </div>`;
+}
+
 async function loadCabinTravelers(){
   // Fetch traveler records and cabin assignment (for num_guests cap)
   const[travRes,caRes]=await Promise.all([
@@ -3753,6 +3821,9 @@ async function loadCabinTravelers(){
 
   // Citizenship label map
   const CT_LABELS={us:'🇺🇸 U.S. Citizen','us-pr':'🇺🇸 U.S. Permanent Resident','non-us':'🌎 Non-U.S. Citizen',canadian:'🇨🇦 Canadian Citizen',other:'🌐 Other'};
+
+  // Refresh missing-info banner with latest data (cabin from caRes, travelers from DB)
+  checkMissingInfoBanner(caRes.data||null, travelers);
 
   el.innerHTML=travelers.map((t,i)=>{
     const dob=fmtDate(t.date_of_birth);
@@ -4487,6 +4558,7 @@ async function loadTravelers(){
         '<option value="cost">&#x1F4B0; Cost'+costChk+'</option>'+
         '<option value="res_num">&#x1F4CB; Res. #'+resChk+'</option>'+
         '<option value="pay_link">&#x1F517; Pay Link'+plChk+'</option>'+
+        '<option value="send_cc_auth">&#x1F4C4; Send CC Auth Form</option>'+
         '<option value="send_pay_link">&#x1F4E8; Send Payment Link</option>'+
         '<option value="gratuity">&#x1F91D; Gratuity'+gratChk+'</option>'+
       '</optgroup>'+
@@ -6501,6 +6573,129 @@ async function confirmChangeCabinType(userId,name,oldType){
   }
 }
 
+// ── CC AUTHORIZATION FORM EMAIL ───────────────────────────────
+// Sends the InteleTravel CC Authorization request to a traveler.
+// Admin selects this from the Travelers tab action dropdown.
+function sendCCAuthForm(name,email,cabinType,numGuests){
+  // Show a preview modal so the admin can confirm before sending
+  const existing=document.getElementById('cc-auth-modal');
+  if(existing)existing.remove();
+
+  const depositAmt='$250.00';
+  const perPerson=numGuests&&numGuests>1?` ($250.00 × ${numGuests} travelers = $${(250*numGuests).toLocaleString()}.00 total)`:'';
+
+  const modal=document.createElement('div');
+  modal.id='cc-auth-modal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;';
+  modal.innerHTML=`
+    <div style="background:#fff;border-radius:14px;padding:26px 24px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.28);">
+      <h3 style="margin:0 0 4px;color:#1a4a7c;font-size:1.05rem;">📄 Send CC Authorization Form</h3>
+      <p style="margin:0 0 16px;font-size:.85rem;color:#64748b;">Traveler: <strong>${name}</strong> · ${email}</p>
+
+      <div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:9px;padding:12px 14px;margin-bottom:14px;font-size:.83rem;color:#0c4a6e;line-height:1.6;">
+        <strong>This email will:</strong><br>
+        • Request a credit card authorization for a deposit of <strong>${depositAmt}</strong>${perPerson}<br>
+        • Include the full InteleTravel Travel Purchase Authorization legal text<br>
+        • Provide a download link for the CC Authorization form PDF<br>
+        • Ask the traveler to complete, sign, and reply with the completed form<br>
+        • Inform them that a Carnival payment link will be sent after the deposit is received
+      </div>
+
+      <div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:10px 13px;margin-bottom:16px;font-size:.81rem;color:#713f12;">
+        ⚠️ <strong>Important:</strong> The CC Authorization PDF must be deployed to your GitHub Pages repo.<br>
+        Deploy <code>CC_authorization.pdf</code> alongside <code>index.html</code> at:<br>
+        <code style="font-size:.79rem;">https://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf</code>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-ghost" onclick="document.getElementById('cc-auth-modal').remove()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmSendCCAuth('${name.replace(/'/g,"\\'")}','${email}','${(cabinType||'').replace(/'/g,"\\'")}',${numGuests||1});document.getElementById('cc-auth-modal').remove();">📤 Send Email</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function confirmSendCCAuth(name,email,cabinType,numGuests){
+  const depositAmt=250;
+  const totalDeposit=depositAmt*numGuests;
+  const depositDisplay=numGuests>1?`$${totalDeposit.toLocaleString()}.00 ($250.00 × ${numGuests} travelers)`:'$250.00';
+
+  const subject=`${TRIP_NAME} — Credit Card Authorization & Deposit Request`;
+
+  const htmlBody=buildEmailHtml(name,`
+    <p>Thank you for your reservation on the <strong>${TRIP_NAME}</strong>! We are excited to have you sailing with us.</p>
+
+    <p>To secure your <strong>${cabinType||'cabin'}</strong> reservation, we are requesting a deposit of:</p>
+    <div style="text-align:center;margin:16px 0;">
+      <span style="font-size:1.6rem;font-weight:900;color:#1a4a7c;">${depositDisplay}</span>
+    </div>
+
+    <p>Once your deposit of <strong>$250.00 per traveler</strong> is received, we will send you a <strong>direct link to the Carnival payment site</strong> for all future payments toward your cruise balance.</p>
+
+    <hr style="border:none;border-top:1.5px solid #e2e8f0;margin:18px 0;">
+
+    <div style="background:#f8fafc;border-left:4px solid #1a4a7c;border-radius:0 8px 8px 0;padding:14px 16px;margin-bottom:16px;font-size:.85rem;line-height:1.7;color:#1e293b;">
+      <strong style="display:block;margin-bottom:8px;font-size:.9rem;color:#0f2744;">TRAVEL PURCHASE AUTHORIZATION — For Non-Website Purchases</strong>
+      <p style="margin:0 0 10px;">Thank you for your purchase. <strong>InteleTravel.com</strong> is pleased to confirm the following travel arrangements. To complete your transaction and confirm your arrangements, your signature on this authorization is required.</p>
+      <p style="margin:0 0 10px;">This form is <strong>NOT</strong> required for electronic purchases you complete yourself on our website, <a href="https://www.InteleTravel.com" style="color:#1a4a7c;">www.InteleTravel.com</a>, or its affiliates.</p>
+      <p style="margin:0;">Charges are payable <strong>ONLY</strong> to InteleTravel.com or the hotel, resort, tour operator, cruise line or other travel supplier. Independent Travel Advisors may not accept and process charges through any other account, or accept checks, cash or other forms of payment.</p>
+    </div>
+
+    <p style="font-weight:700;color:#0f2744;margin-bottom:8px;">📋 Next Steps:</p>
+    <ol style="font-size:.88rem;line-height:2;padding-left:20px;color:#1e293b;margin:0 0 16px;">
+      <li>Download and print the <strong>CC Authorization Form</strong> using the button below</li>
+      <li>Complete all fields — including card number, billing address, and amount (<strong>${depositDisplay}</strong>)</li>
+      <li>Sign the form (accepting or declining travel insurance as applicable)</li>
+      <li>Attach a legible copy of the <strong>front and back of your credit card</strong></li>
+      <li><strong>Reply to this email</strong> with the completed form attached</li>
+    </ol>
+
+    <div style="text-align:center;margin:20px 0;">
+      <a href="${CC_AUTH_FORM_URL}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.95rem;padding:13px 30px;border-radius:10px;text-decoration:none;">📄 Download CC Authorization Form</a>
+    </div>
+
+    <p style="font-size:.83rem;color:#64748b;text-align:center;">After we receive your completed form and deposit, your Carnival payment link will be sent for all future balance payments.</p>
+
+    <p style="font-size:.8rem;color:#94a3b8;margin-top:16px;">Questions? Reply to this email or contact us at <a href="mailto:${ADMIN_EMAIL}" style="color:#1a4a7c;">${ADMIN_EMAIL}</a>.</p>`
+  );
+
+  const plain=`Hello ${name},
+
+Thank you for your reservation on the ${TRIP_NAME}! We are excited to have you sailing with us.
+
+To secure your ${cabinType||'cabin'} reservation, we are requesting a deposit of: ${depositDisplay}
+
+Once your deposit of $250.00 per traveler is received, we will send you a direct link to the Carnival payment site for all future payments toward your cruise balance.
+
+──────────────────────────────────────────────
+TRAVEL PURCHASE AUTHORIZATION — For Non-Website Purchases
+
+Thank you for your purchase. InteleTravel.com is pleased to confirm the following travel arrangements. To complete your transaction and confirm your arrangements, your signature on this authorization is required.
+
+This form is NOT required for electronic purchases you complete yourself on our website, www.InteleTravel.com, or its affiliates.
+
+Charges are payable ONLY to InteleTravel.com or the hotel, resort, tour operator, cruise line or other travel supplier. Independent Travel Advisors may not accept and process charges through any other account, or accept checks, cash or other forms of payment.
+──────────────────────────────────────────────
+
+NEXT STEPS:
+1. Download and print the CC Authorization Form: ${CC_AUTH_FORM_URL}
+2. Complete all fields — including card number, billing address, and amount (${depositDisplay})
+3. Sign the form (accepting or declining travel insurance)
+4. Attach a legible copy of the FRONT AND BACK of your credit card
+5. Reply to this email with the completed form attached
+
+After we receive your completed form and deposit, your Carnival payment link will be sent for all future balance payments.
+
+Questions? Reply to this email or contact us at ${ADMIN_EMAIL}.
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`;
+
+  await sendEmail(email,name,subject,plain,htmlBody);
+  alert(`✅ CC Authorization request sent to ${name} at ${email}.`);
+}
+
 function emailPaymentLinkToTraveler(name,email,payLink){
   if(!payLink){
     alert('No payment link is saved for '+name+'.\n\nUse the "Pay Link" option to save one first.');
@@ -6552,6 +6747,7 @@ function handleTravelerAction(sel,userId){
   else if(v==='cost')setCabinCost(d.userId,d.name,d.cabinCost);
   else if(v==='res_num')setReservationNumber(d.userId,d.name,d.resNum);
   else if(v==='pay_link')setPaymentLink(d.userId,d.name,d.payLink);
+  else if(v==='send_cc_auth')sendCCAuthForm(d.name,d.email,d.cabinType,d.numGuests);
   else if(v==='send_pay_link')emailPaymentLinkToTraveler(d.name,d.email,d.payLink);
   else if(v==='send_portal_link')emailPortalLinkToTraveler(d.name,d.email);
   else if(v==='gratuity')setGratuityPaid(d.userId,d.name,d.gratPaid);
