@@ -1547,7 +1547,7 @@ function buildRefundTable(){
 // ──────────────────────────────────────────────────────────────
 
 // ── EMAIL HOLD: initialize from localStorage on every page load ──
-gEmailHoldEnabled=localStorage.getItem('admin_email_hold')==='true';
+let gEmailHoldEnabled=localStorage.getItem('admin_email_hold')==='true';
 
 async function sendEmail(toEmail,toName,subject,message,htmlBody){
   // HOLD CHECK: if hold is ON, queue instead of sending — intercepts ALL emails
@@ -6893,7 +6893,7 @@ function showNameVerificationPopup(){
 // ── EMAIL HOLD TOGGLE ─────────────────────────────────────────
 // Stored in Supabase system_settings table (key: email_hold)
 // Traveler emails (not "Account Created") are held when enabled.
-let gEmailHoldEnabled=false;
+// (gEmailHoldEnabled declared and initialized near top of script)
 
 async function loadEmailHoldSetting(){
   // localStorage is the single source of truth.
