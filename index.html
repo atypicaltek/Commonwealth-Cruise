@@ -1362,6 +1362,8 @@ function showPage(name){
   const el=document.getElementById('page-'+name);
   if(el)el.classList.add('active');
   window.scrollTo(0,0);
+  // Auto-dismiss splash when navigating away from login
+  if(name!=='login'){const s=document.getElementById('login-splash');if(s)s.remove();}
   if(name==='login'){
     document.getElementById('login-email').value='';
     clearPin('lp');clearFlash('login-alert');
@@ -6201,12 +6203,6 @@ function dismissSplash(){
   if(!splash||splash.classList.contains('fade-out'))return;
   splash.classList.add('fade-out');
   setTimeout(()=>{if(splash)splash.remove();},380);
-}
-// Also hide splash whenever the user navigates away from login page
-const _origShowPage=showPage;
-function showPage(id){
-  _origShowPage(id);
-  if(id!=='login'){const s=document.getElementById('login-splash');if(s)s.remove();}
 }
 </script>
 </body>
