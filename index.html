@@ -2793,6 +2793,71 @@ async function loadDashboard(){
   document.getElementById('dash-topbar-name').textContent=fullName;
   document.getElementById('dash-welcome').textContent=`Welcome, ${fullName}!`;
 
+  // ── Cancelled account: show a clear notice and payment history ──
+  if(gProfile?.status==='cancelled'){
+    const[pyRes,msRes]=await Promise.all([
+      sb.from('user_payments').select('*,payment_milestones(label,due_date)').eq('user_id',gUser.id),
+      sb.from('payment_milestones').select('*').order('due_date',{ascending:true})
+    ]);
+    const payments=pyRes.data||[];
+    const totalPaid=payments.reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+    const totalRefunded=payments.filter(p=>p.is_refunded).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+    const netPaid=totalPaid-totalRefunded;
+
+    const payRows=payments.map(p=>{
+      const isRef=!!p.is_refunded;
+      const label=p.payment_milestones?.label||'Payment';
+      const paid=parseFloat(p.amount_paid||0);
+      const badge=isRef
+        ?'<span style="background:#e0e7ff;color:#3730a3;border-radius:5px;padding:2px 8px;font-size:.75rem;font-weight:700;">↩ Refunded</span>'
+        :'<span style="background:#dcfce7;color:#166534;border-radius:5px;padding:2px 8px;font-size:.75rem;font-weight:700;">Paid</span>';
+      return`<tr${isRef?' style="opacity:.8;background:#f5f3ff;"':''}>
+        <td><strong>${label}</strong></td>
+        <td class="col-r">${isRef?'<span style="color:#6b21a8;font-weight:700;">'+fmt(paid)+'</span>':fmt(paid)}</td>
+        <td>${badge}</td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('dash-loading').style.display='none';
+    document.getElementById('dash-content').style.display='block';
+
+    // Hide all normal dashboard sections
+    ['dash-cabin-card','dash-cabin-badge','dash-waitlist-card','dash-checkin-banner'].forEach(id=>{
+      const el=document.getElementById(id);if(el)el.style.display='none';
+    });
+
+    const tileRow=document.querySelector('.tile-row');
+    if(tileRow)tileRow.style.display='none';
+
+    const scheduleCard=document.querySelector('.schedule-card, #dash-schedule')?.closest?.('.card');
+
+    // Render a cancellation notice at the top of dash-content
+    const contentEl=document.getElementById('dash-content');
+    const existingNotice=document.getElementById('dash-cancelled-notice');
+    if(!existingNotice){
+      const notice=document.createElement('div');
+      notice.id='dash-cancelled-notice';
+      notice.style.cssText='background:linear-gradient(135deg,#7f1d1d,#991b1b);border-radius:14px;padding:22px 24px;margin-bottom:18px;color:#fff;';
+      notice.innerHTML=`
+        <div style="font-size:1.5rem;margin-bottom:8px;">🚫</div>
+        <h2 style="margin:0 0 6px;font-size:1.15rem;">Your Reservation Has Been Cancelled</h2>
+        <p style="margin:0;font-size:.88rem;opacity:.9;">Your ${TRIP_NAME} reservation is no longer active. If you believe this is an error, please contact the trip organizer at <a href="mailto:${ADMIN_EMAIL}" style="color:#fca5a5;">${ADMIN_EMAIL}</a>.</p>`;
+      contentEl.insertBefore(notice,contentEl.firstChild);
+    }
+
+    // Show payment history with refund status
+    document.getElementById('dash-schedule').innerHTML=payments.length===0
+      ?'<div class="empty"><div class="ei">💳</div><p>No payment records found.</p></div>'
+      :`<div style="margin-bottom:10px;font-size:.85rem;color:#64748b;">
+          Total paid: <strong>${fmt(totalPaid)}</strong>
+          ${totalRefunded>0?` &nbsp;|&nbsp; Refunded: <strong style="color:#6b21a8;">${fmt(totalRefunded)}</strong> &nbsp;|&nbsp; Net: <strong style="color:#166534;">${fmt(netPaid)}</strong>`:''}
+        </div>
+        <table><thead><tr><th>Payment</th><th class="col-r">Amount</th><th>Status</th></tr></thead><tbody>${payRows}</tbody></table>
+        ${totalRefunded>0?`<p style="margin-top:12px;font-size:.84rem;color:#64748b;font-style:italic;">↩ Refunded amounts have been returned. No further payment is expected.</p>`:''}`;
+
+    return; // stop normal dashboard rendering
+  }
+
   const[msRes,pyRes,caRes]=await Promise.all([
     sb.from('payment_milestones').select('*').order('due_date',{ascending:true}),
     sb.from('user_payments').select('*').eq('user_id',gUser.id),
@@ -2992,16 +3057,22 @@ async function loadDashboard(){
   }
 
   // Build schedule rows
-  // Remaining Balance column = cabinCost minus running sum of cabin payments only
+  // Remaining Balance column = cabinCost minus running sum of non-refunded cabin payments only
   // Gratuity payments reduce the running total but the "cabin" remaining tracks cabin cost
   let runPaid=0;
   const rows=msData.map(({m,mPaid,isLast,isGrat,scaledMin,cumMinThrough})=>{
-    runPaid+=mPaid;
+    // Only show gratuities row if admin has marked it prepaid OR there's already a payment for it
+    if(isGrat&&!cabin?.gratuity_paid&&mPaid===0)return null;
+
+    const thisPayment=payMap[m.id];
+    const isRefunded=!!thisPayment?.is_refunded;
+    // Only count this payment toward running totals if it wasn't refunded
+    runPaid+=isRefunded?0:mPaid;
     const dDate=m.due_date?new Date(m.due_date+'T00:00:00'):null;
     // Gratuity uses its own scaledMin as the clearing threshold (not cumulative cabin total)
     const cumReq=isGrat?(scaledMin||0):isLast?(cabinCost!=null?cabinCost:0):(cumMinThrough||0);
-    // Cabin-only paid total (excludes gratuity payments for cabin milestone clearing)
-    const cabinPaid=payments.filter(p=>!msData.find(d=>d.isGrat&&d.m.id===p.milestone_id))
+    // Cabin-only paid total (excludes gratuity rows AND refunded payments)
+    const cabinPaid=payments.filter(p=>!p.is_refunded&&!msData.find(d=>d.isGrat&&d.m.id===p.milestone_id))
                             .reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
     // isCleared: for cabin milestones use cabinPaid vs cumReq; for grat use mPaid vs scaledMin
     const isCleared=isGrat?(scaledMin!=null&&mPaid>=scaledMin):cumReq>0&&cabinPaid>=cumReq;
@@ -3021,9 +3092,7 @@ async function loadDashboard(){
       minDueStr=scaledMin!=null?(isCleared?'<span style="color:var(--success);">Covered ✓</span>':fmt(scaledMin)):'—';
     }
 
-    // Badge
-    const thisPayment=payMap[m.id];
-    const isRefunded=!!thisPayment?.is_refunded;
+    // Badge (thisPayment and isRefunded already computed above for runPaid)
     let badge;
     if(isRefunded){
       badge='<span class="badge" style="background:#e0e7ff;color:#3730a3;">↩ Refunded</span>';
@@ -3072,8 +3141,9 @@ async function loadDashboard(){
     return`<tr${isRefunded?' style="opacity:.75;background:#f5f3ff;"':''}><td><strong>${m.label}</strong></td><td class="col-r">${minDueStr}</td><td class="${dateCls}">${dateStr}</td><td class="col-r">${paidCell}</td>${remCell}<td>${badge}</td></tr>`;
   });
 
-  document.getElementById('dash-schedule').innerHTML=rows.length
-    ?`<table><thead><tr><th>Payment</th><th class="col-r">Min. Due</th><th>Due Date</th><th class="col-r">Paid</th><th class="col-r">Remaining Balance</th><th>Status</th></tr></thead><tbody>${rows.join('')}</tbody></table>`
+  const filteredRows=rows.filter(Boolean);
+  document.getElementById('dash-schedule').innerHTML=filteredRows.length
+    ?`<table><thead><tr><th>Payment</th><th class="col-r">Min. Due</th><th>Due Date</th><th class="col-r">Paid</th><th class="col-r">Remaining Balance</th><th>Status</th></tr></thead><tbody>${filteredRows.join('')}</tbody></table>`
     :`<div class="empty"><div class="ei">📋</div><p style="color:var(--danger);font-weight:600;">No milestones found.<br><small style="font-weight:400;">Run <strong>run-this-in-supabase.sql</strong> in Supabase SQL Editor.</small></p></div>`;
 
   // ── Payment Link Box ─────────────────────────────────────────
