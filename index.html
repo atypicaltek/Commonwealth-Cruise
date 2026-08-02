@@ -4978,8 +4978,11 @@ function toggleCCLCompleted(){
 async function toggleCCLDone(uid){
   const chk=document.getElementById('ccl-chk-'+uid);
   const done=chk&&chk.checked;
+  // Write to localStorage immediately (fallback for when DB column not yet added)
+  if(done)localStorage.setItem('ccl_done_'+uid,'1');
+  else localStorage.removeItem('ccl_done_'+uid);
   // Persist to Supabase so it survives browser refreshes and different devices
-  await sb.from('profiles').update({ccl_submitted:done}).eq('id',uid);
+  try{await sb.from('profiles').update({ccl_submitted:done}).eq('id',uid);}catch(e){}
   // Auto-move the card between pending and completed sections
   const card=document.getElementById('ccl-card-'+uid);
   if(!card)return;
@@ -5115,7 +5118,8 @@ async function loadCCLEntry(){
 
   const pendingCards=[];const completedCards=[];
   ready.forEach(item=>{
-    const isDone=item.p.ccl_submitted===true;
+    // ccl_submitted from DB (preferred); fall back to localStorage if column not yet added
+    const isDone=item.p.ccl_submitted===true||localStorage.getItem('ccl_done_'+item.p.id)==='1';
     if(isDone)completedCards.push(buildCard(item,true));
     else pendingCards.push(buildCard(item,false));
   });
@@ -6830,10 +6834,14 @@ async function loadEmailQueueTab(){
   const el=document.getElementById('admin-emailqueue');
   const heldEl=document.getElementById('admin-heldemails');
 
-  // Use RPC to bypass RLS for admin access
+  // Use RPC to bypass RLS; fall back to direct table query if RPC not yet deployed
   const fetchQueue=async(status_in)=>{
-    const{data,error}=await sb.rpc('admin_get_email_queue',{p_status:status_in});
-    return{data,error};
+    const rpcRes=await sb.rpc('admin_get_email_queue',{p_status:status_in});
+    if(!rpcRes.error)return rpcRes;
+    // RPC not found — fall back to direct table access
+    const q=sb.from('email_queue').select('*').order('created_at',{ascending:false}).limit(500);
+    if(status_in&&status_in!=='all')q.eq('status',status_in);
+    return await q;
   };
 
   // Held emails
