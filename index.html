@@ -361,6 +361,14 @@
         <div class="pbar-track"><div class="pbar-fill" id="dash-pbar" style="width:0%"></div></div>
         <div class="progress-labels"><span id="dash-paid-label">$0 paid</span><span id="dash-total-label" style="color:var(--muted);font-style:italic;">Total: Pending admin update</span></div>
       </div>
+      <!-- Payment Link Box -->
+      <div id="dash-paylink-box" style="display:none;margin-bottom:16px;background:linear-gradient(135deg,#0f2744,#1e3a5f);border-radius:var(--radius);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div>
+          <div style="color:#93c5fd;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Ready to Make a Payment?</div>
+          <div style="color:#fff;font-size:.88rem;line-height:1.4;">Use your secure payment link to submit your next cruise payment.</div>
+        </div>
+        <a id="dash-paylink-btn" href="#" target="_blank" style="background:#22c55e;color:#fff;border-radius:8px;padding:10px 20px;font-weight:700;font-size:.9rem;text-decoration:none;white-space:nowrap;flex-shrink:0;">💳 Make a Payment ↗</a>
+      </div>
       <div class="stats-grid">
         <div class="stat-card" onclick="showPaidDetail()" style="cursor:pointer;" title="View payment history"><div class="stat-icon">✅</div><div class="stat-val paid" id="dash-paid-val">$0</div><div class="stat-label">Total Paid</div></div>
         <div class="stat-card" onclick="showBalanceDetail()" style="cursor:pointer;" title="View balance breakdown"><div class="stat-icon">⏳</div><div class="stat-val" id="dash-balance-val" style="color:var(--muted);font-size:1rem;">Pending</div><div class="stat-label">Balance Due</div><div id="dash-balance-grat" style="font-size:.7rem;color:var(--muted);margin-top:3px;line-height:1.3;"></div></div>
@@ -2822,6 +2830,8 @@ async function loadDashboard(){
   const payMap={};payments.forEach(p=>{payMap[p.milestone_id]=p;});
   const today=new Date();today.setHours(0,0,0,0);
   const totalPaid=payments.reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+  const totalRefunded=payments.filter(p=>p.is_refunded).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+  const netPaid=totalPaid-totalRefunded; // paid minus any admin-refunded amounts
 
   // Pre-compute scaled minimums and cumulative totals for each milestone.
   // IMPORTANT: Supabase orders by due_date ASC with NULLs last, so the Prepaid
@@ -2857,30 +2867,30 @@ async function loadDashboard(){
     lastEntry.cumMinThrough=cabinCost!=null?cabinCost:null;
   }
 
-  // Next Due: first milestone where totalPaid < cumulative minimum required
+  // Next Due: first milestone where netPaid < cumulative minimum required
   let nextDue=null,nextDueLabel=null,nextDueAmt=null;
   msData.forEach(({m,isLast,cumMinThrough})=>{
     if(!m.due_date)return; // gratuity/no-date milestone — skip
     const cumReq=isLast?(cabinCost!=null?cabinCost:Infinity):(cumMinThrough||0);
     if(cumReq===0)return; // nothing required yet
-    if(totalPaid<cumReq){
+    if(netPaid<cumReq){
       const dDate=new Date(m.due_date+'T00:00:00');
       if(!nextDue||dDate<nextDue){
         nextDue=dDate;
         nextDueLabel=m.label;
-        nextDueAmt=Math.max(0,cumReq-totalPaid); // net shortfall after carry-forward
+        nextDueAmt=Math.max(0,cumReq-netPaid); // net shortfall after carry-forward
       }
     }
   });
 
   // Progress bar — only show % if cabin cost is known
   if(cabinCost!=null){
-    const pct=Math.min(100,Math.round((totalPaid/cabinCost)*100));
+    const pct=Math.min(100,Math.round((netPaid/cabinCost)*100));
     document.getElementById('dash-pct').textContent=pct+'%';
     document.getElementById('dash-pbar').style.width=pct+'%';
     document.getElementById('dash-total-label').textContent='Total: '+fmt(cabinCost);
     document.getElementById('dash-total-label').style.cssText='';
-    const balance=Math.max(0,cabinCost-totalPaid);
+    const balance=Math.max(0,cabinCost-netPaid);
     document.getElementById('dash-balance-val').textContent=fmt(balance);
     document.getElementById('dash-balance-val').style.cssText='color:var(--danger);font-size:1.4rem;font-weight:800;';
     const gratNote=cabin?.gratuity_paid?'(includes gratuities)':'(gratuities not included)';
@@ -2892,8 +2902,8 @@ async function loadDashboard(){
     document.getElementById('dash-balance-val').textContent='Pending';
     document.getElementById('dash-balance-val').style.cssText='color:var(--muted);font-size:1rem;';
   }
-  document.getElementById('dash-paid-label').textContent=fmt(totalPaid)+' paid';
-  document.getElementById('dash-paid-val').textContent=fmt(totalPaid);
+  document.getElementById('dash-paid-label').textContent=fmt(netPaid)+' paid'+(totalRefunded>0?' ('+fmt(totalRefunded)+' refunded)':'');
+  document.getElementById('dash-paid-val').textContent=fmt(netPaid);
   if(nextDue){
     const nd=nextDue.toLocaleDateString('en-US',{month:'short',day:'numeric'});
     document.getElementById('dash-nextdue-val').textContent=nd;
@@ -2942,8 +2952,12 @@ async function loadDashboard(){
     }
 
     // Badge
+    const thisPayment=payMap[m.id];
+    const isRefunded=!!thisPayment?.is_refunded;
     let badge;
-    if(isLast){
+    if(isRefunded){
+      badge='<span class="badge" style="background:#e0e7ff;color:#3730a3;">↩ Refunded</span>';
+    } else if(isLast){
       if(!cabinCost)badge='<span class="badge badge-gray">Pending Cost Entry</span>';
       else if(isCleared)badge='<span class="badge badge-success">Paid ✓</span>';
       else if(isOver)badge='<span class="badge badge-danger">Overdue!</span>';
@@ -2951,7 +2965,7 @@ async function loadDashboard(){
       else badge='<span class="badge badge-info">Final Payment</span>';
     } else if(isGrat){
       if(isCleared)badge='<span class="badge badge-success">Paid ✓</span>';
-      else if(scaledMin!=null)badge='<span class="badge badge-purple">Prepay Option</span>';
+      else if(scaledMin!=null)badge='<button onclick="requestPrepayGratuities()" style="background:#f3e8ff;color:#6b21a8;border:none;border-radius:5px;padding:3px 10px;font-size:.75rem;font-weight:700;cursor:pointer;">🙋 Request Prepay</button>';
       else badge='<span class="badge badge-gray">See Organizer</span>';
     } else {
       if(isCleared)badge='<span class="badge badge-success">Paid ✓</span>';
@@ -2981,12 +2995,25 @@ async function loadDashboard(){
       remCell=`<td class="col-r" style="color:var(--muted);font-style:italic;">Pending</td>`;
     }
 
-    return`<tr><td><strong>${m.label}</strong></td><td class="col-r">${minDueStr}</td><td class="${dateCls}">${dateStr}</td><td class="col-r">${mPaid>0?'<strong>'+fmt(mPaid)+'</strong>':'—'}</td>${remCell}<td>${badge}</td></tr>`;
+    const paidCell=isRefunded
+      ?`<strong style="color:#6b21a8;">${fmt(mPaid)}</strong>`
+      :mPaid>0?'<strong>'+fmt(mPaid)+'</strong>':'—';
+    return`<tr${isRefunded?' style="opacity:.75;background:#f5f3ff;"':''}><td><strong>${m.label}</strong></td><td class="col-r">${minDueStr}</td><td class="${dateCls}">${dateStr}</td><td class="col-r">${paidCell}</td>${remCell}<td>${badge}</td></tr>`;
   });
 
   document.getElementById('dash-schedule').innerHTML=rows.length
     ?`<table><thead><tr><th>Payment</th><th class="col-r">Min. Due</th><th>Due Date</th><th class="col-r">Paid</th><th class="col-r">Remaining Balance</th><th>Status</th></tr></thead><tbody>${rows.join('')}</tbody></table>`
     :`<div class="empty"><div class="ei">📋</div><p style="color:var(--danger);font-weight:600;">No milestones found.<br><small style="font-weight:400;">Run <strong>run-this-in-supabase.sql</strong> in Supabase SQL Editor.</small></p></div>`;
+
+  // ── Payment Link Box ─────────────────────────────────────────
+  const paylinkBox=document.getElementById('dash-paylink-box');
+  const paylinkBtn=document.getElementById('dash-paylink-btn');
+  if(paylinkBox&&cabin?.payment_link){
+    paylinkBtn.href=cabin.payment_link;
+    paylinkBox.style.display='flex';
+  } else if(paylinkBox){
+    paylinkBox.style.display='none';
+  }
 
   // ── Online Check-In banner ────────────────────────────────────
   // Show when: fully paid AND today is on or after June 6, 2027 (14 days before Jun 20 embarkation)
@@ -2994,7 +3021,7 @@ async function loadDashboard(){
   if(checkinEl){
     const checkinOpenDate=new Date('2027-06-06T00:00:00');
     const todayForCheckin=new Date(); todayForCheckin.setHours(0,0,0,0);
-    const fullyPaid=cabinCost!=null&&totalPaid>=cabinCost;
+    const fullyPaid=cabinCost!=null&&netPaid>=cabinCost;
     checkinEl.style.display=(fullyPaid&&todayForCheckin>=checkinOpenDate)?'block':'none';
   }
 
@@ -4482,20 +4509,30 @@ async function loadAdminPayments(){
 
   function makePayRow(p,isCancRefund){
     const due=parseFloat(p.amount_due||0),paid=parseFloat(p.amount_paid||0);
-    const badge=isCancRefund
-      ?'<span style="background:#9f1239;color:#fff;border-radius:5px;padding:2px 8px;font-size:.75rem;font-weight:700;white-space:nowrap;">🚫 Cancelled / Refunded</span>'
-      :due>0&&paid>=due?'<span class="badge badge-success">Paid ✓</span>':'<span class="badge badge-warn">Pending</span>';
+    const isRef=!!p.is_refunded;
+    let badge,refundBtn='';
+    if(isCancRefund){
+      badge='<span style="background:#9f1239;color:#fff;border-radius:5px;padding:2px 8px;font-size:.75rem;font-weight:700;white-space:nowrap;">🚫 Cancelled / Refunded</span>';
+    } else if(isRef){
+      badge='<span style="background:#e0e7ff;color:#3730a3;border-radius:5px;padding:2px 8px;font-size:.75rem;font-weight:700;white-space:nowrap;">↩ Refunded</span>';
+      refundBtn=`<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;margin-top:4px;" onclick="adminUnmarkPaymentRefunded('${p.id}')">Undo Refund</button>`;
+    } else if(due>0&&paid>=due){
+      badge='<span class="badge badge-success">Paid ✓</span>';
+      if(paid>0)refundBtn=`<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;margin-top:4px;color:#6b21a8;" onclick="adminMarkPaymentRefunded('${p.id}')">Mark Refunded</button>`;
+    } else {
+      badge='<span class="badge badge-warn">Pending</span>';
+    }
     const pd=p.paid_at?new Date(p.paid_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—';
     const cabinInfo=cabinInfoMap[p.user_id]||{cabinNum:'—',resNum:'—'};
-    return`<tr>
+    return`<tr${isRef?' style="opacity:.8;background:#f5f3ff;"':''}>
       <td><strong>${p.profiles?.name||'—'}</strong><br><small style="color:var(--muted)">${p.profiles?.email||''}</small></td>
       <td>${p.payment_milestones?.label||'—'}</td>
       <td>${fmtDate(p.payment_milestones?.due_date)}</td>
       <td style="font-size:.82rem;"><div style="font-weight:600;">${cabinInfo.cabinNum}</div><div style="color:var(--muted);font-size:.78rem;">Res: ${cabinInfo.resNum}</div></td>
       <td class="col-r">${fmt(due)}</td>
-      <td class="col-r">${fmt(paid)}</td>
+      <td class="col-r">${isRef?'<span style="color:#6b21a8;font-weight:700;">'+fmt(paid)+'</span>':fmt(paid)}</td>
       <td>${pd}</td>
-      <td>${badge}</td>
+      <td>${badge}${refundBtn?'<br>'+refundBtn:''}</td>
     </tr>`;
   }
 
@@ -6224,6 +6261,41 @@ window.addEventListener('load',async()=>{
 // ── LOGIN SPLASH ──────────────────────────────────────────────
 // ── DECK PLAN ─────────────────────────────────────────────────
 const DECK_PLAN_URL='carnival-freedom-deck-plan-pdf.pdf';
+
+async function requestPrepayGratuities(){
+  if(!gUser||!gProfile)return;
+  const name=gProfile.name||gUser.email;
+  const email=gUser.email;
+  const subject=`${TRIP_NAME} — Prepaid Gratuities Request`;
+  const plain=`Prepaid Gratuities Request\n\nTraveler: ${name}\nEmail: ${email}\n\nThis traveler would like to prepay gratuities for their cruise booking. Please add this to their Carnival portal and update their payment link accordingly.\n\nPortal: ${PORTAL_URL}`;
+  const bodyHtml=`
+    <p>A traveler has requested to prepay gratuities for their cruise booking.</p>
+    <table style="border-collapse:collapse;width:100%;margin:12px 0;">
+      <tr><td style="padding:6px 12px;background:#f8fafc;font-weight:700;border:1px solid #e2e8f0;width:140px;">Traveler</td><td style="padding:6px 12px;border:1px solid #e2e8f0;">${name}</td></tr>
+      <tr><td style="padding:6px 12px;background:#f8fafc;font-weight:700;border:1px solid #e2e8f0;">Email</td><td style="padding:6px 12px;border:1px solid #e2e8f0;">${email}</td></tr>
+    </table>
+    <p>Please add prepaid gratuities to this traveler's booking in the Carnival portal and update their payment link so they can complete the payment.</p>`;
+  try{
+    await sendEmail(ADMIN_EMAIL,ADMIN_EMAIL,subject,plain,buildEmailHtml('Trip Organizer',bodyHtml));
+    alert('Your prepaid gratuities request has been sent! The trip organizer will update your payment link shortly.');
+  }catch(e){
+    alert('Could not send request: '+e.message);
+  }
+}
+
+async function adminMarkPaymentRefunded(paymentId){
+  if(!confirm('Mark this payment as refunded? This will remove it from the traveler\'s paid total.'))return;
+  const{error}=await sb.rpc('admin_set_payment_refunded',{p_payment_id:paymentId,p_val:true});
+  if(error){alert('Error: '+error.message);return;}
+  loadAdminPayments();
+}
+
+async function adminUnmarkPaymentRefunded(paymentId){
+  if(!confirm('Undo refund mark on this payment?'))return;
+  const{error}=await sb.rpc('admin_set_payment_refunded',{p_payment_id:paymentId,p_val:false});
+  if(error){alert('Error: '+error.message);return;}
+  loadAdminPayments();
+}
 
 function openDeckPlanPrompt(){
   const existing=document.getElementById('deck-plan-prompt');
