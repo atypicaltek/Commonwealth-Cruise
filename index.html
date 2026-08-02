@@ -2816,6 +2816,10 @@ async function loadDashboard(){
   document.getElementById('dash-topbar-name').textContent=fullName;
   document.getElementById('dash-welcome').textContent=`Welcome, ${fullName}!`;
 
+  // Always clear any stale cancellation notice from a previous session/user
+  const staleNotice=document.getElementById('dash-cancelled-notice');
+  if(staleNotice)staleNotice.remove();
+
   // ── Cancelled account: show a clear notice and payment history ──
   if(gProfile?.status==='cancelled'){
     const[pyRes,msRes]=await Promise.all([
