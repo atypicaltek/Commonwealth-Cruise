@@ -1491,7 +1491,7 @@ function buildEmailHtml(recipientName,bodyHtml){
     <!-- Login link block -->
     <div style="margin:26px 0 4px;padding:16px 20px;background:linear-gradient(135deg,#eff6ff 0%,#e8f0fb 100%);border-left:4px solid #1a4a7c;border-radius:0 8px 8px 0;box-shadow:0 1px 4px rgba(26,74,124,.08);">
       <p style="margin:0 0 5px;font-weight:700;color:#1a4a7c;font-size:.94rem;">📊 Log into your account to view your full payment schedule</p>
-      <a href="${appUrl}" style="display:inline-block;margin-top:4px;color:#1a4a7c;font-weight:700;font-size:.88rem;text-decoration:underline;">Commonwealth Cruise Travel Portal →</a>
+      <a href="${appUrl}" style="display:inline-block;margin-top:4px;color:#1a4a7c;font-weight:700;font-size:.88rem;text-decoration:underline;">Commonwealth-Cruise-Portal →</a>
     </div>
   </div>
   <!-- Footer card -->
@@ -1500,7 +1500,7 @@ function buildEmailHtml(recipientName,bodyHtml){
     <p style="margin:0 0 8px;font-weight:700;color:#fff;font-size:.95rem;">Your Commonwealth Cruise Team</p>
     <p style="margin:0 0 8px;color:#c8ddf4;font-size:.8rem;font-style:italic;">This email was sent by the ${TRIP_NAME} portal.</p>
     <p style="margin:0 0 14px;color:#94b8d4;font-size:.83rem;line-height:1.5;">If you have any questions, please reply to this email or contact the trip organizer at <a href="mailto:${ADMIN_EMAIL}" style="color:#7ab8e8;font-weight:600;">${ADMIN_EMAIL}</a>.</p>
-    <p style="margin:0;"><a href="https://atypicaltek.github.io/Commonwealth-Cruise/" style="display:inline-block;background:rgba(255,255,255,.15);color:#fff;font-weight:700;font-size:.85rem;padding:9px 20px;border-radius:8px;text-decoration:none;border:1px solid rgba(255,255,255,.3);">🛳️ Commonwealth Cruise Travel Portal</a></p>
+    <p style="margin:0;"><a href="https://atypicaltek.github.io/Commonwealth-Cruise/" style="display:inline-block;background:rgba(255,255,255,.15);color:#fff;font-weight:700;font-size:.85rem;padding:9px 20px;border-radius:8px;text-decoration:none;border:1px solid rgba(255,255,255,.3);">🛳️ Commonwealth-Cruise-Portal</a></p>
   </div>
   ${LOGO_GIF_URL ? `<div style="text-align:center;padding:18px 0 0;"><img src="${LOGO_GIF_URL}" alt="GlowJetters Travel" width="260" style="border-radius:10px;max-width:100%;display:inline-block;"></div>` : ''}
 </div>
@@ -1804,15 +1804,14 @@ Full documentation reference: https://help.carnival.com/app/answers/detail/a_id/
   const parts=[
     `Hello ${profile.name},`,
     ``,
-    `Welcome to the Commonwealth Cruise Travel Portal! Your cabin selection has been received.`,
+    `Welcome to Commonwealth-Cruise-Portal! Your cabin selection has been received.`,
     ``,
     `ACCOUNT DETAILS:`,
     `• Name: ${profile.name}`,
     `• Email: ${profile.email}`,
     `• Cabin Type: ${cabinType||'Pending'}`,
     ``,
-    `Log into your account to view your full payment schedule and manage your cabin travelers:`,
-    appUrl,
+    `Sign in at ${appUrl} to enter your cabin traveler details and review the payment schedule.`,
     ``,
     namesSection,
     ``,
@@ -1852,7 +1851,8 @@ Full documentation reference: https://help.carnival.com/app/answers/detail/a_id/
   ].filter(Boolean).join('<br><br>');
 
   const htmlBody=buildEmailHtml(profile.name,`
-    <p>Your account has been created for the <strong>${TRIP_NAME}</strong> Commonwealth Cruise Travel Portal.</p>
+    <p>Your account has been created for the <strong>${TRIP_NAME}</strong>.</p>
+    <p>Sign in at <a href="${appUrl}" style="color:#1a4a7c;font-weight:700;">Commonwealth-Cruise-Portal</a> to enter your cabin traveler details and review the payment schedule.</p>
     <p><strong>Account Details:</strong></p>
     ${detailTable}
     <br>${toHtmlSection(namesSection)}<br><br>
@@ -1921,7 +1921,7 @@ function emailSuiteConfirmed(name,email,cabinNumber){
      <p>Please continue making payments on your regular payment schedule.</p>
      <p>We look forward to sailing with you!</p>`
   );
-  const plain=`Hello ${name},\n\nGreat news! Your suite request for the ${TRIP_NAME} has been confirmed!\n\n${cabinNumber?`Your Suite Cabin Number: ${cabinNumber}\n`:'Your suite cabin number will be sent by a separate email once assigned.\n'}\nYour backup cabin reservation has been released.\n\nPlease continue making payments on your regular payment schedule.\n\nLog into your account to view your full payment schedule:\nhttps://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal) (Commonwealth-Cruise-Portal)\n\nWe look forward to sailing with you!\n\nThank you,
+  const plain=`Hello ${name},\n\nGreat news! Your suite request for the ${TRIP_NAME} has been confirmed!\n\n${cabinNumber?`Your Suite Cabin Number: ${cabinNumber}\n`:'Your suite cabin number will be sent by a separate email once assigned.\n'}\nYour backup cabin reservation has been released.\n\nPlease continue making payments on your regular payment schedule.\n\nLog into your account to view your full payment schedule:\nhttps://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal)\n\nWe look forward to sailing with you!\n\nThank you,
 Your Commonwealth Cruise Team
 This email was sent by the ${TRIP_NAME} portal.`;
   sendEmail(email,name,subject,plain,html);
@@ -1965,7 +1965,7 @@ function emailDepositComplete(name,email,totalPaid,travelerCount){
      <p style="font-weight:700;">Your Commonwealth Cruise Team</p>
      <p style="font-size:.8rem;color:#64748b;font-style:italic;">This email was sent by the ${TRIP_NAME} portal.</p>`
   );
-  const plain=`Hello ${name},\n\nFantastic news! Your full deposit for the ${TRIP_NAME} has been received.\n\nDeposit Summary:\n• Travelers in Your Cabin: ${travelerCount}\n• Deposit Per Person: $250.00\n• Total Deposit Received: ${fmt(totalPaid)}\n\nNext Steps:\n1. Your cabin number will be assigned and sent to you by a separate email shortly.\n2. A personalized payment link for all future payments will also be sent to you by email.\n\nLog into your account to view your full payment schedule:\nhttps://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal) (Commonwealth-Cruise-Portal)\n\nThank you for securing your spot on the Commonwealth Cruise 2027!\n\nWe can't wait to sail with you!\n\nThank you,
+  const plain=`Hello ${name},\n\nFantastic news! Your full deposit for the ${TRIP_NAME} has been received.\n\nDeposit Summary:\n• Travelers in Your Cabin: ${travelerCount}\n• Deposit Per Person: $250.00\n• Total Deposit Received: ${fmt(totalPaid)}\n\nNext Steps:\n1. Your cabin number will be assigned and sent to you by a separate email shortly.\n2. A personalized payment link for all future payments will also be sent to you by email.\n\nLog into your account to view your full payment schedule:\nhttps://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal)\n\nThank you for securing your spot on the Commonwealth Cruise 2027!\n\nWe can't wait to sail with you!\n\nThank you,
 Your Commonwealth Cruise Team
 This email was sent by the ${TRIP_NAME} portal.`;
   sendEmail(email,name,subject,plain,html);
@@ -1988,10 +1988,7 @@ function emailCancellationToTraveler(travelerName,travelerEmail,cabinType,cabinN
      <p>Please note that any funds applied toward your cruise will be refunded, if applicable, in accordance with the cruise line's cancellation and refund policy. Refund eligibility and processing are subject to the cruise line's terms and conditions.</p>
      <p>If you believe this cancellation was made in error, please contact the trip organizer immediately at <a href="mailto:${ADMIN_EMAIL}" style="color:#1a3a5c;">${ADMIN_EMAIL}</a>.</p>
      <p>&nbsp;</p>
-     <p>We're sorry to see you go!</p>
-     <p>Thank you,</p>
-     <p style="font-weight:700;">Your Commonwealth Cruise Team</p>
-     <p style="font-size:.8rem;color:#64748b;font-style:italic;">This email was sent by the ${TRIP_NAME} portal.</p>`
+     <p>We're sorry to see you go!</p>`
   );
   const plain=`Dear ${travelerName},\n\nThis email confirms that your reservation for the ${TRIP_NAME} has been cancelled.\n\nCancellation Details:\n\u2022 Name: ${travelerName}\n\u2022 Cabin Type: ${cabinType||'N/A'}\n\u2022 Cabin Number: ${cabinNumber||'Not yet assigned'}\n\u2022 Total Amount Paid: ${fmt(totalPaid)}\n\u2022 Cancellation Date: ${cancelDate}\n\nPlease note that any funds applied toward your cruise will be refunded, if applicable, in accordance with the cruise line's cancellation and refund policy. Refund eligibility and processing are subject to the cruise line's terms and conditions.\n\nIf you believe this cancellation was made in error, please contact the trip organizer at ${ADMIN_EMAIL}.\n\nWe're sorry to see you go!
 
@@ -2170,7 +2167,7 @@ async function emailTravelerInfoComplete(travelers,ownerName,ownerEmail,minorIss
     minorSection+
     '<p style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px 14px;font-size:.88rem;margin-top:16px;">'+
     '<strong>&#10003; If this information is correct:</strong> No action is needed.<br>'+
-    '<strong>&#9998; If any information is incorrect:</strong> Please log in to the portal and update your traveler information at <a href="https://atypicaltek.github.io/Commonwealth-Cruise/" style="color:#1a3a5c;">Commonwealth Cruise Travel Portal</a>.'+
+    '<strong>&#9998; If any information is incorrect:</strong> Please log in to the portal and update your traveler information at <a href="https://atypicaltek.github.io/Commonwealth-Cruise/" style="color:#1a3a5c;">Commonwealth-Cruise-Portal</a>.'+
     '</p>'+
     '<p style="font-size:.9rem;font-weight:700;color:#1a4f7a;margin-top:20px;border-top:2px solid #e2e8f0;padding-top:14px;">✈️ Travel Documentation Requirements</p>'+
     '<p style="font-size:.86rem;color:#374151;margin-bottom:4px;">Each traveler is personally responsible for the required documents listed below. Traveling without proper documentation will result in denial of boarding with no refund or compensation.</p>'+
@@ -3646,7 +3643,7 @@ function sendTravelerDocEmail(travelerName,toEmail,citizenType,country,ownerName
      <div style="font-size:.9rem;line-height:1.6;">${txt2htmlDoc(info.body)}</div>
      <p style="color:#b45309;">⚠️ Guests are personally responsible for all required travel documents. The trip organizer assumes no responsibility for denied boarding due to improper documentation.</p>`
   );
-  const plain=`Hello ${ownerName},\n\nA cabin traveler has been added to your reservation:\n\nTraveler: ${travelerName}\nCountry of Citizenship: ${country}\nCitizenship Status: ${info.label}\n\n── TRAVEL DOCUMENTATION REQUIREMENTS ──\n\n${info.body}\n\n⚠️ Guests are personally responsible for all required travel documents. The trip organizer assumes no responsibility for denied boarding due to improper documentation.\n\nLog into your account to view your full payment schedule:\nhttps://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal) (Commonwealth-Cruise-Portal)\n\nThank you,
+  const plain=`Hello ${ownerName},\n\nA cabin traveler has been added to your reservation:\n\nTraveler: ${travelerName}\nCountry of Citizenship: ${country}\nCitizenship Status: ${info.label}\n\n── TRAVEL DOCUMENTATION REQUIREMENTS ──\n\n${info.body}\n\n⚠️ Guests are personally responsible for all required travel documents. The trip organizer assumes no responsibility for denied boarding due to improper documentation.\n\nLog into your account to view your full payment schedule:\nhttps://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal)\n\nThank you,
 Your Commonwealth Cruise Team
 This email was sent by the ${TRIP_NAME} portal.`;
   sendEmail(toEmail,ownerName,subject,plain,html);
@@ -6538,7 +6535,7 @@ async function adminAddTraveler(){
     })();
     if(sendWelcome){
       const emailHtml=buildEmailHtml(fullName,
-        '<p>Your account for the <strong>'+TRIP_NAME+'</strong> Commonwealth Cruise Travel Portal account has been created by the trip organizer.</p>'+
+        '<p>Your account for the <strong>'+TRIP_NAME+'</strong> has been created by the trip organizer. Sign in at <a href="https://atypicaltek.github.io/Commonwealth-Cruise/" style="color:#1a4a7c;font-weight:700;">Commonwealth-Cruise-Portal</a> to enter your cabin traveler details and review the payment schedule.</p>'+
         '<div style="margin:18px 0;padding:14px 18px;background:#f0fdf4;border-left:4px solid #16a34a;border-radius:0 8px 8px 0;">'+
         '<p style="margin:0 0 4px;font-weight:700;color:#16a34a;">Your Temporary PIN</p>'+
         '<p style="margin:0;font-size:1.6rem;font-weight:800;letter-spacing:8px;color:#1e293b;">'+tempPin+'</p>'+
