@@ -344,6 +344,7 @@
             <div onclick="showCabinTileModal()" style="background:rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;text-align:center;min-width:70px;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.28)'" onmouseout="this.style.background='rgba(255,255,255,.15)'"><div id="dash-cabin-num-display" style="font-size:1.1rem;font-weight:700;">—</div><div style="font-size:.72rem;opacity:.75;">Cabin #</div></div>
             <div onclick="showGuestsTileModal()" style="background:rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;text-align:center;min-width:70px;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.28)'" onmouseout="this.style.background='rgba(255,255,255,.15)'"><div id="dash-guests-display" style="font-size:1.1rem;font-weight:700;">—</div><div style="font-size:.72rem;opacity:.75;">Guests</div></div>
             <div onclick="showTravelersTileModal()" style="background:rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;text-align:center;min-width:70px;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.28)'" onmouseout="this.style.background='rgba(255,255,255,.15)'"><div id="dash-travelers-progress" style="font-size:1.1rem;font-weight:700;">0/—</div><div style="font-size:.72rem;opacity:.75;">Travelers Added</div></div>
+            <button onclick="openDeckPlanPrompt()" style="background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.55);color:#fff;border-radius:8px;padding:8px 12px;font-size:.75rem;cursor:pointer;font-weight:700;white-space:nowrap;align-self:stretch;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:70px;">🗺️<span>Deck Plan</span></button>
           </div>
         </div>
         <div id="dash-single-occ-note" style="display:none;background:rgba(255,200,0,.18);border:1px solid rgba(255,200,0,.4);border-radius:7px;padding:8px 12px;margin-top:12px;font-size:.82rem;line-height:1.5;">⚠️ <strong>Single Occupancy Notice:</strong> Single occupancy cabins require a <strong>double deposit</strong> and are charged at the <strong>double occupancy rate</strong>. Please contact the trip organizer if you have questions.</div>
@@ -352,7 +353,6 @@
         <div id="dash-cabin-change-pending" style="display:none;background:rgba(255,200,0,.18);border:1px solid rgba(255,200,0,.4);border-radius:7px;padding:8px 12px;margin-top:8px;font-size:.82rem;line-height:1.5;">⏳ <strong>Cabin Change Request Pending:</strong> Your request to change to <span id="dash-cabin-change-requested" style="font-weight:800;"></span> is pending approval by the Commonwealth Cruise Team.</div>
         <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
           <button id="dash-cabin-change-btn" onclick="openCabinChangeRequest()" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:7px;padding:6px 14px;font-size:.82rem;cursor:pointer;font-weight:600;">🔄 Request Cabin Type Change</button>
-          <button onclick="openDeckPlanPrompt()" style="background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.55);color:#fff;border-radius:7px;padding:6px 14px;font-size:.82rem;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:6px;">🗺️ Freedom Deck Plan</button>
         </div>
       </div>
       <div class="progress-card">
@@ -832,9 +832,28 @@
 
     <!-- EMAIL QUEUE -->
     <div id="tab-emailqueue" class="tab-pane">
+      <!-- Hold Toggle -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-header">
+          <span class="card-title">🔒 Email Hold</span>
+          <button id="email-hold-toggle" onclick="toggleEmailHold(this)" style="background:#dc2626;color:#fff;border:none;border-radius:7px;padding:6px 16px;font-size:.82rem;font-weight:700;cursor:pointer;">⏸ Hold Outgoing Emails</button>
+        </div>
+        <p id="email-hold-label" style="font-size:.85rem;color:var(--muted);margin:8px 0 0;">🟢 Emails are sending normally</p>
+        <p style="font-size:.8rem;color:var(--muted);margin:4px 0 0;">Holding pauses ALL outgoing traveler emails except "Account Created (Welcome)". Held emails are collected below for review and manual release.</p>
+      </div>
+      <!-- Held Emails -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-header">
+          <span class="card-title">🗂 Held Emails</span>
+          <button class="btn btn-primary btn-sm" onclick="sendAllHeldEmails(this)">📤 Send All Held</button>
+        </div>
+        <p style="font-size:.85rem;color:var(--muted);margin:0 0 10px;">Emails held by the toggle above. Send individually or all at once.</p>
+        <div id="admin-heldemails"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+      <!-- Standard Queue -->
       <div class="card">
         <div class="card-header">
-          <span class="card-title">📬 Email Queue</span>
+          <span class="card-title">📬 Email Queue (Failed / Logged)</span>
           <button class="btn btn-primary btn-sm" onclick="sendAllQueuedEmails(this)">📤 Send All Pending</button>
         </div>
         <p style="font-size:.85rem;color:var(--muted);margin:0 0 14px;">All outgoing emails are logged here. Use this to resend emails that may have failed due to daily send limits.</p>
@@ -1448,12 +1467,13 @@ function buildEmailHtml(recipientName,bodyHtml){
     <!-- Login link block -->
     <div style="margin:26px 0 4px;padding:16px 20px;background:linear-gradient(135deg,#eff6ff 0%,#e8f0fb 100%);border-left:4px solid #1a4a7c;border-radius:0 8px 8px 0;box-shadow:0 1px 4px rgba(26,74,124,.08);">
       <p style="margin:0 0 5px;font-weight:700;color:#1a4a7c;font-size:.94rem;">📊 Log into your account to view your full payment schedule</p>
-      <a href="${appUrl}" style="display:inline-block;margin-top:4px;color:#1a4a7c;font-weight:700;font-size:.88rem;word-break:break-all;text-decoration:underline;">${appUrl}</a>
+      <a href="${appUrl}" style="display:inline-block;margin-top:4px;color:#1a4a7c;font-weight:700;font-size:.88rem;text-decoration:underline;">Commonwealth Cruise Travel Portal →</a>
     </div>
   </div>
   <!-- Footer card -->
   <div style="background:linear-gradient(135deg,#0f2744 0%,#1a3a5c 100%);border-radius:0 0 14px 14px;padding:18px 30px 20px;">
-    <p style="margin:0 0 8px;font-weight:700;color:#fff;font-size:.95rem;">Your Commonwealth Cruise Travel Team</p>
+    <p style="margin:0 0 4px;color:#c8ddf4;font-size:.9rem;">Thank you,</p>
+    <p style="margin:0 0 8px;font-weight:700;color:#fff;font-size:.95rem;">Your Commonwealth Cruise Team</p>
     <p style="margin:0 0 14px;color:#94b8d4;font-size:.83rem;line-height:1.5;">If you have any questions, please reply to this email or contact the trip organizer at <a href="mailto:${ADMIN_EMAIL}" style="color:#7ab8e8;font-weight:600;">${ADMIN_EMAIL}</a>.</p>
     <p style="margin:0;"><a href="https://atypicaltek.github.io/Commonwealth-Cruise/" style="display:inline-block;background:rgba(255,255,255,.15);color:#fff;font-weight:700;font-size:.85rem;padding:9px 20px;border-radius:8px;text-decoration:none;border:1px solid rgba(255,255,255,.3);">🛳️ Commonwealth Cruise Travel Portal</a></p>
   </div>
@@ -1901,6 +1921,7 @@ function emailDepositComplete(name,email,totalPaid,travelerCount){
      <li>A personalized payment link for all future payments will also be sent to you by email.</li></ol>
      <p>Thank you for securing your spot on the Commonwealth Cruise 2027!</p>
      <p>We can't wait to sail with you!</p>
+     <p>Thank you,</p>
      <p style="font-weight:700;">Your Commonwealth Cruise Team</p>`
   );
   const plain=`Hello ${name},\n\nFantastic news! Your full deposit for the ${TRIP_NAME} has been received.\n\nDeposit Summary:\n• Travelers in Your Cabin: ${travelerCount}\n• Deposit Per Person: $250.00\n• Total Deposit Received: ${fmt(totalPaid)}\n\nNext Steps:\n1. Your cabin number will be assigned and sent to you by a separate email shortly.\n2. A personalized payment link for all future payments will also be sent to you by email.\n\nLog into your account to view your full payment schedule:\n${window.location.href.split('?')[0]}\n\nThank you for securing your spot on the Commonwealth Cruise 2027!\n\nWe can't wait to sail with you!\n\nYour Commonwealth Cruise Team\n\nIf you have any questions, please reply to this email or contact the trip organizer at ${ADMIN_EMAIL}.`;
@@ -1925,6 +1946,7 @@ function emailCancellationToTraveler(travelerName,travelerEmail,cabinType,cabinN
      <p>If you believe this cancellation was made in error, please contact the trip organizer immediately at <a href="mailto:${ADMIN_EMAIL}" style="color:#1a3a5c;">${ADMIN_EMAIL}</a>.</p>
      <p>&nbsp;</p>
      <p>We're sorry to see you go!</p>
+     <p>Thank you,</p>
      <p style="font-weight:700;">Your Commonwealth Cruise Team</p>`
   );
   const plain=`Dear ${travelerName},\n\nThis email confirms that your reservation for the ${TRIP_NAME} has been cancelled.\n\nCancellation Details:\n\u2022 Name: ${travelerName}\n\u2022 Cabin Type: ${cabinType||'N/A'}\n\u2022 Cabin Number: ${cabinNumber||'Not yet assigned'}\n\u2022 Total Amount Paid: ${fmt(totalPaid)}\n\u2022 Cancellation Date: ${cancelDate}\n\nPlease note that any funds applied toward your cruise will be refunded, if applicable, in accordance with the cruise line's cancellation and refund policy. Refund eligibility and processing are subject to the cruise line's terms and conditions.\n\nIf you believe this cancellation was made in error, please contact the trip organizer at ${ADMIN_EMAIL}.\n\nWe're sorry to see you go!\n\nYour Commonwealth Cruise Team`;
@@ -2978,7 +3000,8 @@ async function loadDashboard(){
       else badge='<span class="badge badge-info">Final Payment</span>';
     } else if(isGrat){
       if(isCleared)badge='<span class="badge badge-success">Paid ✓</span>';
-      else if(scaledMin!=null)badge='<button onclick="requestPrepayGratuities()" style="background:#f3e8ff;color:#6b21a8;border:none;border-radius:5px;padding:3px 10px;font-size:.75rem;font-weight:700;cursor:pointer;">🙋 Request Prepay</button>';
+      else if(scaledMin!=null&&!cabin?.gratuity_paid)badge='<button onclick="requestPrepayGratuities()" style="background:#f3e8ff;color:#6b21a8;border:none;border-radius:5px;padding:3px 10px;font-size:.75rem;font-weight:700;cursor:pointer;">🙋 Request Prepay</button>';
+      else if(scaledMin!=null&&cabin?.gratuity_paid)badge='<span class="badge badge-success">Prepaid ✓</span>';
       else badge='<span class="badge badge-gray">See Organizer</span>';
     } else {
       if(isCleared)badge='<span class="badge badge-success">Paid ✓</span>';
@@ -3041,6 +3064,8 @@ async function loadDashboard(){
   document.getElementById('dash-loading').style.display='none';
   document.getElementById('dash-content').style.display='block';
   loadCabinTravelers();
+  // Show name verification popup if in window and not yet confirmed
+  setTimeout(()=>showNameVerificationPopup(),600);
 
   // ── Auto-refresh balance when cost not yet set ───────────────
   // Clears any previous timer so navigating away/back doesn't stack timers
@@ -3589,7 +3614,10 @@ async function loadCabinTravelers(){
     const citizenText=citizenLabel+(t.country_of_citizenship?' — '+t.country_of_citizenship:'');
     return`<div class="traveler-card">
       <div style="flex:1;">
-        <div class="traveler-card-name">Traveler ${i+1}${isAccountHolder?' — Account Holder':''}: ${name}</div>
+        <div class="traveler-card-name" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span>Traveler ${i+1}${isAccountHolder?' — Account Holder':''}: ${name}</span>
+          ${buildNameConfirmCheckbox(t.id,i)}
+        </div>
         <div class="traveler-card-meta">DOB: ${dob} · ${t.gender}${t.relationship?' · '+t.relationship:''}${t.state_of_residency?' · '+t.state_of_residency:''}</div>
         ${citizenText?`<div class="traveler-card-meta" style="color:#1a4f7a;font-weight:600;">📋 ${citizenText}</div>`:''}
         ${t.email||t.phone?`<div class="traveler-card-meta">${[t.email,t.phone].filter(Boolean).join(' · ')}</div>`:''}
@@ -4169,6 +4197,56 @@ async function notifyWaitlistSelected(){
 // ── ADMIN ────────────────────────────────────────────────────
 async function adminInit(){
   await Promise.all([loadTravelers(),loadAdminMilestones(),loadPaymentFormSelects(),loadAdminPayments(),loadInventoryTab(),loadCancellationsTab(),loadDocRequests(),loadSuiteRequests(),loadReportMilestones(),loadCabinChanges()]);
+  showAdminPendingPopup();
+}
+
+async function showAdminPendingPopup(){
+  // Gather pending items across key categories
+  const[
+    {data:cabinChanges},
+    {data:suiteReqs},
+    {data:cancels},
+    {data:docReqs}
+  ]=await Promise.all([
+    sb.from('cabin_change_requests').select('id').eq('status','pending'),
+    sb.from('suite_requests').select('id').eq('status','pending'),
+    sb.from('cancellation_requests').select('id').eq('status','pending'),
+    sb.from('doc_requests').select('id').eq('status','pending')
+  ]);
+
+  const items=[];
+  if(cabinChanges?.length)items.push({label:'Cabin Change Request'+(cabinChanges.length>1?'s':''),count:cabinChanges.length,tab:'cabinchange'});
+  if(suiteReqs?.length)items.push({label:'Suite Request'+(suiteReqs.length>1?'s':''),count:suiteReqs.length,tab:'suiterequests'});
+  if(cancels?.length)items.push({label:'Cancellation Request'+(cancels.length>1?'s':''),count:cancels.length,tab:'cancellations'});
+  if(docReqs?.length)items.push({label:'Document Request'+(docReqs.length>1?'s':''),count:docReqs.length,tab:'docrequests'});
+
+  if(items.length===0)return; // nothing pending — no popup
+
+  const existing=document.getElementById('admin-pending-popup');
+  if(existing)existing.remove();
+
+  const d=document.createElement('div');
+  d.id='admin-pending-popup';
+  d.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;';
+  d.innerHTML=`
+    <div style="background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.3);width:100%;max-width:460px;padding:26px 24px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <div style="font-size:1.8rem;">📋</div>
+        <div>
+          <h2 style="margin:0;font-size:1.1rem;color:#0f2744;">Pending Items Require Review</h2>
+          <p style="margin:3px 0 0;font-size:.82rem;color:#64748b;">The following requests are waiting for your action.</p>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+        ${items.map(it=>`
+          <div style="display:flex;align-items:center;justify-content:space-between;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;">
+            <span style="font-size:.88rem;color:#1e293b;font-weight:600;">⚠️ ${it.count} ${it.label}</span>
+            <button onclick="document.getElementById('admin-pending-popup').remove();document.querySelector('[onclick*=\\'${it.tab}\\']')?.click()" style="background:#0f2744;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:.78rem;font-weight:700;cursor:pointer;">Go to Tab →</button>
+          </div>`).join('')}
+      </div>
+      <button onclick="document.getElementById('admin-pending-popup').remove()" style="width:100%;background:#e5e7eb;color:#374151;border:none;border-radius:8px;padding:10px;font-size:.88rem;cursor:pointer;font-weight:600;">Dismiss — I'll Review Later</button>
+    </div>`;
+  document.body.appendChild(d);
 }
 function switchTab(name,btn){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
@@ -4898,10 +4976,10 @@ function toggleCCLCompleted(){
 }
 
 async function toggleCCLDone(uid){
-  const lsKey='ccl_done_'+uid;
   const chk=document.getElementById('ccl-chk-'+uid);
   const done=chk&&chk.checked;
-  if(done){localStorage.setItem(lsKey,'1');}else{localStorage.removeItem(lsKey);}
+  // Persist to Supabase so it survives browser refreshes and different devices
+  await sb.from('profiles').update({ccl_submitted:done}).eq('id',uid);
   // Auto-move the card between pending and completed sections
   const card=document.getElementById('ccl-card-'+uid);
   if(!card)return;
@@ -4937,7 +5015,7 @@ async function loadCCLEntry(){
   pendEl.innerHTML='<div class="loading"><div class="spinner"></div></div>';
   if(compEl)compEl.innerHTML='';
   const[{data:profiles},{data:allCabins},{data:allTravelers},{data:allPayments}]=await Promise.all([
-    sb.from('profiles').select('id,name,email,phone,status').eq('is_admin',false).neq('status','cancelled').order('name'),
+    sb.from('profiles').select('id,name,email,phone,status,ccl_submitted').eq('is_admin',false).neq('status','cancelled').order('name'),
     sb.rpc('admin_get_all_cabin_assignments'),
     sb.from('cabin_travelers').select('id,account_owner_id,salutation,first_name,middle_name,last_name,name_suffix,date_of_birth,gender,citizenship_type,country_of_citizenship,phone').order('created_at',{ascending:true}),
     sb.from('user_payments').select('user_id,amount_paid')
@@ -5037,7 +5115,7 @@ async function loadCCLEntry(){
 
   const pendingCards=[];const completedCards=[];
   ready.forEach(item=>{
-    const isDone=localStorage.getItem('ccl_done_'+item.p.id)==='1';
+    const isDone=item.p.ccl_submitted===true;
     if(isDone)completedCards.push(buildCard(item,true));
     else pendingCards.push(buildCard(item,false));
   });
@@ -5521,10 +5599,51 @@ Great news! A [Cabin Type] cabin is now available. Please log in to the portal t
 
 This offer expires in 48 hours. If we do not hear back from you, the cabin will be offered to the next person on the waitlist.
 
-Commonwealth Cruise Travel Portal: https://atypicaltek.github.io/Commonwealth-Cruise/
+Commonwealth Cruise Travel Portal: Commonwealth Cruise Travel Portal
 
+Thank you,
 Your Commonwealth Cruise Team`
     })
+  },
+  {
+    id:'name_verification',label:'Name Verification Reminder (Mar 12–14)',icon:'📋',
+    toMode:'all',
+    buildPreview:()=>{
+      const body=buildEmailHtml('[Traveler Name]',`
+        <p>We're reaching out to ask you to please <strong>verify that the names on your reservation exactly match your travel documents</strong> (passport or birth certificate).</p>
+        <div style="background:#fef9c3;border-left:4px solid #f59e0b;padding:14px 18px;border-radius:0 8px 8px 0;margin:18px 0;">
+          <p style="margin:0;font-weight:700;color:#92400e;">⚠️ Important Deadline: March 14, 2027 at 11:59 PM EST</p>
+          <p style="margin:6px 0 0;font-size:.88rem;color:#78350f;">After your final payment is processed, name changes will no longer be possible. This is the last date any corrections can be submitted.</p>
+        </div>
+        <p><strong>To confirm your traveler names:</strong></p>
+        <ol>
+          <li>Log in to the Commonwealth Cruise Travel Portal</li>
+          <li>Navigate to your Travelers section</li>
+          <li>Review each traveler's name and check the confirmation box next to each name</li>
+        </ol>
+        <p>If any name needs to be corrected, please contact us immediately so we can make the necessary updates before the deadline.</p>
+        <p style="color:#dc2626;font-weight:600;">⛔ After March 14, 2027, no name changes can be accommodated.</p>`
+      );
+      return{
+        subject:`${TRIP_NAME} — Action Required: Verify Traveler Names by March 14`,
+        toLabel:'Send to all active travelers',
+        toPlaceholder:'(sent to all active travelers)',
+        toName:'',
+        body:`Hi [Traveler Name],
+
+Please verify that the names on your reservation exactly match your travel documents (passport or birth certificate).
+
+IMPORTANT DEADLINE: March 14, 2027 at 11:59 PM EST — after final payment, name changes cannot be made.
+
+To confirm: Log in to the Commonwealth Cruise Travel Portal, go to your Travelers section, and check the confirmation box next to each traveler name.
+
+If any name needs correction, contact us immediately.
+
+Thank you,
+Your Commonwealth Cruise Team`,
+        htmlPreview:body
+      };
+    }
   }
 ];
 
@@ -6342,17 +6461,27 @@ function getDeckPlanBlobUrl(){
 function openDeckPlan(){
   const existing=document.getElementById('deck-plan-prompt');
   if(existing)existing.remove();
-  const overlay=document.createElement('div');
-  overlay.id='deck-plan-viewer';
-  overlay.style.cssText='position:fixed;inset:0;z-index:10001;background:#000;display:flex;flex-direction:column;';
   const blobUrl=getDeckPlanBlobUrl();
-  overlay.innerHTML=`
-    <div style="display:flex;align-items:center;justify-content:space-between;background:#0f2744;padding:10px 18px;flex-shrink:0;">
-      <span style="color:#fff;font-weight:700;font-size:.97rem;">🗺️ Carnival Freedom — Deck Plan</span>
-      <button onclick="document.getElementById('deck-plan-viewer').remove()" style="background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:5px 14px;font-size:1rem;cursor:pointer;font-weight:800;line-height:1;">✕ Close</button>
-    </div>
-    <iframe src="${blobUrl}" style="flex:1;border:none;width:100%;"></iframe>`;
-  document.body.appendChild(overlay);
+  // Open in a true new popup window (not a tab) positioned above the current window
+  const w=window.open('','_blank','width=1000,height=750,left=100,top=60,resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=no');
+  if(w){
+    w.document.write(`<!DOCTYPE html><html><head><title>Carnival Freedom — Deck Plan</title>
+      <style>*{margin:0;padding:0;box-sizing:border-box;}
+        body{display:flex;flex-direction:column;height:100vh;background:#0f2744;font-family:sans-serif;}
+        header{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;flex-shrink:0;}
+        header span{color:#fff;font-weight:700;font-size:.97rem;}
+        header button{background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.45);color:#fff;border-radius:8px;padding:5px 14px;font-size:1rem;cursor:pointer;font-weight:800;}
+        iframe{flex:1;border:none;width:100%;}
+      </style></head>
+      <body>
+        <header>
+          <span>🗺️ Carnival Freedom — Deck Plan</span>
+          <button onclick="window.close()">✕ Close</button>
+        </header>
+        <iframe src="${blobUrl}"></iframe>
+      </body></html>`);
+    w.document.close();
+  }
 }
 
 function downloadDeckPlan(){
@@ -6385,19 +6514,38 @@ function showCabinTileModal(){
 
 function showGuestsTileModal(){
   const guestsEl=document.getElementById('dash-guests-display');
-  const guests=guestsEl?.textContent||'—';
+  const guests=parseInt(guestsEl?.textContent)||0;
   const cabinType=document.getElementById('dash-cabin-type-display')?.textContent||'—';
   const maxMap={'Interior':4,'Ocean View':4,'Balcony':4,'Suite':3};
   const maxGuests=maxMap[cabinType]||4;
+  const cabin=window.gDashCabinData;
+  const gratPaid=cabin?.gratuity_paid===true;
+
+  // Find gratuity milestone amount
+  const gratMs=(gMilestones||[]).find(m=>!m.due_date||m.label?.toLowerCase().includes('grat'));
+  const numGuests=window.gNumGuests||guests||1;
+  const gratPerPerson=gratMs?.minimum_amount!=null?parseFloat(gratMs.minimum_amount):null;
+  const gratTotal=gratPerPerson!=null?(gratPerPerson*numGuests):null;
+
+  const gratRow=gratTotal!=null
+    ?`<div style="margin-top:12px;background:${gratPaid?'#ecfdf5':'#fffbeb'};border:1.5px solid ${gratPaid?'#34d399':'#fcd34d'};border-radius:9px;padding:12px 14px;">
+        <div style="font-weight:700;font-size:.88rem;color:${gratPaid?'#065f46':'#78350f'};margin-bottom:4px;">🍽️ Gratuities</div>
+        <div style="font-size:.85rem;color:#374151;"><strong>Amount:</strong> $${gratTotal.toFixed(2)} total ($${gratPerPerson.toFixed(2)}/person × ${numGuests} guests)</div>
+        <div style="font-size:.85rem;color:${gratPaid?'#16a34a':'#b45309'};font-weight:700;margin-top:6px;">${gratPaid?'✅ Prepaid — Gratuities are fully covered':'📋 To be added to your Sail & Sign bill on the last day of the cruise'}</div>
+      </div>`
+    :`<div style="margin-top:12px;font-size:.8rem;color:#64748b;">Gratuities are charged per person, per day. Contact the trip organizer for your specific amount.</div>`;
+
   _showInfoModal('👥 Guests',`
-    <div style="text-align:center;padding:16px 0;">
-      <div style="font-size:3rem;font-weight:900;color:#1a4a7c;margin-bottom:8px;">${guests}</div>
-      <div style="font-size:.9rem;color:#64748b;margin-bottom:18px;">guests reserved in your cabin</div>
-      <div style="background:#f1f5f9;border-radius:10px;padding:14px 18px;text-align:left;font-size:.85rem;line-height:1.6;color:#1a1a2e;">
+    <div style="padding:8px 0;">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:3rem;font-weight:900;color:#1a4a7c;margin-bottom:4px;">${guests||'—'}</div>
+        <div style="font-size:.9rem;color:#64748b;">guests reserved in your cabin</div>
+      </div>
+      <div style="background:#f1f5f9;border-radius:10px;padding:14px 18px;font-size:.85rem;line-height:1.6;color:#1a1a2e;">
         <div><strong>Cabin Type:</strong> ${cabinType}</div>
         <div><strong>Max Occupancy:</strong> ${maxGuests} guests</div>
-        <div style="margin-top:8px;font-size:.8rem;color:#64748b;">Each guest must have a completed traveler profile. Gratuities are charged per person, per day.</div>
       </div>
+      ${gratRow}
     </div>`);
 }
 
@@ -6447,6 +6595,148 @@ function dismissSplash(){
   splash.classList.add('fade-out');
   setTimeout(()=>{if(splash)splash.remove();},380);
 }
+// ── NAME VERIFICATION (Mar 12–14, 2027) ─────────────────────
+const NAME_VERIFY_START=new Date('2027-03-12T00:00:00');
+const NAME_VERIFY_END=new Date('2027-03-14T23:59:59-05:00'); // 11:59 PM EST
+
+function isNameVerifyWindow(){
+  const now=new Date();
+  return now>=NAME_VERIFY_START&&now<=NAME_VERIFY_END;
+}
+
+function buildNameConfirmCheckbox(travelerId,idx){
+  if(!isNameVerifyWindow())return''; // hidden outside the window
+  const stored=localStorage.getItem('name_confirmed_'+travelerId)==='1';
+  if(stored)return`<span style="background:#ecfdf5;color:#16a34a;border-radius:5px;padding:2px 8px;font-size:.73rem;font-weight:700;">✅ Name Confirmed</span>`;
+  return`<label style="display:flex;align-items:center;gap:5px;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:.75rem;font-weight:700;color:#78350f;">
+    <input type="checkbox" onchange="confirmTravelerName('${travelerId}',this)" style="cursor:pointer;accent-color:#16a34a;width:14px;height:14px;">
+    Confirm Name Matches Travel Doc
+  </label>`;
+}
+
+async function confirmTravelerName(travelerId,chk){
+  if(!chk.checked)return;
+  localStorage.setItem('name_confirmed_'+travelerId,'1');
+  // Also persist in DB
+  await sb.from('cabin_travelers').update({name_confirmed:true}).eq('id',travelerId);
+  loadCabinTravelers(); // refresh to show badge
+  checkAllNamesConfirmed();
+}
+
+async function checkAllNamesConfirmed(){
+  if(!isNameVerifyWindow())return;
+  const travelers=window.gDashTravelers||[];
+  if(travelers.length===0)return;
+  const allConfirmed=travelers.every(t=>localStorage.getItem('name_confirmed_'+t.id)==='1');
+  if(allConfirmed){
+    // Mark profile as names confirmed so popup won't show again
+    await sb.from('profiles').update({names_confirmed:true}).eq('id',gUser.id);
+    gProfile={...gProfile,names_confirmed:true};
+  }
+}
+
+function showNameVerificationPopup(){
+  if(!isNameVerifyWindow())return;
+  if(gProfile?.names_confirmed)return;
+  const existing=document.getElementById('name-verify-popup');
+  if(existing)return;
+  const d=document.createElement('div');
+  d.id='name-verify-popup';
+  d.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;';
+  d.innerHTML=`
+    <div style="background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.3);width:100%;max-width:500px;padding:28px 26px;">
+      <div style="text-align:center;margin-bottom:18px;">
+        <div style="font-size:2.2rem;margin-bottom:8px;">⚠️</div>
+        <h2 style="margin:0 0 8px;font-size:1.2rem;color:#0f2744;">Action Required: Verify Traveler Names</h2>
+        <p style="margin:0;font-size:.88rem;color:#374151;line-height:1.55;">
+          Please review the names on your traveler profiles and confirm they <strong>exactly match</strong> your travel documents (passport or birth certificate).<br><br>
+          <strong style="color:#dc2626;">After your final payment, name changes cannot be made.</strong> March 14, 2027 at 11:59 PM EST is the last date changes can be submitted.
+        </p>
+      </div>
+      <div style="background:#fef9c3;border:1.5px solid #fbbf24;border-radius:9px;padding:12px 16px;margin-bottom:20px;font-size:.84rem;color:#78350f;line-height:1.5;">
+        <strong>To confirm:</strong> Go to your Travelers section, check the "Confirm Name Matches Travel Doc" box next to each traveler name.
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button onclick="document.getElementById('name-verify-popup').remove();showPage('dashboard')" style="background:#0f2744;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:.9rem;font-weight:700;cursor:pointer;">Review My Travelers Now</button>
+        <button onclick="document.getElementById('name-verify-popup').remove()" style="background:#e5e7eb;color:#374151;border:none;border-radius:8px;padding:10px 18px;font-size:.9rem;cursor:pointer;">Remind Me Later</button>
+      </div>
+    </div>`;
+  document.body.appendChild(d);
+}
+
+// ── EMAIL HOLD TOGGLE ─────────────────────────────────────────
+// Stored in Supabase system_settings table (key: email_hold)
+// Traveler emails (not "Account Created") are held when enabled.
+let gEmailHoldEnabled=false;
+
+async function loadEmailHoldSetting(){
+  try{
+    const{data}=await sb.from('system_settings').select('value').eq('key','email_hold').maybeSingle();
+    gEmailHoldEnabled=data?.value==='true';
+  }catch(e){gEmailHoldEnabled=false;}
+}
+
+async function toggleEmailHold(btn){
+  gEmailHoldEnabled=!gEmailHoldEnabled;
+  try{
+    await sb.from('system_settings').upsert({key:'email_hold',value:String(gEmailHoldEnabled)},{onConflict:'key'});
+  }catch(e){}
+  updateEmailHoldUI();
+}
+
+function updateEmailHoldUI(){
+  const btn=document.getElementById('email-hold-toggle');
+  const lbl=document.getElementById('email-hold-label');
+  if(btn){btn.textContent=gEmailHoldEnabled?'▶ Resume Sending':'⏸ Hold Outgoing Emails';btn.style.background=gEmailHoldEnabled?'#16a34a':'#dc2626';}
+  if(lbl){lbl.textContent=gEmailHoldEnabled?'🔴 Emails are currently HELD — new traveler emails will be queued and not sent':'🟢 Emails are sending normally';}
+}
+
+// Wrap sendEmail for traveler emails to respect the hold setting
+const _origSendEmail=window._wrappedSendEmail||sendEmail;
+async function sendEmailWithHold(toEmail,toName,subject,plain,html,isAdminEmail=false,source=''){
+  const isAccountCreated=source==='account_created';
+  if(gEmailHoldEnabled&&!isAdminEmail&&!isAccountCreated){
+    // Route to held queue instead of sending
+    await queueHeldEmail(toEmail,toName,subject,plain,html,source);
+    return{ok:false,held:true};
+  }
+  return _origSendEmail(toEmail,toName,subject,plain,html);
+}
+
+async function queueHeldEmail(toEmail,toName,subject,plain,html,source=''){
+  try{
+    await sb.from('email_queue').insert({
+      to_email:toEmail,to_name:toName,subject,plain_body:plain,html_body:html,
+      meta:{source,held:true},status:'held',created_at:new Date().toISOString()
+    });
+  }catch(e){console.warn('Hold queue error:',e);}
+}
+
+async function sendAllHeldEmails(btn){
+  if(btn){btn.disabled=true;btn.textContent='Sending…';}
+  const{data}=await sb.from('email_queue').select('*').eq('status','held').order('created_at',{ascending:true});
+  if(!data||data.length===0){if(btn){btn.disabled=false;btn.textContent='📤 Send All Held';}alert('No held emails.');return;}
+  let sent=0;
+  for(const eq of data){
+    await sendEmail(eq.to_email,eq.to_name,eq.subject,eq.plain_body,eq.html_body);
+    await sb.from('email_queue').update({status:'sent',sent_at:new Date().toISOString()}).eq('id',eq.id);
+    sent++;
+    await new Promise(r=>setTimeout(r,500));
+  }
+  if(btn){btn.disabled=false;btn.textContent='📤 Send All Held';}
+  alert(`✅ ${sent} held email${sent===1?'':'s'} sent.`);
+  loadEmailQueueTab();
+}
+
+async function sendOneHeldEmail(id,btn){
+  if(btn){btn.disabled=true;btn.textContent='Sending…';}
+  const{data:eq}=await sb.from('email_queue').select('*').eq('id',id).single();
+  if(!eq){if(btn){btn.disabled=false;btn.textContent='↺ Send';}return;}
+  await sendEmail(eq.to_email,eq.to_name,eq.subject,eq.plain_body,eq.html_body);
+  await sb.from('email_queue').update({status:'sent',sent_at:new Date().toISOString()}).eq('id',id);
+  loadEmailQueueTab();
+}
+
 // ── CONTACT US MODAL ─────────────────────────────────────────
 function openContactModal(){
   const existing=document.getElementById('contact-modal');
@@ -6457,7 +6747,7 @@ function openContactModal(){
   d.innerHTML=`
     <div style="background:var(--card);border-radius:var(--radius);box-shadow:0 8px 32px rgba(0,0,0,.25);width:100%;max-width:480px;padding:24px 26px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
-        <h3 style="margin:0;font-size:1.05rem;color:var(--primary);">✉️ Contact the Trip Organizer</h3>
+        <h3 style="margin:0;font-size:1.05rem;color:var(--primary);">✉️ Contact Your Commonwealth Cruise Team</h3>
         <button onclick="document.getElementById('contact-modal').remove()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted);line-height:1;">✕</button>
       </div>
       <div id="contact-sent-msg" style="display:none;background:#ecfdf5;border:1.5px solid #34d399;border-radius:9px;padding:14px 16px;margin-bottom:16px;text-align:center;">
@@ -6484,12 +6774,18 @@ async function submitContactForm(btn){
   const alertEl=document.getElementById('contact-alert');
   if(!message){alertEl.textContent='Please enter a message.';alertEl.style.display='block';return;}
   btn.disabled=true;btn.textContent='Sending…';
-  const body=`Message from: ${name||'Traveler'} (${email||gUser?.email||'unknown'})\n\n${message}\n\nPortal: ${PORTAL_URL}`;
-  const htmlBody=buildEmailHtml('Trip Organizer',`<p><strong>From:</strong> ${name||'Traveler'} &lt;${email||gUser?.email||''}&gt;</p><p>${message.replace(/\n/g,'<br>')}</p>`);
-  await sendEmail(ADMIN_EMAIL,ADMIN_EMAIL,subject,body,htmlBody);
-  await queueEmail(ADMIN_EMAIL,'Trip Organizer',subject,body,htmlBody,{source:'contact-us',traveler:name,travelerEmail:email});
-  document.getElementById('contact-form-body').style.display='none';
-  document.getElementById('contact-sent-msg').style.display='block';
+  try{
+    const body=`Message from: ${name||'Traveler'} (${email||gUser?.email||'unknown'})\n\n${message}\n\nPortal: ${PORTAL_URL}`;
+    const htmlBody=buildEmailHtml('Trip Organizer',`<p><strong>From:</strong> ${name||'Traveler'} &lt;${email||gUser?.email||''}&gt;</p><p>${message.replace(/\n/g,'<br>')}</p>`);
+    await sendEmail(ADMIN_EMAIL,ADMIN_EMAIL,subject,body,htmlBody);
+    try{await queueEmail(ADMIN_EMAIL,'Trip Organizer',subject,body,htmlBody,{source:'contact-us',traveler:name,travelerEmail:email});}catch(e){}
+    document.getElementById('contact-form-body').style.display='none';
+    document.getElementById('contact-sent-msg').style.display='block';
+  }catch(e){
+    alertEl.textContent='Could not send: '+e.message;
+    alertEl.style.display='block';
+    btn.disabled=false;btn.textContent='Send Message';
+  }
 }
 
 // ── EMAIL QUEUE (Supabase-backed) ─────────────────────────────
@@ -6502,36 +6798,73 @@ async function queueEmail(toEmail,toName,subject,plain,html,meta={}){
   }catch(e){console.warn('Queue save failed:',e);}
 }
 
-async function loadEmailQueueTab(){
-  const el=document.getElementById('admin-emailqueue');
-  if(!el)return;
-  el.innerHTML='<div class="loading"><div class="spinner"></div></div>';
-  const{data,error}=await sb.from('email_queue').select('*').order('created_at',{ascending:false}).limit(200);
-  if(error){el.innerHTML=`<p style="color:var(--danger);">Error: ${error.message}</p>`;return;}
-  if(!data||data.length===0){el.innerHTML='<div class="empty"><div class="ei">📭</div><p>No emails in queue yet.</p></div>';return;}
-  const pending=data.filter(e=>e.status==='queued'||e.status==='failed');
-  const sent=data.filter(e=>e.status==='sent');
-  const rows=data.map(e=>{
+function renderEmailQueueRows(rows,includeHeldBtn=false){
+  return rows.map(e=>{
     const d=new Date(e.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
     const statusBadge=e.status==='sent'
       ?'<span class="badge badge-success">Sent ✓</span>'
       :e.status==='failed'
         ?'<span class="badge badge-danger">Failed</span>'
-        :'<span class="badge badge-warn">Queued</span>';
+        :e.status==='held'
+          ?'<span class="badge" style="background:#fef3c7;color:#92400e;">Held</span>'
+          :'<span class="badge badge-warn">Queued</span>';
     const src=e.meta?.source?`<small style="color:var(--muted);">${e.meta.source}</small>`:'';
-    const resendBtn=e.status!=='sent'
-      ?`<button class="btn btn-ghost btn-sm" onclick="resendQueuedEmail('${e.id}',this)">↺ Resend</button>`
+    const actionBtn=includeHeldBtn
+      ?`<button class="btn btn-ghost btn-sm" onclick="sendOneHeldEmail('${e.id}',this)">↺ Send</button>`
       :`<button class="btn btn-ghost btn-sm" onclick="resendQueuedEmail('${e.id}',this)">↺ Resend</button>`;
     return`<tr>
       <td style="font-size:.82rem;">${d}</td>
       <td><strong>${e.subject||'—'}</strong><br>${src}</td>
       <td style="font-size:.82rem;">${e.to_email||'—'}</td>
       <td>${statusBadge}</td>
-      <td>${resendBtn}</td>
+      <td>${actionBtn}</td>
     </tr>`;
   });
+}
+
+async function loadEmailQueueTab(){
+  // Load hold setting and update toggle UI
+  await loadEmailHoldSetting();
+  updateEmailHoldUI();
+
+  const el=document.getElementById('admin-emailqueue');
+  const heldEl=document.getElementById('admin-heldemails');
+
+  // Use RPC to bypass RLS for admin access
+  const fetchQueue=async(status_in)=>{
+    const{data,error}=await sb.rpc('admin_get_email_queue',{p_status:status_in});
+    return{data,error};
+  };
+
+  // Held emails
+  if(heldEl){
+    heldEl.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+    const{data:held,error:heldErr}=await fetchQueue('held');
+    if(heldErr){
+      heldEl.innerHTML=`<p style="color:var(--danger);">Error: ${heldErr.message}</p>`;
+    } else if(!held||held.length===0){
+      heldEl.innerHTML='<div class="empty"><div class="ei">📭</div><p>No held emails.</p></div>';
+    } else {
+      const rows=renderEmailQueueRows(held,true);
+      heldEl.innerHTML=`
+        <div style="margin-bottom:10px;font-size:.85rem;color:var(--muted);">${held.length} email${held.length===1?'':'s'} on hold</div>
+        <table><thead><tr><th>Time</th><th>Subject</th><th>To</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody>${rows.join('')}</tbody></table>`;
+    }
+  }
+
+  // Standard queue (queued / failed / sent)
+  if(!el)return;
+  el.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  const{data,error}=await fetchQueue('all');
+  if(error){el.innerHTML=`<p style="color:var(--danger);">Error: ${error.message}</p>`;return;}
+  const nonHeld=(data||[]).filter(e=>e.status!=='held');
+  if(nonHeld.length===0){el.innerHTML='<div class="empty"><div class="ei">📭</div><p>No emails in queue yet.</p></div>';return;}
+  const pending=nonHeld.filter(e=>e.status==='queued'||e.status==='failed');
+  const sent=nonHeld.filter(e=>e.status==='sent');
+  const rows=renderEmailQueueRows(nonHeld,false);
   el.innerHTML=`
-    <div style="margin-bottom:12px;font-size:.85rem;color:var(--muted);">${pending.length} pending · ${sent.length} sent · ${data.length} total</div>
+    <div style="margin-bottom:12px;font-size:.85rem;color:var(--muted);">${pending.length} pending · ${sent.length} sent · ${nonHeld.length} total</div>
     <table><thead><tr><th>Time</th><th>Subject</th><th>To</th><th>Status</th><th>Action</th></tr></thead>
     <tbody>${rows.join('')}</tbody></table>`;
 }
