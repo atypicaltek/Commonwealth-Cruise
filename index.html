@@ -1098,7 +1098,6 @@
 <!-- PROFILE SETUP MODAL (shown after first login if no cabin assignment exists) -->
 <div id="profile-setup-modal" class="modal-overlay">
   <div class="modal-box" style="max-width:520px;max-height:90vh;overflow-y:auto;position:relative;">
-    <button onclick="document.getElementById('profile-setup-modal').classList.remove('open');gProfileSetupComplete=true;" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted);line-height:1;" title="Close">×</button>
     <div style="font-size:2rem;text-align:center;margin-bottom:8px;">🛳️</div>
     <h3 style="text-align:center;color:var(--primary);margin-bottom:6px;">Reserve Your Cabin</h3>
     <p style="font-size:.86rem;color:var(--muted);text-align:center;margin-bottom:16px;">Select your cabin type and the number of guests. Citizenship documentation is collected per traveler on your dashboard.</p>
@@ -1920,7 +1919,7 @@ function emailSuiteConfirmed(name,email,cabinNumber){
   const subject=`${TRIP_NAME} — Suite Confirmed! 🎉`;
   const table=buildPayTable([
     {label:'Cabin Type',value:'Suite'},
-    {label:'Cabin Number',value:cabinNumber||'Will be assigned separately'},
+    ...(cabinNumber?[{label:'Cabin Number',value:cabinNumber}]:[]),
   ]);
   const html=buildEmailHtml(name,
     `<p>Great news! Your suite request for the <strong>${TRIP_NAME}</strong> has been confirmed! 🎉</p>
@@ -1929,7 +1928,7 @@ function emailSuiteConfirmed(name,email,cabinNumber){
      <p>Please continue making payments on your regular payment schedule.</p>
      <p>We look forward to sailing with you!</p>`
   );
-  const plain=`Hello ${name},\n\nGreat news! Your suite request for the ${TRIP_NAME} has been confirmed!\n\n${cabinNumber?`Your Suite Cabin Number: ${cabinNumber}\n`:'Your suite cabin number will be sent by a separate email once assigned.\n'}\nYour backup cabin reservation has been released.\n\nPlease continue making payments on your regular payment schedule.\n\nLog into your account to view your full payment schedule:\nhttps://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal)\n\nWe look forward to sailing with you!\n\nThank you,
+  const plain=`Hello ${name},\n\nGreat news! Your suite request for the ${TRIP_NAME} has been confirmed!\n\n${cabinNumber?`Your Suite Cabin Number: ${cabinNumber}\n`:''}\nYour backup cabin reservation has been released.\n\nPlease continue making payments on your regular payment schedule.\n\nLog into your account to view your full payment schedule:\nhttps://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal)\n\nWe look forward to sailing with you!\n\nThank you,
 Your Commonwealth Cruise Team
 This email was sent by the ${TRIP_NAME} portal.`;
   sendEmail(email,name,subject,plain,html);
@@ -5500,7 +5499,7 @@ async function loadHighOccTab(){
   if(compEl)compEl.innerHTML='';
 
   const[{data:allCabins,error:cabErr},{data:allProfiles},{data:allTravelers}]=await Promise.all([
-    sb.from('cabin_assignments').select('*').gte('num_guests',3).order('created_at',{ascending:false}),
+    sb.from('cabin_assignments').select('*').gte('num_guests',3),
     sb.from('profiles').select('id,name,email,phone,status').eq('is_admin',false).order('name'),
     sb.from('cabin_travelers').select('*').order('created_at',{ascending:true})
   ]);
@@ -6166,8 +6165,13 @@ async function sendGeneratedEmail(){
     return escaped;
   });
   const htmlBody=buildEmailHtml(toName,`<p style="line-height:1.85;font-size:.95rem;">${bodyHtmlLines.join('<br>')}</p>`);
-  sendEmail(toEmail,toName,subject,body,htmlBody);
-  if(statusEl){statusEl.textContent='✅ Email sent!';statusEl.style.color='#16a34a';setTimeout(()=>{statusEl.textContent='';},4000);}
+  const result=await sendEmail(toEmail,toName,subject,body,htmlBody);
+  if(statusEl){
+    if(result?.held){statusEl.textContent='📋 Email queued — send hold is currently ON.';statusEl.style.color='#d97706';}
+    else if(result?.fallback){statusEl.textContent='📧 No email service configured — your email client was opened.';statusEl.style.color='#d97706';}
+    else{statusEl.textContent='✅ Email sent!';statusEl.style.color='#16a34a';}
+    setTimeout(()=>{statusEl.textContent='';},5000);
+  }
 }
 
 // ── TRAVELER ACTION HANDLERS ──────────────────────────────────
