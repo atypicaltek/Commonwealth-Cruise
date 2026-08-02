@@ -983,21 +983,20 @@
 <!-- FORGOT PIN MODAL -->
 <div class="modal-overlay" id="forgot-pin-modal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal-box" style="max-width:380px;">
-    <h3 style="margin:0 0 4px;color:var(--primary);font-size:1rem;">Contact Your Commonwealth Cruise Team</h3>
-    <p style="font-size:.85rem;color:var(--muted);margin:0 0 16px;">Fill in your details and a team member will reach out to help you.</p>
+    <h3 style="margin:0 0 4px;color:var(--primary);font-size:1rem;">&#x1F512; Reset Your PIN</h3>
+    <p style="font-size:.85rem;color:var(--muted);margin:0 0 16px;">Enter your email and we'll send a 6-digit verification code.</p>
 
-    <!-- Step 1: Name + Email -->
+    <!-- Step 1: Email only -->
     <div id="fp-step1">
       <div id="forgot-pin-alert" class="alert"></div>
-      <div class="form-group"><label>Your Name *</label><input type="text" id="fp-name" placeholder="Jane Smith" autocomplete="off"></div>
       <div class="form-group"><label>Email Address *</label><input type="email" id="fp-email" placeholder="you@email.com" autocomplete="off"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px;">
         <button class="btn btn-ghost" onclick="document.getElementById('forgot-pin-modal').classList.remove('open')">Cancel</button>
-        <button class="btn btn-primary" id="fp-submit-btn" onclick="doForgotModal()">Send One-Time Code</button>
+        <button class="btn btn-primary" id="fp-submit-btn" onclick="doForgotModal()">Send Code</button>
       </div>
     </div>
 
-    <!-- Step 2: Enter OTP code -->
+    <!-- Step 2: Enter 6-digit code -->
     <div id="fp-step2" style="display:none;">
       <div id="forgot-otp-alert" class="alert"></div>
       <p id="fp-otp-msg" style="font-size:.86rem;color:var(--text);margin-bottom:14px;line-height:1.5;"></p>
@@ -1018,31 +1017,9 @@
       <p style="text-align:center;margin-top:10px;font-size:.79rem;color:var(--muted);">Didn't receive it? <a style="color:var(--secondary);cursor:pointer;" onclick="doForgotModal()">Resend code</a></p>
     </div>
 
-    <!-- Step 3: Set new PIN -->
+    <!-- Step 3: (no longer used — PIN change handled by pin-reset-modal after auto-login) -->
     <div id="fp-step3" style="display:none;">
       <div id="forgot-newpin-alert" class="alert"></div>
-      <p style="font-size:.86rem;color:var(--text);margin-bottom:14px;">Code verified! Now create your new 6-digit PIN.</p>
-      <div class="form-group"><label>New PIN</label>
-        <div class="pin-row">
-          <input class="pin-box" id="np0" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="np1" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="np2" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="np3" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="np4" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="np5" maxlength="1" inputmode="numeric" autocomplete="new-password">
-        </div>
-      </div>
-      <div class="form-group"><label>Confirm New PIN</label>
-        <div class="pin-row">
-          <input class="pin-box" id="nc20" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="nc21" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="nc22" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="nc23" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="nc24" maxlength="1" inputmode="numeric" autocomplete="new-password">
-          <input class="pin-box" id="nc25" maxlength="1" inputmode="numeric" autocomplete="new-password">
-        </div>
-      </div>
-      <button class="btn btn-primary btn-full" id="fp-newpin-btn" style="margin-top:6px;" onclick="doSetNewPin()">Set New PIN</button>
     </div>
   </div>
 </div>
@@ -1562,7 +1539,7 @@ function buildRefundTable(){
 // ── EMAIL HOLD: initialize from localStorage on every page load ──
 let gEmailHoldEnabled=localStorage.getItem('admin_email_hold')==='true';
 
-async function sendEmail(toEmail,toName,subject,message,htmlBody){
+async function sendEmail(toEmail,toName,subject,message,htmlBody,skipAdminCopy=false){
   // HOLD CHECK: if hold is ON, queue instead of sending — intercepts ALL emails
   if(gEmailHoldEnabled){
     try{
@@ -1585,6 +1562,17 @@ async function sendEmail(toEmail,toName,subject,message,htmlBody){
       mode:'no-cors',
       body:JSON.stringify({to_email:toEmail,to_name:toName,subject,message,html:htmlBody||message})
     });
+    // ── Admin copy: send a copy of every traveler-facing email to ADMIN_EMAIL ──
+    // Subject format: "Email Sent to [Traveler Name] — [Original Subject]"
+    if(!skipAdminCopy&&toEmail!==ADMIN_EMAIL){
+      const adminSubject=`Email Sent to ${toName} — ${subject}`;
+      const adminNote=`<div style="background:#fef9c3;border:2px solid #fde047;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:.82rem;color:#713f12;"><strong>📋 Admin Copy</strong> — This email was sent to <strong>${toName}</strong> (${toEmail}).</div>`;
+      fetch(APPS_SCRIPT_URL,{
+        method:'POST',
+        mode:'no-cors',
+        body:JSON.stringify({to_email:ADMIN_EMAIL,to_name:'Admin',subject:adminSubject,message:`[Admin Copy — sent to ${toName} at ${toEmail}]\n\n`+message,html:adminNote+(htmlBody||message)})
+      });
+    }
     return{ok:true};
   }catch(e){console.error('Email error:',e);return{ok:false,error:e};}
 }
@@ -1814,14 +1802,17 @@ Full documentation reference: https://help.carnival.com/app/answers/detail/a_id/
   const parts=[
     `Hello ${profile.name},`,
     ``,
-    `Welcome to Commonwealth-Cruise-Portal! Your cabin selection has been received.`,
+    `Welcome to Commonwealth-Cruise-Portal! Your account has been created for the ${TRIP_NAME}.`,
+    ``,
+    `YOUR NEXT STEP:`,
+    `Log in and select your cabin type to reserve your spot. Once your cabin is selected, you will be able to enter your traveler details and view your payment schedule.`,
+    ``,
+    `Sign in here: ${appUrl}`,
     ``,
     `ACCOUNT DETAILS:`,
     `• Name: ${profile.name}`,
     `• Email: ${profile.email}`,
-    `• Cabin Type: ${cabinType||'Pending'}`,
     ``,
-    `Sign in at ${appUrl} to enter your cabin traveler details and review the payment schedule.`,
     ``,
     namesSection,
     ``,
@@ -1845,7 +1836,7 @@ Full documentation reference: https://help.carnival.com/app/answers/detail/a_id/
     {label:'Name',value:profile.name},
     {label:'Email',value:profile.email},
   ]);
-  function toHtmlSection(txt){
+  function toHtmlSection(txt){  // defined inside emailAccountCreated scope
     return txt
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
       .replace(/━+/g,'<hr style="border-color:#1a3a5c;margin:10px 0;">')
@@ -1861,8 +1852,14 @@ Full documentation reference: https://help.carnival.com/app/answers/detail/a_id/
   ].filter(Boolean).join('<br><br>');
 
   const htmlBody=buildEmailHtml(profile.name,`
-    <p>Your account has been created for the <strong>${TRIP_NAME}</strong>.</p>
-    <p>Sign in at <a href="${appUrl}" style="color:#1a4a7c;font-weight:700;">Commonwealth-Cruise-Portal</a> to enter your cabin traveler details and review the payment schedule.</p>
+    <p>Your account has been created for the <strong>${TRIP_NAME}</strong>. We are excited to have you join us!</p>
+    <div style="background:#f0f9ff;border:2px solid #0ea5e9;border-radius:10px;padding:14px 18px;margin:14px 0;">
+      <p style="margin:0 0 8px;font-weight:800;color:#0c4a6e;font-size:.95rem;">🛳️ Your Next Step</p>
+      <p style="margin:0 0 10px;font-size:.9rem;color:#0c4a6e;line-height:1.6;">Log in and <strong>select your cabin type</strong> to reserve your spot. Once your cabin is selected you can enter your traveler details and view your payment schedule.</p>
+      <div style="text-align:center;">
+        <a href="${appUrl}" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.95rem;padding:12px 28px;border-radius:10px;text-decoration:none;">🔐 Log In &amp; Select My Cabin →</a>
+      </div>
+    </div>
     <p><strong>Account Details:</strong></p>
     ${detailTable}
     <br>${toHtmlSection(namesSection)}<br><br>
@@ -2421,21 +2418,57 @@ function fpGoStep(n){
   [1,2,3].forEach(i=>{const el=document.getElementById('fp-step'+i);if(el)el.style.display=(i===n?'block':'none');});
 }
 
+// Custom OTP forgot-PIN flow — bypasses Supabase magic links entirely.
+// Step 1: call request_pin_reset RPC → get 6-digit code → email it via our system.
+// Step 2: call verify_otp_and_get_temp_pin RPC → get temp PIN → signInWithPassword → load dashboard.
+// The needs_pin_reset flag set by the RPC triggers the PIN-change modal on dashboard load.
+
 async function doForgotModal(){
   const alertEl=document.getElementById('forgot-pin-alert');
   function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';}
   alertEl.style.display='none';
-  const name=document.getElementById('fp-name')?.value?.trim()||'';
-  const email=document.getElementById('fp-email')?.value?.trim()||'';
-  if(!name)return showErr('Please enter your name.');
+  const email=(document.getElementById('fp-email')?.value||'').trim();
   if(!email||!email.includes('@'))return showErr('Please enter your email address.');
   const btn=document.getElementById('fp-submit-btn');
   btn.disabled=true;btn.textContent='Sending...';
-  const{error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:false}});
-  btn.disabled=false;btn.textContent='Send One-Time Code';
-  if(error){showErr(error.message);return;}
+
+  // Generate OTP via SECURITY DEFINER RPC (stores it in profiles with 15-min expiry)
+  const{data:otpCode,error:rpcErr}=await sb.rpc('request_pin_reset',{p_email:email});
+  if(rpcErr||!otpCode){
+    btn.disabled=false;btn.textContent='Send Code';
+    const msg=(rpcErr?.message||'').toLowerCase();
+    if(msg.includes('no account'))showErr('No account found for that email address.');
+    else showErr('Unable to send code. Please try again.');
+    return;
+  }
+
+  // Send the code via our own email system (skip admin copy for security)
   gFpEmail=email;
-  document.getElementById('fp-otp-msg').innerHTML='A 6-digit code was sent to <strong>'+email+'</strong>. Enter it below to continue. Check your spam folder if you do not see it.';
+  const subject='Your Commonwealth Cruise 2027 Verification Code';
+  const plain=[
+    'You requested a PIN reset for your Commonwealth Cruise 2027 portal account.',
+    '',
+    'Your 6-digit verification code is: '+otpCode,
+    '',
+    'This code expires in 15 minutes. Do not share it with anyone.',
+    '',
+    'If you did not request this, you can safely ignore this email.'
+  ].join('\n');
+  const htmlBody=buildEmailHtml('Traveler',
+    '<p>You requested a PIN reset for your <strong>Commonwealth Cruise 2027</strong> portal account.</p>'+
+    '<div style="background:#f0f9ff;border:2px solid #0ea5e9;border-radius:12px;padding:22px;text-align:center;margin:18px 0;">'+
+      '<p style="margin:0 0 8px;font-size:.82rem;font-weight:700;color:#0c4a6e;letter-spacing:.05em;text-transform:uppercase;">Your 6-Digit Verification Code</p>'+
+      '<div style="font-size:2.8rem;font-weight:900;letter-spacing:12px;color:#1a4a7c;font-family:monospace;">'+otpCode+'</div>'+
+      '<p style="margin:10px 0 0;font-size:.8rem;color:#64748b;">Expires in 15 minutes &nbsp;·&nbsp; Do not share this code</p>'+
+    '</div>'+
+    '<p style="font-size:.84rem;color:#64748b;margin:0;">If you did not request a PIN reset, you can safely ignore this email.</p>'
+  );
+  await sendEmail(email,'Traveler',subject,plain,htmlBody,true);
+
+  btn.disabled=false;btn.textContent='Send Code';
+  document.getElementById('fp-otp-msg').innerHTML=
+    'A 6-digit code was sent to <strong>'+email+'</strong>. Enter it below.<br>'+
+    '<span style="font-size:.8rem;color:var(--muted);">Check your spam folder if you don\'t see it. Code expires in 15 minutes.</span>';
   fpGoStep(2);
 }
 
@@ -2447,36 +2480,33 @@ async function doVerifyOtp(){
   if(token.length<6)return showErr('Please enter the complete 6-digit code.');
   const btn=document.getElementById('fp-verify-btn');
   btn.disabled=true;btn.textContent='Verifying...';
-  const{error}=await sb.auth.verifyOtp({email:gFpEmail,token,type:'email'});
-  btn.disabled=false;btn.textContent='Verify Code';
-  if(error){showErr('Invalid or expired code. Please try again or resend.');return;}
-  fpGoStep(3);
+
+  // Verify OTP and get a one-time temp PIN to sign in with
+  const{data:tempPin,error:rpcErr}=await sb.rpc('verify_otp_and_get_temp_pin',{p_email:gFpEmail,p_otp:token});
+  if(rpcErr||!tempPin){
+    btn.disabled=false;btn.textContent='Verify Code';
+    const msg=(rpcErr?.message||'').toLowerCase();
+    if(msg.includes('expired'))showErr('Code expired. Please go back and request a new one.');
+    else showErr('Invalid code. Please check and try again.');
+    return;
+  }
+
+  // Sign in with the temporary PIN — RPC already set needs_pin_reset=true
+  const{data:signInData,error:signInErr}=await sb.auth.signInWithPassword({email:gFpEmail,password:tempPin});
+  if(signInErr){
+    btn.disabled=false;btn.textContent='Verify Code';
+    showErr('Verified, but sign-in failed. Please try again or contact support.');
+    return;
+  }
+
+  // Close modal and load dashboard — pin-reset-modal fires automatically due to needs_pin_reset flag
+  document.getElementById('forgot-pin-modal').classList.remove('open');
+  sessionStorage.setItem('fresh_login','1');
+  await loadAndRoute(signInData.user);
 }
 
-async function doSetNewPin(){
-  const alertEl=document.getElementById('forgot-newpin-alert');
-  function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';}
-  alertEl.style.display='none';
-  const newPin=getPin('np');
-  const confirmPin=getPin('nc2');
-  if(newPin.length<6)return showErr('Please enter a complete 6-digit PIN.');
-  if(newPin!==confirmPin)return showErr('PINs do not match. Please try again.');
-  const btn=document.getElementById('fp-newpin-btn');
-  btn.disabled=true;btn.textContent='Saving...';
-  const{error}=await sb.auth.updateUser({password:newPin});
-  btn.disabled=false;btn.textContent='Set New PIN';
-  if(error){showErr(error.message);return;}
-  // Sign out after reset so they log in fresh with new PIN
-  await sb.auth.signOut();
-  sessionStorage.removeItem('fresh_login');
-  const box=document.getElementById('forgot-pin-modal').querySelector('.modal-box');
-  box.innerHTML='<div style="text-align:center;padding:20px 10px;">'+
-    '<div style="font-size:2.5rem;margin-bottom:10px;">&#x2705;</div>'+
-    '<h3 style="margin:0 0 10px;color:var(--success);">PIN Updated!</h3>'+
-    '<p style="font-size:.9rem;color:var(--text);line-height:1.6;margin-bottom:18px;">Your new PIN has been set. You can now sign in with your new PIN.</p>'+
-    '<button class="btn btn-primary" onclick="closeForgotModal()">Sign In</button>'+
-  '</div>';
-}
+// doSetNewPin no longer used (PIN change handled by pin-reset-modal on dashboard)
+async function doSetNewPin(){}
 
 
 async function doForgot(){
@@ -2571,19 +2601,31 @@ async function loadAndRoute(user){
 }
 
 // ── PROFILE SETUP MODAL ──────────────────────────────────────
+let gCabinMinPrices={}; // {cabinType: minPrice_per_person when available}
+
 async function loadInventoryForSetup(){
-  const[{data:invData},{data:asgData}]=await Promise.all([
+  const[{data:invData},{data:asgData},{data:tierData}]=await Promise.all([
     sb.from('cabin_inventory').select('*'),
-    sb.from('cabin_assignments').select('cabin_type')
+    sb.from('cabin_assignments').select('cabin_type'),
+    sb.from('cabin_price_tiers').select('*').order('price_per_person',{ascending:true})
   ]);
   if(!invData)return;
-  // Compute actual booked counts from cabin_assignments
+  // Compute actual booked counts from cabin_assignments (source of truth)
   const actualBooked={};
   (asgData||[]).forEach(a=>{actualBooked[a.cabin_type]=(actualBooked[a.cabin_type]||0)+1;});
   gInventory={};
   invData.forEach(r=>{
     const booked=actualBooked[r.cabin_type]||0;
     gInventory[r.cabin_type]={...r,available_cabins:Math.max(0,r.total_cabins-booked)};
+  });
+  // Compute minimum available price per cabin type from tier data
+  gCabinMinPrices={};
+  (tierData||[]).forEach(t=>{
+    if(t.available_cabins>0){
+      if(!gCabinMinPrices[t.cabin_type]||t.price_per_person<gCabinMinPrices[t.cabin_type]){
+        gCabinMinPrices[t.cabin_type]=parseFloat(t.price_per_person);
+      }
+    }
   });
   updatePsetupCabinAvail();
 }
@@ -2595,20 +2637,28 @@ function updatePsetupCabinAvail(){
     const opt=sel.querySelector(`option[value="${t}"]`);
     if(!opt)return;
     const inv=gInventory[t];
-    if(!inv){opt.textContent=t+' Cabin';return;}
+    const minP=gCabinMinPrices[t];
+    const priceStr=minP?` — from ${fmt(minP)}/person`:'';
+    if(!inv){opt.textContent=t+' Cabin'+priceStr;return;}
     const avail=inv.available_cabins;
     if(avail<=0){opt.textContent=`${t} Cabin — SOLD OUT`;opt.disabled=true;}
-    else if(avail<=5){opt.textContent=`${t} Cabin (${avail} remaining — Almost Full!)`;}
-    else{opt.textContent=`${t} Cabin (${avail} remaining)`;}
+    else if(avail<=5){opt.textContent=`${t} Cabin (${avail} remaining — Almost Full!${priceStr})`;}
+    else{opt.textContent=`${t} Cabin (${avail} remaining${priceStr})`;}
   });
-  // Suite — no availability count shown
+  // Suite — no availability count or standard pricing
   const suiteOpt=sel.querySelector('option[value="Suite"]');
   if(suiteOpt)suiteOpt.textContent='Suite ⭐ (Request — Subject to Availability)';
   const info=document.getElementById('psetup-cabin-avail');
   if(info&&Object.keys(gInventory).length>0){
     const lines=Object.entries(gInventory)
       .filter(([t])=>t!=='Suite')
-      .map(([t,v])=>{const a=v.available_cabins,tot=v.total_cabins;const cls=a<=0?'out':a<=5?'low':'';return`${t}: <span class="${cls}">${a} of ${tot} available</span>`;});
+      .map(([t,v])=>{
+        const a=v.available_cabins,tot=v.total_cabins;
+        const cls=a<=0?'out':a<=5?'low':'';
+        const minP=gCabinMinPrices[t];
+        const pStr=minP?` <span style="color:#16a34a;font-weight:700;">from ${fmt(minP)}/pp</span>`:'';
+        return`${t}: <span class="${cls}">${a} of ${tot} available</span>${pStr}`;
+      });
     info.innerHTML=lines.join(' &nbsp;·&nbsp; ');
   }
 }
@@ -2775,6 +2825,14 @@ async function doProfileSetup(){
     const{error:caErr}=await sb.from('cabin_assignments').insert(caPayload);
     if(caErr){flash('psetup-alert','Reservation error: '+caErr.message+'. Please try again or contact the trip organizer.');return;}
     await sb.rpc('decrement_cabin',{cabin:cabinType});
+    // Decrement the cheapest available price tier and auto-set cabin_cost
+    const{data:tierPrice}=await sb.rpc('decrement_cabin_tier',{p_cabin_type:cabinType});
+    if(tierPrice){
+      const totalCost=parseFloat(tierPrice)*numGuests;
+      await sb.from('cabin_assignments')
+        .update({price_per_person:parseFloat(tierPrice),cabin_cost:totalCost})
+        .eq('user_id',gUser.id);
+    }
     emailAccountCreated({name,email,citizenship_type:null},cabinType);
     // High-occupancy: send admin alert email
     if(isHighOcc){
@@ -3218,8 +3276,13 @@ async function loadDashboard(){
   document.getElementById('dash-content').style.display='block';
   await loadCabinTravelers();
   checkMissingInfoBanner(cabin, window.gCabinTravelers||[]);
-  // Show name verification popup if in window and not yet confirmed
-  setTimeout(()=>showNameVerificationPopup(),600);
+  // Show admin-assigned cabin notification (once only) before other popups
+  if(cabin?.admin_assigned){
+    setTimeout(()=>showAdminCabinNotification(cabin,milestones,payments),400);
+  } else {
+    // Show name verification popup if in window and not yet confirmed
+    setTimeout(()=>showNameVerificationPopup(),600);
+  }
 
   // ── Auto-refresh balance when cost not yet set ───────────────
   // Clears any previous timer so navigating away/back doesn't stack timers
@@ -4275,12 +4338,25 @@ async function loadCabinChanges(){
 async function adminApproveCabinChange(userId,name,email,currentType,requestedType){
   if(!confirm('Approve cabin change for '+name+'?\n\nChange: '+currentType+' → '+requestedType+'\n\nInventory will be updated automatically.'))return;
   try{
+    // Get current price_per_person before changing so we can restore the right tier
+    const{data:curCa}=await sb.from('cabin_assignments').select('price_per_person').eq('user_id',userId).single();
+    const oldPrice=curCa?.price_per_person||null;
     // Update cabin type
     const{error:upErr}=await sb.rpc('admin_set_cabin_type',{p_user_id:userId,p_val:requestedType});
     if(upErr)throw new Error(upErr.message);
-    // Update inventory: return old type, take new type
+    // Update main inventory: restore old slot, claim new
     if(currentType&&currentType!=='Suite')await sb.rpc('increment_cabin',{cabin:currentType});
     if(requestedType&&requestedType!=='Suite')await sb.rpc('decrement_cabin',{cabin:requestedType});
+    // Update price tier inventory + auto-assign new price
+    if(currentType&&currentType!=='Suite')await sb.rpc('increment_cabin_tier',{p_cabin_type:currentType,p_price:oldPrice});
+    if(requestedType&&requestedType!=='Suite'){
+      const{data:newTierPrice}=await sb.rpc('decrement_cabin_tier',{p_cabin_type:requestedType});
+      if(newTierPrice){
+        const{data:curGuests}=await sb.from('cabin_assignments').select('num_guests').eq('user_id',userId).single();
+        const ng=curGuests?.num_guests||1;
+        await sb.from('cabin_assignments').update({price_per_person:parseFloat(newTierPrice),cabin_cost:parseFloat(newTierPrice)*ng}).eq('user_id',userId);
+      }
+    }
     // Clear pending flags
     await sb.from('cabin_assignments').update({cabin_change_pending:false,requested_cabin_type:null}).eq('user_id',userId);
     // Email traveler — approved
@@ -4567,6 +4643,7 @@ async function loadTravelers(){
       '<option value="edit_profile">&#x270F;&#xFE0F; Edit Traveler Info</option>'+
       '<option value="manage_travelers">&#x1F465; Manage All Travelers</option>'+
         '<option value="send_welcome">&#x1F4E7; Send Welcome Email</option>'+
+        '<option value="send_temp_pin">&#x1F511; Send New Temp PIN / Reset</option>'+
         (ca?.high_occupancy_pending?'<option value="clear_high_occ">&#x2705; Clear High Occ. Flag</option>':'')+
         '<option value="cancel">&#x1F6AB; Cancel Reservation</option>'+
         '<option value="delete">&#x1F5D1; Delete Account</option>'+
@@ -4669,15 +4746,19 @@ async function cancelTraveler(userId,name,email,cabinType,cabinNumber,citizenshi
   if(ctErr)console.warn('cabin_travelers delete error (non-fatal):',ctErr.message);
 
   // 4. Restore cabin inventory — MUST happen before deleting assignment row
-  //    Re-fetch cabin type in case parameter was stale or missing.
+  //    Re-fetch cabin type + price_per_person in case parameter was stale or missing.
   let resolvedCabinType=cabinType;
-  if(!resolvedCabinType){
-    const{data:freshCa}=await sb.from('cabin_assignments').select('cabin_type').eq('user_id',userId).single();
-    resolvedCabinType=freshCa?.cabin_type||null;
+  let resolvedPricePerPerson=null;
+  {
+    const{data:freshCa}=await sb.from('cabin_assignments').select('cabin_type,price_per_person').eq('user_id',userId).single();
+    resolvedCabinType=freshCa?.cabin_type||cabinType||null;
+    resolvedPricePerPerson=freshCa?.price_per_person||null;
   }
   if(resolvedCabinType){
     const{error:invErr}=await sb.rpc('increment_cabin',{cabin:resolvedCabinType});
     if(invErr)console.warn('increment_cabin error:',invErr.message);
+    // Also restore price tier slot
+    await sb.rpc('increment_cabin_tier',{p_cabin_type:resolvedCabinType,p_price:resolvedPricePerPerson});
   }
   const{error:caErr}=await sb.from('cabin_assignments').delete().eq('user_id',userId);
   if(caErr)console.warn('cabin_assignments delete error:',caErr.message);
@@ -4695,8 +4776,11 @@ async function cancelTraveler(userId,name,email,cabinType,cabinNumber,citizenshi
 async function deleteTraveler(userId,name){
   const confirmed=confirm(`⚠️ PERMANENTLY DELETE account for ${name}?\n\nThis will:\n• Remove their profile, cabin assignment, payments, and cabin travelers\n• Return their cabin to inventory\n• NOT send any emails or record a cancellation\n\nIMPORTANT: Also delete from Supabase Dashboard → Authentication → Users.\n\nThis CANNOT be undone. Continue?`);
   if(!confirmed)return;
-  const{data:ca}=await sb.from('cabin_assignments').select('cabin_type').eq('user_id',userId).single();
-  if(ca?.cabin_type)await sb.rpc('increment_cabin',{cabin:ca.cabin_type});
+  const{data:ca}=await sb.from('cabin_assignments').select('cabin_type,price_per_person').eq('user_id',userId).single();
+  if(ca?.cabin_type){
+    await sb.rpc('increment_cabin',{cabin:ca.cabin_type});
+    await sb.rpc('increment_cabin_tier',{p_cabin_type:ca.cabin_type,p_price:ca.price_per_person||null});
+  }
   await Promise.all([
     sb.from('cabin_travelers').delete().eq('account_owner_id',userId),
     sb.from('user_payments').delete().eq('user_id',userId),
@@ -4918,21 +5002,26 @@ function toggleRefundedPayments(){
 
 // ── INVENTORY ─────────────────────────────────────────────────
 async function loadInventoryTab(){
-  const[{data:inv},{data:assignments}]=await Promise.all([
+  const[{data:inv},{data:assignments},{data:tiers}]=await Promise.all([
     sb.from('cabin_inventory').select('*'),
-    sb.from('cabin_assignments').select('*, profiles(name,email)').order('cabin_type')
+    sb.from('cabin_assignments').select('*, profiles(name,email)').order('cabin_type'),
+    sb.from('cabin_price_tiers').select('*').order('cabin_type').order('price_per_person',{ascending:true})
   ]);
 
-  // Store globally so the detail modal can reference without re-fetching
   gInventoryAssignments=assignments||[];
 
-  // ── Derive reserved counts from ACTUAL cabin_assignments rows ──
-  // This is the source of truth — do NOT trust available_cabins counter
-  // (it can drift if decrement_cabin RPC was not yet run by the user).
+  // Derive reserved counts from actual cabin_assignments rows (source of truth)
   const actualReserved={};
   (assignments||[]).forEach(a=>{
     if(!actualReserved[a.cabin_type])actualReserved[a.cabin_type]=0;
     actualReserved[a.cabin_type]++;
+  });
+
+  // Build tier index: {cabinType: [{price, total, available}]}
+  const tiersByType={};
+  (tiers||[]).forEach(t=>{
+    if(!tiersByType[t.cabin_type])tiersByType[t.cabin_type]=[];
+    tiersByType[t.cabin_type].push(t);
   });
 
   const colors={Balcony:'balcony','Ocean View':'oceanview',Interior:'interior',Suite:'suite'};
@@ -4941,21 +5030,51 @@ async function loadInventoryTab(){
     const available=Math.max(0,r.total_cabins-reserved);
     const pct=r.total_cabins>0?Math.round((reserved/r.total_cabins)*100):0;
     const barColor=available===0?'#c0392b':available<=5?'#d68910':'#2176ae';
+
+    // Price tier breakdown table for this cabin type
+    const typeTiers=tiersByType[r.cabin_type]||[];
+    const tierRows=typeTiers.map(t=>{
+      const tierReserved=Math.max(0,t.total_cabins-t.available_cabins);
+      const tierAvail=t.available_cabins;
+      const cls=tierAvail===0?'color:#c0392b;font-weight:700;':tierAvail<=3?'color:#d68910;font-weight:700;':'color:#16a34a;';
+      return`<tr style="font-size:.78rem;border-bottom:1px solid #f1f5f9;">
+        <td style="padding:3px 6px;font-weight:600;">${fmt(parseFloat(t.price_per_person))}<span style="font-size:.7rem;color:#94a3b8;font-weight:400;">/pp</span></td>
+        <td style="padding:3px 6px;color:#64748b;">${t.total_cabins} total</td>
+        <td style="padding:3px 6px;color:#64748b;">${tierReserved} reserved</td>
+        <td style="padding:3px 6px;${cls}">${tierAvail} avail</td>
+      </tr>`;
+    }).join('');
+    const tierTable=typeTiers.length
+      ?`<div style="margin-top:10px;text-align:left;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;background:#f8fafc;">
+          <div style="background:#1a4a7c;color:#fff;font-size:.7rem;font-weight:700;padding:4px 6px;letter-spacing:.3px;">PRICE TIERS</div>
+          <table style="width:100%;border-collapse:collapse;"><tbody>${tierRows}</tbody></table>
+        </div>`
+      :'';
+
     return`<div class="inv-card ${colors[r.cabin_type]||''}" onclick="showInventoryDetail('${r.cabin_type}')">
       <div style="font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">${r.cabin_type}</div>
       <div class="inv-num">${available}</div>
       <div class="inv-label">Available</div>
       <div class="inv-sub">${reserved} reserved of ${r.total_cabins} total</div>
       <div class="pbar-track" style="margin-top:10px;height:6px;"><div class="mpbar-fill" style="width:${pct}%;background:${barColor};"></div></div>
-      <div class="inv-click-hint">Click to see who's booked ↗</div>
+      ${tierTable}
+      <div class="inv-click-hint" style="margin-top:8px;">Click to see who's booked ↗</div>
     </div>`;
   }).join('');
   document.getElementById('inv-cards').innerHTML=cards||'<p>No inventory data. Run suite-schema.sql.</p>';
 
   const asgEl=document.getElementById('inv-assignments');
   if(!assignments||assignments.length===0){asgEl.innerHTML='<div class="empty"><div class="ei">🛏️</div><p>No cabin assignments yet.</p></div>';return;}
-  const rows=assignments.map(a=>`<tr><td><strong>${a.profiles?.name||'—'}</strong><br><small style="color:var(--muted)">${a.profiles?.email||''}</small></td><td>${a.cabin_type}${a.suite_pending?' <span class="badge badge-warn">Suite Pending</span>':''}</td><td>${a.cabin_number||'<em style="color:var(--muted)">Not assigned yet</em>'}</td><td>${new Date(a.assigned_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td></tr>`);
-  asgEl.innerHTML=`<table><thead><tr><th>Traveler</th><th>Cabin Type</th><th>Cabin Number</th><th>Reserved On</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  const rows=assignments.map(a=>{
+    const priceStr=a.price_per_person?`<br><small style="color:#16a34a;font-weight:600;">${fmt(parseFloat(a.price_per_person))}/pp</small>`:'';
+    return`<tr>
+      <td><strong>${a.profiles?.name||'—'}</strong><br><small style="color:var(--muted)">${a.profiles?.email||''}</small></td>
+      <td>${a.cabin_type}${a.suite_pending?' <span class="badge badge-warn">Suite Pending</span>':''}${priceStr}</td>
+      <td>${a.cabin_number||'<em style="color:var(--muted)">Not assigned</em>'}</td>
+      <td>${a.assigned_at?new Date(a.assigned_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</td>
+    </tr>`;
+  });
+  asgEl.innerHTML=`<table><thead><tr><th>Traveler</th><th>Cabin Type / Price</th><th>Cabin Number</th><th>Reserved On</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 
 async function showInventoryDetail(cabinType){
@@ -6247,27 +6366,35 @@ async function sendGeneratedEmail(){
 }
 
 // ── TRAVELER ACTION HANDLERS ──────────────────────────────────
-async function changeCabinType(userId,name,currentType){
+async function changeCabinType(userId,name,currentType,currentNumGuests){
   const types=['Balcony','Ocean View','Interior','Suite'];
   const opts=types.map(t=>`<option value="${t}"${t===currentType?' selected':''}>${t}</option>`).join('');
-  // Build a simple modal-style prompt using a styled div overlay
+  const guestOpts=[1,2,3,4,5,6].map(n=>`<option value="${n}"${n===(currentNumGuests||1)?' selected':''}>${n} Guest${n>1?'s':''}</option>`).join('');
+  const isNew=!currentType;
   const existing=document.getElementById('change-cabin-type-modal');
   if(existing)existing.remove();
   const div=document.createElement('div');
   div.id='change-cabin-type-modal';
   div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:flex;align-items:center;justify-content:center;';
   div.innerHTML=`
-    <div style="background:#fff;border-radius:14px;padding:28px 24px;max-width:360px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.22);">
-      <h3 style="margin:0 0 6px;color:#1a4a7c;font-size:1.05rem;">Change Cabin Type</h3>
-      <p style="margin:0 0 16px;font-size:.88rem;color:#64748b;">Traveler: <strong>${name}</strong><br>Current type: <strong>${currentType||'None'}</strong></p>
-      <div class="form-group" style="margin-bottom:16px;">
-        <label>New Cabin Type</label>
+    <div style="background:#fff;border-radius:14px;padding:28px 24px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.22);">
+      <h3 style="margin:0 0 6px;color:#1a4a7c;font-size:1.05rem;">${isNew?'&#x1F6F3;&#xFE0F; Assign Cabin Type':'&#x1F504; Change Cabin Type'}</h3>
+      <p style="margin:0 0 16px;font-size:.88rem;color:#64748b;">Traveler: <strong>${name}</strong>${!isNew?`<br>Current: <strong>${currentType}</strong> &bull; ${currentNumGuests||1} guest(s)`:''}</p>
+      ${isNew?'<div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:9px 12px;margin-bottom:14px;font-size:.81rem;color:#713f12;">&#x26A0;&#xFE0F; This traveler has no cabin yet. Assigning one will create their reservation and decrement inventory.</div>':''}
+      <div class="form-group" style="margin-bottom:12px;">
+        <label>Cabin Type</label>
         <select id="cct-select" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.95rem;">${opts}</select>
+      </div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label>Number of Guests</label>
+        <select id="cct-guests" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.95rem;">${guestOpts}</select>
       </div>
       <div id="cct-alert" class="alert" style="display:none;margin-bottom:12px;"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button class="btn btn-ghost" onclick="document.getElementById('change-cabin-type-modal').remove()">Cancel</button>
-        <button class="btn btn-primary" id="cct-confirm-btn" onclick="confirmChangeCabinType('${userId}','${name}','${currentType||''}')">Change Type</button>
+        <button class="btn btn-primary" id="cct-confirm-btn" onclick="confirmChangeCabinType('${userId}','${name.replace(/'/g,"\\'").replace(/"/g,'&quot;')}','${currentType||''}')">
+          ${isNew?'&#x2705; Assign Cabin':'&#x2713; Change Type'}
+        </button>
       </div>
     </div>`;
   document.body.appendChild(div);
@@ -6552,20 +6679,77 @@ async function saveAdminEditProfile(){
 
 async function confirmChangeCabinType(userId,name,oldType){
   const newType=document.getElementById('cct-select')?.value;
+  const numGuests=parseInt(document.getElementById('cct-guests')?.value||'1',10);
   if(!newType)return;
-  if(newType===oldType){document.getElementById('change-cabin-type-modal')?.remove();return;}
+  const isNew=!oldType;
+  const noChange=(newType===oldType&&!isNew);
+  if(noChange){document.getElementById('change-cabin-type-modal')?.remove();return;}
   const btn=document.getElementById('cct-confirm-btn');
   const alertEl=document.getElementById('cct-alert');
-  btn.disabled=true;btn.textContent='Updating...';
+  btn.disabled=true;btn.textContent='Saving...';
   try{
-    // Update cabin_assignments
-    const{error:upErr}=await sb.rpc('admin_set_cabin_type',{p_user_id:userId,p_val:newType});
+    // admin_assign_cabin handles INSERT (new) or UPDATE (existing), sets admin_assigned=true
+    // Returns old cabin_type or null if this was a new assignment
+    const{data:returnedOld,error:upErr}=await sb.rpc('admin_assign_cabin',{
+      p_user_id:userId,
+      p_cabin_type:newType,
+      p_num_guests:numGuests
+    });
     if(upErr)throw new Error(upErr.message);
-    // Update inventory: restore old, decrement new
-    if(oldType)await sb.rpc('increment_cabin',{cabin:oldType});
+
+    // Adjust main inventory: restore old slot, claim new
+    const prevType=returnedOld||oldType||null;
+    if(prevType&&prevType!==newType){
+      await sb.rpc('increment_cabin',{cabin:prevType});
+      // Restore price tier for the old type (fetch stored price first)
+      const{data:oldCa}=await sb.from('cabin_assignments').select('price_per_person').eq('user_id',userId).single();
+      await sb.rpc('increment_cabin_tier',{p_cabin_type:prevType,p_price:oldCa?.price_per_person||null});
+    }
     await sb.rpc('decrement_cabin',{cabin:newType});
+    // Assign cheapest available price tier + auto-set cabin_cost
+    const{data:newTierPrice}=await sb.rpc('decrement_cabin_tier',{p_cabin_type:newType});
+    if(newTierPrice){
+      await sb.from('cabin_assignments')
+        .update({price_per_person:parseFloat(newTierPrice),cabin_cost:parseFloat(newTierPrice)*numGuests})
+        .eq('user_id',userId);
+    }
+
     document.getElementById('change-cabin-type-modal')?.remove();
-    alert(`${name} moved from ${oldType||'unassigned'} → ${newType}.\n\nInventory updated.`);
+
+    // Send traveler notification email
+    const appUrl=window.location.href.split('?')[0];
+    const subject=`${TRIP_NAME} — Your Cabin Reservation`;
+    const plain=[
+      `Hello ${name},`,``,
+      `Great news! You have been reserved in a ${newType} cabin for ${TRIP_NAME}.`,``,
+      `CABIN DETAILS:`,
+      `• Cabin Type: ${newType}`,
+      `• Number of Guests: ${numGuests}`,``,
+      `Your trip organizer will set your payment schedule and provide further details.`,``,
+      `Log in to your portal to view your dashboard: ${appUrl}`,``,
+      `Questions? Reply to this email or contact the trip organizer.`
+    ].join('\n');
+    const htmlBody=buildEmailHtml(name,
+      `<p>Great news! You have been reserved in a cabin for <strong>${TRIP_NAME}</strong>.</p>`+
+      `<div style="background:#f0fdf4;border:2px solid #86efac;border-radius:12px;padding:18px 20px;margin:16px 0;">`+
+        `<p style="margin:0 0 10px;font-weight:800;color:#14532d;font-size:.95rem;">&#x1F6F3;&#xFE0F; Your Cabin Reservation</p>`+
+        `<table style="width:100%;border-collapse:collapse;font-size:.9rem;"><tbody>`+
+          `<tr><td style="padding:4px 0;color:#374151;font-weight:600;width:140px;">Cabin Type</td><td style="padding:4px 0;color:#111827;font-weight:700;">${newType}</td></tr>`+
+          `<tr><td style="padding:4px 0;color:#374151;font-weight:600;">Number of Guests</td><td style="padding:4px 0;color:#111827;">${numGuests} guest${numGuests>1?'s':''}</td></tr>`+
+        `</tbody></table>`+
+      `</div>`+
+      `<p style="font-size:.88rem;color:#374151;">Your trip organizer will set your payment schedule and send payment details soon. Log in anytime to check your dashboard.</p>`+
+      `<div style="text-align:center;margin:18px 0;">`+
+        `<a href="${appUrl}" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.9rem;padding:12px 28px;border-radius:10px;text-decoration:none;">&#x1F4CA; View My Dashboard →</a>`+
+      `</div>`
+    );
+    const toEmail=gTravelerData?.[userId]?.email||'';
+    if(toEmail)sendEmail(toEmail,name,subject,plain,htmlBody);
+
+    const msg=isNew
+      ?`✅ ${name} assigned to ${newType} (${numGuests} guest${numGuests>1?'s':''}). Inventory decremented. Notification email sent.`
+      :`✅ ${name} moved ${oldType} → ${newType} (${numGuests} guest${numGuests>1?'s':''}). Inventory updated. Notification email sent.`;
+    alert(msg);
     await Promise.all([loadTravelers(),loadInventoryTab()]);
   }catch(e){
     alertEl.className='alert alert-error';alertEl.textContent='Error: '+e.message;alertEl.style.display='block';
@@ -6743,13 +6927,14 @@ function handleTravelerAction(sel,userId){
   if(!d){sel.value='';return;}
   const v=sel.value;sel.value='';
   if(v==='cabin_num')assignCabinNumber(d.userId,d.name,d.cabinType,d.cabinNumber);
-  else if(v==='cabin_type_change')changeCabinType(d.userId,d.name,d.cabinType);
+  else if(v==='cabin_type_change')changeCabinType(d.userId,d.name,d.cabinType,d.numGuests||1);
   else if(v==='cost')setCabinCost(d.userId,d.name,d.cabinCost);
   else if(v==='res_num')setReservationNumber(d.userId,d.name,d.resNum);
   else if(v==='pay_link')setPaymentLink(d.userId,d.name,d.payLink);
   else if(v==='send_cc_auth')sendCCAuthForm(d.name,d.email,d.cabinType,d.numGuests);
   else if(v==='send_pay_link')emailPaymentLinkToTraveler(d.name,d.email,d.payLink);
   else if(v==='send_portal_link')emailPortalLinkToTraveler(d.name,d.email);
+  else if(v==='send_temp_pin')adminSendTempPin(d.userId,d.name,d.email);
   else if(v==='gratuity')setGratuityPaid(d.userId,d.name,d.gratPaid);
   else if(v==='send_welcome'){
     if(confirm('Send welcome email to '+d.name+' at '+d.email+'?\n\nThis will remind them to log in and set their PIN.')){
@@ -6853,8 +7038,8 @@ async function adminAddTraveler(){
         '</div>'+
         '<p>Sign in at <a href="https://atypicaltek.github.io/Commonwealth-Cruise/" style="color:var(--secondary)">Commonwealth-Cruise-Portal</a> to enter your cabin traveler details and review the payment schedule.</p>'
       );
-      postEmail(emailVal,fullName,TRIP_NAME+' — Your Account is Ready',
-        'Your account for '+TRIP_NAME+' has been created. Temporary PIN: '+tempPin+'. Sign in at https://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal) to enter your cabin traveler details and review the payment schedule. You will be prompted to set a personal PIN on first login.',
+      sendEmail(emailVal,fullName,TRIP_NAME+' — Your Account is Ready',
+        'Your account for '+TRIP_NAME+' has been created. Temporary PIN: '+tempPin+'. Sign in at https://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal) to select your cabin type and enter your traveler details. You will be prompted to set a personal PIN on first login.',
         emailHtml
       );
     }
@@ -6880,6 +7065,47 @@ async function savePinReset(){
   document.getElementById('pin-reset-modal').classList.remove('open');
   clearPin('nr');clearPin('nc');
   loadDashboard();
+}
+
+// ── ADMIN: SEND NEW TEMP PIN / RESET ─────────────────────────
+// Generates a new 6-digit temp PIN, calls admin_reset_user_pin RPC
+// to update the traveler's Supabase password, sets needs_pin_reset=true,
+// and sends the traveler a branded email with the new PIN.
+async function adminSendTempPin(userId,name,email){
+  if(!confirm(`Send a new temporary PIN to ${name} (${email})?\n\nThis will:\n• Generate a new 6-digit login PIN\n• Reset their current PIN immediately\n• Email them the new PIN with login instructions\n• Prompt them to create a personal PIN on next login`))return;
+
+  const tempPin=String(Math.floor(100000+Math.random()*900000));
+
+  // Call RPC to update auth.users password (requires admin_reset_user_pin in DB)
+  const{error:rpcErr}=await sb.rpc('admin_reset_user_pin',{p_email:email,p_new_pin:tempPin});
+  if(rpcErr){
+    // Fallback: set needs_pin_reset so traveler is flagged, still send email
+    console.warn('admin_reset_user_pin RPC error:',rpcErr.message);
+    alert(`⚠️ Could not reset password via RPC (${rpcErr.message}).\n\nMake sure Statement 11 in urgent-fixes.sql has been run.\n\nThe email with the new PIN will still be sent, but the old PIN may still work until the traveler changes it themselves.`);
+  }
+
+  // Set needs_pin_reset flag on profile
+  await sb.from('profiles').update({needs_pin_reset:true}).eq('id',userId);
+
+  // Send branded email with new temp PIN
+  const subject=`${TRIP_NAME} — Your New Temporary Login PIN`;
+  const html=buildEmailHtml(name,`
+    <p>Your login PIN for the <strong>${TRIP_NAME}</strong> portal has been reset by the trip organizer.</p>
+    <div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:12px;padding:18px 22px;margin:18px 0;text-align:center;">
+      <p style="margin:0 0 6px;font-weight:700;color:#166534;font-size:.9rem;">🔑 Your New Temporary PIN</p>
+      <p style="margin:0;font-size:2.2rem;font-weight:900;letter-spacing:10px;color:#1e293b;">${tempPin}</p>
+      <p style="margin:8px 0 0;font-size:.82rem;color:#64748b;">You will be asked to create a personal PIN when you sign in.</p>
+    </div>
+    <p>Sign in using your email address and the PIN above:</p>
+    <div style="text-align:center;margin:16px 0;">
+      <a href="${PORTAL_URL}" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.95rem;padding:12px 28px;border-radius:10px;text-decoration:none;">🔐 Sign In to Commonwealth-Cruise-Portal →</a>
+    </div>
+    <p style="font-size:.83rem;color:#64748b;">If you did not request a PIN reset or have questions, please contact us at <a href="mailto:${ADMIN_EMAIL}" style="color:#1a4a7c;">${ADMIN_EMAIL}</a>.</p>
+  `);
+  const plain=`Hello ${name},\n\nYour login PIN for the ${TRIP_NAME} portal has been reset by the trip organizer.\n\nYour New Temporary PIN: ${tempPin}\n\nSign in at ${PORTAL_URL} using your email address and the PIN above. You will be prompted to create your own personal PIN when you log in.\n\nIf you did not request a PIN reset or have questions, please contact us at ${ADMIN_EMAIL}.\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the ${TRIP_NAME} portal.`;
+
+  await sendEmail(email,name,subject,plain,html);
+  alert(`✅ New temp PIN sent to ${name} at ${email}.\n\nTemporary PIN: ${tempPin}\n\nThey will be prompted to set their own PIN on next login.`);
 }
 
 // ── REPORTS ──────────────────────────────────────────────────
@@ -7273,6 +7499,67 @@ async function checkAllNamesConfirmed(){
     await sb.from('profiles').update({names_confirmed:true}).eq('id',gUser.id);
     gProfile={...gProfile,names_confirmed:true};
   }
+}
+
+// ── ADMIN-ASSIGNED CABIN NOTIFICATION ────────────────────────
+// Shown once when traveler logs in and finds admin pre-assigned a cabin for them.
+// Clears the admin_assigned flag so it only shows on this first login.
+async function showAdminCabinNotification(cabin,milestones,payments){
+  // Immediately clear the flag so it won't show again even if modal is dismissed
+  await sb.rpc('clear_admin_cabin_flag',{p_user_id:gUser.id});
+
+  const cabinType=cabin.cabin_type||'your cabin';
+  const numGuests=cabin.num_guests||1;
+  const pricePerPerson=cabin.price_per_person?parseFloat(cabin.price_per_person):null;
+  const totalCost=cabin.cabin_cost?parseFloat(cabin.cabin_cost):null;
+
+  // Find first upcoming unpaid milestone for "minimum amount" guidance
+  let firstMsLabel='',firstMsAmt='',firstMsDue='';
+  if(milestones&&milestones.length>0&&payments){
+    const firstMs=milestones[0];
+    firstMsLabel=firstMs.label||'First Payment';
+    if(firstMs.due_date){
+      firstMsDue=new Date(firstMs.due_date+' ').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+    }
+    // Find matching user_payment for this milestone
+    const msPay=payments.find(p=>p.milestone_id===firstMs.id);
+    if(msPay?.amount_due){firstMsAmt=fmt(parseFloat(msPay.amount_due));}
+    else if(firstMs.minimum_amount&&totalCost){
+      const minDue=Math.min(parseFloat(firstMs.minimum_amount)*numGuests,totalCost);
+      firstMsAmt=fmt(minDue);
+    }
+  }
+
+  const priceRows=[
+    pricePerPerson?`<tr><td style="padding:5px 8px;color:#374151;font-weight:600;width:160px;">Rate (per person)</td><td style="padding:5px 8px;color:#111827;font-weight:700;">${fmt(pricePerPerson)}</td></tr>`:'',
+    totalCost?`<tr><td style="padding:5px 8px;color:#374151;font-weight:600;">Total Cabin Cost</td><td style="padding:5px 8px;color:#111827;font-weight:700;">${fmt(totalCost)}</td></tr>`:'',
+    firstMsAmt?`<tr style="background:#f0fdf4;"><td style="padding:5px 8px;color:#14532d;font-weight:700;">First Payment (${firstMsLabel})</td><td style="padding:5px 8px;color:#14532d;font-weight:700;">${firstMsAmt}${firstMsDue?' — due '+firstMsDue:''}</td></tr>`:'',
+  ].filter(Boolean).join('');
+
+  const existing=document.getElementById('admin-cabin-notify-modal');
+  if(existing)existing.remove();
+  const modal=document.createElement('div');
+  modal.id='admin-cabin-notify-modal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;';
+  modal.innerHTML=`
+    <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:430px;width:100%;box-shadow:0 12px 48px rgba(0,0,0,.28);text-align:center;">
+      <div style="font-size:2.8rem;margin-bottom:6px;">&#x1F6F3;&#xFE0F;</div>
+      <h2 style="margin:0 0 6px;color:#1a4a7c;font-size:1.15rem;">You've Been Reserved!</h2>
+      <p style="margin:0 0 16px;font-size:.88rem;color:#64748b;">Your trip organizer has set up your cabin reservation for</p>
+      <div style="background:#f0f9ff;border:2px solid #0ea5e9;border-radius:10px;padding:14px 16px;margin-bottom:16px;text-align:left;">
+        <p style="margin:0 0 10px;font-weight:800;color:#0c4a6e;font-size:.88rem;text-transform:uppercase;letter-spacing:.4px;">&#x1F3F7;&#xFE0F; ${TRIP_NAME}</p>
+        <table style="width:100%;border-collapse:collapse;font-size:.88rem;"><tbody>
+          <tr><td style="padding:5px 8px;color:#374151;font-weight:600;width:160px;">Cabin Type</td><td style="padding:5px 8px;color:#111827;font-weight:700;">${cabinType}</td></tr>
+          <tr><td style="padding:5px 8px;color:#374151;font-weight:600;">Guests</td><td style="padding:5px 8px;color:#111827;">${numGuests} guest${numGuests>1?'s':''}</td></tr>
+          ${priceRows}
+        </tbody></table>
+      </div>
+      <p style="font-size:.83rem;color:#64748b;margin-bottom:18px;line-height:1.6;">Please review your dashboard, complete your traveler information, and make your first payment to confirm your spot.</p>
+      <button class="btn btn-primary" style="width:100%;font-size:.95rem;" onclick="document.getElementById('admin-cabin-notify-modal').remove();showNameVerificationPopup();">
+        &#x1F4CA; View My Dashboard
+      </button>
+    </div>`;
+  document.body.appendChild(modal);
 }
 
 function showNameVerificationPopup(){
