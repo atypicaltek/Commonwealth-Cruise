@@ -1391,6 +1391,14 @@
     <div style="background:#fffbeb;border:2px solid #f6c440;border-radius:10px;padding:16px;font-weight:800;color:#78460a;font-size:1rem;margin-bottom:14px;line-height:1.6;">
       Subject to Availability<br>Please Await Confirmation by Email
     </div>
+    <div style="background:#fef2f2;border:2px solid #dc2626;border-radius:10px;padding:14px 16px;margin-bottom:14px;text-align:left;">
+      <p style="margin:0 0 6px;font-weight:700;color:#dc2626;font-size:.9rem;">⚠️ Requirements Before Your Request Can Be Processed:</p>
+      <ul style="margin:0;padding-left:18px;font-size:.85rem;color:#7f1d1d;line-height:1.7;">
+        <li>All cabin traveler information must be entered in your profile</li>
+        <li>A deposit of <strong>$250.00 per cabin occupant</strong> must be received</li>
+      </ul>
+      <p style="margin:8px 0 0;font-size:.82rem;color:#7f1d1d;">Suite approvals are processed on a first-come, first-served basis after both requirements are fulfilled.</p>
+    </div>
     <p style="font-size:.87rem;color:var(--muted);margin-bottom:20px;line-height:1.6;">A backup cabin will be reserved for you while your suite request is reviewed. You'll receive an email confirming your cabin type once a decision has been made.</p>
     <button class="btn btn-primary btn-full" onclick="closeSuiteModal()">I Understand — Continue</button>
     <button class="btn btn-ghost btn-full" style="margin-top:8px;" onclick="cancelSuiteModal()">Choose a Different Cabin Instead</button>
@@ -1960,10 +1968,7 @@ function emailDepositComplete(name,email,totalPaid,travelerCount){
      <ol><li>Your cabin number will be assigned and sent to you by a separate email shortly.</li>
      <li>A personalized payment link for all future payments will also be sent to you by email.</li></ol>
      <p>Thank you for securing your spot on the Commonwealth Cruise 2027!</p>
-     <p>We can't wait to sail with you!</p>
-     <p>Thank you,</p>
-     <p style="font-weight:700;">Your Commonwealth Cruise Team</p>
-     <p style="font-size:.8rem;color:#64748b;font-style:italic;">This email was sent by the ${TRIP_NAME} portal.</p>`
+     <p>We can't wait to sail with you!</p>`
   );
   const plain=`Hello ${name},\n\nFantastic news! Your full deposit for the ${TRIP_NAME} has been received.\n\nDeposit Summary:\n• Travelers in Your Cabin: ${travelerCount}\n• Deposit Per Person: $250.00\n• Total Deposit Received: ${fmt(totalPaid)}\n\nNext Steps:\n1. Your cabin number will be assigned and sent to you by a separate email shortly.\n2. A personalized payment link for all future payments will also be sent to you by email.\n\nLog into your account to view your full payment schedule:\nhttps://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal)\n\nThank you for securing your spot on the Commonwealth Cruise 2027!\n\nWe can't wait to sail with you!\n\nThank you,
 Your Commonwealth Cruise Team
@@ -5623,30 +5628,31 @@ const EMAIL_TEMPLATES=[
         toLabel:'Traveler email',
         toPlaceholder:'traveler@email.com',
         toName:'',
-        body:`Hi [Traveler Name],
+        body:`Hello [Traveler Name],
 
-Welcome to the Commonwealth Cruise 2027!
+Welcome to Commonwealth-Cruise-Portal! Your cabin selection has been received.
 
-Thank you for registering! We're excited to have you with us.
-Your account has been successfully created.
-Username: [Recorded Username]
+ACCOUNT DETAILS:
+• Name: [Name]
+• Email: [Email]
+• Cabin Type: [Cabin Type]
 
-The next step is easy!
+Sign in at https://atypicaltek.github.io/Commonwealth-Cruise/ to enter your cabin traveler details and review the payment schedule.
 
-RESERVE YOUR SPOT TODAY!
+── NAMES ON TRAVEL DOCUMENTATION ──
+It is important that each traveler's full name and gender on the cruise reservation match their non-expired government-issued photo ID.
 
-Simply return to the login page, sign in using your username and complete your cabin traveler information.
+── GRATUITIES — NOT INCLUDED IN CABIN COST ──
+Gratuities are NOT included in your cabin price and are a separate cost.
+• Standard Staterooms: $17.00 USD per person, per day
+• Suite Staterooms: $19.00 USD per person, per day
 
-No worries if you can't complete it all today—you can log back into your account anytime to update or finish your traveler information at your convenience.
-
-If you have any questions or need assistance along the way, we're always happy to help.
-
-Thank you again for registering!
-
-Commonwealth Cruise Travel Portal
+── TRAVEL DOCUMENTATION REQUIREMENTS ──
+[US Citizens / Non-US Citizens / US-PR / Canadian Citizens — see full email for details]
 
 Thank you,
-Your Commonwealth Cruise Team`
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
       };
     }
   },
@@ -5658,18 +5664,22 @@ Your Commonwealth Cruise Team`
       toLabel:'Traveler email',
       toPlaceholder:'traveler@email.com',
       toName:'',
-      body:`Hi [Traveler Name],
+      body:`Hello [Traveler Name],
 
-We have received your payment.
+We've recorded your payment for the ${TRIP_NAME}.
 
-Payment: [Milestone Label]
-Amount Paid: $[Amount]
-Total Paid to Date: $[Total Paid]
-Remaining Balance: $[Remaining]
+Payment Details:
+• Payment: [Milestone Label]
+• Amount Paid: $[Amount]
+• Total Paid to Date: $[Total Paid]
+• Remaining Balance: $[Remaining]
 
-Thank you for your payment!
+Thank you for your payment! Log into your portal to view your full payment schedule:
+https://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal)
 
-Your Commonwealth Cruise Team`
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
     })
   },
   {
@@ -5680,16 +5690,24 @@ Your Commonwealth Cruise Team`
       toLabel:'Traveler email',
       toPlaceholder:'traveler@email.com',
       toName:'',
-      body:`Hi [Traveler Name],
+      body:`Hello [Traveler Name],
 
-Great news! Your full deposit has been received.
+Fantastic news! Your full deposit for the ${TRIP_NAME} has been received! 🎉
 
-Total Paid: $[Total Paid]
-Travelers in Cabin: [Count]
+Deposit Summary:
+• Travelers in Your Cabin: [Count]
+• Deposit Per Person: $250.00
+• Total Deposit Received: $[Total Paid]
 
-You're all set for the next payment milestone. Check your portal for upcoming due dates.
+Next Steps:
+1. Your cabin number will be assigned and sent to you by a separate email shortly.
+2. A personalized payment link for all future payments will also be sent to you by email.
 
-Your Commonwealth Cruise Team`
+Thank you for securing your spot on the ${TRIP_NAME}! We can't wait to sail with you!
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
     })
   },
   {
@@ -5700,17 +5718,26 @@ Your Commonwealth Cruise Team`
       toLabel:'Traveler email',
       toPlaceholder:'traveler@email.com',
       toName:'',
-      body:`Hi [Traveler Name],
+      body:`Dear [Traveler Name],
 
-Your reservation for the Commonwealth Cruise has been cancelled.
+This email confirms that your reservation for the ${TRIP_NAME} has been cancelled.
 
-Cabin Type: [Cabin Type]
-Cabin Number: [Cabin Number]
-Total Paid: $[Total Paid]
+Cancellation Details:
+• Name: [Traveler Name]
+• Cabin Type: [Cabin Type]
+• Cabin Number: [Cabin Number]
+• Total Amount Paid: $[Total Paid]
+• Cancellation Date: [Date]
 
-Please allow up to 14 days for your refund to process. If you have questions, reply to this email.
+Please note that any funds applied toward your cruise will be refunded, if applicable, in accordance with the cruise line's cancellation and refund policy. Refund eligibility and processing are subject to the cruise line's terms and conditions.
 
-Your Commonwealth Cruise Team`
+If you believe this cancellation was made in error, please contact the trip organizer immediately at ${ADMIN_EMAIL}.
+
+We're sorry to see you go!
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
     })
   },
   {
@@ -5780,17 +5807,28 @@ Please review Carnival's minor travel policy and contact the account holder.`
       toLabel:'Traveler email',
       toPlaceholder:'traveler@email.com',
       toName:'',
-      body:`Hi [Owner Name],
+      body:`Hello [Owner Name],
 
-We have received all traveler information for your cabin. Here is a summary:
+All cabin traveler information has been entered. Please review the details below.
 
-[Traveler List]
+CABIN TRAVELERS:
+[Traveler Name] — [DOB] — [Gender] — [Citizenship]
+(repeated for each traveler)
 
-[Documentation Requirements by Citizenship]
+If this information is correct: No action is needed.
+If any information is incorrect: Please log in to the portal and update your traveler information at:
+https://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal)
 
-If you need to make any changes, please log in to the portal.
+── TRAVEL DOCUMENTATION REQUIREMENTS ──
+[Documentation section per citizenship type]
 
-Your Commonwealth Cruise Team`
+⚠️ Each traveler is personally responsible for their required documents. Traveling without proper documentation will result in denial of boarding with no refund.
+
+Age Policy Reminder: Guests are required to be 21 years of age (on embarkation day) to travel on their own. Guest ages will be verified at embarkation. Guests not conforming to this policy will result in denied boarding and no compensation will be provided.
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
     })
   },
   {
@@ -5859,13 +5897,30 @@ Your Commonwealth Cruise Team`
       toLabel:'Traveler email',
       toPlaceholder:'traveler@email.com',
       toName:'',
-      body:`Hi [Traveler Name],
+      body:`Hello [Traveler Name],
 
-We have received your suite upgrade request. Our team will review availability and contact you shortly.
+Thank you for signing up for the ${TRIP_NAME}!
 
-Backup Cabin Preference: [Backup Cabin Type]
+Your suite request has been received and is pending confirmation.
 
-Your Commonwealth Cruise Team`
+⚠️ Your cabin type is currently: PENDING
+
+Suite requests are subject to availability and can only be confirmed after all cabin traveler information has been input in your profile and a payment of $250.00 per cabin occupant has been received. Suite approvals are processed on a first-come, first-served basis after all requirements have been fulfilled. While your request is being reviewed, we have reserved a [Backup Cabin] cabin as your backup.
+
+• If your suite is confirmed, you will receive an updated email with your suite assignment.
+• If a suite is not available, your [Backup Cabin] cabin will be confirmed.
+
+Your Contact Information on File:
+• Name: [Name]
+• Email: [Email]
+• Phone: [Phone]
+• Backup Cabin: [Backup Cabin]
+
+Sign in at https://atypicaltek.github.io/Commonwealth-Cruise/ to enter your cabin traveler details and review the payment schedule.
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
     })
   },
   {
@@ -5876,15 +5931,25 @@ Your Commonwealth Cruise Team`
       toLabel:'Traveler email',
       toPlaceholder:'traveler@email.com',
       toName:'',
-      body:`Hi [Traveler Name],
+      body:`Hello [Traveler Name],
 
-Congratulations! Your suite upgrade request has been approved.
+Great news! Your suite request for the ${TRIP_NAME} has been confirmed! 🎉
 
-Cabin Number: [Cabin Number]
+Your Suite Cabin Number: [Cabin Number]
+(If not yet assigned, your cabin number will be sent by a separate email.)
 
-We look forward to seeing you on the cruise!
+Your backup cabin reservation has been released.
 
-Your Commonwealth Cruise Team`
+Please continue making payments on your regular payment schedule.
+
+Log into your account to view your full payment schedule:
+https://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal)
+
+We look forward to sailing with you!
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
     })
   },
   {
@@ -5895,13 +5960,27 @@ Your Commonwealth Cruise Team`
       toLabel:'Traveler email',
       toPlaceholder:'traveler@email.com',
       toName:'',
-      body:`Hi [Traveler Name],
+      body:`Hello [Traveler Name],
 
-We regret to inform you that we were unable to accommodate your suite upgrade request at this time.
+Thank you for your patience regarding your suite request for the ${TRIP_NAME}.
 
-Your reservation has been updated to your backup cabin preference: [Backup Cabin Type].
+Unfortunately, suites are not available at this time. Your reservation has been confirmed in a [Backup Cabin] cabin.
 
-Your Commonwealth Cruise Team`
+Confirmed Cabin Type: [Backup Cabin]
+Suite Status: Not Available
+
+Your payment schedule remains the same.
+
+Log into your account to view your updated cabin assignment:
+https://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal)
+
+If you have any questions, please contact us at ${ADMIN_EMAIL}.
+
+We look forward to sailing with you!
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
     })
   },
   {
@@ -5918,10 +5997,11 @@ Great news! A [Cabin Type] cabin is now available. Please log in to the portal t
 
 This offer expires in 48 hours. If we do not hear back from you, the cabin will be offered to the next person on the waitlist.
 
-Commonwealth Cruise Travel Portal: Commonwealth Cruise Travel Portal
+https://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal)
 
 Thank you,
-Your Commonwealth Cruise Team`
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
     })
   },
   {
