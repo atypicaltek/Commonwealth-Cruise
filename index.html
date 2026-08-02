@@ -653,6 +653,7 @@
       <button class="tab-btn tb-waitlist" onclick="switchTab('waitlist',this);loadWaitlist()">⏳ Waitlist</button>
       <button class="tab-btn tb-cclentry" onclick="switchTab('cclentry',this);loadCCLEntry()">📋 CCL Entry</button>
       <button class="tab-btn tb-minors" onclick="switchTab('minors',this);loadMinorRequests()">👶 Minor Requests</button>
+      <button class="tab-btn" style="background:#0f766e;" onclick="switchTab('highocc',this);loadHighOccTab()">🏠 High Occ. Requests</button>
       <button class="tab-btn tb-emailgen" onclick="switchTab('emailgen',this);loadEmailGenTab()">✉️ Email Generation</button>
       <button class="tab-btn" style="background:#0369a1;" onclick="switchTab('emailqueue',this);loadEmailQueueTab()">📬 Email Queue</button>
       <button class="tab-btn tb-reports" onclick="switchTab('reports',this)">📊 Reports</button>
@@ -808,6 +809,23 @@
           <span id="minor-completed-chevron" style="color:var(--muted);font-size:1rem;transition:transform .2s;">▼</span>
         </div>
         <div id="admin-minor-completed" style="display:none;padding:0 20px 16px;"></div>
+      </div>
+    </div>
+
+    <!-- HIGH OCCUPANCY REQUESTS -->
+    <div id="tab-highocc" class="tab-pane">
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header">
+          <span class="card-title" id="highocc-pend-title">🏠 High Occupancy Requests — Pending Review</span>
+        </div>
+        <div id="highocc-pending"><div class="empty"><div class="ei">🏠</div><p>Click the High Occ. Requests tab to load.</p></div></div>
+      </div>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:14px 20px;" onclick="toggleHighOccCompleted()">
+          <span style="font-weight:800;font-size:.97rem;color:var(--primary);">✅ Resolved High Occupancy Requests</span>
+          <span id="highocc-completed-chevron" style="color:var(--muted);font-size:1rem;transition:transform .2s;">▼</span>
+        </div>
+        <div id="highocc-completed" style="display:none;padding:0 20px 16px;"></div>
       </div>
     </div>
 
@@ -1528,17 +1546,27 @@ function buildRefundTable(){
 
 // ──────────────────────────────────────────────────────────────
 
+// ── EMAIL HOLD: initialize from localStorage on every page load ──
+gEmailHoldEnabled=localStorage.getItem('admin_email_hold')==='true';
+
 async function sendEmail(toEmail,toName,subject,message,htmlBody){
+  // HOLD CHECK: if hold is ON, queue instead of sending — intercepts ALL emails
+  if(gEmailHoldEnabled){
+    try{
+      await sb.from('email_queue').insert({
+        to_email:toEmail,to_name:toName,subject,
+        plain_body:message,html_body:htmlBody||message,
+        meta:{source:'hold'},status:'held',created_at:new Date().toISOString()
+      });
+    }catch(e){console.warn('Hold queue insert failed:',e);}
+    return{ok:false,held:true};
+  }
   const configured=APPS_SCRIPT_URL&&APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_WEB_APP_URL';
   if(!configured){
-    // Fallback: open a pre-filled mailto: draft
     window.open(`mailto:${toEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`);
     return{ok:false,fallback:true};
   }
   try{
-    // mode:'no-cors' means we can't read the response, but the POST is sent and the email delivers.
-    // Pass to_name so the Apps Script can format the To: header as "Name <email>"
-    // Pass html for HTML email body (Apps Script: GmailApp.sendEmail(to,subject,plain,{htmlBody:html}))
     fetch(APPS_SCRIPT_URL,{
       method:'POST',
       mode:'no-cors',
@@ -4217,15 +4245,18 @@ async function showAdminPendingPopup(){
     {data:cabinChanges},
     {data:suiteReqs},
     {data:cancels},
-    {data:docReqs}
+    {data:docReqs},
+    {data:highOccReqs}
   ]=await Promise.all([
     sb.from('cabin_change_requests').select('id').eq('status','pending'),
     sb.from('suite_requests').select('id').eq('status','pending'),
     sb.from('cancellation_requests').select('id').eq('status','pending'),
-    sb.from('doc_requests').select('id').eq('status','pending')
+    sb.from('doc_requests').select('id').eq('status','pending'),
+    sb.from('cabin_assignments').select('id').eq('high_occupancy_pending',true).gte('num_guests',3)
   ]);
 
   const items=[];
+  if(highOccReqs?.length)items.push({label:'High Occupancy Request'+(highOccReqs.length>1?'s':''),count:highOccReqs.length,tab:'highocc'});
   if(cabinChanges?.length)items.push({label:'Cabin Change Request'+(cabinChanges.length>1?'s':''),count:cabinChanges.length,tab:'cabinchange'});
   if(suiteReqs?.length)items.push({label:'Suite Request'+(suiteReqs.length>1?'s':''),count:suiteReqs.length,tab:'suiterequests'});
   if(cancels?.length)items.push({label:'Cancellation Request'+(cancels.length>1?'s':''),count:cancels.length,tab:'cancellations'});
@@ -4437,9 +4468,11 @@ async function cancelTraveler(userId,name,email,cabinType,cabinNumber,citizenshi
   // 2. Record in cancellations log
   await sb.from('cancellations').insert({original_user_id:userId,traveler_name:name,traveler_email:email,cabin_type:cabinType||null,cabin_number:cabinNumber||null,citizenship_type:citizenship||null,total_paid:totalPaid});
 
-  // 3. Restore cabin inventory and remove the assignment row
-  // (profile is kept with status='cancelled' for records; assignment row must go
-  //  so the inventory count — derived from actual cabin_assignments rows — is correct)
+  // 3. Delete all cabin traveler records (names, phone numbers, DOB etc.)
+  //    so a re-booking starts fresh, and sensitive data is not retained.
+  await sb.from('cabin_travelers').delete().eq('account_owner_id',userId);
+
+  // 4. Restore cabin inventory and remove the assignment row
   if(cabinType)await sb.rpc('increment_cabin',{cabin:cabinType});
   await sb.from('cabin_assignments').delete().eq('user_id',userId);
 
@@ -5308,6 +5341,171 @@ async function loadMinorRequests(){
   const pendHdr=document.querySelector('#tab-minors .card-header .card-title');
   if(pendHdr)pendHdr.textContent=`👶 Minor Requests — Pending Review (${pendCount})`;
   if(pendEl.innerHTML.trim()==='')pendEl.innerHTML='<div class="empty"><div class="ei">✅</div><p>All minor request reviews are completed.</p></div>';
+}
+
+// ── HIGH OCCUPANCY REQUESTS ───────────────────────────────────
+function toggleHighOccCompleted(){
+  const el=document.getElementById('highocc-completed');
+  const ch=document.getElementById('highocc-completed-chevron');
+  if(!el)return;
+  const open=el.style.display!=='none';
+  el.style.display=open?'none':'block';
+  if(ch)ch.style.transform=open?'':'rotate(180deg)';
+}
+
+async function loadHighOccTab(){
+  const pendEl=document.getElementById('highocc-pending');
+  const compEl=document.getElementById('highocc-completed');
+  if(!pendEl)return;
+  pendEl.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  if(compEl)compEl.innerHTML='';
+
+  const[{data:allCabins,error:cabErr},{data:allProfiles},{data:allTravelers}]=await Promise.all([
+    sb.from('cabin_assignments').select('*').gte('num_guests',3).order('created_at',{ascending:false}),
+    sb.from('profiles').select('id,name,email,phone,status').eq('is_admin',false).order('name'),
+    sb.from('cabin_travelers').select('*').order('created_at',{ascending:true})
+  ]);
+
+  if(cabErr){
+    pendEl.innerHTML=`<div class="empty"><div class="ei">❌</div><p>Error loading data: ${cabErr.message}</p></div>`;
+    return;
+  }
+
+  const profileMap={};(allProfiles||[]).forEach(p=>{profileMap[p.id]=p;});
+  const travelersByOwner={};(allTravelers||[]).forEach(t=>{
+    if(!travelersByOwner[t.account_owner_id])travelersByOwner[t.account_owner_id]=[];
+    travelersByOwner[t.account_owner_id].push(t);
+  });
+
+  // Filter to those with 3+ guests; split by pending vs resolved
+  const pendingItems=[];
+  const resolvedItems=[];
+  (allCabins||[]).forEach(ca=>{
+    const p=profileMap[ca.user_id];
+    if(!p||p.status==='cancelled')return;
+    if(ca.num_guests<3)return;
+    const travelers=travelersByOwner[ca.user_id]||[];
+    const item={ca,p,travelers};
+    if(ca.high_occupancy_pending)pendingItems.push(item);
+    else resolvedItems.push(item);
+  });
+
+  // Update title
+  const titleEl=document.getElementById('highocc-pend-title');
+  if(titleEl)titleEl.textContent=`🏠 High Occupancy Requests — Pending Review (${pendingItems.length})`;
+
+  if(pendingItems.length===0){
+    pendEl.innerHTML='<div class="empty"><div class="ei">✅</div><p>No pending high-occupancy requests.</p></div>';
+  } else {
+    pendEl.innerHTML='';
+    pendingItems.forEach(item=>pendEl.insertAdjacentHTML('beforeend',buildHighOccCard(item,false)));
+  }
+
+  if(compEl){
+    if(resolvedItems.length===0){
+      compEl.innerHTML='<div class="empty" style="padding:20px 0;"><div class="ei">—</div><p>No resolved requests yet.</p></div>';
+    } else {
+      compEl.innerHTML='';
+      resolvedItems.forEach(item=>compEl.insertAdjacentHTML('beforeend',buildHighOccCard(item,true)));
+    }
+  }
+}
+
+function buildHighOccCard(item,resolved){
+  const{ca,p,travelers}=item;
+  const uid=p.id;
+  const cabinType=ca.cabin_type||'—';
+  const numGuests=ca.num_guests||'?';
+  const resNum=ca.guest_reservation_number||'';
+  const cabinNum=ca.cabin_number||'';
+
+  const travelerRows=(travelers.length===0)
+    ? '<p style="color:var(--muted);font-size:.85rem;font-style:italic;">No traveler names entered yet.</p>'
+    : travelers.map((t,i)=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #e2e8f0;">
+        <span style="background:#1e40af;color:#fff;font-size:.7rem;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap;">Guest ${i+1}</span>
+        <span style="font-size:.88rem;font-weight:700;color:#1a1a2e;">${(t.first_name||'')+' '+(t.last_name||'')+' '+(t.suffix||'')}</span>
+        ${t.date_of_birth?`<span style="font-size:.8rem;color:#64748b;">DOB: ${t.date_of_birth}</span>`:''}
+        ${t.citizenship?`<span style="font-size:.78rem;color:#64748b;">(${t.citizenship})</span>`:''}
+      </div>`).join('');
+
+  const headerBg=resolved
+    ? 'linear-gradient(135deg,#145a32,#1e8449)'
+    : 'linear-gradient(135deg,#0f4c3a,#0f766e)';
+  const borderColor=resolved?'#1e8449':'#0d9488';
+
+  const actionButtons=resolved
+    ? `<span style="font-size:.82rem;color:#065f46;font-weight:700;">✅ Approved — occupancy confirmed</span>`
+    : `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="approveHighOcc('${uid}','${cabinType}',${numGuests})" style="background:#0f766e;">✅ Approve</button>
+        <button class="btn btn-sm" onclick="declineHighOcc('${uid}','${cabinType}')" style="background:#dc2626;color:#fff;">❌ Decline & Notify</button>
+        <span id="highocc-status-${uid}" style="font-size:.82rem;color:var(--muted);"></span>
+      </div>`;
+
+  return`
+  <div id="highocc-card-${uid}" style="background:#fff;border:2px solid ${borderColor};border-radius:12px;margin-bottom:14px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06);">
+    <div style="background:${headerBg};padding:12px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <div>
+        <div style="color:#fff;font-weight:800;font-size:.97rem;">${p.name}</div>
+        <div style="color:rgba(255,255,255,.8);font-size:.8rem;">${p.email}${p.phone?' · '+p.phone:''}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="background:rgba(255,255,255,.2);color:#fff;font-weight:700;font-size:.85rem;padding:4px 12px;border-radius:20px;">🛏️ ${cabinType} — ${numGuests} Guests</div>
+        ${resNum?`<div style="color:rgba(255,255,255,.75);font-size:.75rem;margin-top:3px;">Res# ${resNum}${cabinNum?' · Cabin '+cabinNum:''}</div>`:''}
+      </div>
+    </div>
+    <div style="padding:14px 18px;">
+      <div style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Travelers</div>
+      ${travelerRows}
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid #e2e8f0;">
+        ${actionButtons}
+      </div>
+    </div>
+  </div>`;
+}
+
+async function approveHighOcc(userId,cabinType,numGuests){
+  const statusEl=document.getElementById('highocc-status-'+userId);
+  if(statusEl)statusEl.textContent='Saving…';
+  try{
+    await sb.from('cabin_assignments').update({high_occupancy_pending:false}).eq('user_id',userId);
+    // Notify traveler
+    const{data:prof}=await sb.from('profiles').select('name,email').eq('id',userId).maybeSingle();
+    if(prof){
+      const subject=`${TRIP_NAME} — Your Cabin Occupancy Has Been Approved`;
+      const body=`Hi ${prof.name},\n\nGreat news! Your cabin request for ${numGuests} guests in a ${cabinType} cabin has been reviewed and approved by the Commonwealth Cruise Team.\n\nYou're all set — your reservation is confirmed.\n\nThank you,\nYour Commonwealth Cruise Team`;
+      const html=buildEmailHtml(prof.name,`
+        <p>Great news! Your cabin request for <strong>${numGuests} guests</strong> in a <strong>${cabinType}</strong> cabin has been reviewed and <strong style="color:#065f46;">approved</strong> by the Commonwealth Cruise Team.</p>
+        <p>You're all set — your reservation is confirmed. Please log in to the portal to view your details.</p>`);
+      await sendEmail(prof.email,prof.name,subject,body,html);
+    }
+    if(statusEl)statusEl.textContent='✅ Approved';
+    // Refresh the card to resolved state
+    setTimeout(()=>loadHighOccTab(),800);
+  }catch(e){
+    if(statusEl)statusEl.textContent='Error: '+e.message;
+  }
+}
+
+async function declineHighOcc(userId,cabinType){
+  if(!confirm('Decline this high-occupancy request? The traveler will be notified. Their cabin reservation will remain but flagged — you may want to cancel it manually from the Travelers tab.'))return;
+  const statusEl=document.getElementById('highocc-status-'+userId);
+  if(statusEl)statusEl.textContent='Sending…';
+  try{
+    // Notify traveler
+    const{data:prof}=await sb.from('profiles').select('name,email').eq('id',userId).maybeSingle();
+    if(prof){
+      const subject=`${TRIP_NAME} — Cabin Occupancy Request Update`;
+      const body=`Hi ${prof.name},\n\nThank you for submitting your cabin occupancy request. Unfortunately, after review, we are unable to accommodate ${cabinType} cabin for 3 or more guests due to Carnival's cabin occupancy policy.\n\nPlease contact the Commonwealth Cruise Team to discuss alternatives.\n\nThank you,\nYour Commonwealth Cruise Team`;
+      const html=buildEmailHtml(prof.name,`
+        <p>Thank you for submitting your cabin occupancy request. Unfortunately, after review, we are <strong style="color:#dc2626;">unable to accommodate</strong> your request for 3 or more guests in a <strong>${cabinType}</strong> cabin due to Carnival's cabin occupancy policy.</p>
+        <p>Please contact the Commonwealth Cruise Team to discuss alternative cabin options.</p>`);
+      await sendEmail(prof.email,prof.name,subject,body,html);
+    }
+    if(statusEl)statusEl.textContent='✅ Notification sent';
+  }catch(e){
+    if(statusEl)statusEl.textContent='Error: '+e.message;
+  }
 }
 
 // ── EMAIL GENERATION ──────────────────────────────────────────
