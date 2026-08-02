@@ -4594,16 +4594,27 @@ async function cancelTraveler(userId,name,email,cabinType,cabinNumber,citizenshi
 
   // 3. Delete all cabin traveler records (names, phone numbers, DOB etc.)
   //    so a re-booking starts fresh, and sensitive data is not retained.
-  await sb.from('cabin_travelers').delete().eq('account_owner_id',userId);
+  const{error:ctErr}=await sb.from('cabin_travelers').delete().eq('account_owner_id',userId);
+  if(ctErr)console.warn('cabin_travelers delete error (non-fatal):',ctErr.message);
 
-  // 4. Restore cabin inventory and remove the assignment row
-  if(cabinType)await sb.rpc('increment_cabin',{cabin:cabinType});
-  await sb.from('cabin_assignments').delete().eq('user_id',userId);
+  // 4. Restore cabin inventory — MUST happen before deleting assignment row
+  //    Re-fetch cabin type in case parameter was stale or missing.
+  let resolvedCabinType=cabinType;
+  if(!resolvedCabinType){
+    const{data:freshCa}=await sb.from('cabin_assignments').select('cabin_type').eq('user_id',userId).single();
+    resolvedCabinType=freshCa?.cabin_type||null;
+  }
+  if(resolvedCabinType){
+    const{error:invErr}=await sb.rpc('increment_cabin',{cabin:resolvedCabinType});
+    if(invErr)console.warn('increment_cabin error:',invErr.message);
+  }
+  const{error:caErr}=await sb.from('cabin_assignments').delete().eq('user_id',userId);
+  if(caErr)console.warn('cabin_assignments delete error:',caErr.message);
 
-  // 4. Send emails — admin can skip
+  // 5. Send emails — admin can skip
   if(confirm(`📧 Send cancellation notification to ${name} at ${email}?\n\nClick OK to send, or Cancel to skip.`)){
-    emailCancellationToTraveler(name,email,cabinType,cabinNumber,totalPaid);
-    emailCancellationToAdmin(name,email,cabinType,cabinNumber,citizenship,totalPaid);
+    emailCancellationToTraveler(name,email,resolvedCabinType||cabinType,cabinNumber,totalPaid);
+    emailCancellationToAdmin(name,email,resolvedCabinType||cabinType,cabinNumber,citizenship,totalPaid);
   }
 
   alert(`✅ ${name}'s reservation has been cancelled. Their profile is preserved for your records.`);
