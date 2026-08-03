@@ -4319,57 +4319,147 @@ function openCancelledWaitlistRequest(){
   const existing=document.getElementById('cancelled-waitlist-modal');if(existing)existing.remove();
   const div=document.createElement('div');
   div.id='cancelled-waitlist-modal';
-  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;';
+  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;';
   div.innerHTML=`
-    <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:420px;width:100%;box-shadow:0 12px 48px rgba(0,0,0,.28);">
+    <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:500px;width:100%;box-shadow:0 12px 48px rgba(0,0,0,.28);margin:auto;">
       <h2 style="margin:0 0 4px;font-size:1.1rem;color:#1a4a7c;">🛳️ Request a New Cabin</h2>
-      <p style="margin:0 0 18px;font-size:.85rem;color:#64748b;line-height:1.5;">Your trip organizer will review your request and reach out when a spot is available. This does <strong>not</strong> guarantee a reservation.</p>
+      <p style="margin:0 0 16px;font-size:.85rem;color:#64748b;line-height:1.5;">Your trip organizer will review your request and reach out when space is available. This does <strong>not</strong> guarantee a reservation.</p>
       <div id="cwl-alert" style="display:none;margin-bottom:12px;padding:10px 12px;border-radius:7px;font-size:.84rem;"></div>
-      <label style="font-size:.82rem;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Preferred Cabin Type</label>
-      <select id="cwl-type" style="width:100%;padding:9px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.88rem;margin-bottom:12px;">
-        <option value="">— Select a cabin type —</option>
-        <option value="Interior">Interior</option>
-        <option value="Ocean View">Ocean View</option>
-        <option value="Balcony">Balcony</option>
-        <option value="Suite">Suite</option>
-      </select>
-      <label style="font-size:.82rem;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Number of Guests</label>
-      <select id="cwl-guests" style="width:100%;padding:9px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.88rem;margin-bottom:20px;">
-        ${[1,2,3,4,5,6].map(n=>`<option value="${n}">${n} Guest${n>1?'s':''}</option>`).join('')}
-      </select>
-      <div style="display:flex;gap:10px;">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div>
+          <label style="font-size:.82rem;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Cabin Type *</label>
+          <select id="cwl-type" style="width:100%;padding:9px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.88rem;">
+            <option value="">— Select —</option>
+            <option value="Interior">Interior</option>
+            <option value="Ocean View">Ocean View</option>
+            <option value="Balcony">Balcony</option>
+            <option value="Suite">Suite</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:.82rem;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Number of Guests *</label>
+          <select id="cwl-guests" onchange="renderCwlTravelers()" style="width:100%;padding:9px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.88rem;">
+            ${[1,2,3,4,5,6].map(n=>`<option value="${n}">${n} Guest${n>1?'s':''}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div id="cwl-traveler-forms"></div>
+
+      <div style="display:flex;gap:10px;margin-top:20px;">
         <button onclick="document.getElementById('cancelled-waitlist-modal').remove()" style="flex:1;padding:10px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;cursor:pointer;font-size:.88rem;color:#374151;">Cancel</button>
         <button id="cwl-submit-btn" onclick="submitCancelledWaitlistRequest()" style="flex:2;padding:10px;border:none;border-radius:8px;background:#1a4a7c;color:#fff;font-weight:700;cursor:pointer;font-size:.88rem;">✅ Submit Request</button>
       </div>
     </div>`;
   document.body.appendChild(div);
+  renderCwlTravelers();
+}
+
+function renderCwlTravelers(){
+  const n=parseInt(document.getElementById('cwl-guests')?.value||'1');
+  const container=document.getElementById('cwl-traveler-forms');
+  if(!container)return;
+  container.innerHTML=
+    '<div style="font-size:.82rem;font-weight:700;color:#1a4a7c;margin-bottom:10px;padding-top:14px;border-top:1.5px solid #e2e8f0;">👥 Cabin Traveler Information</div>'+
+    Array.from({length:n},(_,i)=>`
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:12px 14px;margin-bottom:10px;">
+        <div style="font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">
+          Traveler ${i+1}${i===0?' (Account Holder)':''}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+          <div>
+            <label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:3px;">First Name *</label>
+            <input id="cwl-t${i}-first" class="form-input" placeholder="First name" style="font-size:.85rem;padding:7px 9px;">
+          </div>
+          <div>
+            <label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:3px;">Last Name *</label>
+            <input id="cwl-t${i}-last" class="form-input" placeholder="Last name" style="font-size:.85rem;padding:7px 9px;">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div>
+            <label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:3px;">Date of Birth *</label>
+            <input id="cwl-t${i}-dob" type="date" class="form-input" style="font-size:.85rem;padding:7px 9px;">
+          </div>
+          <div>
+            <label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:3px;">Gender *</label>
+            <select id="cwl-t${i}-gender" class="form-input" style="font-size:.85rem;padding:7px 9px;">
+              <option value="">— Select —</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Non-binary">Non-binary</option>
+              <option value="Prefer not to say">Prefer not to say</option>
+            </select>
+          </div>
+        </div>
+      </div>`
+    ).join('');
 }
 
 async function submitCancelledWaitlistRequest(){
   const type=document.getElementById('cwl-type')?.value;
   const guests=parseInt(document.getElementById('cwl-guests')?.value||'1');
   const alertEl=document.getElementById('cwl-alert');
-  function showErr(m){alertEl.className='alert alert-error';alertEl.textContent=m;alertEl.style.display='block';}
+  function showErr(m){alertEl.className='alert alert-error';alertEl.textContent=m;alertEl.style.display='block';alertEl.scrollIntoView({behavior:'smooth',block:'nearest'});}
+
   if(!type)return showErr('Please select a cabin type.');
+
+  // Validate all traveler fields
+  const travelers=[];
+  for(let i=0;i<guests;i++){
+    const first=(document.getElementById(`cwl-t${i}-first`)?.value||'').trim();
+    const last=(document.getElementById(`cwl-t${i}-last`)?.value||'').trim();
+    const dob=document.getElementById(`cwl-t${i}-dob`)?.value||'';
+    const gender=document.getElementById(`cwl-t${i}-gender`)?.value||'';
+    if(!first||!last)return showErr(`Please enter the full name for Traveler ${i+1}.`);
+    if(!dob)return showErr(`Please enter the date of birth for Traveler ${i+1}.`);
+    if(!gender)return showErr(`Please select a gender for Traveler ${i+1}.`);
+    travelers.push({first_name:first,last_name:last,date_of_birth:dob,gender});
+  }
+
   const btn=document.getElementById('cwl-submit-btn');
   btn.disabled=true;btn.textContent='Submitting…';
-  const{error}=await sb.from('cabin_waitlist').upsert(
-    {user_id:gUser.id,cabin_type:type,num_guests:guests,created_at:new Date().toISOString()},
-    {onConflict:'user_id'}
-  );
-  if(error){btn.disabled=false;btn.textContent='✅ Submit Request';return showErr('Error: '+error.message);}
-  // Email admin about the request
+
+  // Save cabin travelers — replace existing records for this user
+  await sb.from('cabin_travelers').delete().eq('account_owner_id',gUser.id);
+  const travelerRows=travelers.map(t=>({
+    account_owner_id:gUser.id,
+    first_name:t.first_name,
+    last_name:t.last_name,
+    date_of_birth:t.date_of_birth,
+    gender:t.gender
+  }));
+  const{error:ctErr}=await sb.from('cabin_travelers').insert(travelerRows);
+  if(ctErr){btn.disabled=false;btn.textContent='✅ Submit Request';return showErr('Error saving traveler info: '+ctErr.message);}
+
+  // Delete any existing waitlist entry, then insert fresh (avoids upsert constraint dependency)
+  await sb.from('cabin_waitlist').delete().eq('user_id',gUser.id);
+  const{error}=await sb.from('cabin_waitlist').insert({
+    user_id:gUser.id,cabin_type:type,num_guests:guests,created_at:new Date().toISOString()
+  });
+  if(error){btn.disabled=false;btn.textContent='✅ Submit Request';return showErr('Error submitting request: '+error.message);}
+
+  // Email admin with full traveler details
   const tName=gProfile?.name||'Traveler';
   const tEmail=gUser?.email||'';
+  const travelerLines=travelers.map((t,i)=>`Traveler ${i+1}: ${t.first_name} ${t.last_name} | DOB: ${t.date_of_birth} | Gender: ${t.gender}`).join('\n');
+  const htmlTravelerRows=travelers.map((t,i)=>
+    `<tr><td style="padding:6px 10px;">Traveler ${i+1}</td><td style="padding:6px 10px;">${t.first_name} ${t.last_name}</td><td style="padding:6px 10px;">${t.date_of_birth}</td><td style="padding:6px 10px;">${t.gender}</td></tr>`
+  ).join('');
   const subject=`Cabin Re-Request — ${tName} (Previously Cancelled)`;
-  const plain=`${tName} (${tEmail}) has submitted a new cabin request after their reservation was cancelled.\n\nCabin Type: ${type}\nGuests: ${guests}\n\nPlease review in the Admin Portal → Waitlist tab.`;
+  const plain=`${tName} (${tEmail}) has submitted a new cabin request after their reservation was cancelled.\n\nCabin Type: ${type}\nGuests: ${guests}\n\nTraveler Information:\n${travelerLines}\n\nPlease review in the Admin Portal → Waitlist tab.`;
   const html=buildEmailHtml('Admin',
     '<p><strong>'+tName+'</strong> ('+tEmail+') has submitted a new cabin request after cancellation.</p>'+
     buildPayTable([{label:'Cabin Type',value:type},{label:'Guests',value:String(guests)}])+
-    '<p style="margin-top:14px;">Review in Admin → Waitlist tab to process manually.</p>');
+    '<div style="margin-top:14px;font-weight:700;font-size:.88rem;color:#0f2744;">Traveler Information:</div>'+
+    '<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:.84rem;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">'+
+    '<thead><tr style="background:#1a4a7c;color:#fff;"><th style="padding:6px 10px;text-align:left;">#</th><th style="padding:6px 10px;text-align:left;">Name</th><th style="padding:6px 10px;text-align:left;">DOB</th><th style="padding:6px 10px;text-align:left;">Gender</th></tr></thead>'+
+    '<tbody>'+htmlTravelerRows+'</tbody></table>'+
+    '<p style="margin-top:14px;font-size:.84rem;">Review in <strong>Admin → Waitlist tab</strong> to process manually.</p>');
   sendEmail(ADMIN_EMAIL,'Admin',subject,plain,html,true);
+
   document.getElementById('cancelled-waitlist-modal').remove();
-  // Update the CTA in the cabin tile to show confirmation
   const ctaEl=document.getElementById('dash-no-cabin-cta');
   if(ctaEl)ctaEl.innerHTML=`<div style="font-size:.9rem;line-height:1.6;opacity:.9;">
     <strong>✅ Request Submitted!</strong><br>
