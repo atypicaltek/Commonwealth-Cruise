@@ -1553,9 +1553,10 @@ function buildRefundTable(){
 // ── EMAIL HOLD: initialize from localStorage on every page load ──
 let gEmailHoldEnabled=localStorage.getItem('admin_email_hold')==='true';
 
-async function sendEmail(toEmail,toName,subject,message,htmlBody,skipAdminCopy=false){
+async function sendEmail(toEmail,toName,subject,message,htmlBody,skipAdminCopy=false,bypassHold=false){
   // HOLD CHECK: if hold is ON, queue instead of sending — intercepts ALL emails
-  if(gEmailHoldEnabled){
+  // bypassHold=true skips this for security-critical emails (e.g. OTP PIN reset codes)
+  if(gEmailHoldEnabled&&!bypassHold){
     const{error:holdErr}=await sb.from('email_queue').insert({
       to_email:toEmail,to_name:toName,subject,
       plain_body:message,html_body:htmlBody||message,
@@ -2480,7 +2481,8 @@ async function doForgotModal(){
     '</div>'+
     '<p style="font-size:.84rem;color:#64748b;margin:0;">If you did not request a PIN reset, you can safely ignore this email.</p>'
   );
-  await sendEmail(email,'Traveler',subject,plain,htmlBody,true);
+  // bypassHold=true: OTP codes are time-sensitive security emails — never queue them
+  await sendEmail(email,'Traveler',subject,plain,htmlBody,true,true);
 
   btn.disabled=false;btn.textContent='Send Code';
   document.getElementById('fp-otp-msg').innerHTML=
