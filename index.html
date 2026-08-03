@@ -340,8 +340,12 @@
       <!-- CABIN INFO CARD -->
       <div id="dash-cabin-card" style="display:none;background:linear-gradient(135deg,#1a4f7a,#2e88cc);color:#fff;border-radius:14px;padding:16px 20px;margin-bottom:16px;box-shadow:0 4px 16px rgba(26,79,122,.25);">
         <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;opacity:.75;margin-bottom:6px;">Your Cabin Reservation</div>
-        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;">
-          <div><div id="dash-cabin-type-display" style="font-size:1.35rem;font-weight:800;"></div><div id="dash-cabin-status-display" style="font-size:.8rem;opacity:.8;margin-top:2px;"></div></div>
+        <div id="dash-cabin-flex-row" style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;">
+          <div>
+            <div id="dash-cabin-type-display" onclick="handleCabinTypeTileClick()" style="font-size:1.35rem;font-weight:800;cursor:pointer;" title="Click for info"></div>
+            <div id="dash-cabin-status-display" style="font-size:.8rem;opacity:.8;margin-top:2px;"></div>
+            <div id="dash-cabin-already-msg" style="display:none;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);border-radius:7px;padding:8px 12px;margin-top:8px;font-size:.82rem;line-height:1.55;max-width:320px;"></div>
+          </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-left:auto;">
             <div onclick="showCabinTileModal()" style="background:rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;text-align:center;min-width:70px;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.28)'" onmouseout="this.style.background='rgba(255,255,255,.15)'"><div id="dash-cabin-num-display" style="font-size:1.1rem;font-weight:700;">—</div><div style="font-size:.72rem;opacity:.75;">Cabin #</div></div>
             <div onclick="showGuestsTileModal()" style="background:rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;text-align:center;min-width:70px;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.28)'" onmouseout="this.style.background='rgba(255,255,255,.15)'"><div id="dash-guests-display" style="font-size:1.1rem;font-weight:700;">—</div><div style="font-size:.72rem;opacity:.75;">Guests</div></div>
@@ -355,6 +359,13 @@
         <div id="dash-cabin-change-pending" style="display:none;background:rgba(255,200,0,.18);border:1px solid rgba(255,200,0,.4);border-radius:7px;padding:8px 12px;margin-top:8px;font-size:.82rem;line-height:1.5;">⏳ <strong>Cabin Change Request Pending:</strong> Your request to change to <span id="dash-cabin-change-requested" style="font-weight:800;"></span> is pending approval by the Commonwealth Cruise Team.</div>
         <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
           <button id="dash-cabin-change-btn" onclick="openCabinChangeRequest()" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:7px;padding:6px 14px;font-size:.82rem;cursor:pointer;font-weight:600;">🔄 Request Cabin Type Change</button>
+        </div>
+        <!-- Cost breakdown: shown only once admin has manually set cabin_cost -->
+        <div id="dash-cabin-cost-breakdown" style="display:none;margin-top:12px;background:rgba(255,255,255,.12);border-radius:9px;padding:10px 14px;color:#fff;"></div>
+        <!-- No-cabin CTA: shown when traveler has not yet selected a cabin type -->
+        <div id="dash-no-cabin-cta" style="display:none;text-align:center;padding:10px 0 4px;">
+          <div style="font-size:.92rem;opacity:.85;margin-bottom:14px;line-height:1.55;">No cabin type selected yet. Choose your cabin to lock in your reservation.</div>
+          <button onclick="openCabinSelection()" style="background:#22c55e;color:#fff;border:none;border-radius:9px;padding:12px 28px;font-size:1rem;font-weight:800;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.25);letter-spacing:.02em;">🛳️ Select Cabin Type</button>
         </div>
       </div>
       <div class="progress-card">
@@ -2467,8 +2478,11 @@ async function doForgotModal(){
 
   btn.disabled=false;btn.textContent='Send Code';
   document.getElementById('fp-otp-msg').innerHTML=
-    'A 6-digit code was sent to <strong>'+email+'</strong>. Enter it below.<br>'+
-    '<span style="font-size:.8rem;color:var(--muted);">Check your spam folder if you don\'t see it. Code expires in 15 minutes.</span>';
+    'A 6-digit code was sent to <strong>'+email+'</strong>. Enter it below, or use the code shown here if the email is delayed:<br>'+
+    '<div style="background:#f0f9ff;border:2px solid #0ea5e9;border-radius:10px;padding:14px 20px;text-align:center;margin:12px 0 6px;">'+
+      '<div style="font-size:1.9rem;font-weight:900;letter-spacing:10px;font-family:monospace;color:#1a4a7c;">'+otpCode+'</div>'+
+    '</div>'+
+    '<span style="font-size:.8rem;color:var(--muted);">Code expires in 15 minutes. Do not share it with anyone.</span>';
   fpGoStep(2);
 }
 
@@ -2637,13 +2651,11 @@ function updatePsetupCabinAvail(){
     const opt=sel.querySelector(`option[value="${t}"]`);
     if(!opt)return;
     const inv=gInventory[t];
-    const minP=gCabinMinPrices[t];
-    const priceStr=minP?` — from ${fmt(minP)}/person`:'';
-    if(!inv){opt.textContent=t+' Cabin'+priceStr;return;}
+    if(!inv){opt.textContent=t+' Cabin';return;}
     const avail=inv.available_cabins;
     if(avail<=0){opt.textContent=`${t} Cabin — SOLD OUT`;opt.disabled=true;}
-    else if(avail<=5){opt.textContent=`${t} Cabin (${avail} remaining — Almost Full!${priceStr})`;}
-    else{opt.textContent=`${t} Cabin (${avail} remaining${priceStr})`;}
+    else if(avail<=5){opt.textContent=`${t} Cabin (${avail} remaining — Almost Full!)`;}
+    else{opt.textContent=`${t} Cabin (${avail} remaining)`;}
   });
   // Suite — no availability count or standard pricing
   const suiteOpt=sel.querySelector('option[value="Suite"]');
@@ -2655,9 +2667,7 @@ function updatePsetupCabinAvail(){
       .map(([t,v])=>{
         const a=v.available_cabins,tot=v.total_cabins;
         const cls=a<=0?'out':a<=5?'low':'';
-        const minP=gCabinMinPrices[t];
-        const pStr=minP?` <span style="color:#16a34a;font-weight:700;">from ${fmt(minP)}/pp</span>`:'';
-        return`${t}: <span class="${cls}">${a} of ${tot} available</span>${pStr}`;
+        return`${t}: <span class="${cls}">${a} of ${tot} available</span>`;
       });
     info.innerHTML=lines.join(' &nbsp;·&nbsp; ');
   }
@@ -2826,9 +2836,12 @@ async function doProfileSetup(){
     if(caErr){flash('psetup-alert','Reservation error: '+caErr.message+'. Please try again or contact the trip organizer.');return;}
     await sb.rpc('decrement_cabin',{cabin:cabinType});
     // Decrement the cheapest available price tier and auto-set cabin_cost
+    // Single occupancy: traveler pays for full cabin at double rate (2 guests' worth)
     const{data:tierPrice}=await sb.rpc('decrement_cabin_tier',{p_cabin_type:cabinType});
     if(tierPrice){
-      const totalCost=parseFloat(tierPrice)*numGuests;
+      const isSingleOcc=(numGuests===1);
+      const effectiveGuests=isSingleOcc?2:numGuests;
+      const totalCost=parseFloat(tierPrice)*effectiveGuests;
       await sb.from('cabin_assignments')
         .update({price_per_person:parseFloat(tierPrice),cabin_cost:totalCost})
         .eq('user_id',gUser.id);
@@ -2993,9 +3006,16 @@ async function loadDashboard(){
       gProfileSetupComplete=true;
       return;
     }
-    loadInventoryForSetup();
-    document.getElementById('profile-setup-modal').classList.add('open');
-    return;
+    // Show dashboard with cabin card in "no cabin" CTA state
+    const noCabinCard=document.getElementById('dash-cabin-card');
+    noCabinCard.style.display='block';
+    document.getElementById('dash-no-cabin-cta').style.display='block';
+    document.getElementById('dash-cabin-flex-row').style.display='none';
+    // Hide extra notes/buttons — they belong to the "has cabin" state
+    ['dash-single-occ-note','dash-backup-cabin-row','dash-high-occ-note','dash-cabin-change-pending'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+    document.querySelector('#dash-cabin-card > div:last-of-type > #dash-cabin-change-btn')?.closest('div')?.style && (document.getElementById('dash-cabin-change-btn').parentElement.style.display='none');
+    loadInventoryForSetup(); // pre-load inventory so modal opens instantly
+    // Fall through to render rest of dashboard
   }
 
   // Show cabin badge
@@ -3053,6 +3073,31 @@ async function loadDashboard(){
     // Traveler progress will be updated by loadCabinTravelers()
     const prog=document.getElementById('dash-travelers-progress');
     prog.textContent=`—/${cabin.num_guests||'—'}`;
+
+    // ── Cabin Cost Breakdown (shown only once admin has set cabin_cost) ──
+    const cabinCostBreakdownEl=document.getElementById('dash-cabin-cost-breakdown');
+    if(cabinCostBreakdownEl){
+      const setCost=cabin.cabin_cost?parseFloat(cabin.cabin_cost):null;
+      const setPpp=cabin.price_per_person?parseFloat(cabin.price_per_person):null;
+      const ng=cabin.num_guests||1;
+      const isSingleOcc=(ng===1);
+      const effectiveGuests=isSingleOcc?2:ng;
+      if(setCost&&setPpp){
+        const isSuiteCabin=(cabin.cabin_type==='Suite');
+        const gratRate=isSuiteCabin?GRAT_RATE_SUITE:GRAT_RATE_STANDARD;
+        const gratPP=gratRate*CRUISE_DAYS; // total gratuity per person
+        cabinCostBreakdownEl.style.display='block';
+        cabinCostBreakdownEl.innerHTML=
+          '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;opacity:.7;margin-bottom:8px;">💰 Cost Summary</div>'+
+          '<table style="width:100%;border-collapse:collapse;font-size:.83rem;">'+
+            '<tr><td style="padding:3px 0;opacity:.85;">Rate per Person</td><td style="text-align:right;font-weight:700;">'+(isSingleOcc?`${fmt(setPpp)} <span style="font-size:.74rem;opacity:.8;">(×2 single occ.)</span>`:fmt(setPpp))+'</td></tr>'+
+            '<tr><td style="padding:3px 0;opacity:.85;">'+(isSingleOcc?'Total Cabin Cost<br><span style="font-size:.73rem;opacity:.75;">1 traveler · double rate</span>':'Total Cabin Cost<br><span style="font-size:.73rem;opacity:.75;">('+ng+' guest'+(ng>1?'s':'')+')</span>')+'</td><td style="text-align:right;font-weight:800;font-size:.97rem;">'+fmt(setCost)+'</td></tr>'+
+            '<tr><td colspan="2" style="padding:6px 0 3px;border-top:1px solid rgba(255,255,255,.25);font-size:.77rem;opacity:.8;">Gratuities: <strong>'+fmt(gratPP)+'/person</strong> — paid separately<br><span style="opacity:.7;">($'+gratRate+'/day × '+CRUISE_DAYS+' days per person)</span></td></tr>'+
+          '</table>';
+      } else {
+        cabinCostBreakdownEl.style.display='none';
+      }
+    }
   }
 
   // First login check (only after profile is complete)
@@ -4229,6 +4274,25 @@ function onHighOccAckChange(){
 }
 
 // ── TRAVELER CABIN CHANGE REQUEST ─────────────────────────────
+function openCabinSelection(){
+  // Opens the cabin selection modal from the "Select Cabin Type" CTA on the dashboard
+  loadInventoryForSetup();
+  document.getElementById('profile-setup-modal').classList.add('open');
+}
+
+function handleCabinTypeTileClick(){
+  const cabin=window.gCurrentCabin;
+  if(!cabin)return; // no cabin means they should use the CTA button, not this click
+  const msgEl=document.getElementById('dash-cabin-already-msg');
+  if(!msgEl)return;
+  if(msgEl.style.display==='block'){msgEl.style.display='none';return;}
+  msgEl.innerHTML=
+    'You already have a <strong>'+cabin.cabin_type+'</strong> cabin reserved. '+
+    'To request a different cabin type, use the <strong>"🔄 Request Cabin Type Change"</strong> button below.';
+  msgEl.style.display='block';
+  setTimeout(()=>{msgEl.style.display='none';},6000);
+}
+
 function openCabinChangeRequest(){
   const cabin=window.gCurrentCabin;
   if(!cabin)return;
@@ -4354,7 +4418,8 @@ async function adminApproveCabinChange(userId,name,email,currentType,requestedTy
       if(newTierPrice){
         const{data:curGuests}=await sb.from('cabin_assignments').select('num_guests').eq('user_id',userId).single();
         const ng=curGuests?.num_guests||1;
-        await sb.from('cabin_assignments').update({price_per_person:parseFloat(newTierPrice),cabin_cost:parseFloat(newTierPrice)*ng}).eq('user_id',userId);
+        const effGuests=ng===1?2:ng; // single occ pays full cabin at double rate
+        await sb.from('cabin_assignments').update({price_per_person:parseFloat(newTierPrice),cabin_cost:parseFloat(newTierPrice)*effGuests}).eq('user_id',userId);
       }
     }
     // Clear pending flags
@@ -4671,7 +4736,6 @@ async function loadTravelers(){
         (ca?.high_occupancy_pending?'<br><span class="badge badge-warn" style="font-size:.72rem;">⚠️ High Occ. Pending</span>':'')+
         (ca?.cabin_change_pending&&ca?.requested_cabin_type?'<br><span class="badge badge-warn" style="font-size:.72rem;">🔄 Change Req: '+ca.requested_cabin_type+'</span>':'')+
       '</td>'+
-      '<td class="col-r">'+cabinCostDisplay+'</td>'+
       '<td style="font-size:.82rem;min-width:100px;">'+reservNum+'<br>'+payLink+'</td>'+
       '<td class="col-r" style="color:var(--success)"><strong>'+fmt(paid)+'</strong></td>'+
       '<td class="col-r" style="color:'+(cabinCost?'var(--danger)':'var(--muted)')+'">'+((bal!=null)?fmt(bal):'—')+'</td>'+
@@ -4680,7 +4744,7 @@ async function loadTravelers(){
     '</tr>'+occRows;
   }
 
-  const thead='<thead><tr><th>Traveler</th><th>Cabin</th><th class="col-r">Cost</th><th>Res. / Link</th><th class="col-r">Paid</th><th class="col-r">Balance</th><th>Progress</th><th>Actions</th></tr></thead>';
+  const thead='<thead><tr><th>Traveler</th><th>Cabin</th><th>Res. / Link</th><th class="col-r">Paid</th><th class="col-r">Balance</th><th>Progress</th><th>Actions</th></tr></thead>';
   el.innerHTML='<div class="table-wrap"><table>'+thead+'<tbody>'+active.map(makeRow).join('')+'</tbody></table></div>';
 }
 
@@ -5031,23 +5095,30 @@ async function loadInventoryTab(){
     const pct=r.total_cabins>0?Math.round((reserved/r.total_cabins)*100):0;
     const barColor=available===0?'#c0392b':available<=5?'#d68910':'#2176ae';
 
-    // Price tier breakdown table for this cabin type
+    // Price tier breakdown — each tier as its own row with mini availability bar
     const typeTiers=tiersByType[r.cabin_type]||[];
     const tierRows=typeTiers.map(t=>{
       const tierReserved=Math.max(0,t.total_cabins-t.available_cabins);
       const tierAvail=t.available_cabins;
-      const cls=tierAvail===0?'color:#c0392b;font-weight:700;':tierAvail<=3?'color:#d68910;font-weight:700;':'color:#16a34a;';
-      return`<tr style="font-size:.78rem;border-bottom:1px solid #f1f5f9;">
-        <td style="padding:3px 6px;font-weight:600;">${fmt(parseFloat(t.price_per_person))}<span style="font-size:.7rem;color:#94a3b8;font-weight:400;">/pp</span></td>
-        <td style="padding:3px 6px;color:#64748b;">${t.total_cabins} total</td>
-        <td style="padding:3px 6px;color:#64748b;">${tierReserved} reserved</td>
-        <td style="padding:3px 6px;${cls}">${tierAvail} avail</td>
-      </tr>`;
+      const tierPct=t.total_cabins>0?Math.round((tierReserved/t.total_cabins)*100):0;
+      const isSoldOut=tierAvail===0;
+      const isLow=tierAvail>0&&tierAvail<=3;
+      const availColor=isSoldOut?'#c0392b':isLow?'#d68910':'#16a34a';
+      const barFill=isSoldOut?'#c0392b':isLow?'#d68910':'#2176ae';
+      const availLabel=isSoldOut?'SOLD OUT':isLow?`${tierAvail} left!`:`${tierAvail} avail`;
+      return`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-bottom:1px solid #f0f4f8;font-size:.77rem;">
+        <div style="flex:0 0 auto;font-weight:700;color:#1e293b;min-width:74px;">${fmt(parseFloat(t.price_per_person))}<span style="font-size:.68rem;color:#94a3b8;font-weight:400;">/pp</span></div>
+        <div style="flex:1;min-width:0;">
+          <div style="background:#e2e8f0;border-radius:3px;height:5px;overflow:hidden;"><div style="background:${barFill};width:${tierPct}%;height:100%;"></div></div>
+        </div>
+        <div style="flex:0 0 auto;font-weight:700;font-size:.76rem;color:${availColor};min-width:56px;text-align:right;">${availLabel}</div>
+        <div style="flex:0 0 auto;color:#94a3b8;font-size:.7rem;min-width:50px;text-align:right;">${tierReserved}/${t.total_cabins}</div>
+      </div>`;
     }).join('');
     const tierTable=typeTiers.length
       ?`<div style="margin-top:10px;text-align:left;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;background:#f8fafc;">
-          <div style="background:#1a4a7c;color:#fff;font-size:.7rem;font-weight:700;padding:4px 6px;letter-spacing:.3px;">PRICE TIERS</div>
-          <table style="width:100%;border-collapse:collapse;"><tbody>${tierRows}</tbody></table>
+          <div style="background:#1a4a7c;color:#fff;font-size:.68rem;font-weight:700;padding:4px 8px;letter-spacing:.3px;display:flex;justify-content:space-between;"><span>PRICE TIER</span><span style="opacity:.8;">avail · res/tot</span></div>
+          ${tierRows}
         </div>`
       :'';
 
@@ -5066,15 +5137,14 @@ async function loadInventoryTab(){
   const asgEl=document.getElementById('inv-assignments');
   if(!assignments||assignments.length===0){asgEl.innerHTML='<div class="empty"><div class="ei">🛏️</div><p>No cabin assignments yet.</p></div>';return;}
   const rows=assignments.map(a=>{
-    const priceStr=a.price_per_person?`<br><small style="color:#16a34a;font-weight:600;">${fmt(parseFloat(a.price_per_person))}/pp</small>`:'';
     return`<tr>
       <td><strong>${a.profiles?.name||'—'}</strong><br><small style="color:var(--muted)">${a.profiles?.email||''}</small></td>
-      <td>${a.cabin_type}${a.suite_pending?' <span class="badge badge-warn">Suite Pending</span>':''}${priceStr}</td>
+      <td>${a.cabin_type}${a.suite_pending?' <span class="badge badge-warn">Suite Pending</span>':''}</td>
       <td>${a.cabin_number||'<em style="color:var(--muted)">Not assigned</em>'}</td>
       <td>${a.assigned_at?new Date(a.assigned_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</td>
     </tr>`;
   });
-  asgEl.innerHTML=`<table><thead><tr><th>Traveler</th><th>Cabin Type / Price</th><th>Cabin Number</th><th>Reserved On</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  asgEl.innerHTML=`<table><thead><tr><th>Traveler</th><th>Cabin Type</th><th>Cabin Number</th><th>Reserved On</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 
 async function showInventoryDetail(cabinType){
@@ -6707,10 +6777,12 @@ async function confirmChangeCabinType(userId,name,oldType){
     }
     await sb.rpc('decrement_cabin',{cabin:newType});
     // Assign cheapest available price tier + auto-set cabin_cost
+    // Single occupancy: traveler pays full cabin at double rate
     const{data:newTierPrice}=await sb.rpc('decrement_cabin_tier',{p_cabin_type:newType});
     if(newTierPrice){
+      const effGuests=numGuests===1?2:numGuests;
       await sb.from('cabin_assignments')
-        .update({price_per_person:parseFloat(newTierPrice),cabin_cost:parseFloat(newTierPrice)*numGuests})
+        .update({price_per_person:parseFloat(newTierPrice),cabin_cost:parseFloat(newTierPrice)*effGuests})
         .eq('user_id',userId);
     }
 
