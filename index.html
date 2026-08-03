@@ -876,9 +876,12 @@
       <div class="card" style="margin-bottom:14px;">
         <div class="card-header">
           <span class="card-title">🗂 Held Emails</span>
-          <button class="btn btn-primary btn-sm" onclick="sendAllHeldEmails(this)">📤 Send All Held</button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="loadEmailQueueTab()" title="Refresh held email list">🔄 Refresh</button>
+            <button class="btn btn-primary btn-sm" onclick="sendAllHeldEmails(this)">📤 Send All Held</button>
+          </div>
         </div>
-        <p style="font-size:.85rem;color:var(--muted);margin:0 0 10px;">Emails held by the toggle above. Send individually or all at once.</p>
+        <p style="font-size:.85rem;color:var(--muted);margin:0 0 10px;">Emails held by the toggle above. Send individually or all at once. If an email is not appearing, click Refresh.</p>
         <div id="admin-heldemails"><div class="loading"><div class="spinner"></div></div></div>
       </div>
       <!-- Standard Queue -->
@@ -1553,13 +1556,16 @@ let gEmailHoldEnabled=localStorage.getItem('admin_email_hold')==='true';
 async function sendEmail(toEmail,toName,subject,message,htmlBody,skipAdminCopy=false){
   // HOLD CHECK: if hold is ON, queue instead of sending — intercepts ALL emails
   if(gEmailHoldEnabled){
-    try{
-      await sb.from('email_queue').insert({
-        to_email:toEmail,to_name:toName,subject,
-        plain_body:message,html_body:htmlBody||message,
-        meta:{source:'hold'},status:'held',created_at:new Date().toISOString()
-      });
-    }catch(e){console.warn('Hold queue insert failed:',e);}
+    const{error:holdErr}=await sb.from('email_queue').insert({
+      to_email:toEmail,to_name:toName,subject,
+      plain_body:message,html_body:htmlBody||message,
+      meta:{source:'hold',held:true},status:'held',created_at:new Date().toISOString()
+    });
+    if(holdErr){
+      console.error('Hold queue insert failed:',holdErr);
+      // Surface the error so admin knows the email was NOT queued
+      return{ok:false,held:false,holdFailed:true,holdErr:holdErr.message};
+    }
     return{ok:false,held:true};
   }
   const configured=APPS_SCRIPT_URL&&APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_WEB_APP_URL';
@@ -2478,11 +2484,8 @@ async function doForgotModal(){
 
   btn.disabled=false;btn.textContent='Send Code';
   document.getElementById('fp-otp-msg').innerHTML=
-    'A 6-digit code was sent to <strong>'+email+'</strong>. Enter it below, or use the code shown here if the email is delayed:<br>'+
-    '<div style="background:#f0f9ff;border:2px solid #0ea5e9;border-radius:10px;padding:14px 20px;text-align:center;margin:12px 0 6px;">'+
-      '<div style="font-size:1.9rem;font-weight:900;letter-spacing:10px;font-family:monospace;color:#1a4a7c;">'+otpCode+'</div>'+
-    '</div>'+
-    '<span style="font-size:.8rem;color:var(--muted);">Code expires in 15 minutes. Do not share it with anyone.</span>';
+    'A 6-digit verification code was sent to <strong>'+email+'</strong>. Enter it below.<br>'+
+    '<span style="font-size:.8rem;color:var(--muted);">Check your spam/junk folder if you don\'t see it within a few minutes. Code expires in 15 minutes.</span>';
   fpGoStep(2);
 }
 
@@ -2924,10 +2927,37 @@ async function loadDashboard(){
     document.getElementById('dash-loading').style.display='none';
     document.getElementById('dash-content').style.display='block';
 
-    // Hide all normal dashboard sections
-    ['dash-cabin-card','dash-cabin-badge','dash-waitlist-card','dash-checkin-banner'].forEach(id=>{
+    // Hide most normal dashboard sections; cabin card stays for re-request CTA
+    ['dash-cabin-badge','dash-waitlist-card','dash-checkin-banner'].forEach(id=>{
       const el=document.getElementById(id);if(el)el.style.display='none';
     });
+
+    // Check if this traveler has already joined the waitlist after cancellation
+    const{data:existingWl}=await sb.from('cabin_waitlist').select('cabin_type,num_guests,created_at').eq('user_id',gUser.id).maybeSingle();
+    const cancelledCabinCard=document.getElementById('dash-cabin-card');
+    if(cancelledCabinCard){
+      cancelledCabinCard.style.display='block';
+      document.getElementById('dash-cabin-flex-row').style.display='none';
+      ['dash-single-occ-note','dash-backup-cabin-row','dash-high-occ-note','dash-cabin-change-pending'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+      const btnRow=document.getElementById('dash-cabin-change-btn');if(btnRow)btnRow.parentElement.style.display='none';
+      const ctaEl=document.getElementById('dash-no-cabin-cta');
+      if(ctaEl){
+        ctaEl.style.display='block';
+        if(existingWl){
+          // Already on waitlist — show status, not the button
+          ctaEl.innerHTML=`<div style="font-size:.9rem;line-height:1.6;opacity:.9;">
+            <strong>✅ Waitlist Request Submitted</strong><br>
+            <span style="font-size:.82rem;">You've requested a <strong>${existingWl.cabin_type}</strong> cabin for ${existingWl.num_guests||1} guest(s).<br>
+            Your trip organizer will review and contact you when space is available.</span>
+          </div>`;
+        } else {
+          ctaEl.innerHTML=`<div style="font-size:.9rem;opacity:.85;margin-bottom:14px;line-height:1.55;">
+            Would you like to request a new cabin reservation? Your request will go to the trip organizer for review.
+          </div>
+          <button onclick="openCancelledWaitlistRequest()" style="background:#22c55e;color:#fff;border:none;border-radius:9px;padding:12px 28px;font-size:1rem;font-weight:800;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.25);">🛳️ Request New Cabin</button>`;
+        }
+      }
+    }
 
     const tileRow=document.querySelector('.tile-row');
     if(tileRow)tileRow.style.display='none';
@@ -3294,14 +3324,15 @@ async function loadDashboard(){
     :`<div class="empty"><div class="ei">📋</div><p style="color:var(--danger);font-weight:600;">No milestones found.<br><small style="font-weight:400;">Run <strong>run-this-in-supabase.sql</strong> in Supabase SQL Editor.</small></p></div>`;
 
   // ── Payment Link Box ─────────────────────────────────────────
+  // Only show when admin has explicitly set a personal payment link for this traveler.
+  // The global Wix fallback is intentionally excluded here — the tile is hidden until
+  // admin enters the traveler's CCL link, ensuring cancelled/re-onboarded travelers
+  // don't see a payment button before their account is fully set up.
   const paylinkBox=document.getElementById('dash-paylink-box');
   const paylinkBtn=document.getElementById('dash-paylink-btn');
-  // Use personal CCL link if set; otherwise fall back to global Wix URL
-  const effectivePayLink=cabin?.payment_link||(WIX_PAYMENT_URL||'');
-  if(paylinkBox&&effectivePayLink){
-    paylinkBtn.href=effectivePayLink;
-    // Label differs: Wix = "Make a Deposit", CCL = "Make a Payment"
-    paylinkBtn.textContent=(cabin?.payment_link?'💳 Make a Payment ↗':'💳 Make a Deposit ↗');
+  if(paylinkBox&&cabin?.payment_link){
+    paylinkBtn.href=cabin.payment_link;
+    paylinkBtn.textContent='💳 Make a Payment ↗';
     paylinkBox.style.display='flex';
   } else if(paylinkBox){
     paylinkBox.style.display='none';
@@ -4275,9 +4306,74 @@ function onHighOccAckChange(){
 
 // ── TRAVELER CABIN CHANGE REQUEST ─────────────────────────────
 function openCabinSelection(){
+  // Cancelled users go to waitlist flow instead of self-booking
+  if(gProfile?.status==='cancelled'){openCancelledWaitlistRequest();return;}
   // Opens the cabin selection modal from the "Select Cabin Type" CTA on the dashboard
   loadInventoryForSetup();
   document.getElementById('profile-setup-modal').classList.add('open');
+}
+
+function openCancelledWaitlistRequest(){
+  const existing=document.getElementById('cancelled-waitlist-modal');if(existing)existing.remove();
+  const div=document.createElement('div');
+  div.id='cancelled-waitlist-modal';
+  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;';
+  div.innerHTML=`
+    <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:420px;width:100%;box-shadow:0 12px 48px rgba(0,0,0,.28);">
+      <h2 style="margin:0 0 4px;font-size:1.1rem;color:#1a4a7c;">🛳️ Request a New Cabin</h2>
+      <p style="margin:0 0 18px;font-size:.85rem;color:#64748b;line-height:1.5;">Your trip organizer will review your request and reach out when a spot is available. This does <strong>not</strong> guarantee a reservation.</p>
+      <div id="cwl-alert" style="display:none;margin-bottom:12px;padding:10px 12px;border-radius:7px;font-size:.84rem;"></div>
+      <label style="font-size:.82rem;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Preferred Cabin Type</label>
+      <select id="cwl-type" style="width:100%;padding:9px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.88rem;margin-bottom:12px;">
+        <option value="">— Select a cabin type —</option>
+        <option value="Interior">Interior</option>
+        <option value="Ocean View">Ocean View</option>
+        <option value="Balcony">Balcony</option>
+        <option value="Suite">Suite</option>
+      </select>
+      <label style="font-size:.82rem;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Number of Guests</label>
+      <select id="cwl-guests" style="width:100%;padding:9px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.88rem;margin-bottom:20px;">
+        ${[1,2,3,4,5,6].map(n=>`<option value="${n}">${n} Guest${n>1?'s':''}</option>`).join('')}
+      </select>
+      <div style="display:flex;gap:10px;">
+        <button onclick="document.getElementById('cancelled-waitlist-modal').remove()" style="flex:1;padding:10px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;cursor:pointer;font-size:.88rem;color:#374151;">Cancel</button>
+        <button id="cwl-submit-btn" onclick="submitCancelledWaitlistRequest()" style="flex:2;padding:10px;border:none;border-radius:8px;background:#1a4a7c;color:#fff;font-weight:700;cursor:pointer;font-size:.88rem;">✅ Submit Request</button>
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+}
+
+async function submitCancelledWaitlistRequest(){
+  const type=document.getElementById('cwl-type')?.value;
+  const guests=parseInt(document.getElementById('cwl-guests')?.value||'1');
+  const alertEl=document.getElementById('cwl-alert');
+  function showErr(m){alertEl.className='alert alert-error';alertEl.textContent=m;alertEl.style.display='block';}
+  if(!type)return showErr('Please select a cabin type.');
+  const btn=document.getElementById('cwl-submit-btn');
+  btn.disabled=true;btn.textContent='Submitting…';
+  const{error}=await sb.from('cabin_waitlist').upsert(
+    {user_id:gUser.id,cabin_type:type,num_guests:guests,created_at:new Date().toISOString()},
+    {onConflict:'user_id'}
+  );
+  if(error){btn.disabled=false;btn.textContent='✅ Submit Request';return showErr('Error: '+error.message);}
+  // Email admin about the request
+  const tName=gProfile?.name||'Traveler';
+  const tEmail=gUser?.email||'';
+  const subject=`Cabin Re-Request — ${tName} (Previously Cancelled)`;
+  const plain=`${tName} (${tEmail}) has submitted a new cabin request after their reservation was cancelled.\n\nCabin Type: ${type}\nGuests: ${guests}\n\nPlease review in the Admin Portal → Waitlist tab.`;
+  const html=buildEmailHtml('Admin',
+    '<p><strong>'+tName+'</strong> ('+tEmail+') has submitted a new cabin request after cancellation.</p>'+
+    buildPayTable([{label:'Cabin Type',value:type},{label:'Guests',value:String(guests)}])+
+    '<p style="margin-top:14px;">Review in Admin → Waitlist tab to process manually.</p>');
+  sendEmail(ADMIN_EMAIL,'Admin',subject,plain,html,true);
+  document.getElementById('cancelled-waitlist-modal').remove();
+  // Update the CTA in the cabin tile to show confirmation
+  const ctaEl=document.getElementById('dash-no-cabin-cta');
+  if(ctaEl)ctaEl.innerHTML=`<div style="font-size:.9rem;line-height:1.6;opacity:.9;">
+    <strong>✅ Request Submitted!</strong><br>
+    <span style="font-size:.82rem;">Your request for a <strong>${type}</strong> cabin (${guests} guest${guests>1?'s':''}) has been sent to your trip organizer.<br>
+    You will be contacted when space becomes available.</span>
+  </div>`;
 }
 
 function handleCabinTypeTileClick(){
@@ -4501,7 +4597,7 @@ async function loadWaitlist(){
         `<td style="text-align:center;font-weight:700;">${w.num_guests||'—'}</td>`+
         `<td style="font-size:.83rem;">${w.backup_cabin_type||'—'}</td>`+
         `<td style="font-size:.83rem;">${dt}</td>`+
-        `<td>${w.notified?'<span class="badge badge-success">Notified</span>':'<span class="badge badge-gray">Waiting</span>'}</td>`+
+        `<td>${w.notified?'<span class="badge badge-success">Notified</span>':'<span class="badge badge-gray">Waiting</span>'}${w.profile_status==='cancelled'?' <span class="badge badge-danger" style="font-size:.7rem;margin-left:4px;">Re-Request (was cancelled)</span>':''}</td>`+
       '</tr>';
     });
     html+='</tbody></table></div>';
@@ -6428,10 +6524,21 @@ async function sendGeneratedEmail(){
   const htmlBody=buildEmailHtml(toName,`<p style="line-height:1.85;font-size:.95rem;">${bodyHtmlLines.join('<br>')}</p>`);
   const result=await sendEmail(toEmail,toName,subject,body,htmlBody);
   if(statusEl){
-    if(result?.held){statusEl.textContent='📋 Email queued — send hold is currently ON.';statusEl.style.color='#d97706';}
-    else if(result?.fallback){statusEl.textContent='📧 No email service configured — your email client was opened.';statusEl.style.color='#d97706';}
-    else{statusEl.textContent='✅ Email sent!';statusEl.style.color='#16a34a';}
-    setTimeout(()=>{statusEl.textContent='';},5000);
+    if(result?.holdFailed){
+      statusEl.textContent='⚠️ Hold queue save failed — email was NOT queued or sent. Error: '+(result.holdErr||'unknown');
+      statusEl.style.color='#dc2626';
+    } else if(result?.held){
+      statusEl.textContent='📋 Email queued in hold — visible in Email Queue tab → Held Emails.';
+      statusEl.style.color='#d97706';
+      // Auto-trigger a queue refresh so admin can see it immediately
+      if(document.getElementById('admin-heldemails'))loadEmailQueueTab();
+    } else if(result?.fallback){
+      statusEl.textContent='📧 No email service configured — your email client was opened.';
+      statusEl.style.color='#d97706';
+    } else {
+      statusEl.textContent='✅ Email sent!';statusEl.style.color='#16a34a';
+    }
+    setTimeout(()=>{if(statusEl)statusEl.textContent='';},8000);
   }
 }
 
@@ -6837,8 +6944,11 @@ function sendCCAuthForm(name,email,cabinType,numGuests){
   const existing=document.getElementById('cc-auth-modal');
   if(existing)existing.remove();
 
-  const depositAmt='$250.00';
-  const perPerson=numGuests&&numGuests>1?` ($250.00 × ${numGuests} travelers = $${(250*numGuests).toLocaleString()}.00 total)`:'';
+  const initialPP=100;
+  const fullDepPP=250;
+  const ng=numGuests||1;
+  const initialTotal=initialPP*ng;
+  const fullDepTotal=fullDepPP*ng;
 
   const modal=document.createElement('div');
   modal.id='cc-auth-modal';
@@ -6849,12 +6959,12 @@ function sendCCAuthForm(name,email,cabinType,numGuests){
       <p style="margin:0 0 16px;font-size:.85rem;color:#64748b;">Traveler: <strong>${name}</strong> · ${email}</p>
 
       <div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:9px;padding:12px 14px;margin-bottom:14px;font-size:.83rem;color:#0c4a6e;line-height:1.6;">
-        <strong>This email will:</strong><br>
-        • Request a credit card authorization for a deposit of <strong>${depositAmt}</strong>${perPerson}<br>
-        • Include the full InteleTravel Travel Purchase Authorization legal text<br>
-        • Provide a download link for the CC Authorization form PDF<br>
-        • Ask the traveler to complete, sign, and reply with the completed form<br>
-        • Inform them that a Carnival payment link will be sent after the deposit is received
+        <strong>This email will explain:</strong><br>
+        • Initial charge of <strong>$${initialTotal.toLocaleString()}.00</strong> ($${initialPP}/person × ${ng}) reserves the cabin<br>
+        • A specific cabin number is not assigned until the full deposit of <strong>$${fullDepTotal.toLocaleString()}.00</strong> ($${fullDepPP}/person × ${ng}) is received<br>
+        • The CC on file is used <em>only</em> for payments up to the full deposit per the payment schedule<br>
+        • A personal payment link will be sent for all remaining balance after the full deposit<br>
+        • Includes InteleTravel Travel Purchase Authorization legal text and PDF download link
       </div>
 
       <div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:10px 13px;margin-bottom:16px;font-size:.81rem;color:#713f12;">
@@ -6872,21 +6982,28 @@ function sendCCAuthForm(name,email,cabinType,numGuests){
 }
 
 async function confirmSendCCAuth(name,email,cabinType,numGuests){
-  const depositAmt=250;
-  const totalDeposit=depositAmt*numGuests;
-  const depositDisplay=numGuests>1?`$${totalDeposit.toLocaleString()}.00 ($250.00 × ${numGuests} travelers)`:'$250.00';
+  const ng=numGuests||1;
+  const initialPP=100;
+  const fullDepPP=250;
+  const initialTotal=initialPP*ng;
+  const fullDepTotal=fullDepPP*ng;
+  const initialDisplay=ng>1?`$${initialTotal.toLocaleString()}.00 ($${initialPP}.00 × ${ng} travelers)`:`$${initialTotal.toLocaleString()}.00`;
+  const fullDepDisplay=ng>1?`$${fullDepTotal.toLocaleString()}.00 ($${fullDepPP}.00 × ${ng} travelers)`:`$${fullDepTotal.toLocaleString()}.00`;
 
-  const subject=`${TRIP_NAME} — Credit Card Authorization & Deposit Request`;
+  const subject=`${TRIP_NAME} — Credit Card Authorization`;
 
   const htmlBody=buildEmailHtml(name,`
     <p>Thank you for your reservation on the <strong>${TRIP_NAME}</strong>! We are excited to have you sailing with us.</p>
 
-    <p>To secure your <strong>${cabinType||'cabin'}</strong> reservation, we are requesting a deposit of:</p>
-    <div style="text-align:center;margin:16px 0;">
-      <span style="font-size:1.6rem;font-weight:900;color:#1a4a7c;">${depositDisplay}</span>
-    </div>
+    <p>To proceed with your <strong>${cabinType||'cabin'}</strong> reservation, we need a credit card authorization on file. Please review the payment policy below before completing the form.</p>
 
-    <p>Once your deposit of <strong>$250.00 per traveler</strong> is received, we will send you a <strong>direct link to the Carnival payment site</strong> for all future payments toward your cruise balance.</p>
+    <div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:10px;padding:16px 18px;margin:18px 0;font-size:.86rem;line-height:1.8;color:#0c4a6e;">
+      <strong style="display:block;font-size:.92rem;margin-bottom:10px;color:#0f2744;">💳 Payment Policy — How Your Card Will Be Used</strong>
+      <p style="margin:0 0 8px;">• <strong>Initial charge:</strong> Your card will be charged <strong>${initialDisplay}</strong> ($${initialPP}.00 per person) to reserve your cabin.</p>
+      <p style="margin:0 0 8px;">• <strong>Cabin assignment:</strong> A specific cabin number will <em>not</em> be assigned until the full deposit of <strong>${fullDepDisplay}</strong> ($${fullDepPP}.00 per person) has been received.</p>
+      <p style="margin:0 0 8px;">• <strong>Card usage limit:</strong> The credit card provided on this form will <em>only</em> be used for payments up to the full deposit amount, based on the payment schedule.</p>
+      <p style="margin:0;">• <strong>Remaining balance:</strong> After the full deposit is received, a personal payment link will be sent to you for any and all remaining balance payments.</p>
+    </div>
 
     <hr style="border:none;border-top:1.5px solid #e2e8f0;margin:18px 0;">
 
@@ -6900,7 +7017,7 @@ async function confirmSendCCAuth(name,email,cabinType,numGuests){
     <p style="font-weight:700;color:#0f2744;margin-bottom:8px;">📋 Next Steps:</p>
     <ol style="font-size:.88rem;line-height:2;padding-left:20px;color:#1e293b;margin:0 0 16px;">
       <li>Download and print the <strong>CC Authorization Form</strong> using the button below</li>
-      <li>Complete all fields — including card number, billing address, and amount (<strong>${depositDisplay}</strong>)</li>
+      <li>Complete all fields, including your card number and billing address</li>
       <li>Sign the form (accepting or declining travel insurance as applicable)</li>
       <li>Attach a legible copy of the <strong>front and back of your credit card</strong></li>
       <li><strong>Reply to this email</strong> with the completed form attached</li>
@@ -6910,7 +7027,7 @@ async function confirmSendCCAuth(name,email,cabinType,numGuests){
       <a href="${CC_AUTH_FORM_URL}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.95rem;padding:13px 30px;border-radius:10px;text-decoration:none;">📄 Download CC Authorization Form</a>
     </div>
 
-    <p style="font-size:.83rem;color:#64748b;text-align:center;">After we receive your completed form and deposit, your Carnival payment link will be sent for all future balance payments.</p>
+    <p style="font-size:.83rem;color:#64748b;text-align:center;">After your full deposit is received, a personal payment link will be sent for all remaining balance payments.</p>
 
     <p style="font-size:.8rem;color:#94a3b8;margin-top:16px;">Questions? Reply to this email or contact us at <a href="mailto:${ADMIN_EMAIL}" style="color:#1a4a7c;">${ADMIN_EMAIL}</a>.</p>`
   );
@@ -6919,28 +7036,36 @@ async function confirmSendCCAuth(name,email,cabinType,numGuests){
 
 Thank you for your reservation on the ${TRIP_NAME}! We are excited to have you sailing with us.
 
-To secure your ${cabinType||'cabin'} reservation, we are requesting a deposit of: ${depositDisplay}
+To proceed with your ${cabinType||'cabin'} reservation, we need a credit card authorization on file. Please review the payment policy below.
 
-Once your deposit of $250.00 per traveler is received, we will send you a direct link to the Carnival payment site for all future payments toward your cruise balance.
+PAYMENT POLICY — HOW YOUR CARD WILL BE USED:
 
-──────────────────────────────────────────────
-TRAVEL PURCHASE AUTHORIZATION — For Non-Website Purchases
+- Initial charge: Your card will be charged ${initialDisplay} ($${initialPP}.00 per person) to reserve your cabin.
+
+- Cabin assignment: A specific cabin number will NOT be assigned until the full deposit of ${fullDepDisplay} ($${fullDepPP}.00 per person) has been received.
+
+- Card usage limit: The credit card provided on this form will ONLY be used for payments up to the full deposit amount, based on the payment schedule.
+
+- Remaining balance: After the full deposit is received, a personal payment link will be sent to you for any and all remaining balance payments.
+
+--------------------------------------------
+TRAVEL PURCHASE AUTHORIZATION -- For Non-Website Purchases
 
 Thank you for your purchase. InteleTravel.com is pleased to confirm the following travel arrangements. To complete your transaction and confirm your arrangements, your signature on this authorization is required.
 
 This form is NOT required for electronic purchases you complete yourself on our website, www.InteleTravel.com, or its affiliates.
 
 Charges are payable ONLY to InteleTravel.com or the hotel, resort, tour operator, cruise line or other travel supplier. Independent Travel Advisors may not accept and process charges through any other account, or accept checks, cash or other forms of payment.
-──────────────────────────────────────────────
+--------------------------------------------
 
 NEXT STEPS:
 1. Download and print the CC Authorization Form: ${CC_AUTH_FORM_URL}
-2. Complete all fields — including card number, billing address, and amount (${depositDisplay})
+2. Complete all fields, including your card number and billing address
 3. Sign the form (accepting or declining travel insurance)
 4. Attach a legible copy of the FRONT AND BACK of your credit card
 5. Reply to this email with the completed form attached
 
-After we receive your completed form and deposit, your Carnival payment link will be sent for all future balance payments.
+After your full deposit is received, a personal payment link will be sent for all remaining balance payments.
 
 Questions? Reply to this email or contact us at ${ADMIN_EMAIL}.
 
