@@ -5186,39 +5186,56 @@ async function loadInventoryTab(){
     tiersByType[t.cabin_type].push(t);
   });
 
+  // Count actual bookings per cabin-type+price combination from cabin_assignments.
+  // cabin_price_tiers.available_cabins can be stale (e.g. backfilled bookings don't
+  // decrement it), so we derive accuracy from real assignment rows.
+  const bookedPerTier={};
+  (assignments||[]).forEach(a=>{
+    if(!a.price_per_person)return;
+    const key=`${a.cabin_type}__${Math.round(parseFloat(a.price_per_person)*100)}`;
+    bookedPerTier[key]=(bookedPerTier[key]||0)+1;
+  });
+
   const colors={Balcony:'balcony','Ocean View':'oceanview',Interior:'interior',Suite:'suite'};
   const cards=(inv||[]).map(r=>{
     const reserved=actualReserved[r.cabin_type]||0;
     const available=Math.max(0,r.total_cabins-reserved);
     const pct=r.total_cabins>0?Math.round((reserved/r.total_cabins)*100):0;
     const barColor=available===0?'#c0392b':available<=5?'#d68910':'#2176ae';
+    const isSuite=r.cabin_type==='Suite';
 
-    // Price tier breakdown — each tier as its own row with mini availability bar
-    const typeTiers=tiersByType[r.cabin_type]||[];
+    // Price tier breakdown — shown for all cabin types except Suite
+    const typeTiers=isSuite?[]:(tiersByType[r.cabin_type]||[]);
     const tierRows=typeTiers.map(t=>{
-      const tierReserved=Math.max(0,t.total_cabins-t.available_cabins);
-      const tierAvail=t.available_cabins;
-      const tierPct=t.total_cabins>0?Math.round((tierReserved/t.total_cabins)*100):0;
+      // Use actual booking counts (accurate) rather than stale available_cabins field
+      const tierKey=`${t.cabin_type}__${Math.round(parseFloat(t.price_per_person)*100)}`;
+      const tierBooked=bookedPerTier[tierKey]||0;
+      const tierAvail=Math.max(0,t.total_cabins-tierBooked);
+      const tierPct=t.total_cabins>0?Math.round((tierBooked/t.total_cabins)*100):0;
       const isSoldOut=tierAvail===0;
       const isLow=tierAvail>0&&tierAvail<=3;
       const availColor=isSoldOut?'#c0392b':isLow?'#d68910':'#16a34a';
-      const barFill=isSoldOut?'#c0392b':isLow?'#d68910':'#2176ae';
-      const availLabel=isSoldOut?'SOLD OUT':isLow?`${tierAvail} left!`:`${tierAvail} avail`;
-      return`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-bottom:1px solid #f0f4f8;font-size:.77rem;">
-        <div style="flex:0 0 auto;font-weight:700;color:#1e293b;min-width:74px;">${fmt(parseFloat(t.price_per_person))}<span style="font-size:.68rem;color:#94a3b8;font-weight:400;">/pp</span></div>
+      const barFill=isSoldOut?'#c0392b':isLow?'#f59e0b':'#2176ae';
+      const availLabel=isSoldOut?'<span style="color:#c0392b;font-weight:800;">SOLD OUT</span>'
+        :isLow?`<span style="color:#d68910;font-weight:800;">${tierAvail} left!</span>`
+        :`<span style="color:#16a34a;font-weight:700;">${tierAvail} remaining</span>`;
+      return`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #e8eef5;font-size:.8rem;">
+        <div style="flex:0 0 auto;font-weight:800;color:#1a4a7c;min-width:80px;">${fmt(parseFloat(t.price_per_person))}<span style="font-size:.7rem;color:#94a3b8;font-weight:400;">/pp</span></div>
         <div style="flex:1;min-width:0;">
-          <div style="background:#e2e8f0;border-radius:3px;height:5px;overflow:hidden;"><div style="background:${barFill};width:${tierPct}%;height:100%;"></div></div>
+          <div style="background:#e2e8f0;border-radius:3px;height:5px;overflow:hidden;"><div style="background:${barFill};width:${tierPct}%;height:100%;transition:width .3s;"></div></div>
         </div>
-        <div style="flex:0 0 auto;font-weight:700;font-size:.76rem;color:${availColor};min-width:56px;text-align:right;">${availLabel}</div>
-        <div style="flex:0 0 auto;color:#94a3b8;font-size:.7rem;min-width:50px;text-align:right;">${tierReserved}/${t.total_cabins}</div>
+        <div style="flex:0 0 auto;font-size:.76rem;text-align:right;">${availLabel}</div>
+        <div style="flex:0 0 auto;color:#94a3b8;font-size:.68rem;min-width:34px;text-align:right;">${tierBooked}/${t.total_cabins}</div>
       </div>`;
     }).join('');
     const tierTable=typeTiers.length
-      ?`<div style="margin-top:10px;text-align:left;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;background:#f8fafc;">
-          <div style="background:#1a4a7c;color:#fff;font-size:.68rem;font-weight:700;padding:4px 8px;letter-spacing:.3px;display:flex;justify-content:space-between;"><span>PRICE TIER</span><span style="opacity:.8;">avail · res/tot</span></div>
+      ?`<div style="margin-top:10px;text-align:left;border:1.5px solid #dbe4ee;border-radius:7px;overflow:hidden;background:#fff;">
+          <div style="background:#1a4a7c;color:#fff;font-size:.67rem;font-weight:700;padding:4px 10px;letter-spacing:.4px;display:flex;justify-content:space-between;align-items:center;">
+            <span>PRICE / AVAILABILITY</span><span style="opacity:.75;font-weight:400;">booked/total</span>
+          </div>
           ${tierRows}
         </div>`
-      :'';
+      :(isSuite?'':`<div style="margin-top:8px;font-size:.75rem;color:var(--muted);font-style:italic;">No price tiers configured</div>`);
 
     return`<div class="inv-card ${colors[r.cabin_type]||''}" onclick="showInventoryDetail('${r.cabin_type}')">
       <div style="font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">${r.cabin_type}</div>
@@ -7861,7 +7878,8 @@ async function sendAllHeldEmails(btn){
   if(!data||data.length===0){if(btn){btn.disabled=false;btn.textContent='📤 Send All Held';}alert('No held emails.');return;}
   let sent=0;
   for(const eq of data){
-    await sendEmail(eq.to_email,eq.to_name,eq.subject,eq.plain_body,eq.html_body);
+    // bypassHold=true: releasing from hold queue must skip the hold check or it re-queues
+    await sendEmail(eq.to_email,eq.to_name,eq.subject,eq.plain_body,eq.html_body,false,true);
     await sb.from('email_queue').update({status:'sent',sent_at:new Date().toISOString()}).eq('id',eq.id);
     sent++;
     await new Promise(r=>setTimeout(r,500));
@@ -7875,7 +7893,8 @@ async function sendOneHeldEmail(id,btn){
   if(btn){btn.disabled=true;btn.textContent='Sending…';}
   const{data:eq}=await sb.from('email_queue').select('*').eq('id',id).single();
   if(!eq){if(btn){btn.disabled=false;btn.textContent='↺ Send';}return;}
-  await sendEmail(eq.to_email,eq.to_name,eq.subject,eq.plain_body,eq.html_body);
+  // bypassHold=true: releasing from hold queue must skip the hold check or it re-queues
+  await sendEmail(eq.to_email,eq.to_name,eq.subject,eq.plain_body,eq.html_body,false,true);
   await sb.from('email_queue').update({status:'sent',sent_at:new Date().toISOString()}).eq('id',id);
   loadEmailQueueTab();
 }
@@ -8020,7 +8039,8 @@ async function resendQueuedEmail(id,btn){
   if(btn){btn.disabled=true;btn.textContent='Sending…';}
   const{data:eq}=await sb.from('email_queue').select('*').eq('id',id).single();
   if(!eq){if(btn){btn.disabled=false;btn.textContent='↺ Resend';}return;}
-  await sendEmail(eq.to_email,eq.to_name,eq.subject,eq.plain_body,eq.html_body);
+  // bypassHold=true: admin manually releasing — must not be re-queued
+  await sendEmail(eq.to_email,eq.to_name,eq.subject,eq.plain_body,eq.html_body,false,true);
   await sb.from('email_queue').update({status:'sent',sent_at:new Date().toISOString()}).eq('id',id);
   loadEmailQueueTab();
 }
@@ -8031,7 +8051,8 @@ async function sendAllQueuedEmails(btn){
   if(!data||data.length===0){if(btn){btn.disabled=false;btn.textContent='📤 Send All Pending';}alert('No pending emails.');return;}
   let sent=0;
   for(const eq of data){
-    await sendEmail(eq.to_email,eq.to_name,eq.subject,eq.plain_body,eq.html_body);
+    // bypassHold=true: admin manually releasing — must not be re-queued
+    await sendEmail(eq.to_email,eq.to_name,eq.subject,eq.plain_body,eq.html_body,false,true);
     await sb.from('email_queue').update({status:'sent',sent_at:new Date().toISOString()}).eq('id',eq.id);
     sent++;
     await new Promise(r=>setTimeout(r,500)); // pace to avoid rate limit
