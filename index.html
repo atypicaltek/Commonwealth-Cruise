@@ -1287,9 +1287,12 @@
 </div>
 
 <!-- ADMIN ADD TRAVELER MODAL -->
-<div class="modal-overlay" id="admin-add-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal-overlay" id="admin-add-modal" onclick="if(event.target===this)closeAdminAddModal()">
   <div class="modal-box" style="max-width:560px;max-height:90vh;overflow-y:auto;">
-    <h3 style="margin:0 0 14px;color:var(--primary);">&#x2795; Add Traveler Manually</h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <h3 style="margin:0;color:var(--primary);">&#x2795; Add Traveler Manually</h3>
+      <button onclick="closeAdminAddModal()" style="background:none;border:none;font-size:1.6rem;color:#94a3b8;cursor:pointer;line-height:1;padding:0 4px;" title="Close">&times;</button>
+    </div>
     <div id="admin-add-alert" class="alert"></div>
     <div class="grid-2" style="margin-bottom:12px;">
       <div class="form-group" style="margin:0;"><label>Cabin Type *</label><select id="aad-cabin-type" autocomplete="off"><option value="">Select...</option><option value="Interior">Interior</option><option value="Ocean View">Ocean View</option><option value="Balcony">Balcony</option><option value="Suite">Suite</option></select></div>
@@ -1302,7 +1305,7 @@
       <label for="aad-send-email" style="font-size:.87rem;font-weight:600;color:#92400e;cursor:pointer;">Send welcome email with temporary PIN to each traveler</label>
     </div>
         <div style="display:flex;gap:10px;justify-content:flex-end;">
-      <button class="btn btn-ghost" onclick="document.getElementById('admin-add-modal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-ghost" onclick="closeAdminAddModal()">Cancel</button>
       <button class="btn btn-primary" id="aad-submit-btn" onclick="adminAddTraveler()">Create Account</button>
     </div>
   </div>
@@ -2795,8 +2798,8 @@ async function doSetNewPinAfterOtp(){
     return;
   }
 
-  // Step 3: Update profiles
-  try{await withTimeout(sb.from('profiles').update({pin:newPin,needs_pin_reset:false}).eq('email',gFpEmail),6000);}catch(e){}
+  // Step 3: Update profiles (use user ID, not email, to avoid case-mismatch silent failure)
+  try{await withTimeout(sb.from('profiles').update({pin:newPin,needs_pin_reset:false}).eq('id',signInData.user.id),6000);}catch(e){}
 
   // Step 4: Route to dashboard
   closeForgotPinModal();
@@ -2890,6 +2893,7 @@ async function loadAndRoute(user){
   else{
     showPage('dashboard');
     if(prof?.needs_pin_reset){
+      loadDashboard(); // load dashboard in background so it's ready after PIN is set
       document.getElementById('pin-reset-modal').classList.add('open');
       wirePins();
     } else {
@@ -7930,10 +7934,21 @@ async function adminAddTraveler(){
   alertEl.className='alert '+(fail.length?'alert-error':'alert-success');
   alertEl.textContent=msg;alertEl.style.display='block';
   if(ok.length){
-    document.getElementById('aad-travelers-container').innerHTML='';
-    addAnotherTravelerCard();
-    if(typeof loadCCLEntry==='function'){try{loadCCLEntry();}catch(e){}}
+    if(typeof loadTravelers==='function')try{loadTravelers();}catch(e){}
+    if(typeof loadCCLEntry==='function')try{loadCCLEntry();}catch(e){}
+    // Auto-close after brief success message so admin can see it
+    setTimeout(()=>closeAdminAddModal(),1800);
   }
+}
+function closeAdminAddModal(){
+  document.getElementById('admin-add-modal').classList.remove('open');
+  // Reset form for next use
+  setTimeout(()=>{
+    const ctr=document.getElementById('aad-travelers-container');
+    if(ctr){ctr.innerHTML='';addAnotherTravelerCard();}
+    const al=document.getElementById('admin-add-alert');if(al)al.style.display='none';
+    const ct=document.getElementById('aad-cabin-type');if(ct)ct.value='';
+  },350);
 }
 function addAnotherTravelerCard(){
   const container=document.getElementById('aad-travelers-container');
