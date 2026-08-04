@@ -358,7 +358,7 @@
         <div id="dash-high-occ-note" style="display:none;background:rgba(255,200,0,.18);border:1px solid rgba(255,200,0,.4);border-radius:7px;padding:8px 12px;margin-top:8px;font-size:.82rem;line-height:1.5;">⏳ <strong>Occupancy Pending Review:</strong> Your cabin occupancy request is pending review by the Commonwealth Cruise Team for compliance with Carnival's cabin occupancy policy.</div>
         <div id="dash-cabin-change-pending" style="display:none;background:rgba(255,200,0,.18);border:1px solid rgba(255,200,0,.4);border-radius:7px;padding:8px 12px;margin-top:8px;font-size:.82rem;line-height:1.5;">⏳ <strong>Cabin Change Request Pending:</strong> Your request to change to <span id="dash-cabin-change-requested" style="font-weight:800;"></span> is pending approval by the Commonwealth Cruise Team.</div>
         <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-          <button id="dash-cabin-change-btn" onclick="openCabinChangeRequest()" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:7px;padding:6px 14px;font-size:.82rem;cursor:pointer;font-weight:600;">🔄 Request Cabin Type Change</button>
+          <button id="dash-cabin-change-btn" onclick="openCabinChangeRequest()" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:7px;padding:6px 14px;font-size:.82rem;cursor:pointer;font-weight:600;">🔄 Change Cabin</button>
         </div>
         <!-- Cost breakdown: shown only once admin has manually set cabin_cost -->
         <div id="dash-cabin-cost-breakdown" style="display:none;margin-top:12px;background:rgba(255,255,255,.12);border-radius:9px;padding:10px 14px;color:#fff;"></div>
@@ -1322,7 +1322,7 @@
 <!-- CABIN CHANGE REQUEST MODAL -->
 <div class="modal-overlay" id="cabin-change-modal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal-box" style="max-width:480px;">
-    <h3 style="margin:0 0 4px;color:var(--primary);">🔄 Request Cabin Type Change</h3>
+    <h3 style="margin:0 0 4px;color:var(--primary);">🔄 Change Cabin Type</h3>
     <p style="margin:0 0 14px;font-size:.85rem;color:var(--muted);">Select the cabin type you'd like to switch to. Your request will be reviewed by the Commonwealth Cruise Team.</p>
     <div id="ccr-alert" class="alert"></div>
     <div class="form-group" style="margin-bottom:10px;">
@@ -2900,6 +2900,17 @@ async function loadDashboard(){
 
   // ── Cancelled account: show a clear notice and payment history ──
   if(gProfile?.status==='cancelled'){
+    // If they already have a cabin assignment (re-approved), skip the cancelled UI entirely
+    const{data:reapprovedCabin}=await sb.from('cabin_assignments').select('cabin_type').eq('user_id',gUser.id).maybeSingle();
+    if(reapprovedCabin){
+      // Restore their profile to active silently so next load is clean
+      await sb.from('profiles').update({status:'active'}).eq('id',gUser.id);
+      gProfile.status='active';
+      // Fall through to normal dashboard by recursing
+      await loadDashboard();
+      return;
+    }
+
     const[pyRes,msRes]=await Promise.all([
       sb.from('user_payments').select('*,payment_milestones(label,due_date)').eq('user_id',gUser.id),
       sb.from('payment_milestones').select('*').order('due_date',{ascending:true})
@@ -4551,7 +4562,7 @@ function handleCabinTypeTileClick(){
   if(msgEl.style.display==='block'){msgEl.style.display='none';return;}
   msgEl.innerHTML=
     'You already have a <strong>'+cabin.cabin_type+'</strong> cabin reserved. '+
-    'To request a different cabin type, use the <strong>"🔄 Request Cabin Type Change"</strong> button below.';
+    'To request a different cabin type, use the <strong>"🔄 Change Cabin"</strong> button below.';
   msgEl.style.display='block';
   setTimeout(()=>{msgEl.style.display='none';},6000);
 }
@@ -7953,7 +7964,12 @@ function dismissSplash(){
   const splash=document.getElementById('login-splash');
   if(!splash||splash.classList.contains('fade-out'))return;
   splash.classList.add('fade-out');
-  setTimeout(()=>{if(splash)splash.remove();},380);
+  setTimeout(()=>{
+    if(splash)splash.remove();
+    // Auto-open the sign-in panel so the user lands directly on the login form
+    const panel=document.getElementById('login-panel');
+    if(panel)panel.style.display='block';
+  },380);
 }
 // ── NAME VERIFICATION (Mar 12–14, 2027) ─────────────────────
 const NAME_VERIFY_START=new Date('2027-03-12T00:00:00');
