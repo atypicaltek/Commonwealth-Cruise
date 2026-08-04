@@ -226,6 +226,7 @@
           <span style="font-size:.9rem;color:#1a4a7c;font-weight:600;" id="login-email-display"></span>
           <button onclick="resetLoginToEmail()" style="background:none;border:none;color:#2176ae;font-size:.82rem;cursor:pointer;font-weight:600;white-space:nowrap;">Change &#x270E;</button>
         </div>
+        <div id="login-pin-alert" class="alert"></div>
         <div class="form-group"><label>Your 6-Digit PIN</label>
           <div class="pin-row"><input class="pin-box" id="lp0" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp1" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp2" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp3" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp4" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp5" maxlength="1" inputmode="numeric" autocomplete="off"></div>
         </div>
@@ -2377,6 +2378,17 @@ async function checkEmailContinue(){
   if(!email||!email.includes('@')){
     alertEl.className='alert alert-error';alertEl.textContent='Please enter a valid email address.';alertEl.style.display='block';return;
   }
+
+  // Admin always goes directly to PIN step — no profile lookup needed
+  if(email===ADMIN_EMAIL.toLowerCase()){
+    alertEl.style.display='none';
+    document.getElementById('login-email-display').textContent=email;
+    document.getElementById('login-email-step').style.display='none';
+    document.getElementById('login-pin-step').style.display='block';
+    document.getElementById('lp0').focus();
+    return;
+  }
+
   alertEl.className='alert';alertEl.textContent='Checking…';alertEl.style.display='block';
   // Check if a profile exists for this email
   const{data:prof}=await sb.from('profiles').select('id').eq('email',email).maybeSingle();
@@ -2400,7 +2412,8 @@ function resetLoginToEmail(){
   document.getElementById('login-pin-step').style.display='none';
   document.getElementById('login-email-step').style.display='block';
   clearPin('lp');
-  document.getElementById('login-alert').style.display='none';
+  clearFlash('login-alert');
+  clearFlash('login-pin-alert');
 }
 
 // ── REGISTRATION WIZARD ──────────────────────────────────────
@@ -2544,19 +2557,22 @@ function sendLoginHelpEmail(){
 
 async function doLogin(){
   clearFlash('login-alert');
+  clearFlash('login-pin-alert');
   const email=document.getElementById('login-email').value.trim();
   const pin=getPin('lp');
   if(!email)return flash('login-alert','Please enter your email address.');
-  if(pin.length<6)return flash('login-alert','Please enter your complete 6-digit PIN.');
+  if(pin.length<6){flash('login-pin-alert','Please enter your complete 6-digit PIN.');return;}
   let{data,error}=await sb.auth.signInWithPassword({email,password:pin});
   // If email is not confirmed, auto-confirm and retry once
-  if(error&&(error.message||'').toLowerCase().includes('not confirmed')||
-     error&&(error.code||'')==='email_not_confirmed'){
-    await sb.rpc('confirm_user_email',{p_email:email}).catch(()=>{});
+  if(error&&((error.message||'').toLowerCase().includes('not confirmed')||(error.code||'')==='email_not_confirmed')){
+    await sb.rpc('confirm_user_email',{p_email:email.toLowerCase()}).catch(()=>{});
     const retry=await sb.auth.signInWithPassword({email,password:pin});
     data=retry.data;error=retry.error;
   }
-  if(error){flash('login-alert','Invalid email or PIN. Please try again.');clearPin('lp');document.getElementById('lp0').focus();return;}
+  if(error){
+    flash('login-pin-alert','Incorrect PIN. Please try again or use Forgot PIN.');
+    clearPin('lp');document.getElementById('lp0').focus();return;
+  }
   sessionStorage.setItem('fresh_login','1');
   await loadAndRoute(data.user);
 }
@@ -2627,7 +2643,8 @@ async function doSignup(){
   }
 }
 
-let gFpEmail=''; // stores email across OTP steps
+let gFpEmail='';    // stores email across OTP steps
+let gFpTempPin='';  // stores temp PIN set by verify_otp_and_get_temp_pin RPC
 
 function fpGoStep(n){
   [1,2,3].forEach(i=>{const el=document.getElementById('fp-step'+i);if(el)el.style.display=(i===n?'block':'none');});
@@ -2707,7 +2724,8 @@ async function doVerifyOtp(){
     return;
   }
 
-  // OTP valid — advance to step 3 where user sets their permanent new PIN
+  // OTP valid — store temp PIN for Strategy A in step 3, then advance
+  gFpTempPin=tempPin;
   btn.disabled=false;btn.textContent='Verify Code';
   clearPin('otp');
   document.getElementById('forgot-newpin-alert').style.display='none';
@@ -2733,6 +2751,7 @@ function closeForgotPinModal(){
 async function doSetNewPinAfterOtp(){
   const alertEl=document.getElementById('forgot-newpin-alert');
   function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';}
+  function showOk(msg){alertEl.className='alert alert-success';alertEl.textContent=msg;alertEl.style.display='block';}
   alertEl.style.display='none';
   const newPin=getPin('fnp');
   const confirmPin=getPin('fnc');
@@ -2742,39 +2761,67 @@ async function doSetNewPinAfterOtp(){
   const btn=document.getElementById('fp-save-pin-btn');
   btn.disabled=true;btn.textContent='Saving…';
 
-  // Confirm email in case it was never confirmed
+  // Always confirm email first (case-insensitive)
   await sb.rpc('confirm_user_email',{p_email:gFpEmail}).catch(()=>{});
 
-  // Reset password via admin RPC (sets bcrypt hash in auth.users + profiles.pin)
-  const{error:resetErr}=await sb.rpc('admin_reset_user_pin',{p_email:gFpEmail,p_new_pin:newPin});
-  if(resetErr){
-    btn.disabled=false;btn.textContent='🔒 Save New PIN & Sign In';
-    showErr('Unable to save PIN. Please try again or contact support.');
-    return;
+  // ── STRATEGY A: Sign in with temp PIN → use Supabase native updateUser ──
+  // verify_otp_and_get_temp_pin already set this temp password in auth.users.
+  // If signInWithPassword works, updateUser() uses Supabase's own bcrypt hash,
+  // which is guaranteed to be compatible with future sign-ins.
+  if(gFpTempPin){
+    await new Promise(r=>setTimeout(r,700));
+    const{data:tmpData}=await sb.auth.signInWithPassword({email:gFpEmail,password:gFpTempPin}).catch(()=>({data:null,error:null}));
+    if(tmpData?.user){
+      await sb.auth.updateUser({password:newPin}).catch(()=>{});
+      await sb.from('profiles').update({pin:newPin,needs_pin_reset:false}).eq('email',gFpEmail).catch(()=>{});
+      gFpTempPin='';
+      await new Promise(r=>setTimeout(r,600));
+      const{data:freshData}=await sb.auth.signInWithPassword({email:gFpEmail,password:newPin}).catch(()=>({data:null}));
+      if(freshData?.user){
+        closeForgotPinModal();
+        sessionStorage.setItem('fresh_login','1');
+        await loadAndRoute(freshData.user);
+        return;
+      }
+      // PIN set via Supabase native, but fresh sign-in failed (unlikely)
+      showOk('✅ PIN saved! Please sign in with your new PIN.');
+      btn.disabled=false;btn.textContent='Save New PIN & Sign In';
+      setTimeout(()=>{closeForgotPinModal();showPage('login');},3000);
+      return;
+    }
   }
 
-  // Also update plaintext PIN in profiles for login sync
+  // ── STRATEGY B: admin_reset_user_pin RPC with 12-second timeout ──
+  const rpcCall=sb.rpc('admin_reset_user_pin',{p_email:gFpEmail,p_new_pin:newPin});
+  const rpcTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('Request timed out')),12000));
+  let resetErr=null;
+  try{const{error}=await Promise.race([rpcCall,rpcTimeout]);resetErr=error;}
+  catch(e){resetErr=e;}
+
+  // Always update plaintext PIN in profiles regardless of RPC result
   await sb.from('profiles').update({pin:newPin,needs_pin_reset:false}).eq('email',gFpEmail).catch(()=>{});
 
-  // Brief pause to let DB replicate, then sign in
-  await new Promise(r=>setTimeout(r,1200));
-  const{data:signInData,error:signInErr}=await sb.auth.signInWithPassword({email:gFpEmail,password:newPin});
-  if(signInErr){
-    btn.disabled=false;btn.textContent='🔒 Save New PIN & Sign In';
-    // PIN was saved — just can't auto-sign-in. Tell user to login manually.
-    alertEl.className='alert alert-success';
-    alertEl.textContent='✅ PIN saved! Return to the login screen and sign in with your new PIN.';
-    alertEl.style.display='block';
-    setTimeout(()=>{
-      closeForgotPinModal();
-      showPage('login');
-    },3000);
+  if(resetErr){
+    btn.disabled=false;btn.textContent='Save New PIN & Sign In';
+    showErr('Could not save PIN automatically. Please contact the trip organizer to reset your account. ('+(resetErr?.message||'unknown error')+')');
     return;
   }
 
-  closeForgotPinModal();
-  sessionStorage.setItem('fresh_login','1');
-  await loadAndRoute(signInData.user);
+  // RPC succeeded — try sign-in with new PIN after brief DB sync delay
+  await new Promise(r=>setTimeout(r,1500));
+  gFpTempPin='';
+  const{data:signInData,error:signInErr}=await sb.auth.signInWithPassword({email:gFpEmail,password:newPin});
+  if(signInData?.user){
+    closeForgotPinModal();
+    sessionStorage.setItem('fresh_login','1');
+    await loadAndRoute(signInData.user);
+    return;
+  }
+
+  // PIN was saved but auto-login failed — send to login page
+  btn.disabled=false;btn.textContent='Save New PIN & Sign In';
+  showOk('✅ PIN saved! Return to the login screen and sign in with your new PIN.');
+  setTimeout(()=>{closeForgotPinModal();showPage('login');},3500);
 }
 
 // Legacy stub (no longer called from UI)
