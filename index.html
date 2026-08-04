@@ -6623,7 +6623,8 @@ Thank you,
 Your Commonwealth Cruise Team`,
         htmlPreview:body
       };
-    },
+    }
+  },
   {
     id:'cc_auth',label:'CC Authorization Request',icon:'💳',
     toMode:'traveler',
@@ -6793,7 +6794,7 @@ async function egSendEmail(){
   }
 }
 
-function sendGeneratedEmail(){
+async function sendGeneratedEmail(){
   const toEmail=(document.getElementById('eg-to-email')||{}).value?.trim();
   const toName=(document.getElementById('eg-to-name')||{}).value?.trim()||toEmail;
   const subject=(document.getElementById('eg-subject')||{}).value?.trim();
