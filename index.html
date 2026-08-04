@@ -4321,9 +4321,11 @@ function openCancelledWaitlistRequest(){
   div.id='cancelled-waitlist-modal';
   div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;';
   div.innerHTML=`
-    <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:500px;width:100%;box-shadow:0 12px 48px rgba(0,0,0,.28);margin:auto;">
-      <h2 style="margin:0 0 4px;font-size:1.1rem;color:#1a4a7c;">🛳️ Request a New Cabin</h2>
-      <p style="margin:0 0 16px;font-size:.85rem;color:#64748b;line-height:1.5;">Your trip organizer will review your request and reach out when space is available. This does <strong>not</strong> guarantee a reservation.</p>
+    <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:540px;width:100%;box-shadow:0 12px 48px rgba(0,0,0,.28);margin:auto;">
+      <h2 style="margin:0 0 4px;font-size:1.1rem;color:#1a4a7c;">🛳️ Request a New Cabin Reservation</h2>
+      <p style="margin:0 0 16px;font-size:.85rem;color:#475569;line-height:1.6;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;">
+        Would you like to request a new cabin reservation? Your request will be reviewed for approval by a Commonwealth Cruise Team Member.
+      </p>
       <div id="cwl-alert" style="display:none;margin-bottom:12px;padding:10px 12px;border-radius:7px;font-size:.84rem;"></div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
@@ -4360,41 +4362,95 @@ function renderCwlTravelers(){
   const n=parseInt(document.getElementById('cwl-guests')?.value||'1');
   const container=document.getElementById('cwl-traveler-forms');
   if(!container)return;
-  container.innerHTML=
-    '<div style="font-size:.82rem;font-weight:700;color:#1a4a7c;margin-bottom:10px;padding-top:14px;border-top:1.5px solid #e2e8f0;">👥 Cabin Traveler Information</div>'+
-    Array.from({length:n},(_,i)=>`
-      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:12px 14px;margin-bottom:10px;">
-        <div style="font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">
-          Traveler ${i+1}${i===0?' (Account Holder)':''}
+
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const curY=new Date().getFullYear();
+
+  function travelerCard(i){
+    const isFirst=i===0;
+    const monthOpts=months.map((m,mi)=>`<option value="${String(mi+1).padStart(2,'0')}">${m}</option>`).join('');
+    const dayOpts=Array.from({length:31},(_,di)=>`<option value="${String(di+1).padStart(2,'0')}">${di+1}</option>`).join('');
+    const yearOpts=Array.from({length:101},(_,yi)=>`<option value="${curY-yi}">${curY-yi}</option>`).join('');
+    return `
+      <div style="background:${isFirst?'#f0f7ff':'#f8fafc'};border:1.5px solid ${isFirst?'#aed6f1':'#e2e8f0'};border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+        <div style="font-weight:800;color:#1a4a7c;margin-bottom:12px;font-size:.92rem;">
+          Traveler ${i+1}${isFirst?' (Account Holder / Primary)':''}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-          <div>
-            <label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:3px;">First Name *</label>
-            <input id="cwl-t${i}-first" class="form-input" placeholder="First name" style="font-size:.85rem;padding:7px 9px;">
+        <div style="display:grid;grid-template-columns:80px 1fr 1fr 1fr 80px;gap:8px;margin-bottom:10px;">
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:.76rem;">Title</label>
+            <select id="cwl-t${i}-sal" style="width:100%;padding:7px 8px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.84rem;">
+              <option value="">—</option><option>Mr.</option><option>Mrs.</option><option>Ms.</option><option>Miss.</option><option>Mstr.</option><option>Dr.</option><option>Rev.</option>
+            </select>
           </div>
-          <div>
-            <label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:3px;">Last Name *</label>
-            <input id="cwl-t${i}-last" class="form-input" placeholder="Last name" style="font-size:.85rem;padding:7px 9px;">
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:.76rem;">First Name *</label>
+            <input id="cwl-t${i}-first" class="form-input" placeholder="First" style="font-size:.84rem;padding:7px 9px;">
           </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <div>
-            <label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:3px;">Date of Birth *</label>
-            <input id="cwl-t${i}-dob" type="date" class="form-input" style="font-size:.85rem;padding:7px 9px;">
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:.76rem;">Middle Name</label>
+            <input id="cwl-t${i}-mid" class="form-input" placeholder="Middle" style="font-size:.84rem;padding:7px 9px;">
           </div>
-          <div>
-            <label style="font-size:.78rem;font-weight:600;color:#374151;display:block;margin-bottom:3px;">Gender *</label>
-            <select id="cwl-t${i}-gender" class="form-input" style="font-size:.85rem;padding:7px 9px;">
-              <option value="">— Select —</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-              <option value="Non-binary">Non-binary</option>
-              <option value="Prefer not to say">Prefer not to say</option>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:.76rem;">Last Name *</label>
+            <input id="cwl-t${i}-last" class="form-input" placeholder="Last" style="font-size:.84rem;padding:7px 9px;">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:.76rem;">Suffix</label>
+            <select id="cwl-t${i}-sfx" style="width:100%;padding:7px 8px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.84rem;">
+              <option value="">—</option><option>Jr.</option><option>Sr.</option><option>II</option><option>III</option><option>IV</option><option>V</option>
             </select>
           </div>
         </div>
-      </div>`
-    ).join('');
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:.76rem;">Birth Month *</label>
+            <select id="cwl-t${i}-dob-m" style="width:100%;padding:7px 8px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.84rem;"><option value="">Month</option>${monthOpts}</select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:.76rem;">Day *</label>
+            <select id="cwl-t${i}-dob-d" style="width:100%;padding:7px 8px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.84rem;"><option value="">Day</option>${dayOpts}</select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:.76rem;">Year *</label>
+            <select id="cwl-t${i}-dob-y" style="width:100%;padding:7px 8px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.84rem;"><option value="">Year</option>${yearOpts}</select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:.76rem;">Gender *</label>
+            <select id="cwl-t${i}-gender" style="width:100%;padding:7px 8px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.84rem;">
+              <option value="">Select</option><option>Male</option><option>Female</option><option>Other</option><option>Prefer Not to Answer</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:.76rem;">Citizenship *</label>
+            <select id="cwl-t${i}-cit" style="width:100%;padding:7px 8px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.84rem;">
+              <option value="">— Select —</option>
+              <option value="us">U.S. Citizen</option>
+              <option value="us-pr">U.S. Perm. Resident</option>
+              <option value="non-us">Non-U.S. Citizen</option>
+              <option value="canadian">Canadian</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:.76rem;">Country of Citizenship *</label>
+            <input id="cwl-t${i}-country" class="form-input" placeholder="e.g. United States" style="font-size:.84rem;padding:7px 9px;">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:.76rem;">Phone</label>
+            <input id="cwl-t${i}-phone" type="tel" class="form-input" placeholder="(555) 000-0000" style="font-size:.84rem;padding:7px 9px;">
+          </div>
+        </div>
+      </div>`;
+  }
+
+  container.innerHTML=
+    '<div style="font-size:.82rem;font-weight:700;color:#1a4a7c;margin-bottom:10px;padding-top:14px;border-top:1.5px solid #e2e8f0;">👥 Cabin Traveler Information</div>'+
+    Array.from({length:n},(_,i)=>travelerCard(i)).join('');
 }
 
 async function submitCancelledWaitlistRequest(){
@@ -4405,17 +4461,30 @@ async function submitCancelledWaitlistRequest(){
 
   if(!type)return showErr('Please select a cabin type.');
 
-  // Validate all traveler fields
+  // Collect and validate all traveler fields
   const travelers=[];
   for(let i=0;i<guests;i++){
     const first=(document.getElementById(`cwl-t${i}-first`)?.value||'').trim();
     const last=(document.getElementById(`cwl-t${i}-last`)?.value||'').trim();
-    const dob=document.getElementById(`cwl-t${i}-dob`)?.value||'';
+    const mid=(document.getElementById(`cwl-t${i}-mid`)?.value||'').trim();
+    const sal=document.getElementById(`cwl-t${i}-sal`)?.value||'';
+    const sfx=document.getElementById(`cwl-t${i}-sfx`)?.value||'';
+    const dobM=document.getElementById(`cwl-t${i}-dob-m`)?.value||'';
+    const dobD=document.getElementById(`cwl-t${i}-dob-d`)?.value||'';
+    const dobY=document.getElementById(`cwl-t${i}-dob-y`)?.value||'';
     const gender=document.getElementById(`cwl-t${i}-gender`)?.value||'';
-    if(!first||!last)return showErr(`Please enter the full name for Traveler ${i+1}.`);
-    if(!dob)return showErr(`Please enter the date of birth for Traveler ${i+1}.`);
-    if(!gender)return showErr(`Please select a gender for Traveler ${i+1}.`);
-    travelers.push({first_name:first,last_name:last,date_of_birth:dob,gender});
+    const cit=document.getElementById(`cwl-t${i}-cit`)?.value||'';
+    const country=(document.getElementById(`cwl-t${i}-country`)?.value||'').trim();
+    const phone=(document.getElementById(`cwl-t${i}-phone`)?.value||'').trim();
+
+    if(!first||!last)return showErr(`Traveler ${i+1}: first and last name are required.`);
+    if(!dobM||!dobD||!dobY)return showErr(`Traveler ${i+1}: complete date of birth is required.`);
+    if(!gender)return showErr(`Traveler ${i+1}: gender is required.`);
+    if(!cit)return showErr(`Traveler ${i+1}: citizenship type is required.`);
+    if(!country)return showErr(`Traveler ${i+1}: country of citizenship is required.`);
+
+    const dob=`${dobY}-${dobM}-${dobD.padStart(2,'0')}`;
+    travelers.push({salutation:sal||null,first_name:first,middle_name:mid||null,last_name:last,name_suffix:sfx||null,date_of_birth:dob,gender,citizenship_type:cit,country_of_citizenship:country,phone:phone||null});
   }
 
   const btn=document.getElementById('cwl-submit-btn');
@@ -4423,17 +4492,15 @@ async function submitCancelledWaitlistRequest(){
 
   // Save cabin travelers — replace existing records for this user
   await sb.from('cabin_travelers').delete().eq('account_owner_id',gUser.id);
-  const travelerRows=travelers.map(t=>({
-    account_owner_id:gUser.id,
-    first_name:t.first_name,
-    last_name:t.last_name,
-    date_of_birth:t.date_of_birth,
-    gender:t.gender
-  }));
+  const travelerRows=travelers.map(t=>({...t,account_owner_id:gUser.id}));
   const{error:ctErr}=await sb.from('cabin_travelers').insert(travelerRows);
   if(ctErr){btn.disabled=false;btn.textContent='✅ Submit Request';return showErr('Error saving traveler info: '+ctErr.message);}
 
-  // Delete any existing waitlist entry, then insert fresh (avoids upsert constraint dependency)
+  // Update profiles.name with primary traveler's full name
+  const primaryName=[travelers[0].first_name,travelers[0].last_name].filter(Boolean).join(' ');
+  await sb.from('profiles').update({name:primaryName}).eq('id',gUser.id);
+
+  // Delete any existing waitlist entry, then insert fresh
   await sb.from('cabin_waitlist').delete().eq('user_id',gUser.id);
   const{error}=await sb.from('cabin_waitlist').insert({
     user_id:gUser.id,cabin_type:type,num_guests:guests,created_at:new Date().toISOString()
@@ -4441,32 +4508,40 @@ async function submitCancelledWaitlistRequest(){
   if(error){btn.disabled=false;btn.textContent='✅ Submit Request';return showErr('Error submitting request: '+error.message);}
 
   // Email admin with full traveler details
-  const tName=gProfile?.name||'Traveler';
+  const tName=gProfile?.name||primaryName||'Traveler';
   const tEmail=gUser?.email||'';
-  const travelerLines=travelers.map((t,i)=>`Traveler ${i+1}: ${t.first_name} ${t.last_name} | DOB: ${t.date_of_birth} | Gender: ${t.gender}`).join('\n');
-  const htmlTravelerRows=travelers.map((t,i)=>
-    `<tr><td style="padding:6px 10px;">Traveler ${i+1}</td><td style="padding:6px 10px;">${t.first_name} ${t.last_name}</td><td style="padding:6px 10px;">${t.date_of_birth}</td><td style="padding:6px 10px;">${t.gender}</td></tr>`
-  ).join('');
-  const subject=`Cabin Re-Request — ${tName} (Previously Cancelled)`;
-  const plain=`${tName} (${tEmail}) has submitted a new cabin request after their reservation was cancelled.\n\nCabin Type: ${type}\nGuests: ${guests}\n\nTraveler Information:\n${travelerLines}\n\nPlease review in the Admin Portal → Waitlist tab.`;
+  const hdBg='background:#0f2744;color:#fff;padding:6px 10px;text-align:left;font-size:.82rem;';
+  const tdSt='padding:6px 10px;font-size:.82rem;border-bottom:1px solid #e2e8f0;';
+  const htmlTravelerRows=travelers.map((t,i)=>{
+    const name=[t.salutation,t.first_name,t.middle_name,t.last_name,t.name_suffix].filter(Boolean).join(' ');
+    return `<tr><td style="${tdSt}font-weight:700;">T${i+1}</td><td style="${tdSt}">${name}</td><td style="${tdSt}">${t.date_of_birth}</td><td style="${tdSt}">${t.gender}</td><td style="${tdSt}">${t.country_of_citizenship}</td><td style="${tdSt}">${t.phone||'—'}</td></tr>`;
+  }).join('');
+  const travelerLines=travelers.map((t,i)=>`T${i+1}: ${t.first_name} ${t.last_name} | DOB: ${t.date_of_birth} | ${t.gender} | ${t.country_of_citizenship}`).join('\n');
+  const subject=`New Cabin Re-Request — ${tName} (Previously Cancelled)`;
+  const plain=`${tName} (${tEmail}) has requested a new cabin after cancellation.\n\nCabin Type: ${type}\nGuests: ${guests}\n\nTraveler Information:\n${travelerLines}\n\nReview in Admin Portal → Waitlist tab.`;
   const html=buildEmailHtml('Admin',
-    '<p><strong>'+tName+'</strong> ('+tEmail+') has submitted a new cabin request after cancellation.</p>'+
-    buildPayTable([{label:'Cabin Type',value:type},{label:'Guests',value:String(guests)}])+
-    '<div style="margin-top:14px;font-weight:700;font-size:.88rem;color:#0f2744;">Traveler Information:</div>'+
-    '<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:.84rem;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">'+
-    '<thead><tr style="background:#1a4a7c;color:#fff;"><th style="padding:6px 10px;text-align:left;">#</th><th style="padding:6px 10px;text-align:left;">Name</th><th style="padding:6px 10px;text-align:left;">DOB</th><th style="padding:6px 10px;text-align:left;">Gender</th></tr></thead>'+
-    '<tbody>'+htmlTravelerRows+'</tbody></table>'+
-    '<p style="margin-top:14px;font-size:.84rem;">Review in <strong>Admin → Waitlist tab</strong> to process manually.</p>');
+    `<p><strong>${tName}</strong> (${tEmail}) has submitted a new cabin request after their reservation was cancelled.</p>`+
+    buildPayTable([{label:'Cabin Type Requested',value:type},{label:'Number of Guests',value:String(guests)}])+
+    `<div style="margin-top:14px;font-weight:700;font-size:.88rem;color:#0f2744;">Traveler Information:</div>`+
+    `<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:.84rem;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+      <thead><tr>
+        <th style="${hdBg}">#</th><th style="${hdBg}">Name</th><th style="${hdBg}">DOB</th>
+        <th style="${hdBg}">Gender</th><th style="${hdBg}">Country</th><th style="${hdBg}">Phone</th>
+      </tr></thead>
+      <tbody>${htmlTravelerRows}</tbody></table>`+
+    `<p style="margin-top:14px;font-size:.84rem;">Review in <strong>Admin → Waitlist tab</strong> to process and assign cabin.</p>`
+  );
   sendEmail(ADMIN_EMAIL,'Admin',subject,plain,html,true);
 
   document.getElementById('cancelled-waitlist-modal').remove();
   const ctaEl=document.getElementById('dash-no-cabin-cta');
   if(ctaEl)ctaEl.innerHTML=`<div style="font-size:.9rem;line-height:1.6;opacity:.9;">
     <strong>✅ Request Submitted!</strong><br>
-    <span style="font-size:.82rem;">Your request for a <strong>${type}</strong> cabin (${guests} guest${guests>1?'s':''}) has been sent to your trip organizer.<br>
-    You will be contacted when space becomes available.</span>
+    <span style="font-size:.82rem;">Your request for a <strong>${type}</strong> cabin (${guests} guest${guests>1?'s':''}) has been sent to the Commonwealth Cruise Team for review.<br>
+    You will be contacted when your request has been approved.</span>
   </div>`;
 }
+
 
 function handleCabinTypeTileClick(){
   const cabin=window.gCurrentCabin;
@@ -6600,7 +6675,41 @@ Your Commonwealth Cruise Team`
         if(statusEl){statusEl.textContent='⚠️ Error: '+(err.message||err);statusEl.style.color='#dc2626';}
       });
     }
-  }
+  },
+  {
+    id:'traveler_info_reminder',label:'Complete Cabin Traveler Information',icon:'\U0001f4cb',
+    toMode:'traveler',
+    buildPreview:()=>({
+      subject:`${TRIP_NAME} — Action Required: Complete Cabin Traveler Information`,
+      toLabel:'Traveler email',
+      toPlaceholder:'traveler@email.com',
+      toName:'',
+      body:`Hello [Traveler Name],
+
+Thank you for your reservation on the ${TRIP_NAME}! We are looking forward to an amazing journey together.
+
+ACTION REQUIRED: COMPLETE CABIN TRAVELER INFORMATION
+
+To finalize your reservation and begin processing, we need complete traveler information for all guests in your cabin.
+
+Please log in to the Commonwealth Cruise Travel Portal and complete the following for each guest:
+
+- Full legal name (as it appears on travel documents)
+- Date of birth
+- Gender
+- Citizenship type and country of citizenship
+- Phone number
+
+This information is required for all cabin occupants before your reservation can be fully processed. Incomplete records may delay your booking confirmation.
+
+Commonwealth Cruise Travel Portal
+
+Please complete this at your earliest convenience. If you have any questions, reply to this email and we will be happy to assist.
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
+    })
   }
 ];
 
@@ -7055,6 +7164,13 @@ async function confirmChangeCabinType(userId,name,oldType){
       p_num_guests:numGuests
     });
     if(upErr)throw new Error(upErr.message);
+
+    // If this traveler was previously cancelled, restore their profile to active
+    // so the cancellation banner no longer appears on their dashboard
+    const{data:profCheck}=await sb.from('profiles').select('status').eq('id',userId).single();
+    if(profCheck?.status==='cancelled'){
+      await sb.from('profiles').update({status:'active'}).eq('id',userId);
+    }
 
     // Adjust main inventory: restore old slot, claim new
     const prevType=returnedOld||oldType||null;
