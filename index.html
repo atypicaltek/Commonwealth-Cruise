@@ -2326,7 +2326,14 @@ async function doLogin(){
   const pin=getPin('lp');
   if(!email)return flash('login-alert','Please enter your email address.');
   if(pin.length<6)return flash('login-alert','Please enter your complete 6-digit PIN.');
-  const{data,error}=await sb.auth.signInWithPassword({email,password:pin});
+  let{data,error}=await sb.auth.signInWithPassword({email,password:pin});
+  // If email is not confirmed, auto-confirm and retry once
+  if(error&&(error.message||'').toLowerCase().includes('not confirmed')||
+     error&&(error.code||'')==='email_not_confirmed'){
+    await sb.rpc('confirm_user_email',{p_email:email}).catch(()=>{});
+    const retry=await sb.auth.signInWithPassword({email,password:pin});
+    data=retry.data;error=retry.error;
+  }
   if(error){flash('login-alert','Invalid email or PIN. Please try again.');clearPin('lp');document.getElementById('lp0').focus();return;}
   sessionStorage.setItem('fresh_login','1');
   await loadAndRoute(data.user);
