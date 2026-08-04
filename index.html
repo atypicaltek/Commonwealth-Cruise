@@ -2476,7 +2476,7 @@ async function completeRegistration(){
     if(!userId)throw new Error('Account creation failed — no user ID returned.');
 
     // 2. Confirm email immediately so sign-in works
-    await sb.rpc('confirm_user_email',{p_email:gRegEmail}).catch(()=>{});
+    try{await sb.rpc('confirm_user_email',{p_email:gRegEmail});}catch(e){}
 
     // 3. Create profile
     const{error:pErr}=await sb.from('profiles').upsert({id:userId,name:fullName,full_name:fullName,email:gRegEmail,phone,gender,date_of_birth:dob,state_of_residency:state,pin,citizenship_type:'other'});
@@ -2565,7 +2565,7 @@ async function doLogin(){
   let{data,error}=await sb.auth.signInWithPassword({email,password:pin});
   // If email is not confirmed, auto-confirm and retry once
   if(error&&((error.message||'').toLowerCase().includes('not confirmed')||(error.code||'')==='email_not_confirmed')){
-    await sb.rpc('confirm_user_email',{p_email:email.toLowerCase()}).catch(()=>{});
+    try{await sb.rpc('confirm_user_email',{p_email:email.toLowerCase()});}catch(e){}
     const retry=await sb.auth.signInWithPassword({email,password:pin});
     data=retry.data;error=retry.error;
   }
@@ -2597,7 +2597,7 @@ async function doSignup(){
   if(error){flash('signup-alert',error.message);return;}
 
   // Auto-confirm the email so the traveler can sign in immediately without an email verification step
-  if(data.user){await sb.rpc('confirm_user_email',{p_email:email}).catch(()=>{});}
+  if(data.user){try{await sb.rpc('confirm_user_email',{p_email:email});}catch(e){}}
 
   if(data.user){
     const isAdmin=email.toLowerCase()===ADMIN_EMAIL.toLowerCase();
@@ -2650,58 +2650,38 @@ function fpGoStep(n){
   [1,2,3].forEach(i=>{const el=document.getElementById('fp-step'+i);if(el)el.style.display=(i===n?'block':'none');});
 }
 
-// Custom OTP forgot-PIN flow — bypasses Supabase magic links entirely.
-// Step 1: call request_pin_reset RPC → get 6-digit code → email it via our system.
-// Step 2: call verify_otp_and_get_temp_pin RPC → get temp PIN → signInWithPassword → load dashboard.
-// The needs_pin_reset flag set by the RPC triggers the PIN-change modal on dashboard load.
+// Forgot-PIN flow uses Supabase native OTP (signInWithOtp → verifyOtp → updateUser).
+// This bypasses all pgcrypto/bcrypt compatibility issues — Supabase handles hashing internally.
 
 async function doForgotModal(){
   const alertEl=document.getElementById('forgot-pin-alert');
   function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';}
   alertEl.style.display='none';
-  const email=(document.getElementById('fp-email')?.value||'').trim();
+  const email=(document.getElementById('fp-email')?.value||'').trim().toLowerCase();
   if(!email||!email.includes('@'))return showErr('Please enter your email address.');
   const btn=document.getElementById('fp-submit-btn');
   btn.disabled=true;btn.textContent='Sending...';
 
-  // Generate OTP via SECURITY DEFINER RPC (stores it in profiles with 15-min expiry)
-  const{data:otpCode,error:rpcErr}=await sb.rpc('request_pin_reset',{p_email:email});
-  if(rpcErr||!otpCode){
-    btn.disabled=false;btn.textContent='Send Code';
-    const msg=(rpcErr?.message||'').toLowerCase();
-    if(msg.includes('no account'))showErr('No account found for that email address.');
-    else showErr('Unable to send code. Please try again.');
+  gFpEmail=email;
+  gFpTempPin='';
+
+  // Supabase native OTP — sends a 6-digit code to the user's email.
+  // shouldCreateUser:false means only existing accounts get a code.
+  const{error}=await sb.auth.signInWithOtp({email:gFpEmail,options:{shouldCreateUser:false}});
+
+  btn.disabled=false;btn.textContent='Send Code';
+  if(error){
+    const msg=(error.message||'').toLowerCase();
+    if(msg.includes('not found')||msg.includes('registered')||msg.includes('user'))
+      showErr('No account found for that email. Please contact the trip organizer.');
+    else
+      showErr('Unable to send code. Please try again in a moment.');
     return;
   }
 
-  // Send the code via our own email system (skip admin copy for security)
-  gFpEmail=email.toLowerCase();
-  const subject='Your Commonwealth Cruise 2027 Verification Code';
-  const plain=[
-    'You requested a PIN reset for your Commonwealth Cruise 2027 portal account.',
-    '',
-    'Your 6-digit verification code is: '+otpCode,
-    '',
-    'This code expires in 15 minutes. Do not share it with anyone.',
-    '',
-    'If you did not request this, you can safely ignore this email.'
-  ].join('\n');
-  const htmlBody=buildEmailHtml('Traveler',
-    '<p>You requested a PIN reset for your <strong>Commonwealth Cruise 2027</strong> portal account.</p>'+
-    '<div style="background:#f0f9ff;border:2px solid #0ea5e9;border-radius:12px;padding:22px;text-align:center;margin:18px 0;">'+
-      '<p style="margin:0 0 8px;font-size:.82rem;font-weight:700;color:#0c4a6e;letter-spacing:.05em;text-transform:uppercase;">Your 6-Digit Verification Code</p>'+
-      '<div style="font-size:2.8rem;font-weight:900;letter-spacing:12px;color:#1a4a7c;font-family:monospace;">'+otpCode+'</div>'+
-      '<p style="margin:10px 0 0;font-size:.8rem;color:#64748b;">Expires in 15 minutes &nbsp;·&nbsp; Do not share this code</p>'+
-    '</div>'+
-    '<p style="font-size:.84rem;color:#64748b;margin:0;">If you did not request a PIN reset, you can safely ignore this email.</p>'
-  );
-  // bypassHold=true: OTP codes are time-sensitive security emails — never queue them
-  await sendEmail(email,'Traveler',subject,plain,htmlBody,true,true);
-
-  btn.disabled=false;btn.textContent='Send Code';
   document.getElementById('fp-otp-msg').innerHTML=
     'A 6-digit verification code was sent to <strong>'+email+'</strong>. Enter it below.<br>'+
-    '<span style="font-size:.8rem;color:var(--muted);">Check your spam/junk folder if you don\'t see it within a few minutes. Code expires in 15 minutes.</span>';
+    '<span style="font-size:.8rem;color:var(--muted);">Check spam/junk if you don\'t see it. Code expires in ~10 minutes.</span>';
   fpGoStep(2);
 }
 
@@ -2714,18 +2694,18 @@ async function doVerifyOtp(){
   const btn=document.getElementById('fp-verify-btn');
   btn.disabled=true;btn.textContent='Verifying...';
 
-  // Verify the OTP — this clears it in the DB and confirms identity
-  const{data:tempPin,error:rpcErr}=await sb.rpc('verify_otp_and_get_temp_pin',{p_email:gFpEmail,p_otp:token});
-  if(rpcErr||!tempPin){
+  // Verify via Supabase native — establishes an authenticated session without touching auth.users.encrypted_password
+  const{data,error}=await sb.auth.verifyOtp({email:gFpEmail,token,type:'email'});
+
+  if(error||!data?.user){
     btn.disabled=false;btn.textContent='Verify Code';
-    const msg=(rpcErr?.message||'').toLowerCase();
-    if(msg.includes('expired'))showErr('Code expired. Please go back and request a new one.');
+    const msg=(error?.message||'').toLowerCase();
+    if(msg.includes('expired'))showErr('Code expired. Go back and request a new one.');
     else showErr('Invalid code. Please check and try again.');
     return;
   }
 
-  // OTP valid — store temp PIN for Strategy A in step 3, then advance
-  gFpTempPin=tempPin;
+  // Authenticated! Advance to step 3 to set permanent PIN
   btn.disabled=false;btn.textContent='Verify Code';
   clearPin('otp');
   document.getElementById('forgot-newpin-alert').style.display='none';
@@ -2761,67 +2741,38 @@ async function doSetNewPinAfterOtp(){
   const btn=document.getElementById('fp-save-pin-btn');
   btn.disabled=true;btn.textContent='Saving…';
 
-  // Always confirm email first (case-insensitive)
-  await sb.rpc('confirm_user_email',{p_email:gFpEmail}).catch(()=>{});
+  function withTimeout(p,ms){const t=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms));return Promise.race([p,t]);}
 
-  // ── STRATEGY A: Sign in with temp PIN → use Supabase native updateUser ──
-  // verify_otp_and_get_temp_pin already set this temp password in auth.users.
-  // If signInWithPassword works, updateUser() uses Supabase's own bcrypt hash,
-  // which is guaranteed to be compatible with future sign-ins.
-  if(gFpTempPin){
-    await new Promise(r=>setTimeout(r,700));
-    const{data:tmpData}=await sb.auth.signInWithPassword({email:gFpEmail,password:gFpTempPin}).catch(()=>({data:null,error:null}));
-    if(tmpData?.user){
-      await sb.auth.updateUser({password:newPin}).catch(()=>{});
-      await sb.from('profiles').update({pin:newPin,needs_pin_reset:false}).eq('email',gFpEmail).catch(()=>{});
-      gFpTempPin='';
-      await new Promise(r=>setTimeout(r,600));
-      const{data:freshData}=await sb.auth.signInWithPassword({email:gFpEmail,password:newPin}).catch(()=>({data:null}));
-      if(freshData?.user){
-        closeForgotPinModal();
-        sessionStorage.setItem('fresh_login','1');
-        await loadAndRoute(freshData.user);
-        return;
-      }
-      // PIN set via Supabase native, but fresh sign-in failed (unlikely)
-      showOk('✅ PIN saved! Please sign in with your new PIN.');
-      btn.disabled=false;btn.textContent='Save New PIN & Sign In';
-      setTimeout(()=>{closeForgotPinModal();showPage('login');},3000);
-      return;
-    }
-  }
+  // User is authenticated via verifyOtp above — use Supabase native updateUser.
+  // This sets the password using GoTrue's own bcrypt, guaranteed compatible with signInWithPassword.
+  let updateErr=null;
+  try{const{error}=await withTimeout(sb.auth.updateUser({password:newPin}),12000);updateErr=error;}
+  catch(e){updateErr=e;}
 
-  // ── STRATEGY B: admin_reset_user_pin RPC with 12-second timeout ──
-  const rpcCall=sb.rpc('admin_reset_user_pin',{p_email:gFpEmail,p_new_pin:newPin});
-  const rpcTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('Request timed out')),12000));
-  let resetErr=null;
-  try{const{error}=await Promise.race([rpcCall,rpcTimeout]);resetErr=error;}
-  catch(e){resetErr=e;}
-
-  // Always update plaintext PIN in profiles regardless of RPC result
-  await sb.from('profiles').update({pin:newPin,needs_pin_reset:false}).eq('email',gFpEmail).catch(()=>{});
-
-  if(resetErr){
+  if(updateErr){
     btn.disabled=false;btn.textContent='Save New PIN & Sign In';
-    showErr('Could not save PIN automatically. Please contact the trip organizer to reset your account. ('+(resetErr?.message||'unknown error')+')');
+    showErr('Unable to save PIN — your session may have expired. Please start over. ('+(updateErr?.message||'unknown')+')');
     return;
   }
 
-  // RPC succeeded — try sign-in with new PIN after brief DB sync delay
-  await new Promise(r=>setTimeout(r,1500));
-  gFpTempPin='';
-  const{data:signInData,error:signInErr}=await sb.auth.signInWithPassword({email:gFpEmail,password:newPin});
-  if(signInData?.user){
+  // Update profiles.pin (plaintext, for reference)
+  try{await withTimeout(sb.from('profiles').update({pin:newPin,needs_pin_reset:false}).eq('email',gFpEmail),6000);}catch(e){}
+
+  // Get current user and navigate to dashboard
+  let routeUser=null;
+  try{const{data}=await withTimeout(sb.auth.getUser(),8000);routeUser=data?.user||null;}catch(e){}
+
+  if(routeUser){
     closeForgotPinModal();
     sessionStorage.setItem('fresh_login','1');
-    await loadAndRoute(signInData.user);
+    await loadAndRoute(routeUser);
     return;
   }
 
-  // PIN was saved but auto-login failed — send to login page
+  // Fallback — PIN was saved, route to login
   btn.disabled=false;btn.textContent='Save New PIN & Sign In';
-  showOk('✅ PIN saved! Return to the login screen and sign in with your new PIN.');
-  setTimeout(()=>{closeForgotPinModal();showPage('login');},3500);
+  showOk('✅ PIN saved! Please sign in with your new PIN.');
+  setTimeout(()=>{closeForgotPinModal();showPage('login');},3000);
 }
 
 // Legacy stub (no longer called from UI)
@@ -7895,7 +7846,7 @@ async function adminAddTraveler(){
       const newUserId=signUpData.user?.id;
       if(!newUserId)throw new Error('No user ID returned');
       // Auto-confirm so the traveler can sign in immediately with their temp PIN
-      await sb.rpc('confirm_user_email',{p_email:tr.email}).catch(()=>{});
+      try{await sb.rpc('confirm_user_email',{p_email:tr.email});}catch(e){}
       const dob=(tr.dobY&&tr.dobM&&tr.dobD)?(tr.dobY+'-'+String(tr.dobM).padStart(2,'0')+'-'+String(tr.dobD).padStart(2,'0')):null;
       await sb.from('profiles').upsert({id:newUserId,full_name:fullName,email:tr.email,phone:tr.phone||null,pin:tempPin,gender:tr.gender||null,date_of_birth:dob,state_of_residency:tr.state||null});
       await sb.from('cabin_assignments').insert({user_id:newUserId,cabin_type:cabinType,num_guests:numGuests,deposit_status:'pending'});
