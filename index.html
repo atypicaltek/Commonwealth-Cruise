@@ -2486,10 +2486,9 @@ async function completeRegistration(){
     const{error:pErr}=await sb.from('profiles').upsert({id:userId,name:fullName,full_name:fullName,email:gRegEmail,phone,gender,date_of_birth:dob,state_of_residency:state,pin,citizenship_type:'other'});
     if(pErr)throw pErr;
 
-    // 4. Create cabin assignment (decrement price tier)
+    // 4. Create cabin assignment (decrement price tier); cabin_cost left null — admin sets via "Set Cost"
     let price=null;try{const{data:_p}=await sb.rpc('decrement_cabin_tier',{p_cabin_type:cabinType});price=_p;}catch(e){}
-    const cabinCost=price?(numGuests===1?price*2:price*numGuests):null;
-    await sb.from('cabin_assignments').insert({user_id:userId,cabin_type:cabinType,num_guests:numGuests,price_per_person:price||null,cabin_cost:cabinCost,deposit_status:'pending'});
+    await sb.from('cabin_assignments').insert({user_id:userId,cabin_type:cabinType,num_guests:numGuests,price_per_person:price||null,deposit_status:'pending'});
 
     // 5. Create primary cabin traveler record
     await sb.from('cabin_travelers').insert({account_owner_id:userId,first_name:firstName,last_name:lastName,date_of_birth:dob,gender,citizenship_type:citizenship,state_of_residency:state,phone});
@@ -3126,15 +3125,12 @@ async function doProfileSetup(){
     const{error:caErr}=await sb.from('cabin_assignments').insert(caPayload);
     if(caErr){flash('psetup-alert','Reservation error: '+caErr.message+'. Please try again or contact the trip organizer.');return;}
     await sb.rpc('decrement_cabin',{cabin:cabinType});
-    // Decrement the cheapest available price tier and auto-set cabin_cost
-    // Single occupancy: traveler pays for full cabin at double rate (2 guests' worth)
+    // Decrement the cheapest available price tier; store price_per_person for inventory tracking.
+    // cabin_cost is NOT set here — admin sets it manually via "Set Cost" so traveler sees "Pending" until confirmed.
     const{data:tierPrice}=await sb.rpc('decrement_cabin_tier',{p_cabin_type:cabinType});
     if(tierPrice){
-      const isSingleOcc=(numGuests===1);
-      const effectiveGuests=isSingleOcc?2:numGuests;
-      const totalCost=parseFloat(tierPrice)*effectiveGuests;
       await sb.from('cabin_assignments')
-        .update({price_per_person:parseFloat(tierPrice),cabin_cost:totalCost})
+        .update({price_per_person:parseFloat(tierPrice)})
         .eq('user_id',gUser.id);
     }
     emailAccountCreated({name,email,citizenship_type:null},cabinType);
@@ -3187,14 +3183,16 @@ async function loadDashboard(){
   // ── Cancelled account: show a clear notice and payment history ──
   if(gProfile?.status==='cancelled'){
     // If they already have a cabin assignment (re-approved), skip the cancelled UI entirely
-    const{data:reapprovedCabin}=await sb.from('cabin_assignments').select('cabin_type').eq('user_id',gUser.id).maybeSingle();
+    const{data:reapprovedCabin}=await sb.from('cabin_assignments').select('cabin_type,deposit_status,num_guests').eq('user_id',gUser.id).maybeSingle();
     if(reapprovedCabin){
       // Restore their profile to active silently so next load is clean
       await sb.from('profiles').update({status:'active'}).eq('id',gUser.id);
       gProfile.status='active';
-      // Fall through to normal dashboard by recursing
-      showDepositPendingPopup(numGuests);
-   await loadDashboard();
+      // Only show deposit popup if deposit has not yet been confirmed by admin
+      if(reapprovedCabin.deposit_status!=='confirmed'){
+        showDepositPendingPopup(reapprovedCabin.num_guests||1);
+      }
+      await loadDashboard();
       return;
     }
 
@@ -5203,7 +5201,7 @@ async function showAdminPendingPopup(){
     sb.from('suite_requests').select('id').eq('status','pending'),
     sb.from('cancellation_requests').select('id').eq('status','pending'),
     sb.from('doc_requests').select('id').eq('status','pending'),
-    sb.from('cabin_assignments').select('id').eq('high_occupancy_pending',true).gte('num_guests',3)
+    sb.from('cabin_assignments').select('id').eq('high_occupancy_pending',true)
   ]);
 
   const items=[];
@@ -6397,7 +6395,7 @@ async function loadHighOccTab(){
   if(compEl)compEl.innerHTML='';
 
   const[{data:allCabins,error:cabErr},{data:allProfiles},{data:allTravelers}]=await Promise.all([
-    sb.from('cabin_assignments').select('*').gte('num_guests',3),
+    sb.from('cabin_assignments').select('*'),  // fetch all; filter by high_occupancy_pending flag below (num_guests may not reflect actual travelers)
     sb.from('profiles').select('id,name,email,phone,status').neq('is_admin',true).order('name'),
     sb.from('cabin_travelers').select('*').order('created_at',{ascending:true})
   ]);
@@ -6413,17 +6411,22 @@ async function loadHighOccTab(){
     travelersByOwner[t.account_owner_id].push(t);
   });
 
-  // Filter to those with 3+ guests; split by pending vs resolved
+  // Split by high_occupancy_pending flag; num_guests in cabin_assignments is the original reservation count
+  // and may not reflect actual travelers added later — rely solely on the flag.
   const pendingItems=[];
   const resolvedItems=[];
   (allCabins||[]).forEach(ca=>{
     const p=profileMap[ca.user_id];
     if(!p||p.status==='cancelled')return;
-    if(ca.num_guests<3)return;
     const travelers=travelersByOwner[ca.user_id]||[];
+    const actualCount=travelers.length||ca.num_guests||0;
     const item={ca,p,travelers};
-    if(ca.high_occupancy_pending)pendingItems.push(item);
-    else resolvedItems.push(item);
+    if(ca.high_occupancy_pending){
+      pendingItems.push(item);
+    } else if(actualCount>3){
+      // Show resolved: flag cleared but actual traveler count still exceeds 3
+      resolvedItems.push(item);
+    }
   });
 
   // Update title
