@@ -7469,7 +7469,7 @@ async function openAdminEditProfile(userId,name,email){
   }
   document.getElementById('aep-gender').value=t?.gender||'';
   document.getElementById('aep-citizenship').value=t?.citizenship_type||'';
-  document.getElementById('aep-country').value=t?.country_of_citizenship||'';
+  document.getElementById('aep-state').value=t?.country_of_citizenship||'';
   document.getElementById('aep-phone').value=t?.phone||'';
   document.getElementById('aep-alert').style.display='none';
   document.getElementById('aep-submit-btn').disabled=false;
@@ -7490,7 +7490,7 @@ async function saveAdminEditProfile(){
   const dobY=document.getElementById('aep-dob-y').value;
   const gender=document.getElementById('aep-gender').value;
   const citizenship=document.getElementById('aep-citizenship').value;
-  const country=document.getElementById('aep-country').value.trim();
+  const country=document.getElementById('aep-state').value.trim();
   const phone=document.getElementById('aep-phone').value.trim();
   const alertEl=document.getElementById('aep-alert');
   function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';}
@@ -7899,7 +7899,7 @@ async function adminAddTraveler(){
 
       const dob=(tr.dobY&&tr.dobM&&tr.dobD)?(tr.dobY+'-'+String(tr.dobM).padStart(2,'0')+'-'+String(tr.dobD).padStart(2,'0')):null;
       // Write both name and full_name — loadTravelers queries the name column
-      await sb.from('profiles').upsert({id:newUserId,name:fullName,full_name:fullName,email:tr.email,phone:tr.phone||null,pin:tempPin,needs_pin_reset:true,gender:tr.gender||null,date_of_birth:dob,state_of_residency:tr.state||null});
+      await sb.from('profiles').upsert({id:newUserId,name:fullName,full_name:fullName,email:tr.email,phone:tr.phone||null,pin:tempPin,needs_pin_reset:true,gender:tr.gender||null,date_of_birth:dob,state_of_residency:tr.state||null,is_admin:false});
 
       // Only insert cabin_assignment if one doesn't already exist
       const{data:existingCabin}=await sb.from('cabin_assignments').select('id').eq('user_id',newUserId).maybeSingle();
