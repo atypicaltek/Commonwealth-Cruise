@@ -518,7 +518,7 @@
           <!-- CITIZENSHIP & TRAVEL DOCUMENTATION -->
           <div class="section-hdr">Citizenship &amp; Travel Documentation</div>
           <div style="background:#f0f7ff;border:1.5px solid #aed6f1;border-radius:10px;padding:14px 15px;margin-bottom:14px;">
-            <div class="grid-2" style="margin-bottom:10px;">
+            <div style="margin-bottom:10px;">
               <div class="form-group" style="margin-bottom:0;"><label>Citizenship Status *</label>
                 <select id="ct-citizenship-type" onchange="onCtCitizenshipChange()">
                   <option value="">— Select citizenship status —</option>
@@ -529,7 +529,7 @@
                   <option value="other">Other</option>
                 </select>
               </div>
-              <div class="form-group" style="margin-bottom:0;"><label>State of Residency *</label><input type="text" id="ct-citizenship" placeholder="e.g. United States, Jamaica…" autocomplete="off"></div>
+              <input type="hidden" id="ct-citizenship">
             </div>
             <!-- Doc notices per citizenship type -->
             <div id="ct-doc-us" class="doc-notice" style="display:none;margin-top:2px;">
@@ -1196,7 +1196,8 @@
           <!-- High-occupancy disclaimer (>3 guests) -->
           <div id="psetup-high-occ-section" style="display:none;margin-top:12px;background:#fef3c7;border:1.5px solid #f6c440;border-radius:9px;padding:12px 14px;">
             <p style="font-weight:700;color:#78460a;margin-bottom:8px;font-size:.88rem;">⚠️ High Cabin Occupancy Notice</p>
-            <p style="font-size:.84rem;color:#78460a;line-height:1.55;margin-bottom:10px;">Not all cabins allow more than 2 Guests. Your request is pending until the Commonwealth Cruise Team manually reviews for compliance with Carnival's cabin occupancy policy.</p>
+            <p style="font-size:.84rem;color:#78460a;line-height:1.55;margin-bottom:6px;">Not all cabins allow more than 3 guests. Your request will be reviewed by the Commonwealth Cruise Team for compliance with Carnival's cabin occupancy policy.</p>
+            <p style="font-size:.84rem;color:#78460a;line-height:1.55;margin-bottom:10px;font-weight:600;">💰 Your per-person cost for 4+ guests will be confirmed by the trip organizer after review. Do not use the standard per-person rate shown above to calculate your total.</p>
             <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;">
               <input type="checkbox" id="psetup-high-occ-ack" style="margin-top:2px;width:16px;height:16px;flex-shrink:0;" onchange="onHighOccAckChange()">
               <span style="font-size:.84rem;color:#78460a;line-height:1.4;">I understand and acknowledge this policy.</span>
@@ -2941,13 +2942,15 @@ function updatePsetupCabinAvail(){
     const inv=gInventory[t];
     if(!inv){opt.textContent=t+' Cabin';return;}
     const avail=inv.available_cabins;
+    const minPrice=gCabinMinPrices[t];
+    const priceStr=minPrice?` — From $${minPrice.toLocaleString()}/person`:'';
     if(avail<=0){opt.textContent=`${t} Cabin — SOLD OUT`;opt.disabled=true;}
-    else if(avail<=5){opt.textContent=`${t} Cabin (${avail} remaining — Almost Full!)`;}
-    else{opt.textContent=`${t} Cabin (${avail} remaining)`;}
+    else if(avail<=5){opt.textContent=`${t} Cabin${priceStr} (${avail} remaining — Almost Full!)`;}
+    else{opt.textContent=`${t} Cabin${priceStr} (${avail} remaining)`;}
   });
   // Suite — no availability count or standard pricing
   const suiteOpt=sel.querySelector('option[value="Suite"]');
-  if(suiteOpt)suiteOpt.textContent='Suite ⭐ (Request — Subject to Availability)';
+  if(suiteOpt)suiteOpt.textContent='Suite ⭐ (Request — Pricing Varies, Subject to Availability)';
   const info=document.getElementById('psetup-cabin-avail');
   if(info&&Object.keys(gInventory).length>0){
     const lines=Object.entries(gInventory)
@@ -3763,10 +3766,14 @@ function closeMilestoneWarning(){
 function enableCitDoc(ackId){
   // Called when user clicks the documentation link — records that link was opened
   gCitLinkOpened[ackId]=true;
+  try{sessionStorage.setItem('docLinkOpened_'+ackId,'1');}catch(e){}
 }
 function ackClickGuard(el){
   const ackId=el.id;
-  if(!gCitLinkOpened[ackId]){
+  // Check both in-memory flag AND sessionStorage — once opened per session, never required again
+  const alreadyOpened=gCitLinkOpened[ackId]||sessionStorage.getItem('docLinkOpened_'+ackId)==='1';
+  if(alreadyOpened){gCitLinkOpened[ackId]=true;}// sync back to memory
+  if(!alreadyOpened){
     el.checked=false;
     // Show inline message near the checkbox
     let msg=document.getElementById(ackId+'-msg');
@@ -3794,10 +3801,12 @@ function onCtCitizenshipChange(){
   });
   const map={us:'ct-doc-us','us-pr':'ct-doc-us-pr','non-us':'ct-doc-non-us',canadian:'ct-doc-canadian',other:'ct-doc-other'};
   if(map[val])document.getElementById(map[val]).style.display='block';
-  // Auto-fill country if US citizen
+  // Auto-set country_of_citizenship (hidden field) based on citizenship type
   const citField=document.getElementById('ct-citizenship');
-  if(val==='us'&&!citField.value)citField.value='United States';
-  else if(val==='canadian'&&!citField.value)citField.value='Canada';
+  if(citField){
+    const autoCountry={us:'United States','us-pr':'United States','non-us':'','canadian':'Canada',other:'Other'};
+    if(val in autoCountry)citField.value=autoCountry[val];
+  }
 }
 function onCtAckChange(){/* acknowledgment is validated in addCabinTraveler before submit */}
 const CT_TEXT_IDS=['ct-salutation','ct-suffix','ct-firstname','ct-middlename','ct-lastname','ct-dob-month','ct-dob-day','ct-dob-year','ct-gender','ct-citizenship-type','ct-citizenship','ct-state','ct-relationship','ct-email','ct-phone','ct-birthday','ct-anniversary'];
@@ -3953,7 +3962,6 @@ async function addCabinTraveler(){
   if(!month||!day||!year)return flash('cabin-alert','Please select a complete date of birth.');
   if(!gender)return flash('cabin-alert','Please select a gender.');
   if(!citizenType)return flash('cabin-alert',"Please select the traveler's citizenship status.");
-  if(!citizen)return flash('cabin-alert',"Please enter the traveler's country of citizenship.");
   // Require that traveler has clicked the doc link AND checked the acknowledgment
   const ackMap={us:'ct-ack-us','us-pr':'ct-ack-us-pr','non-us':'ct-ack-non-us',canadian:'ct-ack-canadian',other:'ct-ack-other'};
   const ackEl=document.getElementById(ackMap[citizenType]);
@@ -4038,6 +4046,50 @@ async function addCabinTraveler(){
     // Send change notification email
     sendTravelerChangeEmail(tFullName,ownerEmail,ownerName,gEditingTravelerOld,travelerPayload);
     gEditingTravelerId=null;gEditingTravelerOld=null;
+    // Post-update: check for minor or high-occupancy flags triggered by changes
+    (async()=>{
+      try{
+        const age=calcAgeOnEmbarkation(`${year}-${month}-${day}`);
+        const isMinor=age!==null&&age<21;
+        const reviewFlags=[];
+        if(isMinor){
+          reviewFlags.push(`⚠️ Minor traveler: ${tFullName} will be ${age} years old at embarkation. Carnival requires guests to be 21+ to travel on their own.`);
+          // Flag profile for admin doc review
+          await sb.from('profiles').update({needs_doc_info:true}).eq('id',ownerId);
+          // Alert admin
+          try{
+            const adminMsg=`Traveler info updated for ${tFullName} under account ${ownerName} (${ownerEmail}).\n\n⚠️ MINOR DETECTED: Age ${age} at embarkation.\n\nReview required — minor must travel with a parent or legal guardian in the same cabin.`;
+            sendEmail(ADMIN_EMAIL,'Admin',TRIP_NAME+' — Minor Traveler Update: '+ownerName,adminMsg,buildEmailHtml('Admin','<p>'+adminMsg.replace(/\n/g,'<br>')+'</p>'));
+          }catch(e){}
+        }
+        // Check high occupancy (total guests > 3)
+        const{data:allT}=await sb.from('cabin_travelers').select('id').eq('account_owner_id',ownerId);
+        const{data:ca}=await sb.from('cabin_assignments').select('num_guests,high_occupancy_pending').eq('user_id',ownerId).single();
+        const totalGuests=ca?.num_guests||0;
+        if(totalGuests>3&&!ca?.high_occupancy_pending){
+          await sb.from('cabin_assignments').update({high_occupancy_pending:true}).eq('user_id',ownerId);
+          reviewFlags.push('🏠 High occupancy: Your cabin has '+totalGuests+' guests. Your reservation is pending review for compliance with Carnival\'s cabin occupancy policy.');
+        }
+        // Show confirmation popup
+        if(reviewFlags.length>0){
+          const msg=document.createElement('div');
+          msg.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:20px;';
+          msg.innerHTML=`<div style="background:#fff;border-radius:14px;padding:24px;max-width:460px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.22);">
+            <div style="font-weight:800;font-size:1.05rem;color:#1a4a7c;margin-bottom:6px;">✅ Traveler Updated</div>
+            <p style="font-size:.87rem;color:#374151;margin-bottom:12px;">Your changes to <strong>${tFullName}</strong> have been saved.</p>
+            <div style="background:#fef3c7;border:1.5px solid #f6c440;border-radius:9px;padding:12px 14px;margin-bottom:16px;">
+              <div style="font-weight:700;color:#78460a;font-size:.88rem;margin-bottom:8px;">⚠️ Additional Review Required</div>
+              ${reviewFlags.map(f=>`<p style="font-size:.84rem;color:#78460a;margin:4px 0;">${f}</p>`).join('')}
+              <p style="font-size:.8rem;color:#92400e;margin-top:8px;">The trip organizer has been notified and will follow up with you.</p>
+            </div>
+            <button onclick="this.closest('[style*=fixed]').remove()" style="width:100%;padding:10px;background:#1a4a7c;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">OK, I Understand</button>
+          </div>`;
+          document.body.appendChild(msg);
+        } else {
+          flash('cabin-alert','✅ Traveler information updated successfully.');
+        }
+      }catch(e){console.warn('Post-update check failed:',e);}
+    })();
   } else {
     // ── INSERT new traveler ─────────────────────────────────
     const{error}=await sb.from('cabin_travelers').insert({account_owner_id:ownerId,...travelerPayload});
@@ -5292,6 +5344,7 @@ async function loadTravelers(){
         '<td class="col-r" style="color:var(--muted);font-size:.79rem;">—</td>'+
         '<td><select class="action-sel action-sel-sm" onchange="handleOccupantAction(this,\''+tid+'\',\''+tSafe+'\',\''+p.id+'\')">'+
           '<option value="">Actions...</option>'+
+          '<option value="edit">&#x270F; Edit Info</option>'+
           '<option value="remove">&#x1F5D1; Remove from Cabin</option>'+
         '</select></td>'+
       '</tr>';
@@ -6345,7 +6398,7 @@ async function loadHighOccTab(){
 
   const[{data:allCabins,error:cabErr},{data:allProfiles},{data:allTravelers}]=await Promise.all([
     sb.from('cabin_assignments').select('*').gte('num_guests',3),
-    sb.from('profiles').select('id,name,email,phone,status').eq('is_admin',false).order('name'),
+    sb.from('profiles').select('id,name,email,phone,status').neq('is_admin',true).order('name'),
     sb.from('cabin_travelers').select('*').order('created_at',{ascending:true})
   ]);
 
@@ -7095,17 +7148,33 @@ async function egSendEmail(){
 }
 
 async 
-function showAdminNoteModal(userId, userName){
+async function showAdminNoteModal(userId, userName){
   const existing = document.getElementById('admin-note-modal');
   if(existing) existing.remove();
+
+  // Load existing notes first
+  let notesHtml='';
+  try{
+    const{data:notes}=await sb.from('admin_notes').select('note,action_date').eq('user_id',userId).order('action_date',{ascending:false}).limit(8);
+    if(notes&&notes.length>0){
+      const rows=notes.map(n=>`<div style="border-bottom:1px solid #f1f5f9;padding:6px 0;"><span style="font-size:.76rem;color:#6b7280;font-weight:600;">${n.action_date||'—'}</span><div style="font-size:.84rem;margin-top:2px;color:#1e293b;white-space:pre-wrap;">${(n.note||'').replace(/</g,'&lt;')}</div></div>`).join('');
+      notesHtml=`<div style="background:#f8faff;border:1px solid #dde3f0;border-radius:8px;padding:10px 12px;margin-bottom:14px;max-height:160px;overflow-y:auto;">
+        <div style="font-size:.78rem;font-weight:700;color:#1a4a7c;margin-bottom:6px;">📋 Previous Notes (${notes.length}):</div>${rows}</div>`;
+    }
+  }catch(e){/* admin_notes table may not exist yet — silent */}
+
   const modal = document.createElement('div');
   modal.id = 'admin-note-modal';
   modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px;';
-  modal.innerHTML = `<div style="background:#fff;border-radius:14px;padding:24px;max-width:440px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.18);">
-    <div style="font-weight:700;font-size:1.1rem;margin-bottom:14px;">📝 Add Note — ${userName}</div>
+  modal.innerHTML = `<div style="background:#fff;border-radius:14px;padding:24px;max-width:460px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.18);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-weight:700;font-size:1.05rem;">📝 Add Note — ${userName}</div>
+      <button onclick="document.getElementById('admin-note-modal').remove()" style="background:none;border:none;font-size:1.5rem;color:#94a3b8;cursor:pointer;line-height:1;">&times;</button>
+    </div>
+    ${notesHtml}
     <div style="margin-bottom:10px;"><label style="font-size:.85rem;font-weight:600;color:#374151;">Action Date</label>
     <input type="date" id="admin-note-date" value="${new Date().toISOString().slice(0,10)}" style="width:100%;padding:8px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.95rem;margin-top:4px;box-sizing:border-box;"></div>
-    <div style="margin-bottom:16px;"><label style="font-size:.85rem;font-weight:600;color:#374151;">Note</label>
+    <div style="margin-bottom:16px;"><label style="font-size:.85rem;font-weight:600;color:#374151;">New Note</label>
     <textarea id="admin-note-text" rows="4" placeholder="Enter note..." style="width:100%;padding:8px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.95rem;margin-top:4px;box-sizing:border-box;resize:vertical;"></textarea></div>
     <div style="display:flex;gap:10px;">
       <button onclick="saveAdminNote('${userId}')" style="flex:1;padding:10px;background:#1a4a7c;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">Save Note</button>
@@ -7304,25 +7373,31 @@ function mtSlotHtml(idx, t){
 
 async function openManageTravelers(ownerId, ownerName, numGuests){
   gMtOwnerId = ownerId;
-  document.getElementById('mt-subtitle').textContent = ownerName + ' — ' + numGuests + ' guest slot' + (numGuests>1?'s':'');
-  document.getElementById('mt-alert').style.display='none';
+  const ng=parseInt(numGuests)||1;
+  const alertEl=document.getElementById('mt-alert');
+  const slotsEl=document.getElementById('mt-slots');
+  alertEl.style.display='none';
+  document.getElementById('mt-subtitle').textContent=(ownerName||'Traveler')+' — '+ng+' guest slot'+(ng>1?'s':'');
   document.getElementById('mt-submit-btn').disabled=false;
   document.getElementById('mt-submit-btn').textContent='Save All Travelers';
-  const slotsEl = document.getElementById('mt-slots');
   slotsEl.innerHTML='<div class="loading"><div class="spinner"></div></div>';
   document.getElementById('admin-mt-modal').classList.add('open');
-
-  const{data:existing}=await sb.from('cabin_travelers')
-    .select('id,salutation,first_name,middle_name,last_name,name_suffix,date_of_birth,gender,citizenship_type,country_of_citizenship,phone,account_owner_id')
-    .eq('account_owner_id',ownerId)
-    .order('created_at',{ascending:true});
-  gMtExisting = existing||[];
-
-  let slots='';
-  for(let i=0;i<numGuests;i++){
-    slots += mtSlotHtml(i, gMtExisting[i]||null);
+  try{
+    const{data:existing,error:fetchErr}=await sb.from('cabin_travelers')
+      .select('id,salutation,first_name,middle_name,last_name,name_suffix,date_of_birth,gender,citizenship_type,country_of_citizenship,phone,account_owner_id')
+      .eq('account_owner_id',ownerId)
+      .order('created_at',{ascending:true});
+    if(fetchErr)console.warn('cabin_travelers fetch:',fetchErr.message);
+    gMtExisting=existing||[];
+    let slots='';
+    for(let i=0;i<ng;i++){slots+=mtSlotHtml(i,gMtExisting[i]||null);}
+    slotsEl.innerHTML=slots||'<p style="color:var(--muted);padding:8px;">No slots to display.</p>';
+  }catch(e){
+    alertEl.className='alert alert-error';
+    alertEl.textContent='Error loading travelers: '+e.message;
+    alertEl.style.display='block';
+    slotsEl.innerHTML='';
   }
-  slotsEl.innerHTML=slots;
 }
 
 async function saveManageTravelers(){
@@ -7822,9 +7897,32 @@ function handleTravelerAction(sel,userId){
   else if(v==='delete'){deleteTraveler(d.userId,d.name);}
 }
 
+async function openEditOccupant(travelerId,ownerId){
+  gMtOwnerId=ownerId;
+  const alertEl=document.getElementById('mt-alert');
+  const slotsEl=document.getElementById('mt-slots');
+  alertEl.style.display='none';
+  document.getElementById('mt-subtitle').textContent='Edit Cabin Traveler';
+  document.getElementById('mt-submit-btn').disabled=false;
+  document.getElementById('mt-submit-btn').textContent='Save Traveler';
+  slotsEl.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  document.getElementById('admin-mt-modal').classList.add('open');
+  try{
+    const{data:t,error}=await sb.from('cabin_travelers').select('*').eq('id',travelerId).single();
+    if(error)throw new Error(error.message);
+    gMtExisting=[t||null];
+    slotsEl.innerHTML=mtSlotHtml(0,t||null);
+  }catch(e){
+    alertEl.className='alert alert-error';
+    alertEl.textContent='Error loading traveler: '+e.message;
+    alertEl.style.display='block';
+    slotsEl.innerHTML='';
+  }
+}
 async function handleOccupantAction(sel,travelerId,name,ownerId){
   const v=sel.value;sel.value='';
-  if(v==='remove'){
+  if(v==='edit'){openEditOccupant(travelerId,ownerId);}
+  else if(v==='remove'){
     if(!travelerId){alert('Cannot remove — traveler ID not found.');return;}
     if(!confirm('Remove '+name+' from the cabin?\n\nThis will delete their traveler record. The account holder can re-add them from their dashboard.\n\nContinue?'))return;
     const{error}=await sb.from('cabin_travelers').delete().eq('id',travelerId);
