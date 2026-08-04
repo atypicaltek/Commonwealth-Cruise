@@ -2497,7 +2497,7 @@ async function completeRegistration(){
     // 7. Send welcome email
     try{
       const body='Hello '+firstName+',\n\nWelcome to the '+TRIP_NAME+'!\n\nYour account has been created. Sign in at any time to complete your traveler information and view your cabin reservation.\n\nPortal: '+PORTAL_URL+'\n\nGlowJetters Travel';
-      await sb.from('email_queue').insert({to_email:gRegEmail,to_name:fullName,subject:TRIP_NAME+' — Your Account Has Been Created',body,status:'pending',bypass_hold:true});
+      await sb.from('email_queue').insert({to_email:gRegEmail,to_name:fullName,subject:TRIP_NAME+' — Your Account Has Been Created',plain_body:body,html_body:body,status:'queued'});
     }catch(e){}
 
     document.getElementById('reg-wizard-modal').classList.remove('open');
@@ -2679,18 +2679,21 @@ async function doForgotModal(){
     return;
   }
 
-  // Email the 6-digit code via our queue (bypasses hold so it sends immediately)
+  // Send the 6-digit code immediately via Apps Script — bypasses hold queue
+  // (security-critical: OTP must always reach the user regardless of email hold state)
   const displayName=email.split('@')[0];
   try{
-    const html=buildEmailHtml(displayName,
+    const otpPlain='Your 6-digit PIN reset code is: '+otpCode+'\n\nThis code expires in 15 minutes. If you did not request this, you can safely ignore this email.';
+    const otpHtml=buildEmailHtml(displayName,
       '<p>A PIN reset was requested for your <strong>Commonwealth Cruise 2027</strong> portal account.</p>'+
       '<div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:12px;padding:18px 22px;margin:18px 0;text-align:center;">'+
       '<p style="margin:0 0 6px;font-weight:700;color:#166534;font-size:.9rem;">&#x1F511; Your 6-Digit Verification Code</p>'+
       '<p style="margin:0;font-size:2.4rem;font-weight:900;letter-spacing:12px;color:#1e293b;">'+otpCode+'</p>'+
       '<p style="margin:8px 0 0;font-size:.82rem;color:#64748b;">This code expires in 15 minutes.</p></div>'+
       '<p style="font-size:.85rem;color:#475569;">If you did not request a PIN reset, you can safely ignore this email.</p>');
-    await sb.from('email_queue').insert({to_email:gFpEmail,to_name:displayName,subject:'Commonwealth Cruise 2027 — PIN Reset Code',plain_body:'Your 6-digit PIN reset code is: '+otpCode+'\n\nThis code expires in 15 minutes. If you did not request this, you can ignore this email.',html_body:html,status:'pending',bypass_hold:true});
-  }catch(e){console.warn('OTP email queue error:',e);}
+    // bypassHold=true (7th arg) ensures delivery even when admin hold is active
+    await sendEmail(gFpEmail,displayName,'Commonwealth Cruise 2027 — PIN Reset Code',otpPlain,otpHtml,true,true);
+  }catch(e){console.warn('OTP email error:',e);}
 
   btn.disabled=false;btn.textContent='Send Code';
   document.getElementById('fp-otp-msg').innerHTML=
@@ -7783,7 +7786,9 @@ function handleTravelerAction(sel,userId){
   else if(v==='res_num')setReservationNumber(d.userId,d.name,d.resNum);
   else if(v==='pay_link')setPaymentLink(d.userId,d.name,d.payLink);
   else if(v==='send_cc_auth')sendCCAuthForm(d.name,d.email,d.cabinType,d.numGuests);
-  else if(v==='add_note'){showAdminNoteModal(tr.user_id||tr.id,tr.first_name+' '+tr.last_name);sel.value='';} else if(v==='mark_deposit_paid'){adminMarkDepositPaid(tr.user_id||tr.id);sel.value='';} else if(v==='send_pay_link')emailPaymentLinkToTraveler(d.name,d.email,d.payLink);
+  else if(v==='add_note'){showAdminNoteModal(d.userId,d.name);sel.value='';}
+  else if(v==='mark_deposit_paid'){adminMarkDepositPaid(d.userId);sel.value='';}
+  else if(v==='send_pay_link')emailPaymentLinkToTraveler(d.name,d.email,d.payLink);
   else if(v==='send_portal_link')emailPortalLinkToTraveler(d.name,d.email);
   else if(v==='send_temp_pin')adminSendTempPin(d.userId,d.name,d.email);
   else if(v==='gratuity')setGratuityPaid(d.userId,d.name,d.gratPaid);
@@ -7912,7 +7917,7 @@ async function adminAddTraveler(){
       if(sendEmail){
         const plain='Hello '+tr.firstName+',\n\nYour Commonwealth Cruise 2027 traveler account has been created.\n\nEmail: '+tr.email+'\nTemporary PIN: '+tempPin+'\n\nPortal: https://atypicaltek.github.io/Commonwealth-Cruise/\n\nYou will be prompted to create a personal PIN when you first log in.\n\nGlowJetters Travel';
         const html=buildEmailHtml(tr.firstName,'<p>Your <strong>Commonwealth Cruise 2027</strong> traveler account has been created by the trip organizer.</p><div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:12px;padding:18px 22px;margin:18px 0;text-align:center;"><p style="margin:0 0 6px;font-weight:700;color:#166534;">&#x1F511; Your Temporary Login PIN</p><p style="margin:0;font-size:2.2rem;font-weight:900;letter-spacing:10px;color:#1e293b;">'+tempPin+'</p><p style="margin:8px 0 0;font-size:.82rem;color:#64748b;">You will be prompted to set a personal PIN on your first login.</p></div><p><strong>Email:</strong> '+tr.email+'</p><p><a href="https://atypicaltek.github.io/Commonwealth-Cruise/" style="background:var(--primary);color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;">&#x1F680; Access Your Portal</a></p>');
-        await sb.from('email_queue').insert({to_email:tr.email,to_name:fullName,subject:'Your Commonwealth Cruise 2027 Portal Access',plain_body:plain,html_body:html,status:'pending',bypass_hold:true});
+        await sb.from('email_queue').insert({to_email:tr.email,to_name:fullName,subject:'Your Commonwealth Cruise 2027 Portal Access',plain_body:plain,html_body:html,status:'queued'});
       }
       results.push({name:fullName,ok:true});
     }catch(e){results.push({name:(tr.firstName+' '+tr.lastName),ok:false,err:e.message});}
