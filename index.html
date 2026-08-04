@@ -2665,23 +2665,39 @@ async function doForgotModal(){
   gFpEmail=email;
   gFpTempPin='';
 
-  // Supabase native OTP — sends a 6-digit code to the user's email.
-  // shouldCreateUser:false means only existing accounts get a code.
-  const{error}=await sb.auth.signInWithOtp({email:gFpEmail,options:{shouldCreateUser:false}});
-
-  btn.disabled=false;btn.textContent='Send Code';
-  if(error){
-    const msg=(error.message||'').toLowerCase();
-    if(msg.includes('not found')||msg.includes('registered')||msg.includes('user'))
+  // Custom OTP: RPC generates a 6-digit code and stores it in profiles.otp_code
+  let otpCode=null;
+  try{
+    const{data,error}=await sb.rpc('request_pin_reset',{p_email:gFpEmail});
+    if(error)throw error;
+    otpCode=data;
+  }catch(e){
+    btn.disabled=false;btn.textContent='Send Code';
+    const msg=(e.message||'').toLowerCase();
+    if(msg.includes('no account')||msg.includes('not found'))
       showErr('No account found for that email. Please contact the trip organizer.');
     else
       showErr('Unable to send code. Please try again in a moment.');
     return;
   }
 
+  // Email the 6-digit code via our queue (bypasses hold so it sends immediately)
+  const displayName=email.split('@')[0];
+  try{
+    const html=buildEmailHtml(displayName,
+      '<p>A PIN reset was requested for your <strong>Commonwealth Cruise 2027</strong> portal account.</p>'+
+      '<div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:12px;padding:18px 22px;margin:18px 0;text-align:center;">'+
+      '<p style="margin:0 0 6px;font-weight:700;color:#166534;font-size:.9rem;">&#x1F511; Your 6-Digit Verification Code</p>'+
+      '<p style="margin:0;font-size:2.4rem;font-weight:900;letter-spacing:12px;color:#1e293b;">'+otpCode+'</p>'+
+      '<p style="margin:8px 0 0;font-size:.82rem;color:#64748b;">This code expires in 15 minutes.</p></div>'+
+      '<p style="font-size:.85rem;color:#475569;">If you did not request a PIN reset, you can safely ignore this email.</p>');
+    await sb.from('email_queue').insert({to_email:gFpEmail,to_name:displayName,subject:'Commonwealth Cruise 2027 — PIN Reset Code',plain_body:'Your 6-digit PIN reset code is: '+otpCode+'\n\nThis code expires in 15 minutes. If you did not request this, you can ignore this email.',html_body:html,status:'pending',bypass_hold:true});
+  }catch(e){console.warn('OTP email queue error:',e);}
+
+  btn.disabled=false;btn.textContent='Send Code';
   document.getElementById('fp-otp-msg').innerHTML=
     'A 6-digit verification code was sent to <strong>'+email+'</strong>. Enter it below.<br>'+
-    '<span style="font-size:.8rem;color:var(--muted);">Check spam/junk if you don\'t see it. Code expires in ~10 minutes.</span>';
+    '<span style="font-size:.8rem;color:var(--muted);">Check spam/junk if you don\'t see it. Code expires in 15 minutes.</span>';
   fpGoStep(2);
 }
 
@@ -2694,18 +2710,28 @@ async function doVerifyOtp(){
   const btn=document.getElementById('fp-verify-btn');
   btn.disabled=true;btn.textContent='Verifying...';
 
-  // Verify via Supabase native — establishes an authenticated session without touching auth.users.encrypted_password
-  const{data,error}=await sb.auth.verifyOtp({email:gFpEmail,token,type:'email'});
-
-  if(error||!data?.user){
+  // Verify OTP against our DB — if valid, sets a temp PIN in auth.users and returns it
+  let tempPin=null;
+  try{
+    const{data,error}=await sb.rpc('verify_otp_and_get_temp_pin',{p_email:gFpEmail,p_otp:token});
+    if(error)throw error;
+    tempPin=data;
+  }catch(e){
     btn.disabled=false;btn.textContent='Verify Code';
-    const msg=(error?.message||'').toLowerCase();
-    if(msg.includes('expired'))showErr('Code expired. Go back and request a new one.');
-    else showErr('Invalid code. Please check and try again.');
+    const msg=(e.message||'').toLowerCase();
+    if(msg.includes('expired'))showErr('Code expired. Click "Resend code" to request a new one.');
+    else if(msg.includes('invalid'))showErr('Invalid code. Please check and try again.');
+    else showErr('Verification failed: '+(e.message||'please try again.'));
     return;
   }
 
-  // Authenticated! Advance to step 3 to set permanent PIN
+  if(!tempPin){
+    btn.disabled=false;btn.textContent='Verify Code';
+    showErr('Verification error. Please try again.');
+    return;
+  }
+
+  gFpTempPin=tempPin;
   btn.disabled=false;btn.textContent='Verify Code';
   clearPin('otp');
   document.getElementById('forgot-newpin-alert').style.display='none';
@@ -2731,7 +2757,6 @@ function closeForgotPinModal(){
 async function doSetNewPinAfterOtp(){
   const alertEl=document.getElementById('forgot-newpin-alert');
   function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';}
-  function showOk(msg){alertEl.className='alert alert-success';alertEl.textContent=msg;alertEl.style.display='block';}
   alertEl.style.display='none';
   const newPin=getPin('fnp');
   const confirmPin=getPin('fnc');
@@ -2739,40 +2764,43 @@ async function doSetNewPinAfterOtp(){
   if(newPin!==confirmPin){showErr('PINs do not match. Please try again.');clearPin('fnc');setTimeout(()=>{const el=document.getElementById('fnc0');if(el)el.focus();},50);return;}
 
   const btn=document.getElementById('fp-save-pin-btn');
-  btn.disabled=true;btn.textContent='Saving…';
+  btn.disabled=true;btn.textContent='Signing in…';
 
   function withTimeout(p,ms){const t=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms));return Promise.race([p,t]);}
 
-  // User is authenticated via verifyOtp above — use Supabase native updateUser.
-  // This sets the password using GoTrue's own bcrypt, guaranteed compatible with signInWithPassword.
+  // Step 1: Sign in with the temp PIN set by verify_otp_and_get_temp_pin RPC
+  let signInData=null,signInErr=null;
+  try{
+    const r=await withTimeout(sb.auth.signInWithPassword({email:gFpEmail,password:gFpTempPin}),12000);
+    signInData=r.data;signInErr=r.error;
+  }catch(e){signInErr=e;}
+
+  if(signInErr||!signInData?.user){
+    btn.disabled=false;btn.textContent='Save New PIN & Sign In';
+    showErr('Could not verify your identity. Please start the reset process again. ('+(signInErr?.message||'unknown')+')');
+    return;
+  }
+
+  btn.textContent='Saving PIN…';
+
+  // Step 2: Set permanent PIN via GoTrue (compatible with pgcrypto bcrypt)
   let updateErr=null;
   try{const{error}=await withTimeout(sb.auth.updateUser({password:newPin}),12000);updateErr=error;}
   catch(e){updateErr=e;}
 
   if(updateErr){
     btn.disabled=false;btn.textContent='Save New PIN & Sign In';
-    showErr('Unable to save PIN — your session may have expired. Please start over. ('+(updateErr?.message||'unknown')+')');
+    showErr('Signed in but could not save new PIN. Please try again. ('+(updateErr?.message||'unknown')+')');
     return;
   }
 
-  // Update profiles.pin (plaintext, for reference)
+  // Step 3: Update profiles
   try{await withTimeout(sb.from('profiles').update({pin:newPin,needs_pin_reset:false}).eq('email',gFpEmail),6000);}catch(e){}
 
-  // Get current user and navigate to dashboard
-  let routeUser=null;
-  try{const{data}=await withTimeout(sb.auth.getUser(),8000);routeUser=data?.user||null;}catch(e){}
-
-  if(routeUser){
-    closeForgotPinModal();
-    sessionStorage.setItem('fresh_login','1');
-    await loadAndRoute(routeUser);
-    return;
-  }
-
-  // Fallback — PIN was saved, route to login
-  btn.disabled=false;btn.textContent='Save New PIN & Sign In';
-  showOk('✅ PIN saved! Please sign in with your new PIN.');
-  setTimeout(()=>{closeForgotPinModal();showPage('login');},3000);
+  // Step 4: Route to dashboard
+  closeForgotPinModal();
+  sessionStorage.setItem('fresh_login','1');
+  await loadAndRoute(signInData.user);
 }
 
 // Legacy stub (no longer called from UI)
@@ -7842,18 +7870,52 @@ async function adminAddTraveler(){
       const {createClient}=window.supabase;
       const sb2=createClient(sbUrl,sbKey);
       const{data:signUpData,error:signUpErr}=await sb2.auth.signUp({email:tr.email,password:tempPin,options:{data:{full_name:fullName}}});
-      if(signUpErr)throw signUpErr;
-      const newUserId=signUpData.user?.id;
-      if(!newUserId)throw new Error('No user ID returned');
-      // Auto-confirm so the traveler can sign in immediately with their temp PIN
-      try{await sb.rpc('confirm_user_email',{p_email:tr.email});}catch(e){}
+
+      let newUserId=null;
+      if(signUpErr){
+        const em=(signUpErr.message||'').toLowerCase();
+        if(em.includes('already')||em.includes('registered')){
+          // User exists in auth.users (possibly from a prior failed add) — retrieve their ID
+          const{data:existingId,error:idErr}=await sb.rpc('admin_get_user_id',{p_email:tr.email});
+          if(idErr||!existingId)throw new Error('User already exists but ID could not be retrieved. Run Statement 28 in urgent-fixes.sql first.');
+          newUserId=existingId;
+          // Reset their password to the new temp PIN so they can log in
+          try{await sb.rpc('admin_reset_user_pin',{p_email:tr.email,p_new_pin:tempPin});}catch(e){}
+        } else {
+          throw signUpErr;
+        }
+      } else {
+        newUserId=signUpData.user?.id;
+        if(!newUserId)throw new Error('No user ID returned');
+        // Auto-confirm so the traveler can sign in immediately
+        try{await sb.rpc('confirm_user_email',{p_email:tr.email});}catch(e){}
+      }
+
       const dob=(tr.dobY&&tr.dobM&&tr.dobD)?(tr.dobY+'-'+String(tr.dobM).padStart(2,'0')+'-'+String(tr.dobD).padStart(2,'0')):null;
-      await sb.from('profiles').upsert({id:newUserId,full_name:fullName,email:tr.email,phone:tr.phone||null,pin:tempPin,gender:tr.gender||null,date_of_birth:dob,state_of_residency:tr.state||null});
-      await sb.from('cabin_assignments').insert({user_id:newUserId,cabin_type:cabinType,num_guests:numGuests,deposit_status:'pending'});
-      await sb.from('cabin_travelers').insert({account_owner_id:newUserId,first_name:tr.firstName,last_name:tr.lastName,date_of_birth:dob,gender:tr.gender||null,citizenship_type:tr.citizenship||null});
+      // Write both name and full_name — loadTravelers queries the name column
+      await sb.from('profiles').upsert({id:newUserId,name:fullName,full_name:fullName,email:tr.email,phone:tr.phone||null,pin:tempPin,needs_pin_reset:true,gender:tr.gender||null,date_of_birth:dob,state_of_residency:tr.state||null});
+
+      // Only insert cabin_assignment if one doesn't already exist
+      const{data:existingCabin}=await sb.from('cabin_assignments').select('id').eq('user_id',newUserId).maybeSingle();
+      if(!existingCabin){
+        await sb.from('cabin_assignments').insert({user_id:newUserId,cabin_type:cabinType,num_guests:numGuests,deposit_status:'pending',admin_assigned:true});
+        // Decrement inventory (Suite has no tier tracking)
+        if(cabinType!=='Suite'){
+          try{await sb.rpc('decrement_cabin',{cabin:cabinType});}catch(e){}
+          try{await sb.rpc('decrement_cabin_tier',{p_cabin_type:cabinType});}catch(e){}
+        }
+      }
+
+      // Only insert cabin_travelers if they don't already have an entry
+      const{data:existingOccupant}=await sb.from('cabin_travelers').select('id').eq('account_owner_id',newUserId).eq('first_name',tr.firstName).eq('last_name',tr.lastName).maybeSingle();
+      if(!existingOccupant){
+        await sb.from('cabin_travelers').insert({account_owner_id:newUserId,first_name:tr.firstName,last_name:tr.lastName,date_of_birth:dob,gender:tr.gender||null,citizenship_type:tr.citizenship||null});
+      }
+
       if(sendEmail){
-        const body='Hello '+tr.firstName+',\n\nYour Commonwealth Cruise 2027 traveler account has been created.\n\nEmail: '+tr.email+'\nTemporary PIN: '+tempPin+'\n\nPortal: https://atypicaltek.github.io/Commonwealth-Cruise/\n\nYou will be prompted to create a personal PIN when you first log in.\n\nGlowJetters Travel';
-        await sb.from('email_queue').insert({to_email:tr.email,to_name:fullName,subject:'Your Commonwealth Cruise 2027 Portal Access',body,status:'pending',bypass_hold:true});
+        const plain='Hello '+tr.firstName+',\n\nYour Commonwealth Cruise 2027 traveler account has been created.\n\nEmail: '+tr.email+'\nTemporary PIN: '+tempPin+'\n\nPortal: https://atypicaltek.github.io/Commonwealth-Cruise/\n\nYou will be prompted to create a personal PIN when you first log in.\n\nGlowJetters Travel';
+        const html=buildEmailHtml(tr.firstName,'<p>Your <strong>Commonwealth Cruise 2027</strong> traveler account has been created by the trip organizer.</p><div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:12px;padding:18px 22px;margin:18px 0;text-align:center;"><p style="margin:0 0 6px;font-weight:700;color:#166534;">&#x1F511; Your Temporary Login PIN</p><p style="margin:0;font-size:2.2rem;font-weight:900;letter-spacing:10px;color:#1e293b;">'+tempPin+'</p><p style="margin:8px 0 0;font-size:.82rem;color:#64748b;">You will be prompted to set a personal PIN on your first login.</p></div><p><strong>Email:</strong> '+tr.email+'</p><p><a href="https://atypicaltek.github.io/Commonwealth-Cruise/" style="background:var(--primary);color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;">&#x1F680; Access Your Portal</a></p>');
+        await sb.from('email_queue').insert({to_email:tr.email,to_name:fullName,subject:'Your Commonwealth Cruise 2027 Portal Access',plain_body:plain,html_body:html,status:'pending',bypass_hold:true});
       }
       results.push({name:fullName,ok:true});
     }catch(e){results.push({name:(tr.firstName+' '+tr.lastName),ok:false,err:e.message});}
