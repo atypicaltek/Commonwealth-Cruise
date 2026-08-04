@@ -211,32 +211,31 @@
       <!-- Flyer -->
       <img src="./cruise-flyer.jpg" alt="Commonwealth Cruise 2027 to Bermuda" style="width:100%;border-radius:10px;margin-bottom:18px;display:block;">
 
-      <!-- Create Account CTA — FIRST, dark green -->
-      <div style="margin-bottom:12px;background:linear-gradient(135deg,#145a32,#1e8449);border-radius:10px;padding:16px;text-align:center;">
-        <p style="margin:0 0 8px;font-weight:800;font-size:1.05rem;color:#d5f5e3;">&#x1F3AB; Not Signed Up Yet?</p>
-        <button class="btn btn-full" onclick="showPage('signup')" style="background:#d5f5e3;color:#145a32;font-weight:800;font-size:.97rem;border:none;border-radius:8px;padding:11px;">Create Your Account Now</button>
+      <div id="login-alert" class="alert"></div>
+
+      <!-- Step A: Email entry -->
+      <div id="login-email-step">
+        <div style="font-weight:700;font-size:1rem;color:var(--primary);margin-bottom:12px;text-align:center;">&#x1F511; Welcome — Enter Your Email to Continue</div>
+        <div class="form-group"><label>Email Address</label><input type="email" id="login-email" placeholder="you@email.com" autocomplete="off" onkeydown="if(event.key==='Enter')checkEmailContinue()"></div>
+        <button class="btn btn-primary btn-full" onclick="checkEmailContinue()">Continue &#x2192;</button>
       </div>
 
-      <!-- Sign In button — centered, below green box -->
-      <div style="text-align:center;margin-bottom:12px;">
-        <button id="login-toggle-btn" class="btn btn-primary" onclick="toggleLoginPanel()" style="font-weight:700;padding:10px 36px;font-size:.95rem;">&#x1F511; Sign In</button>
-      </div>
-
-      <!-- Collapsible Sign In Form -->
-      <div id="login-panel" style="display:none;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:18px 16px;margin-bottom:16px;">
-        <div style="font-weight:700;font-size:.95rem;color:var(--primary);margin-bottom:12px;text-align:center;">Sign In to Your Account</div>
-        <div id="login-alert" class="alert"></div>
-        <div class="form-group"><label>Email Address</label><input type="email" id="login-email" placeholder="you@email.com" autocomplete="off"></div>
+      <!-- Step B: PIN entry (existing users) -->
+      <div id="login-pin-step" style="display:none;">
+        <div style="background:#f0f4ff;border:1.5px solid #c7d7f9;border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <span style="font-size:.9rem;color:#1a4a7c;font-weight:600;" id="login-email-display"></span>
+          <button onclick="resetLoginToEmail()" style="background:none;border:none;color:#2176ae;font-size:.82rem;cursor:pointer;font-weight:600;white-space:nowrap;">Change &#x270E;</button>
+        </div>
         <div class="form-group"><label>Your 6-Digit PIN</label>
           <div class="pin-row"><input class="pin-box" id="lp0" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp1" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp2" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp3" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp4" maxlength="1" inputmode="numeric" autocomplete="off"><input class="pin-box" id="lp5" maxlength="1" inputmode="numeric" autocomplete="off"></div>
         </div>
         <button class="btn btn-primary btn-full" onclick="doLogin()">Sign In</button>
-        <button class="btn btn-ghost btn-full" style="margin-top:8px;" onclick="document.getElementById('forgot-pin-modal').classList.add('open')">Forgot PIN? Send Reset Link</button>
+        <button class="btn btn-ghost btn-full" style="margin-top:8px;" onclick="document.getElementById('forgot-pin-modal').classList.add('open')">Forgot PIN?</button>
       </div>
 
       <!-- Help / Issue Box -->
-      <div style="background:#f0f4ff;border:1.5px solid #c7d7f9;border-radius:10px;padding:13px 16px;text-align:center;">
-        <p style="margin:0 0 8px;font-size:.87rem;color:#c0392b;font-weight:800;text-transform:capitalize;">Issue With Account Creation Or Log In?</p>
+      <div style="margin-top:16px;background:#f0f4ff;border:1.5px solid #c7d7f9;border-radius:10px;padding:13px 16px;text-align:center;">
+        <p style="margin:0 0 8px;font-size:.87rem;color:#c0392b;font-weight:800;text-transform:capitalize;">Issue With Account Or Log In?</p>
         <button onclick="document.getElementById('help-contact-modal').classList.add('open')" class="btn btn-full" style="background:#2176ae;color:#fff;font-weight:700;font-size:.87rem;border:none;border-radius:8px;padding:9px;">Click Here</button>
       </div>
 
@@ -971,6 +970,72 @@
   </div>
 </div>
 
+<!-- REGISTRATION WIZARD MODAL -->
+<div class="modal-overlay" id="reg-wizard-modal">
+  <div class="modal-box" style="max-width:560px;max-height:92vh;overflow-y:auto;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+      <h3 style="margin:0;color:var(--primary);font-size:1.05rem;">&#x1F3AB; Create Your Account</h3>
+      <div id="reg-step-indicator" style="margin-left:auto;font-size:.82rem;color:#64748b;font-weight:600;"></div>
+    </div>
+    <div style="height:4px;background:#e2e8f0;border-radius:4px;margin-bottom:18px;">
+      <div id="reg-progress-bar" style="height:4px;background:var(--primary);border-radius:4px;transition:width .3s;width:33%;"></div>
+    </div>
+    <div id="reg-alert" class="alert"></div>
+    <!-- STEP 1: Cabin -->
+    <div id="reg-step-1">
+      <div style="font-weight:700;color:var(--primary);margin-bottom:14px;">Step 1: Choose Your Cabin</div>
+      <div class="form-group"><label>Cabin Type *</label>
+        <select id="reg-cabin-type"><option value="">Select cabin type...</option><option value="Interior">Interior</option><option value="Ocean View">Ocean View</option><option value="Balcony">Balcony</option><option value="Suite">Suite</option></select>
+      </div>
+      <div class="form-group"><label>Number of Guests in Cabin *</label>
+        <select id="reg-num-guests"><option value="">Select...</option><option value="1">1 (Solo — full cabin rate applies)</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+      </div>
+      <div style="display:flex;justify-content:flex-end;"><button class="btn btn-primary" onclick="regGoStep(2)">Next &#x2192;</button></div>
+    </div>
+    <!-- STEP 2: Traveler Info -->
+    <div id="reg-step-2" style="display:none;">
+      <div style="font-weight:700;color:var(--primary);margin-bottom:14px;">Step 2: Your Information</div>
+      <div class="grid-2" style="margin-bottom:8px;">
+        <div class="form-group" style="margin:0;"><label>First Name *</label><input type="text" id="reg-firstname" placeholder="Jane" autocomplete="off"></div>
+        <div class="form-group" style="margin:0;"><label>Last Name *</label><input type="text" id="reg-lastname" placeholder="Smith" autocomplete="off"></div>
+      </div>
+      <div class="form-group"><label>Date of Birth</label>
+        <div style="display:flex;gap:6px;">
+          <select id="reg-dob-m" style="flex:1;"><option value="">Month</option><option value="01">Jan</option><option value="02">Feb</option><option value="03">Mar</option><option value="04">Apr</option><option value="05">May</option><option value="06">Jun</option><option value="07">Jul</option><option value="08">Aug</option><option value="09">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option></select>
+          <select id="reg-dob-d" style="flex:1;"><option value="">Day</option><option>01</option><option>02</option><option>03</option><option>04</option><option>05</option><option>06</option><option>07</option><option>08</option><option>09</option><option>10</option><option>11</option><option>12</option><option>13</option><option>14</option><option>15</option><option>16</option><option>17</option><option>18</option><option>19</option><option>20</option><option>21</option><option>22</option><option>23</option><option>24</option><option>25</option><option>26</option><option>27</option><option>28</option><option>29</option><option>30</option><option>31</option></select>
+          <input type="number" id="reg-dob-y" placeholder="Year" style="flex:1.2;min-width:0;" min="1920" max="2025">
+        </div>
+      </div>
+      <div class="grid-2" style="margin-bottom:8px;">
+        <div class="form-group" style="margin:0;"><label>Gender</label><select id="reg-gender"><option value="">Select...</option><option>Male</option><option>Female</option><option>Non-binary</option><option>Prefer not to say</option></select></div>
+        <div class="form-group" style="margin:0;"><label>State of Residency</label><input type="text" id="reg-state" placeholder="TX" autocomplete="off"></div>
+      </div>
+      <div class="form-group"><label>Citizenship Type</label><select id="reg-citizenship"><option value="">Select...</option><option>US Citizen/Passport</option><option>US Citizen/Birth Certificate</option><option>Permanent Resident</option><option>Foreign National</option></select></div>
+      <div class="form-group"><label>Phone</label><input type="tel" id="reg-phone" placeholder="555-000-0000" autocomplete="off"></div>
+      <div style="display:flex;gap:10px;justify-content:space-between;">
+        <button class="btn btn-ghost" onclick="regGoStep(1)">&#x2190; Back</button>
+        <button class="btn btn-primary" onclick="regGoStep(3)">Next &#x2192;</button>
+      </div>
+    </div>
+    <!-- STEP 3: PIN -->
+    <div id="reg-step-3" style="display:none;">
+      <div style="font-weight:700;color:var(--primary);margin-bottom:10px;">Step 3: Create Your PIN</div>
+      <p style="font-size:.88rem;color:#475569;margin-bottom:16px;">Choose a 6-digit PIN you will use every time you sign in.</p>
+      <div class="form-group"><label>Create PIN *</label>
+        <div class="pin-row"><input class="pin-box" id="rw-p0" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-p1" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-p2" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-p3" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-p4" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-p5" maxlength="1" inputmode="numeric" autocomplete="new-password"></div>
+      </div>
+      <div class="form-group"><label>Confirm PIN *</label>
+        <div class="pin-row"><input class="pin-box" id="rw-c0" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-c1" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-c2" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-c3" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-c4" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-c5" maxlength="1" inputmode="numeric" autocomplete="new-password"></div>
+      </div>
+      <div id="reg-busy" style="display:none;text-align:center;padding:10px;color:#1a4a7c;font-weight:600;">Creating your account…</div>
+      <div style="display:flex;gap:10px;justify-content:space-between;margin-top:8px;">
+        <button class="btn btn-ghost" onclick="regGoStep(2)">&#x2190; Back</button>
+        <button class="btn btn-primary" id="reg-complete-btn" onclick="completeRegistration()">&#x2713; Complete Registration</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- FORGOT PIN MODAL -->
 <div class="modal-overlay" id="forgot-pin-modal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal-box" style="max-width:380px;">
@@ -1391,6 +1456,9 @@ function showPage(name){
   if(name==='login'){
     document.getElementById('login-email').value='';
     clearPin('lp');clearFlash('login-alert');
+    // Always reset to email step
+    const es=document.getElementById('login-email-step');if(es)es.style.display='block';
+    const ps=document.getElementById('login-pin-step');if(ps)ps.style.display='none';
     setTimeout(()=>{document.getElementById('login-email').value='';clearPin('lp');},150);
   }
   // inventory loaded via loadInventoryForSetup() when profile-setup-modal opens
@@ -2268,9 +2336,131 @@ async function sendSelectedReminders(){
 // ── AUTH ────────────────────────────────────────────────────
 
 
-function toggleLoginPanel(){
-  const p=document.getElementById('login-panel');
-  if(p)p.style.display=(p.style.display==='none'?'block':'none');
+function toggleLoginPanel(){} // kept for compatibility
+
+// ── NEW EMAIL-FIRST LOGIN FLOW ───────────────────────────────
+async function checkEmailContinue(){
+  const alertEl=document.getElementById('login-alert');
+  const email=(document.getElementById('login-email').value||'').trim().toLowerCase();
+  if(!email||!email.includes('@')){
+    alertEl.className='alert alert-error';alertEl.textContent='Please enter a valid email address.';alertEl.style.display='block';return;
+  }
+  alertEl.className='alert';alertEl.textContent='Checking…';alertEl.style.display='block';
+  // Check if a profile exists for this email
+  const{data:prof}=await sb.from('profiles').select('id').eq('email',email).maybeSingle();
+  alertEl.style.display='none';
+  if(prof){
+    // Existing user — show PIN step
+    document.getElementById('login-email-display').textContent=email;
+    document.getElementById('login-email-step').style.display='none';
+    document.getElementById('login-pin-step').style.display='block';
+    document.getElementById('lp0').focus();
+  } else {
+    // New user — open registration wizard
+    gRegEmail=email;
+    regGoStep(1);
+    document.getElementById('reg-wizard-modal').classList.add('open');
+    document.getElementById('reg-alert').style.display='none';
+  }
+}
+
+function resetLoginToEmail(){
+  document.getElementById('login-pin-step').style.display='none';
+  document.getElementById('login-email-step').style.display='block';
+  clearPin('lp');
+  document.getElementById('login-alert').style.display='none';
+}
+
+// ── REGISTRATION WIZARD ──────────────────────────────────────
+let gRegEmail='';
+
+function regGoStep(n){
+  // Validate before advancing
+  const alertEl=document.getElementById('reg-alert');
+  alertEl.style.display='none';
+  if(n===2){
+    const cabin=document.getElementById('reg-cabin-type').value;
+    const guests=document.getElementById('reg-num-guests').value;
+    if(!cabin){alertEl.className='alert alert-error';alertEl.textContent='Please select a cabin type.';alertEl.style.display='block';return;}
+    if(!guests){alertEl.className='alert alert-error';alertEl.textContent='Please select number of guests.';alertEl.style.display='block';return;}
+  }
+  if(n===3){
+    const fn=document.getElementById('reg-firstname').value.trim();
+    const ln=document.getElementById('reg-lastname').value.trim();
+    if(!fn||!ln){alertEl.className='alert alert-error';alertEl.textContent='First and last name are required.';alertEl.style.display='block';return;}
+  }
+  [1,2,3].forEach(i=>document.getElementById('reg-step-'+i).style.display=(i===n?'block':'none'));
+  const labels=['','Step 1 of 3','Step 2 of 3','Step 3 of 3'];
+  const pct=[0,33,66,100];
+  document.getElementById('reg-step-indicator').textContent=labels[n];
+  document.getElementById('reg-progress-bar').style.width=pct[n]+'%';
+}
+
+async function completeRegistration(){
+  const alertEl=document.getElementById('reg-alert');
+  const pin=getPin('rw-p');
+  const confirm=getPin('rw-c');
+  if(pin.length<6){alertEl.className='alert alert-error';alertEl.textContent='Please enter a complete 6-digit PIN.';alertEl.style.display='block';return;}
+  if(pin!==confirm){alertEl.className='alert alert-error';alertEl.textContent='PINs do not match — please try again.';alertEl.style.display='block';clearPin('rw-c');document.getElementById('rw-c0').focus();return;}
+
+  const btn=document.getElementById('reg-complete-btn');
+  const busy=document.getElementById('reg-busy');
+  btn.disabled=true;busy.style.display='block';alertEl.style.display='none';
+
+  const firstName=document.getElementById('reg-firstname').value.trim();
+  const lastName=document.getElementById('reg-lastname').value.trim();
+  const fullName=firstName+' '+lastName;
+  const cabinType=document.getElementById('reg-cabin-type').value;
+  const numGuests=parseInt(document.getElementById('reg-num-guests').value)||1;
+  const dobM=document.getElementById('reg-dob-m').value;
+  const dobD=document.getElementById('reg-dob-d').value;
+  const dobY=document.getElementById('reg-dob-y').value;
+  const dob=(dobY&&dobM&&dobD)?(dobY+'-'+dobM+'-'+dobD):null;
+  const gender=document.getElementById('reg-gender').value||null;
+  const state=document.getElementById('reg-state').value.trim()||null;
+  const citizenship=document.getElementById('reg-citizenship').value||null;
+  const phone=document.getElementById('reg-phone').value.trim()||null;
+
+  function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';btn.disabled=false;busy.style.display='none';}
+
+  try{
+    // 1. Create auth account
+    const{data:signUpData,error:signUpErr}=await sb.auth.signUp({email:gRegEmail,password:pin,options:{data:{full_name:fullName}}});
+    if(signUpErr)throw signUpErr;
+    const userId=signUpData.user?.id;
+    if(!userId)throw new Error('Account creation failed — no user ID returned.');
+
+    // 2. Confirm email immediately so sign-in works
+    await sb.rpc('confirm_user_email',{p_email:gRegEmail}).catch(()=>{});
+
+    // 3. Create profile
+    const{error:pErr}=await sb.from('profiles').upsert({id:userId,name:fullName,full_name:fullName,email:gRegEmail,phone,gender,date_of_birth:dob,state_of_residency:state,pin,citizenship_type:'other'});
+    if(pErr)throw pErr;
+
+    // 4. Create cabin assignment (decrement price tier)
+    const{data:price}=await sb.rpc('decrement_cabin_tier',{p_cabin_type:cabinType}).catch(()=>({data:null}));
+    const cabinCost=price?(numGuests===1?price*2:price*numGuests):null;
+    await sb.from('cabin_assignments').insert({user_id:userId,cabin_type:cabinType,num_guests:numGuests,price_per_person:price||null,cabin_cost:cabinCost,deposit_status:'pending'});
+
+    // 5. Create primary cabin traveler record
+    await sb.from('cabin_travelers').insert({account_owner_id:userId,first_name:firstName,last_name:lastName,date_of_birth:dob,gender,citizenship_type:citizenship,state_of_residency:state,phone});
+
+    // 6. Sign in
+    const{data:signInData,error:signInErr}=await sb.auth.signInWithPassword({email:gRegEmail,password:pin});
+    if(signInErr)throw signInErr;
+
+    // 7. Send welcome email
+    try{
+      const body='Hello '+firstName+',\n\nWelcome to the '+TRIP_NAME+'!\n\nYour account has been created. Sign in at any time to complete your traveler information and view your cabin reservation.\n\nPortal: '+PORTAL_URL+'\n\nGlowJetters Travel';
+      await sb.from('email_queue').insert({to_email:gRegEmail,to_name:fullName,subject:TRIP_NAME+' — Your Account Has Been Created',body,status:'pending',bypass_hold:true});
+    }catch(e){}
+
+    document.getElementById('reg-wizard-modal').classList.remove('open');
+    sessionStorage.setItem('fresh_login','1');
+    await loadAndRoute(signInData.user);
+  }catch(e){
+    showErr(e.message||'Registration failed. Please try again.');
+  }
 }
 
 function closeHelpModal(){
