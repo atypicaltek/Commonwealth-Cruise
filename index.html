@@ -975,14 +975,46 @@
 <div class="modal-overlay" id="reg-wizard-modal">
   <div class="modal-box" style="max-width:560px;max-height:92vh;overflow-y:auto;">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
-      <h3 style="margin:0;color:var(--primary);font-size:1.05rem;">&#x1F3AB; Create Your Account</h3>
+      <h3 id="reg-modal-title" style="margin:0;color:var(--primary);font-size:1.05rem;">&#x1F6F3;&#xFE0F; Welcome Aboard!</h3>
       <div id="reg-step-indicator" style="margin-left:auto;font-size:.82rem;color:#64748b;font-weight:600;"></div>
       <button onclick="document.getElementById('reg-wizard-modal').classList.remove('open');resetLoginToEmail();" style="background:none;border:none;font-size:1.5rem;color:#94a3b8;cursor:pointer;line-height:1;padding:0 2px;margin-left:6px;" title="Close">&times;</button>
     </div>
     <div style="height:4px;background:#e2e8f0;border-radius:4px;margin-bottom:18px;">
-      <div id="reg-progress-bar" style="height:4px;background:var(--primary);border-radius:4px;transition:width .3s;width:33%;"></div>
+      <div id="reg-progress-bar" style="height:4px;background:var(--primary);border-radius:4px;transition:width .3s;width:0%;"></div>
     </div>
     <div id="reg-alert" class="alert"></div>
+
+    <!-- STEP 0: Welcome Aboard -->
+    <div id="reg-step-0">
+      <div style="text-align:center;margin-bottom:18px;">
+        <div style="font-size:2.4rem;margin-bottom:6px;">🛳️</div>
+        <h2 style="margin:0 0 6px;color:var(--primary);font-size:1.25rem;">Welcome Aboard the Commonwealth Cruise 2027!</h2>
+        <p style="font-size:.88rem;color:var(--muted);margin:0;">We're excited to have you join us. Here's what to know before you get started.</p>
+      </div>
+
+      <!-- Gratuities -->
+      <div style="background:#eef6fb;border:2px solid #bde0f5;border-radius:10px;padding:14px;margin-bottom:14px;">
+        <div style="font-weight:800;color:var(--primary);margin-bottom:8px;">💳 Service Gratuities</div>
+        <p style="font-size:.86rem;line-height:1.6;color:#1e3a52;margin-bottom:10px;">Gratuities are automatically charged to your <strong>Sail &amp; Sign Card</strong> and applied to your onboard account during the cruise. No separate payment is required before sailing.</p>
+        <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.82rem;margin-bottom:6px;">
+          <thead><tr style="background:#c5e4f5;"><th style="padding:6px 10px;text-align:left;border-radius:6px 0 0 0;">Stateroom Type</th><th style="padding:6px 10px;text-align:center;">Per Person / Per Day</th><th style="padding:6px 10px;text-align:right;border-radius:0 6px 0 0;">6-Night Total (per person)</th></tr></thead>
+          <tbody>
+            <tr style="border-bottom:1px solid #bde0f5;"><td style="padding:7px 10px;">Standard Staterooms</td><td style="padding:7px 10px;text-align:center;font-weight:700;">$17.00 USD</td><td style="padding:7px 10px;text-align:right;font-weight:700;">$102.00 USD</td></tr>
+            <tr><td style="padding:7px 10px;">Suite Staterooms</td><td style="padding:7px 10px;text-align:center;font-weight:700;">$19.00 USD</td><td style="padding:7px 10px;text-align:right;font-weight:700;">$114.00 USD</td></tr>
+          </tbody>
+        </table></div>
+        <p style="font-size:.81rem;color:#2563a8;margin:0;"><strong>Payment method:</strong> Sail &amp; Sign Card — charged automatically during the cruise.</p>
+      </div>
+
+      <!-- Cabin Travelers Reminder -->
+      <div style="background:#e8f4fd;border:2px solid #aed6f1;border-radius:10px;padding:14px;margin-bottom:18px;">
+        <div style="font-weight:800;color:var(--primary);margin-bottom:6px;">📋 Cabin Travelers Required</div>
+        <p style="font-size:.86rem;line-height:1.6;color:#0c4a6e;margin:0;">After creating your account, you'll need to add <strong>all travelers sharing your cabin</strong> from your dashboard. This is required for cruise check-in and must be completed before your first payment.</p>
+      </div>
+
+      <button class="btn btn-primary btn-full" onclick="regGoStep(1)" style="font-size:1rem;padding:14px;">Let's Get Started &#x2192;</button>
+    </div>
+
     <!-- STEP 1: Cabin -->
     <div id="reg-step-1">
       <div style="font-weight:700;color:var(--primary);margin-bottom:14px;">Step 1: Choose Your Cabin</div>
@@ -992,7 +1024,7 @@
       <div class="form-group"><label>Number of Guests in Cabin *</label>
         <select id="reg-num-guests"><option value="">Select...</option><option value="1">1 (Solo — full cabin rate applies)</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
       </div>
-      <div style="display:flex;justify-content:flex-end;"><button class="btn btn-primary" onclick="regGoStep(2)">Next &#x2192;</button></div>
+      <div style="display:flex;justify-content:space-between;"><button class="btn btn-ghost" onclick="regGoStep(0)">&#x2190; Back</button><button class="btn btn-primary" onclick="regGoStep(2)">Next &#x2192;</button></div>
     </div>
     <!-- STEP 2: Traveler Info -->
     <div id="reg-step-2" style="display:none;">
@@ -2404,12 +2436,12 @@ async function checkEmailContinue(){
     document.getElementById('login-pin-step').style.display='block';
     document.getElementById('lp0').focus();
   } else {
-    // New user — open registration wizard
+    // New user — open registration wizard starting with Welcome Aboard screen
     gRegEmail=email;
-    regGoStep(1);
+    regGoStep(0);
     document.getElementById('reg-wizard-modal').classList.add('open');
     document.getElementById('reg-alert').style.display='none';
-    // Load live inventory so cabin options show real availability
+    // Load live inventory in the background so cabin options are ready for Step 1
     loadRegInventory();
   }
 }
@@ -2440,10 +2472,13 @@ function regGoStep(n){
     const ln=document.getElementById('reg-lastname').value.trim();
     if(!fn||!ln){alertEl.className='alert alert-error';alertEl.textContent='First and last name are required.';alertEl.style.display='block';return;}
   }
-  [1,2,3].forEach(i=>document.getElementById('reg-step-'+i).style.display=(i===n?'block':'none'));
+  [0,1,2,3].forEach(i=>{const el=document.getElementById('reg-step-'+i);if(el)el.style.display=(i===n?'block':'none');});
+  // Step 0 = welcome screen (no step counter); steps 1-3 = account setup steps
+  const title=document.getElementById('reg-modal-title');
+  if(title)title.innerHTML=n===0?'&#x1F6F3;&#xFE0F; Welcome Aboard!':'&#x1F3AB; Create Your Account';
   const labels=['','Step 1 of 3','Step 2 of 3','Step 3 of 3'];
   const pct=[0,33,66,100];
-  document.getElementById('reg-step-indicator').textContent=labels[n];
+  document.getElementById('reg-step-indicator').textContent=n===0?'':labels[n];
   document.getElementById('reg-progress-bar').style.width=pct[n]+'%';
 }
 
