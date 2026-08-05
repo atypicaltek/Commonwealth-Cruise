@@ -1019,7 +1019,7 @@
     <div id="reg-step-1" style="display:none;">
 
       <!-- Cabin Selection -->
-      <div style="font-weight:700;color:var(--primary);font-size:.95rem;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;">🛳️ Cabin Selection</div>
+      <div style="font-weight:700;color:var(--primary);font-size:.93rem;margin-bottom:10px;padding-bottom:5px;border-bottom:2px solid #e2e8f0;">🛳️ Cabin Selection</div>
       <div class="form-group"><label>Cabin Type *</label>
         <select id="reg-cabin-type"><option value="">Select cabin type...</option><option value="Interior">Interior</option><option value="Ocean View">Ocean View</option><option value="Balcony">Balcony</option><option value="Suite">Suite</option></select>
       </div>
@@ -1028,19 +1028,50 @@
       </div>
 
       <!-- Primary Traveler -->
-      <div style="font-weight:700;color:var(--primary);font-size:.95rem;margin:18px 0 10px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;">👤 Primary Traveler</div>
-      <p style="font-size:.84rem;color:var(--muted);margin-bottom:12px;">Date of birth, gender, citizenship, and contact info are completed from your dashboard after account creation.</p>
-      <div class="grid-2" style="margin-bottom:4px;">
-        <div class="form-group" style="margin:0 0 10px;"><label>First Name *</label><input type="text" id="reg-firstname" placeholder="Jane" autocomplete="off"></div>
-        <div class="form-group" style="margin:0 0 10px;"><label>Last Name *</label><input type="text" id="reg-lastname" placeholder="Smith" autocomplete="off"></div>
+      <div style="font-weight:700;color:var(--primary);font-size:.93rem;margin:16px 0 10px;padding-bottom:5px;border-bottom:2px solid #e2e8f0;">👤 Primary Traveler Information</div>
+
+      <!-- Name + Suffix -->
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:10px;">
+        <div class="form-group" style="margin:0;"><label>First Name *</label><input type="text" id="reg-firstname" placeholder="Jane" autocomplete="off"></div>
+        <div class="form-group" style="margin:0;"><label>Last Name *</label><input type="text" id="reg-lastname" placeholder="Smith" autocomplete="off"></div>
+        <div class="form-group" style="margin:0;min-width:72px;"><label>Suffix</label><select id="reg-suffix"><option value="">—</option><option>Jr.</option><option>Sr.</option><option>II</option><option>III</option><option>IV</option><option>Esq.</option></select></div>
+      </div>
+
+      <!-- Date of Birth -->
+      <div class="form-group"><label>Date of Birth *</label>
+        <div style="display:flex;gap:8px;">
+          <select id="reg-dob-m" style="flex:1.4;"><option value="">Month</option><option value="01">January</option><option value="02">February</option><option value="03">March</option><option value="04">April</option><option value="05">May</option><option value="06">June</option><option value="07">July</option><option value="08">August</option><option value="09">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select>
+          <select id="reg-dob-d" style="flex:1;"><option value="">Day</option><script>for(let d=1;d<=31;d++)document.write(`<option value="${String(d).padStart(2,'0')}">${d}</option>`);</script></select>
+          <select id="reg-dob-y" style="flex:1.2;"><option value="">Year</option><script>const _regy=new Date().getFullYear();for(let y=_regy;y>=_regy-100;y--)document.write(`<option value="${y}">${y}</option>`);</script></select>
+        </div>
+      </div>
+
+      <!-- Gender -->
+      <div class="form-group"><label>Gender *</label>
+        <select id="reg-gender"><option value="">Select...</option><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option><option value="Prefer Not to Answer">Prefer Not to Answer</option></select>
+      </div>
+
+      <!-- Citizenship Type + Country/State -->
+      <div class="grid-2">
+        <div class="form-group" style="margin:0 0 10px;"><label>Citizenship Type *</label>
+          <select id="reg-citizenship" onchange="const l=document.getElementById('reg-country-label');if(l)l.textContent=(this.value==='non-us'||this.value==='other')?'Country of Citizenship':'State of Residency';"><option value="">Select...</option><option value="us">U.S. Citizen</option><option value="us-pr">U.S. Permanent Resident</option><option value="canadian">Canadian Citizen</option><option value="non-us">Non-U.S. Citizen</option><option value="other">Other</option></select>
+        </div>
+        <div class="form-group" style="margin:0 0 10px;"><label id="reg-country-label">State of Residency</label>
+          <input type="text" id="reg-country" placeholder="e.g. Texas" autocomplete="off">
+        </div>
+      </div>
+
+      <!-- Phone -->
+      <div class="form-group"><label>Phone Number</label>
+        <input type="tel" id="reg-phone" placeholder="(555) 000-0000" autocomplete="off">
       </div>
 
       <!-- Additional Travelers Note -->
-      <div style="background:#f0f9ff;border:1px solid #bde0f5;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:.83rem;color:#0c4a6e;">
-        <strong>👥 Cabin travelers:</strong> After your account is created, add all other travelers sharing your cabin from your dashboard. Required before first payment.
+      <div style="background:#f0f9ff;border:1px solid #bde0f5;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:.82rem;color:#0c4a6e;">
+        <strong>👥 Additional cabin travelers</strong> (spouse, family members, etc.) are added from your dashboard after account creation and must be completed before your first payment.
       </div>
 
-      <p style="font-size:.82rem;color:var(--muted);margin-bottom:10px;">📧 <strong>A 6-digit PIN will be emailed to you</strong> — use it to sign in to the portal.</p>
+      <p style="font-size:.81rem;color:var(--muted);margin-bottom:10px;">📧 <strong>A 6-digit PIN will be emailed to you</strong> — use it to sign in to the portal.</p>
 
       <div id="reg-busy" style="display:none;text-align:center;padding:10px;color:#1a4a7c;font-weight:600;">Creating your account…</div>
       <div style="display:flex;gap:10px;justify-content:space-between;margin-top:4px;">
@@ -2453,14 +2484,27 @@ async function completeRegistration(){
   const btn=document.getElementById('reg-complete-btn');
   const busy=document.getElementById('reg-busy');
 
-  const firstName=document.getElementById('reg-firstname').value.trim();
-  const lastName=document.getElementById('reg-lastname').value.trim();
-  if(!firstName||!lastName){
-    alertEl.className='alert alert-error';alertEl.textContent='First and last name are required.';alertEl.style.display='block';return;
-  }
-  const fullName=firstName+' '+lastName;
   const cabinType=document.getElementById('reg-cabin-type').value;
   const numGuests=parseInt(document.getElementById('reg-num-guests').value)||1;
+  const firstName=document.getElementById('reg-firstname').value.trim();
+  const lastName=document.getElementById('reg-lastname').value.trim();
+  const suffix=document.getElementById('reg-suffix').value||null;
+  const dobM=document.getElementById('reg-dob-m').value;
+  const dobD=document.getElementById('reg-dob-d').value;
+  const dobY=document.getElementById('reg-dob-y').value;
+  const gender=document.getElementById('reg-gender').value;
+  const citizenship=document.getElementById('reg-citizenship').value;
+  const country=document.getElementById('reg-country').value.trim()||null;
+  const phone=document.getElementById('reg-phone').value.trim()||null;
+
+  if(!cabinType){alertEl.className='alert alert-error';alertEl.textContent='Please select a cabin type.';alertEl.style.display='block';return;}
+  if(!numGuests){alertEl.className='alert alert-error';alertEl.textContent='Please select number of guests.';alertEl.style.display='block';return;}
+  if(!firstName||!lastName){alertEl.className='alert alert-error';alertEl.textContent='First and last name are required.';alertEl.style.display='block';return;}
+  if(!dobM||!dobD||!dobY){alertEl.className='alert alert-error';alertEl.textContent='Date of birth is required.';alertEl.style.display='block';return;}
+  if(!gender){alertEl.className='alert alert-error';alertEl.textContent='Please select a gender.';alertEl.style.display='block';return;}
+  if(!citizenship){alertEl.className='alert alert-error';alertEl.textContent='Please select a citizenship type.';alertEl.style.display='block';return;}
+
+  const fullName=firstName+' '+lastName;
 
   btn.disabled=true;busy.style.display='block';alertEl.style.display='none';
 
@@ -2486,6 +2530,14 @@ async function completeRegistration(){
       p_full_name:fullName,
       p_first_name:firstName,
       p_last_name:lastName,
+      p_suffix:suffix,
+      p_dob_month:dobM?parseInt(dobM):null,
+      p_dob_day:dobD?parseInt(dobD):null,
+      p_dob_year:dobY?parseInt(dobY):null,
+      p_gender:gender||null,
+      p_citizenship_type:citizenship||null,
+      p_country:country,
+      p_phone:phone,
       p_cabin_type:cabinType,
       p_num_guests:numGuests
     });
