@@ -2527,19 +2527,28 @@ async function completeRegistration(){
     }
     if(!userId){showErr('Account creation failed — no user ID returned. Please try again.');return;}
 
+    // Safety net: ensure email_confirmed_at is set (covers edge cases where
+    // create_confirmed_user ran but GoTrue still sees the account as unconfirmed)
+    try{await sb.rpc('confirm_user_email',{p_email:gRegEmail});}catch(_){}
+
     // Step 2 — Sign in FIRST so auth.uid() is set for all subsequent RLS-protected writes.
-    // If GoTrue returns 500 it almost always means auth.identities is missing/broken —
-    // call fix_user_identity to rebuild it, then retry once.
+    // If GoTrue returns 500 it almost always means auth.users token fields are wrong
+    // or auth.identities is broken — fix both and retry once.
     let signInData;
     {
       const{data,error:e}=await sb.auth.signInWithPassword({email:gRegEmail,password:pin});
       if(e){
         const statusCode=e.status||e.code||0;
         if(statusCode===500||statusCode==='500'){
-          // Identity row broken — fix it and retry
+          // Fix identity + re-confirm, then retry
           try{await sb.rpc('fix_user_identity',{p_email:gRegEmail});}catch(_){}
+          try{await sb.rpc('confirm_user_email',{p_email:gRegEmail});}catch(_){}
           const{data:d2,error:e2}=await sb.auth.signInWithPassword({email:gRegEmail,password:pin});
-          if(e2){console.error('[reg step2 retry] signIn error',e2);showErr('Step 2 failed (sign-in, after identity fix): '+errDetail(e2));return;}
+          if(e2){
+            console.error('[reg step2 retry] signIn error',e2);
+            showErr('Sign-in failed after account creation ('+errDetail(e2)+'). Run Statement 38 in Supabase SQL Editor to clean up this email, then try again.');
+            return;
+          }
           signInData=d2;
         } else {
           console.error('[reg step2] signIn error',e);showErr('Step 2 failed (sign-in): '+errDetail(e));return;
