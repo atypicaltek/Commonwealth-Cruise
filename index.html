@@ -3374,7 +3374,7 @@ async function loadDashboard(){
   const[msRes,pyRes,caRes]=await Promise.all([
     sb.from('payment_milestones').select('*').order('due_date',{ascending:true}),
     sb.from('user_payments').select('*').eq('user_id',gUser.id),
-    sb.from('cabin_assignments').select('*').eq('user_id',gUser.id).order('created_at',{ascending:false}).limit(1)
+    sb.from('cabin_assignments').select('*').eq('user_id',gUser.id).limit(1)
   ]);
 
   if(msRes.error){
@@ -3400,7 +3400,7 @@ async function loadDashboard(){
     document.getElementById('dash-cabin-card').style.display='block';
     document.getElementById('dash-cabin-flex-row').style.display='block';
     document.getElementById('dash-cabin-flex-row').innerHTML=
-      '<p style="color:var(--danger);font-weight:700;padding:8px 0;">⚠️ Could not load your cabin info. Please <a href="#" onclick="location.reload();return false;">refresh</a> or contact the organizer.</p>';
+      `<p style="color:var(--danger);font-weight:700;padding:8px 0;">⚠️ Could not load your cabin info. <a href="#" onclick="loadDashboard();return false;" style="color:var(--secondary);">Try again</a> or contact the organizer.<br><small style="font-weight:400;font-size:.75rem;color:#dc2626;">${cabinLoadErr?.code||''} ${cabinLoadErr?.message||cabinLoadErr?.details||JSON.stringify(cabinLoadErr)}</small></p>`;
     ['dash-no-cabin-cta','dash-single-occ-note','dash-backup-cabin-row','dash-high-occ-note','dash-cabin-change-pending'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
     const ccrBtn=document.getElementById('dash-cabin-change-btn');if(ccrBtn)ccrBtn.style.display='none';
     document.getElementById('dash-loading').style.display='none';
@@ -7505,15 +7505,17 @@ function mtSlotHtml(idx, t){
 }
 
 async function openManageTravelers(ownerId, ownerName, numGuests){
+  try{
   gMtOwnerId = ownerId;
   const ng=parseInt(numGuests)||1;
   const alertEl=document.getElementById('mt-alert');
   const slotsEl=document.getElementById('mt-slots');
-  alertEl.style.display='none';
-  document.getElementById('mt-subtitle').textContent=(ownerName||'Traveler')+' — '+ng+' guest slot'+(ng>1?'s':'');
-  document.getElementById('mt-submit-btn').disabled=false;
-  document.getElementById('mt-submit-btn').textContent='Save All Travelers';
-  slotsEl.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  if(alertEl)alertEl.style.display='none';
+  const subtitle=document.getElementById('mt-subtitle');
+  if(subtitle)subtitle.textContent=(ownerName||'Traveler')+' — '+ng+' guest slot'+(ng>1?'s':'');
+  const submitBtn=document.getElementById('mt-submit-btn');
+  if(submitBtn){submitBtn.disabled=false;submitBtn.textContent='Save All Travelers';}
+  if(slotsEl)slotsEl.innerHTML='<div class="loading"><div class="spinner"></div></div>';
   document.getElementById('admin-mt-modal').classList.add('open');
   try{
     const{data:existing,error:fetchErr}=await sb.from('cabin_travelers')
@@ -7530,10 +7532,14 @@ async function openManageTravelers(ownerId, ownerName, numGuests){
     for(let i=0;i<ng;i++){slots+=mtSlotHtml(i,gMtExisting[i]||null);}
     slotsEl.innerHTML=slots||'<p style="color:var(--muted);padding:8px;">No slots to display.</p>';
   }catch(e){
-    alertEl.className='alert alert-error';
-    alertEl.textContent='Error loading travelers: '+e.message;
-    alertEl.style.display='block';
-    slotsEl.innerHTML='';
+    const alertEl2=document.getElementById('mt-alert');
+    if(alertEl2){alertEl2.className='alert alert-error';alertEl2.textContent='Error loading travelers: '+e.message;alertEl2.style.display='block';}
+    const slotsEl2=document.getElementById('mt-slots');
+    if(slotsEl2)slotsEl2.innerHTML='';
+  }
+  }catch(outerErr){
+    // Catch any setup error that would otherwise silently prevent the modal from opening
+    alert('Could not open traveler editor: '+outerErr.message);
   }
 }
 
@@ -7994,7 +8000,7 @@ function emailPortalLinkToTraveler(name,email){
 
 function handleTravelerAction(sel,userId){
   const d=window.gTravelerData?.[userId];
-  if(!d){sel.value='';return;}
+  if(!d){sel.value='';alert('Traveler data not loaded for this row. Please refresh the Travelers tab and try again.');return;}
   const v=sel.value;sel.value='';
   if(v==='cabin_num')assignCabinNumber(d.userId,d.name,d.cabinType,d.cabinNumber);
   else if(v==='cabin_type_change')changeCabinType(d.userId,d.name,d.cabinType,d.numGuests||1);
