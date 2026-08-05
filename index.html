@@ -2487,52 +2487,86 @@ async function completeRegistration(){
   const cabinType=document.getElementById('reg-cabin-type').value;
   const numGuests=parseInt(document.getElementById('reg-num-guests').value)||1;
 
+  function errDetail(e){
+    // Build a readable error string from any Supabase/PostgREST error shape
+    const parts=[];
+    const msg=(e&&(e.message||e.msg||e.error_description||''));
+    const code=(e&&(e.code||e.status||''));
+    const detail=(e&&(e.details||e.detail||''));
+    const hint=(e&&e.hint)||'';
+    if(msg&&msg!=='{}')parts.push(msg);
+    if(code)parts.push('code:'+code);
+    if(detail)parts.push(detail);
+    if(hint)parts.push(hint);
+    if(!parts.length){
+      // Last resort — stringify the whole thing
+      try{const s=JSON.stringify(e,Object.getOwnPropertyNames(e));if(s&&s!=='{}')parts.push(s);}catch(_){}
+    }
+    return parts.join(' | ')||'Unknown error — check browser console';
+  }
   function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';btn.disabled=false;busy.style.display='none';}
 
   try{
-    // 1. Create auth account directly in the DB — no confirmation email sent,
-    //    bypasses Supabase email rate limits entirely.
-    //    If a partial registration left an orphaned auth.users row (no profile),
-    //    create_confirmed_user returns that existing ID so we can finish setup.
-    const{data:userId,error:signUpErr}=await sb.rpc('create_confirmed_user',{p_email:gRegEmail,p_pin:pin});
-    if(signUpErr){
-      const msg=(signUpErr.message||'').toLowerCase();
-      if(msg.includes('already')&&msg.includes('profile')){
-        // Fully registered account — redirect to sign-in
-        showErr('An account already exists with this email. Please sign in, or use Forgot PIN if you need to reset it.');
+    // Step 1 — Create auth account directly (no confirmation email, bypasses rate limits).
+    // If a partial registration left an orphaned auth.users row (no profile),
+    // create_confirmed_user resets the PIN and returns the existing ID.
+    let userId;
+    {
+      const{data,error:e}=await sb.rpc('create_confirmed_user',{p_email:gRegEmail,p_pin:pin});
+      if(e){
+        console.error('[reg step1] create_confirmed_user error',e);
+        const msg=(e.message||'').toLowerCase();
+        if(msg.includes('already')&&msg.includes('profile')){
+          showErr('An account already exists with this email. Please sign in, or use Forgot PIN if you need to reset it.');
+          return;
+        }
+        showErr('Step 1 failed (account creation): '+errDetail(e));
         return;
       }
-      throw signUpErr;
+      userId=data;
     }
-    if(!userId)throw new Error('Account creation failed — no user ID returned.');
+    if(!userId){showErr('Account creation failed — no user ID returned. Please try again.');return;}
 
-    // 2. Sign in FIRST — establishes auth.uid() so all subsequent table writes pass RLS
-    const{data:signInData,error:signInErr}=await sb.auth.signInWithPassword({email:gRegEmail,password:pin});
-    if(signInErr)throw signInErr;
+    // Step 2 — Sign in FIRST so auth.uid() is set for all subsequent RLS-protected writes.
+    let signInData;
+    {
+      const{data,error:e}=await sb.auth.signInWithPassword({email:gRegEmail,password:pin});
+      if(e){console.error('[reg step2] signIn error',e);showErr('Step 2 failed (sign-in): '+errDetail(e));return;}
+      signInData=data;
+    }
 
-    // 3. Create profile (auth.uid() is now set); upsert handles partial-registration retry
-    const{error:pErr}=await sb.from('profiles').upsert({id:userId,name:fullName,email:gRegEmail,pin,citizenship_type:'other'});
-    if(pErr)throw pErr;
+    // Step 3 — Profile row (auth.uid() is now live).
+    {
+      const{error:e}=await sb.from('profiles').upsert({id:userId,name:fullName,email:gRegEmail,pin,citizenship_type:'other'});
+      if(e){console.error('[reg step3] profile upsert error',e);showErr('Step 3 failed (profile): '+errDetail(e));return;}
+    }
 
-    // 5. Create cabin assignment (decrement price tier); cabin_cost left null — admin sets via "Set Cost"
-    let price=null;try{const{data:_p}=await sb.rpc('decrement_cabin_tier',{p_cabin_type:cabinType});price=_p;}catch(e){}
-    await sb.from('cabin_assignments').insert({user_id:userId,cabin_type:cabinType,num_guests:numGuests,price_per_person:price||null,deposit_status:'pending'});
+    // Step 4 — Cabin assignment.
+    {
+      let price=null;
+      try{const{data:_p}=await sb.rpc('decrement_cabin_tier',{p_cabin_type:cabinType});price=_p;}catch(_){}
+      const{error:e}=await sb.from('cabin_assignments').insert({user_id:userId,cabin_type:cabinType,num_guests:numGuests,price_per_person:price||null,deposit_status:'pending'});
+      if(e){console.error('[reg step4] cabin_assignments error',e);showErr('Step 4 failed (cabin): '+errDetail(e));return;}
+    }
 
-    // 6. Create primary cabin traveler record
-    // Only first/last name collected at registration — remaining fields completed from dashboard
-    await sb.from('cabin_travelers').insert({account_owner_id:userId,first_name:firstName,last_name:lastName});
+    // Step 5 — Primary cabin traveler record.
+    {
+      const{error:e}=await sb.from('cabin_travelers').insert({account_owner_id:userId,first_name:firstName,last_name:lastName});
+      if(e){console.error('[reg step5] cabin_travelers error',e);showErr('Step 5 failed (traveler): '+errDetail(e));return;}
+    }
 
-    // 7. Send welcome email
+    // Step 6 — Welcome email (non-fatal).
     try{
       const body='Hello '+firstName+',\n\nWelcome to the '+TRIP_NAME+'!\n\nYour account has been created. Sign in at any time to complete your traveler information and view your cabin reservation.\n\nPortal: '+PORTAL_URL+'\n\nGlowJetters Travel';
       await sb.from('email_queue').insert({to_email:gRegEmail,to_name:fullName,subject:TRIP_NAME+' — Your Account Has Been Created',plain_body:body,html_body:body,status:'queued'});
-    }catch(e){}
+    }catch(_){}
 
     document.getElementById('reg-wizard-modal').classList.remove('open');
     sessionStorage.setItem('fresh_login','1');
     await loadAndRoute(signInData.user);
   }catch(e){
-    showErr(e.message||'Registration failed. Please try again.');
+    console.error('[reg] unexpected error',e);
+    showErr('Registration error: '+errDetail(e));
   }
 }
 
