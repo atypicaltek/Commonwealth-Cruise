@@ -2409,6 +2409,8 @@ async function checkEmailContinue(){
     regGoStep(1);
     document.getElementById('reg-wizard-modal').classList.add('open');
     document.getElementById('reg-alert').style.display='none';
+    // Load live inventory so cabin options show real availability
+    loadRegInventory();
   }
 }
 
@@ -2897,6 +2899,10 @@ async function loadAndRoute(user){
       document.getElementById('pin-reset-modal').classList.add('open');
       wirePins();
     } else {
+      // Show Welcome Aboard immediately on first login — don't wait for loadDashboard to finish
+      if(prof&&!prof.first_login_complete){
+        document.getElementById('first-login-modal').classList.add('open');
+      }
       loadDashboard();
     }
   }
@@ -2904,6 +2910,51 @@ async function loadAndRoute(user){
 
 // ── PROFILE SETUP MODAL ──────────────────────────────────────
 let gCabinMinPrices={}; // {cabinType: minPrice_per_person when available}
+
+// Loads live inventory into the registration wizard cabin-type dropdown.
+// Called when the wizard opens so new registrants see real availability and prices.
+async function loadRegInventory(){
+  try{
+    const[{data:invData},{data:asgData},{data:tierData}]=await Promise.all([
+      sb.from('cabin_inventory').select('*'),
+      sb.from('cabin_assignments').select('cabin_type'),
+      sb.from('cabin_price_tiers').select('*').order('price_per_person',{ascending:true})
+    ]);
+    const sel=document.getElementById('reg-cabin-type');
+    if(!sel||!invData||!invData.length)return;
+    // Compute actual booked counts
+    const booked={};
+    (asgData||[]).forEach(a=>{booked[a.cabin_type]=(booked[a.cabin_type]||0)+1;});
+    // Compute min price per type from available tiers
+    const minPrice={};
+    (tierData||[]).forEach(t=>{
+      if(t.available_cabins>0){
+        if(!minPrice[t.cabin_type]||t.price_per_person<minPrice[t.cabin_type])
+          minPrice[t.cabin_type]=parseFloat(t.price_per_person);
+      }
+    });
+    // Update each cabin type option
+    ['Interior','Ocean View','Balcony'].forEach(type=>{
+      const opt=sel.querySelector(`option[value="${type}"]`);
+      if(!opt)return;
+      const row=invData.find(r=>r.cabin_type===type);
+      if(!row){opt.textContent=type;return;}
+      const avail=Math.max(0,row.total_cabins-(booked[type]||0));
+      const priceStr=minPrice[type]?` — From $${minPrice[type].toLocaleString()}/person`:'';
+      if(avail<=0){
+        opt.textContent=`${type} Cabin${priceStr} — SOLD OUT`;
+        opt.disabled=true;
+      } else if(avail<=5){
+        opt.textContent=`${type} Cabin${priceStr} (${avail} left — Almost Full!)`;
+      } else {
+        opt.textContent=`${type} Cabin${priceStr} (${avail} available)`;
+      }
+    });
+    // Suite stays as-is (no inventory count)
+    const suiteOpt=sel.querySelector('option[value="Suite"]');
+    if(suiteOpt)suiteOpt.textContent='Suite ⭐ — Request Only (Pricing Varies)';
+  }catch(e){/* non-fatal — options stay as static fallback */}
+}
 
 async function loadInventoryForSetup(){
   const[{data:invData},{data:asgData},{data:tierData}]=await Promise.all([
