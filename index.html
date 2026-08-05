@@ -2829,7 +2829,7 @@ async function doReset(){
   setTimeout(()=>{sb.auth.signOut();showPage('login');},2500);
 }
 
-async function doLogout(){sessionStorage.removeItem('fresh_login');await sb.auth.signOut();gUser=null;gProfile=null;showPage('login');}
+async function doLogout(){sessionStorage.removeItem('fresh_login');sessionStorage.removeItem('welcome_modal_shown');await sb.auth.signOut();gUser=null;gProfile=null;showPage('login');}
 
 function onGratLinkOpened(){
   gGratLinkOpened=true;
@@ -3207,9 +3207,8 @@ async function doProfileSetup(){
   document.getElementById('profile-setup-modal').classList.remove('open');
   const{data:updatedProfile}=await sb.from('profiles').select('*').eq('id',gUser.id).single();
   gProfile=updatedProfile;
-  if(!gProfile?.first_login_complete){
-    document.getElementById('first-login-modal').classList.add('open');
-  }
+  // Do NOT open first-login-modal here — user just completed cabin selection mid-flow.
+  // loadDashboard() below will open it once per session if travelers still outstanding.
   loadDashboard();
 }
 
@@ -3510,9 +3509,11 @@ if(dsBadge){
     }
   }
 
-  // Traveler reminder — only when cabin IS selected but travelers not yet complete
-  // (new users without a cabin are handled above by profile-setup-modal)
-  if(cabin&&gProfile&&!gProfile.first_login_complete){
+  // Traveler reminder — show Welcome Aboard once per login session when cabin is set
+  // but travelers are not yet complete.  sessionStorage flag prevents re-showing
+  // mid-session (e.g. after cabin selection or after each loadDashboard() refresh).
+  if(cabin&&gProfile&&!gProfile.first_login_complete&&!sessionStorage.getItem('welcome_modal_shown')){
+    sessionStorage.setItem('welcome_modal_shown','1');
     document.getElementById('first-login-modal').classList.add('open');
   }
 
