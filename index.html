@@ -2483,7 +2483,7 @@ async function completeRegistration(){
     try{await sb.rpc('confirm_user_email',{p_email:gRegEmail});}catch(e){}
 
     // 3. Create profile
-    const{error:pErr}=await sb.from('profiles').upsert({id:userId,name:fullName,full_name:fullName,email:gRegEmail,phone,gender,state_of_residency:state,pin,citizenship_type:'other'});
+    const{error:pErr}=await sb.from('profiles').upsert({id:userId,name:fullName,email:gRegEmail,phone,gender,state_of_residency:state,pin,citizenship_type:'other'});
     if(pErr)throw pErr;
 
     // 4. Create cabin assignment (decrement price tier); cabin_cost left null — admin sets via "Set Cost"
@@ -3308,7 +3308,9 @@ async function loadDashboard(){
   const[msRes,pyRes,caRes]=await Promise.all([
     sb.from('payment_milestones').select('*').order('due_date',{ascending:true}),
     sb.from('user_payments').select('*').eq('user_id',gUser.id),
-    sb.from('cabin_assignments').select('*').eq('user_id',gUser.id).single()
+    // Use limit(1) + order instead of .single() so neither duplicate rows nor RLS
+    // silently filtering produce PGRST116, which is indistinguishable from "no cabin"
+    sb.from('cabin_assignments').select('*').eq('user_id',gUser.id).order('created_at',{ascending:false}).limit(1)
   ]);
 
   if(msRes.error){
@@ -3318,12 +3320,11 @@ async function loadDashboard(){
 
   const milestones=msRes.data||[];
   const payments=pyRes.data||[];
-  const cabin=caRes.data;
+  // caRes.data is now an array; take the first (most-recent) row, or null if empty
+  const cabin=(caRes.data&&caRes.data.length>0)?caRes.data[0]:null;
 
-  // If the cabin query returned a permission/RLS error (not simply "no rows"),
-  // do NOT show the cabin-select CTA — that would prompt users who already
-  // have a cabin to pick one again. Show a refresh prompt instead.
-  if(!cabin && caRes.error && caRes.error.code!=='PGRST116'){
+  // If the cabin query itself errored (a real DB/permission error, not just empty results)
+  if(caRes.error){
     document.getElementById('dash-loading').style.display='none';
     document.getElementById('dash-content').style.display='block';
     document.getElementById('dash-cabin-card').style.display='block';
@@ -8026,7 +8027,7 @@ async function adminAddTraveler(){
       const dob=(tr.dobY&&tr.dobM&&tr.dobD)?(tr.dobY+'-'+String(tr.dobM).padStart(2,'0')+'-'+String(tr.dobD).padStart(2,'0')):null;
       // Use SECURITY DEFINER RPC so admin can write profiles for other users regardless of RLS
       const{error:pErr}=await sb.rpc('admin_upsert_profile',{
-        p_user_id:newUserId,p_name:fullName,p_full_name:fullName,p_email:tr.email,
+        p_user_id:newUserId,p_name:fullName,p_email:tr.email,
         p_phone:tr.phone||null,p_pin:tempPin,p_needs_pin_reset:true,
         p_gender:tr.gender||null,p_state_of_residency:tr.state||null,p_is_admin:false
       });
