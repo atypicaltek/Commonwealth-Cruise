@@ -1565,7 +1565,7 @@ function buildEmailHtml(recipientName,bodyHtml){
 <div id="deposit-pending-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);align-items:center;justify-content:center;padding:20px;">
   <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:480px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.18);">
     <div style="font-size:1.5rem;margin-bottom:6px;">🛳️ Cabin Reservation Received!</div>
-    <p style="font-size:.95rem;color:#374151;margin:0 0 16px;">Your cabin hold is <strong>pending</strong> until a deposit of <strong>$100.00 per person</strong> in your cabin is received. Until payment is confirmed, your reservation is not finalized.</p>
+    <p style="font-size:.95rem;color:#374151;margin:0 0 16px;">A <strong>full deposit of $100.00 per person</strong> is required to confirm your cabin hold and assign your cabin number. Until payment is confirmed, your reservation is not finalized.</p>
     <p style="font-size:.92rem;color:#374151;margin:0 0 20px;">Ready to pay now? Complete the <strong>CC Authorization form</strong> and return it to your trip organizer.</p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
       <a href="https://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf" target="_blank" style="flex:1;min-width:160px;padding:11px 16px;background:#1a4f7a;color:#fff;border:none;border-radius:9px;font-size:.95rem;font-weight:700;cursor:pointer;text-align:center;text-decoration:none;">💳 Complete CC Auth Form</a>
@@ -3183,13 +3183,13 @@ async function loadDashboard(){
   // ── Cancelled account: show a clear notice and payment history ──
   if(gProfile?.status==='cancelled'){
     // If they already have a cabin assignment (re-approved), skip the cancelled UI entirely
-    const{data:reapprovedCabin}=await sb.from('cabin_assignments').select('cabin_type,deposit_status,num_guests').eq('user_id',gUser.id).maybeSingle();
+    const{data:reapprovedCabin}=await sb.from('cabin_assignments').select('cabin_type,deposit_status,num_guests,cabin_number').eq('user_id',gUser.id).maybeSingle();
     if(reapprovedCabin){
       // Restore their profile to active silently so next load is clean
       await sb.from('profiles').update({status:'active'}).eq('id',gUser.id);
       gProfile.status='active';
-      // Only show deposit popup if deposit has not yet been confirmed by admin
-      if(reapprovedCabin.deposit_status!=='confirmed'){
+      // Only show deposit popup if deposit not confirmed AND no cabin number yet assigned
+      if(reapprovedCabin.deposit_status!=='confirmed' && !reapprovedCabin.cabin_number){
         showDepositPendingPopup(reapprovedCabin.num_guests||1);
       }
       await loadDashboard();
@@ -3360,9 +3360,9 @@ async function loadDashboard(){
     cabinCard.style.display='block';
 const dsBadge=document.getElementById('dash-deposit-status');
 if(dsBadge){
-  if(cabin.deposit_status==='pending'||cabin.deposit_status==null){
+  if((cabin.deposit_status==='pending'||cabin.deposit_status==null) && !cabin.cabin_number){
     dsBadge.style.display='flex';
-    dsBadge.innerHTML='⏳ <strong>Deposit Pending</strong> — A $100.00/person deposit is required to confirm your cabin hold.';
+    dsBadge.innerHTML='⏳ <strong>Deposit Required</strong> — Full deposit required to confirm your cabin hold and assign a cabin #.';
   } else {
     dsBadge.style.display='none';
   }
