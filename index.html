@@ -3374,9 +3374,7 @@ async function loadDashboard(){
   const[msRes,pyRes,caRes]=await Promise.all([
     sb.from('payment_milestones').select('*').order('due_date',{ascending:true}),
     sb.from('user_payments').select('*').eq('user_id',gUser.id),
-    // Use SECURITY DEFINER RPC so cabin data is always readable regardless of RLS state.
-    // Returns SETOF cabin_assignments (0 or 1 rows) — same interface as the old limit(1) query.
-    sb.rpc('get_my_cabin_info')
+    sb.from('cabin_assignments').select('*').eq('user_id',gUser.id).order('created_at',{ascending:false}).limit(1)
   ]);
 
   if(msRes.error){
@@ -3386,7 +3384,6 @@ async function loadDashboard(){
 
   const milestones=msRes.data||[];
   const payments=pyRes.data||[];
-  // caRes.data from SETOF RPC is an array; take first row or null if empty
   const cabin=(caRes.data&&caRes.data.length>0)?caRes.data[0]:null;
   const cabinLoadErr=caRes.error||null; // flag but don't bail — payment schedule must still render
 
@@ -8402,15 +8399,9 @@ window.addEventListener('load',async()=>{
   }
   const{data:{session}}=await sb.auth.getSession();
   if(session){
-    const isAdmin=session.user.email.toLowerCase()===ADMIN_EMAIL.toLowerCase();
-    const freshLogin=sessionStorage.getItem('fresh_login')==='1';
-    if(!isAdmin&&!freshLogin){
-      // Page reload — sign non-admin users out and return to login
-      await sb.auth.signOut();
-      showPage('login');
-    } else {
-      await loadAndRoute(session.user);
-    }
+    // Always route if a valid session exists — don't require fresh_login flag
+    // (fresh_login is cleared on new tab/browser restart and was causing logout on refresh)
+    await loadAndRoute(session.user);
     return;
   }
   showPage('login');
