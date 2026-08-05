@@ -191,11 +191,15 @@
     .action-sel-sm{min-width:90px;font-size:.76rem;padding:3px 6px;max-width:130px;}
     .occ-row td{padding:5px 10px 5px 26px !important;font-size:.82rem;background:#f8fafc;border-top:1px solid #f1f5f9;}
     /* TRAVELER SLOT TABS */
-    .slot-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
-    .slot-tab{padding:7px 13px;border-radius:8px;border:2px solid var(--border);background:#fff;color:var(--text);font-weight:700;font-size:.82rem;cursor:pointer;transition:all .18s;white-space:nowrap;line-height:1.3;}
-    .slot-tab.filled{border-color:var(--success);background:#edfbf3;color:var(--success);}
-    .slot-tab.active{border-color:var(--secondary);background:var(--secondary);color:#fff;}
-    .slot-tab.active.filled{border-color:var(--secondary);background:var(--secondary);color:#fff;}
+    .slot-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+    .slot-tab{padding:10px 14px;border-radius:10px;border:2px solid var(--border);background:#fff;color:var(--text);font-weight:700;font-size:.82rem;cursor:pointer;transition:all .18s;white-space:nowrap;line-height:1.3;text-align:left;}
+    .slot-tab.filled{border-color:#16a34a;background:linear-gradient(135deg,#dcfce7,#f0fdf4);color:#15803d;box-shadow:0 2px 8px rgba(22,163,74,.15);}
+    .slot-tab.filled::before{content:'✓ ';font-weight:900;}
+    .slot-tab.filled .slot-tab-sub{display:block;font-size:.71rem;font-weight:500;color:#166534;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;}
+    .slot-tab:not(.filled){border-color:#e2e8f0;background:#f8fafc;color:#94a3b8;}
+    .slot-tab:not(.filled)::before{content:'○ ';}
+    .slot-tab.active{border-color:var(--secondary);background:var(--secondary);color:#fff;box-shadow:0 2px 8px rgba(37,99,235,.25);}
+    .slot-tab.active.filled{border-color:#1d4ed8;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;}
     /* WAITLIST CARD */
     .waitlist-card{background:linear-gradient(135deg,#78350f,#b45309);color:#fff;border-radius:14px;padding:16px 20px;margin-bottom:16px;box-shadow:0 4px 16px rgba(120,53,15,.25);}
   </style>
@@ -490,6 +494,12 @@
         <div class="card-header"><span class="card-title">🛳️ My Cabin Travelers</span><div style="display:flex;align-items:center;gap:8px;"><span id="dash-traveler-count-badge" style="font-size:.78rem;font-weight:700;color:var(--muted);"></span><button class="btn btn-outline btn-sm" id="dash-add-traveler-btn" onclick="toggleAddTraveler()">+ Add Traveler</button></div></div>
         <p style="font-size:.84rem;color:var(--muted);margin-bottom:12px;">Add all guests sharing your cabin including citizenship documentation. Required for cruise check-in.</p>
         <div id="traveler-slot-tabs" class="slot-tabs"></div>
+        <div id="dash-add-next-traveler-cta" style="display:none;margin-bottom:12px;">
+          <button onclick="const s=(window.gCabinTravelers||[]).length;openTravelerSlot(s);document.getElementById('dash-add-next-traveler-cta').style.display='none';"
+            style="width:100%;padding:12px 20px;background:#16a34a;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:.92rem;cursor:pointer;letter-spacing:.01em;box-shadow:0 3px 10px rgba(22,163,74,.3);">
+            + Add Traveler 2
+          </button>
+        </div>
         <div class="add-traveler-form" id="add-traveler-form">
           <div id="cabin-alert" class="alert"></div>
           <div id="ct-form-title" style="font-size:1rem;font-weight:800;color:var(--primary);margin-bottom:10px;"></div>
@@ -3424,8 +3434,8 @@ async function loadDashboard(){
 const dsBadge=document.getElementById('dash-deposit-status');
 if(dsBadge){
   if((cabin.deposit_status==='pending'||cabin.deposit_status==null) && !cabin.cabin_number){
-    dsBadge.style.display='flex';
-    dsBadge.innerHTML='⏳ <strong>Deposit Required</strong> — Full deposit required to confirm your cabin hold and assign a cabin #.';
+    dsBadge.style.display='block';
+    dsBadge.innerHTML='⏳ <strong>Cabin # Pending</strong> — Your cabin number will be available after the full <strong>$250.00 per person deposit</strong> has been made.';
   } else {
     dsBadge.style.display='none';
   }
@@ -3433,12 +3443,12 @@ if(dsBadge){
     // Cabin type + status label
     const typeLabel=cabin.suite_pending?`${cabin.cabin_type} (Suite Requested)`:cabin.cabin_type;
     document.getElementById('dash-cabin-type-display').textContent=typeLabel;
-    const statusTxt=cabin.suite_pending?'Waitlisted — Suite pending availability':cabin.cabin_number?'Confirmed':'Reservation Pending';
+    const statusTxt=cabin.suite_pending?'Waitlisted — Suite pending availability':cabin.cabin_number?'Confirmed':'Reservation Held — Cabin # Assigned After Full Deposit';
     document.getElementById('dash-cabin-status-display').textContent=statusTxt;
     // Store cabin data globally for tile modals
     window.gDashCabinData=cabin;
     // Cabin # and guest count
-    document.getElementById('dash-cabin-num-display').textContent=cabin.cabin_number||'TBD';
+    document.getElementById('dash-cabin-num-display').textContent=cabin.cabin_number||'Pending';
     document.getElementById('dash-guests-display').textContent=cabin.num_guests||'—';
     // Single occupancy notice
     const singleNote=document.getElementById('dash-single-occ-note');
@@ -3940,9 +3950,14 @@ function toggleAddTraveler(){
   if(form.classList.contains('open')){
     clearFlash('cabin-alert');
     resetTravelerForm();
-    // Check if this is the first traveler — pre-fill with account holder info
-    const existing=document.querySelectorAll('#cabin-travelers-list .traveler-card');
-    if(existing.length===0) prefillAccountHolder();
+    const nextSlot=(window.gCabinTravelers||[]).length;
+    const titleEl=document.getElementById('ct-form-title');
+    if(nextSlot===0){
+      prefillAccountHolder(); // sets title to "Traveler 1 — Your Information (Account Holder)"
+    } else {
+      if(titleEl)titleEl.textContent=`Traveler ${nextSlot+1}`;
+    }
+    setTimeout(()=>form.scrollIntoView({behavior:'smooth',block:'start'}),100);
   }
 }
 
@@ -4191,14 +4206,42 @@ async function addCabinTraveler(){
     const numGAdv=caForAdv?.num_guests||null;
     const nextSlot=travelers2.length; // = count of travelers now saved (0-based index of next slot)
     if(numGAdv&&nextSlot<numGAdv){
+      const savedSlotIdx=nextSlot-1; // 0-based index of the traveler we just saved
       const remaining=numGAdv-nextSlot;
-      alert(`✓ Traveler ${nextSlot} saved!\n\n⚠️ All traveler information must be entered before your cabin information is complete.\n\n${remaining} more traveler${remaining>1?'s':''} still needed. You'll be taken to Traveler ${nextSlot+1} now.`);
-      openTravelerSlot(nextSlot);
+      showTravelerSavedPopup(savedSlotIdx, remaining, nextSlot);
     } else {
       gActiveTravelerSlot=-1;
       loadCabinTravelers();
     }
   }
+}
+
+// ── TRAVELER SAVED POPUP ─────────────────────────────────────
+function showTravelerSavedPopup(savedSlot, remaining, nextSlot){
+  const isAcctHolder = savedSlot === 0; // slot 0 = account holder
+  const popup = document.createElement('div');
+  popup.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.52);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  popup.innerHTML=`
+    <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:420px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.28);text-align:center;">
+      <div style="font-size:2.4rem;margin-bottom:8px;">${isAcctHolder?'🎉':'✅'}</div>
+      <div style="font-weight:800;font-size:1.1rem;color:#14532d;margin-bottom:8px;">
+        ${isAcctHolder?'Your Information is Confirmed!':'Traveler Saved!'}
+      </div>
+      ${isAcctHolder?`<p style="font-size:.88rem;color:#374151;margin-bottom:14px;line-height:1.55;">Traveler 1 (Account Holder) has been saved and is shown as complete below.</p>`:`<p style="font-size:.88rem;color:#374151;margin-bottom:14px;line-height:1.55;">Traveler ${savedSlot+1} has been saved successfully.</p>`}
+      <div style="background:#fef9c3;border:1.5px solid #fde68a;border-radius:9px;padding:11px 14px;margin-bottom:18px;font-size:.84rem;color:#78350f;line-height:1.55;">
+        ⚠️ <strong>${remaining} more traveler${remaining>1?'s':''} still needed.</strong><br>
+        All cabin travelers must be entered before your reservation is complete.
+      </div>
+      <button onclick="this.closest('[style*=fixed]').remove();openTravelerSlot(${nextSlot});"
+        style="width:100%;padding:12px;background:#16a34a;color:#fff;border:none;border-radius:9px;font-weight:800;font-size:.95rem;cursor:pointer;letter-spacing:.01em;">
+        + Add Traveler ${nextSlot+1} Now →
+      </button>
+      <button onclick="this.closest('[style*=fixed]').remove();gActiveTravelerSlot=-1;loadCabinTravelers();"
+        style="width:100%;padding:10px;background:none;border:none;color:#6b7280;font-size:.84rem;cursor:pointer;margin-top:8px;">
+        I'll add more travelers later
+      </button>
+    </div>`;
+  document.body.appendChild(popup);
 }
 
 // ── CITIZENSHIP DOCUMENTATION EMAIL PER TRAVELER ─────────────
@@ -4349,8 +4392,9 @@ async function loadCabinTravelers(){
       const tName=t?[t.first_name,t.last_name].filter(Boolean).join(' '):'';
       const filled=!!t;
       const isActive=gActiveTravelerSlot===i;
-      return`<button class="slot-tab${filled?' filled':''}${isActive?' active':''}" onclick="openTravelerSlot(${i})">
-        ${filled?'✓':'○'} Traveler ${i+1}${filled&&tName?'<br><span style="font-size:.72rem;font-weight:500;">'+tName+'</span>':''}
+      const label=i===0?'Traveler 1 (You)':'Traveler '+(i+1);
+      return`<button class="slot-tab${filled?' filled':''}${isActive?' active':''}" onclick="openTravelerSlot(${i})" title="${filled?'Click to view/edit '+tName:'Add '+label}">
+        ${label}${filled?'<span class="slot-tab-sub">'+tName+'</span>':''}
       </button>`;
     }).join('');
   } else if(tabsEl){
@@ -4365,6 +4409,18 @@ async function loadCabinTravelers(){
       addBtn.style.display='';
       addBtn.disabled=false;addBtn.textContent='+ Add Traveler';
       addBtn.style.opacity='';addBtn.style.cursor='';
+    }
+  }
+  // "Add Next Traveler" CTA — shown below tabs when Traveler 1 done but more slots remain
+  const nextCta=document.getElementById('dash-add-next-traveler-cta');
+  if(nextCta){
+    const filledCount=travelers.length;
+    const formIsOpen=document.getElementById('add-traveler-form')?.classList.contains('open');
+    if(numGuests&&filledCount>0&&filledCount<numGuests&&!formIsOpen){
+      nextCta.style.display='block';
+      nextCta.querySelector('button').textContent=`+ Add Traveler ${filledCount+1}`;
+    } else {
+      nextCta.style.display='none';
     }
   }
 
