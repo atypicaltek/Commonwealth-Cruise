@@ -3165,6 +3165,10 @@ async function doProfileSetup(){
 
 // ── DASHBOARD ────────────────────────────────────────────────
 async function loadDashboard(){
+  // Admin should never land here — if called accidentally, route back to admin
+  if(gUser?.email?.toLowerCase()===ADMIN_EMAIL.toLowerCase()||gProfile?.is_admin===true){
+    showPage('admin');return;
+  }
   document.getElementById('dash-loading').style.display='block';
   document.getElementById('dash-content').style.display='none';
   // Always re-fetch profile from DB so the name is never stale or email-based
@@ -3315,6 +3319,20 @@ async function loadDashboard(){
   const milestones=msRes.data||[];
   const payments=pyRes.data||[];
   const cabin=caRes.data;
+
+  // If the cabin query returned a permission/RLS error (not simply "no rows"),
+  // do NOT show the cabin-select CTA — that would prompt users who already
+  // have a cabin to pick one again. Show a refresh prompt instead.
+  if(!cabin && caRes.error && caRes.error.code!=='PGRST116'){
+    document.getElementById('dash-loading').style.display='none';
+    document.getElementById('dash-content').style.display='block';
+    document.getElementById('dash-cabin-card').style.display='block';
+    document.getElementById('dash-cabin-flex-row').innerHTML=
+      '<p style="color:var(--danger);font-weight:700;padding:8px 0;">⚠️ Could not load your cabin info. Please <a href="#" onclick="location.reload();return false;">refresh the page</a> or contact the organizer.</p>';
+    ['dash-no-cabin-cta','dash-single-occ-note','dash-backup-cabin-row','dash-high-occ-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+    return;
+  }
+
   const cabinCost=cabin?.cabin_cost?parseFloat(cabin.cabin_cost):null;
   // Cache globally so tile-click modals can read them without re-fetching
   gMilestones=milestones;gPayments=payments;gCabinCost=cabinCost;
