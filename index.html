@@ -1034,24 +1034,10 @@
         <div class="form-group" style="margin:0;"><label>First Name *</label><input type="text" id="reg-firstname" placeholder="Jane" autocomplete="off"></div>
         <div class="form-group" style="margin:0;"><label>Last Name *</label><input type="text" id="reg-lastname" placeholder="Smith" autocomplete="off"></div>
       </div>
-      <div style="display:flex;gap:10px;justify-content:space-between;margin-top:8px;">
-        <button class="btn btn-ghost" onclick="regGoStep(1)">&#x2190; Back</button>
-        <button class="btn btn-primary" onclick="regGoStep(3)">Next &#x2192;</button>
-      </div>
-    </div>
-    <!-- STEP 3: PIN -->
-    <div id="reg-step-3" style="display:none;">
-      <div style="font-weight:700;color:var(--primary);margin-bottom:10px;">Step 3: Create Your PIN</div>
-      <p style="font-size:.88rem;color:#475569;margin-bottom:16px;">Choose a 6-digit PIN you will use every time you sign in.</p>
-      <div class="form-group"><label>Create PIN *</label>
-        <div class="pin-row"><input class="pin-box" id="rw-p0" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-p1" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-p2" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-p3" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-p4" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-p5" maxlength="1" inputmode="numeric" autocomplete="new-password"></div>
-      </div>
-      <div class="form-group"><label>Confirm PIN *</label>
-        <div class="pin-row"><input class="pin-box" id="rw-c0" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-c1" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-c2" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-c3" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-c4" maxlength="1" inputmode="numeric" autocomplete="new-password"><input class="pin-box" id="rw-c5" maxlength="1" inputmode="numeric" autocomplete="new-password"></div>
-      </div>
+      <p style="font-size:.82rem;color:var(--muted);margin:10px 0 4px;"><strong>📧 A PIN will be emailed to you</strong> — use it to sign in after registration.</p>
       <div id="reg-busy" style="display:none;text-align:center;padding:10px;color:#1a4a7c;font-weight:600;">Creating your account…</div>
-      <div style="display:flex;gap:10px;justify-content:space-between;margin-top:8px;">
-        <button class="btn btn-ghost" onclick="regGoStep(2)">&#x2190; Back</button>
+      <div style="display:flex;gap:10px;justify-content:space-between;margin-top:12px;">
+        <button class="btn btn-ghost" onclick="regGoStep(1)">&#x2190; Back</button>
         <button class="btn btn-primary" id="reg-complete-btn" onclick="completeRegistration()">&#x2713; Complete Registration</button>
       </div>
     </div>
@@ -2446,147 +2432,97 @@ function resetLoginToEmail(){
 let gRegEmail='';
 
 function regGoStep(n){
-  // Validate before advancing
   const alertEl=document.getElementById('reg-alert');
   alertEl.style.display='none';
+  // Validate cabin+guests before advancing to Step 2
   if(n===2){
     const cabin=document.getElementById('reg-cabin-type').value;
     const guests=document.getElementById('reg-num-guests').value;
     if(!cabin){alertEl.className='alert alert-error';alertEl.textContent='Please select a cabin type.';alertEl.style.display='block';return;}
     if(!guests){alertEl.className='alert alert-error';alertEl.textContent='Please select number of guests.';alertEl.style.display='block';return;}
   }
-  if(n===3){
-    const fn=document.getElementById('reg-firstname').value.trim();
-    const ln=document.getElementById('reg-lastname').value.trim();
-    if(!fn||!ln){alertEl.className='alert alert-error';alertEl.textContent='First and last name are required.';alertEl.style.display='block';return;}
-  }
-  [0,1,2,3].forEach(i=>{const el=document.getElementById('reg-step-'+i);if(el)el.style.display=(i===n?'block':'none');});
-  // Step 0 = welcome screen (no step counter); steps 1-3 = account setup steps
+  [0,1,2].forEach(i=>{const el=document.getElementById('reg-step-'+i);if(el)el.style.display=(i===n?'block':'none');});
   const title=document.getElementById('reg-modal-title');
   if(title)title.innerHTML=n===0?'&#x1F6F3;&#xFE0F; Welcome Aboard!':'&#x1F3AB; Create Your Account';
-  const labels=['','Step 1 of 3','Step 2 of 3','Step 3 of 3'];
-  const pct=[0,33,66,100];
+  const labels=['','Step 1 of 2','Step 2 of 2'];
+  const pct=[0,50,100];
   document.getElementById('reg-step-indicator').textContent=n===0?'':labels[n];
   document.getElementById('reg-progress-bar').style.width=pct[n]+'%';
 }
 
 async function completeRegistration(){
   const alertEl=document.getElementById('reg-alert');
-  const pin=getPin('rw-p');
-  const confirm=getPin('rw-c');
-  if(pin.length<6){alertEl.className='alert alert-error';alertEl.textContent='Please enter a complete 6-digit PIN.';alertEl.style.display='block';return;}
-  if(pin!==confirm){alertEl.className='alert alert-error';alertEl.textContent='PINs do not match — please try again.';alertEl.style.display='block';clearPin('rw-c');document.getElementById('rw-c0').focus();return;}
-
   const btn=document.getElementById('reg-complete-btn');
   const busy=document.getElementById('reg-busy');
-  btn.disabled=true;busy.style.display='block';alertEl.style.display='none';
 
   const firstName=document.getElementById('reg-firstname').value.trim();
   const lastName=document.getElementById('reg-lastname').value.trim();
+  if(!firstName||!lastName){
+    alertEl.className='alert alert-error';alertEl.textContent='First and last name are required.';alertEl.style.display='block';return;
+  }
   const fullName=firstName+' '+lastName;
   const cabinType=document.getElementById('reg-cabin-type').value;
   const numGuests=parseInt(document.getElementById('reg-num-guests').value)||1;
 
+  btn.disabled=true;busy.style.display='block';alertEl.style.display='none';
+
+  function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';btn.disabled=false;busy.style.display='none';}
   function errDetail(e){
-    // Build a readable error string from any Supabase/PostgREST error shape
     const parts=[];
-    const msg=(e&&(e.message||e.msg||e.error_description||''));
+    const msg=(e&&(e.message||e.msg||''));
     const code=(e&&(e.code||e.status||''));
     const detail=(e&&(e.details||e.detail||''));
-    const hint=(e&&e.hint)||'';
     if(msg&&msg!=='{}')parts.push(msg);
     if(code)parts.push('code:'+code);
     if(detail)parts.push(detail);
-    if(hint)parts.push(hint);
-    if(!parts.length){
-      // Last resort — stringify the whole thing
-      try{const s=JSON.stringify(e,Object.getOwnPropertyNames(e));if(s&&s!=='{}')parts.push(s);}catch(_){}
-    }
-    return parts.join(' | ')||'Unknown error — check browser console';
+    if(!parts.length){try{const s=JSON.stringify(e,Object.getOwnPropertyNames(e));if(s&&s!=='{}')parts.push(s);}catch(_){}}
+    return parts.join(' | ')||'Unknown error';
   }
-  function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';btn.disabled=false;busy.style.display='none';}
 
   try{
-    // Step 1 — Create auth account directly (no confirmation email, bypasses rate limits).
-    // If a partial registration left an orphaned auth.users row (no profile),
-    // create_confirmed_user resets the PIN and returns the existing ID.
-    let userId;
-    {
-      const{data,error:e}=await sb.rpc('create_confirmed_user',{p_email:gRegEmail,p_pin:pin});
-      if(e){
-        console.error('[reg step1] create_confirmed_user error',e);
-        const msg=(e.message||'').toLowerCase();
-        if(msg.includes('already')&&msg.includes('profile')){
-          showErr('An account already exists with this email. Please sign in, or use Forgot PIN if you need to reset it.');
-          return;
-        }
-        showErr('Step 1 failed (account creation): '+errDetail(e));
-        return;
-      }
-      userId=data;
-    }
-    if(!userId){showErr('Account creation failed — no user ID returned. Please try again.');return;}
+    // Single SECURITY DEFINER RPC: creates auth account + profile + cabin + traveler
+    // in one transaction with no client-side signIn required.
+    // A random PIN is generated server-side and returned so we can email it.
+    const{data:result,error:rpcErr}=await sb.rpc('complete_self_registration',{
+      p_email:gRegEmail,
+      p_full_name:fullName,
+      p_first_name:firstName,
+      p_last_name:lastName,
+      p_cabin_type:cabinType,
+      p_num_guests:numGuests
+    });
 
-    // Safety net: ensure email_confirmed_at is set (covers edge cases where
-    // create_confirmed_user ran but GoTrue still sees the account as unconfirmed)
-    try{await sb.rpc('confirm_user_email',{p_email:gRegEmail});}catch(_){}
-
-    // Step 2 — Sign in FIRST so auth.uid() is set for all subsequent RLS-protected writes.
-    // If GoTrue returns 500 it almost always means auth.users token fields are wrong
-    // or auth.identities is broken — fix both and retry once.
-    let signInData;
-    {
-      const{data,error:e}=await sb.auth.signInWithPassword({email:gRegEmail,password:pin});
-      if(e){
-        const statusCode=e.status||e.code||0;
-        if(statusCode===500||statusCode==='500'){
-          // Fix identity + re-confirm, then retry
-          try{await sb.rpc('fix_user_identity',{p_email:gRegEmail});}catch(_){}
-          try{await sb.rpc('confirm_user_email',{p_email:gRegEmail});}catch(_){}
-          const{data:d2,error:e2}=await sb.auth.signInWithPassword({email:gRegEmail,password:pin});
-          if(e2){
-            console.error('[reg step2 retry] signIn error',e2);
-            showErr('Sign-in failed after account creation ('+errDetail(e2)+'). Run Statement 38 in Supabase SQL Editor to clean up this email, then try again.');
-            return;
-          }
-          signInData=d2;
-        } else {
-          console.error('[reg step2] signIn error',e);showErr('Step 2 failed (sign-in): '+errDetail(e));return;
-        }
+    if(rpcErr){
+      console.error('[reg] complete_self_registration error',rpcErr);
+      const msg=(rpcErr.message||'').toLowerCase();
+      if(msg.includes('already')&&msg.includes('profile')){
+        showErr('An account already exists with this email. Please sign in, or use Forgot PIN if you need to reset it.');
       } else {
-        signInData=data;
+        showErr('Registration failed: '+errDetail(rpcErr));
       }
+      return;
     }
 
-    // Step 3 — Profile row (auth.uid() is now live).
-    {
-      const{error:e}=await sb.from('profiles').upsert({id:userId,name:fullName,email:gRegEmail,pin,citizenship_type:'other'});
-      if(e){console.error('[reg step3] profile upsert error',e);showErr('Step 3 failed (profile): '+errDetail(e));return;}
-    }
+    const tempPin=(result&&result.temp_pin)||'(see email)';
 
-    // Step 4 — Cabin assignment.
-    {
-      let price=null;
-      try{const{data:_p}=await sb.rpc('decrement_cabin_tier',{p_cabin_type:cabinType});price=_p;}catch(_){}
-      const{error:e}=await sb.from('cabin_assignments').insert({user_id:userId,cabin_type:cabinType,num_guests:numGuests,price_per_person:price||null,deposit_status:'pending'});
-      if(e){console.error('[reg step4] cabin_assignments error',e);showErr('Step 4 failed (cabin): '+errDetail(e));return;}
-    }
-
-    // Step 5 — Primary cabin traveler record.
-    {
-      const{error:e}=await sb.from('cabin_travelers').insert({account_owner_id:userId,first_name:firstName,last_name:lastName});
-      if(e){console.error('[reg step5] cabin_travelers error',e);showErr('Step 5 failed (traveler): '+errDetail(e));return;}
-    }
-
-    // Step 6 — Welcome email (non-fatal).
+    // Queue welcome email with the PIN (anon INSERT is granted on email_queue)
     try{
-      const body='Hello '+firstName+',\n\nWelcome to the '+TRIP_NAME+'!\n\nYour account has been created. Sign in at any time to complete your traveler information and view your cabin reservation.\n\nPortal: '+PORTAL_URL+'\n\nGlowJetters Travel';
-      await sb.from('email_queue').insert({to_email:gRegEmail,to_name:fullName,subject:TRIP_NAME+' — Your Account Has Been Created',plain_body:body,html_body:body,status:'queued'});
+      const plain=`Hello ${firstName},\n\nWelcome to the ${TRIP_NAME}!\n\nYour account has been created. Use the information below to sign in:\n\nPortal: ${PORTAL_URL}\nEmail: ${gRegEmail}\nPIN: ${tempPin}\n\nAfter signing in, complete your traveler information from your dashboard.\n\nGlowJetters Travel`;
+      const html=`<p>Hello ${firstName},</p><p>Welcome to the <strong>${TRIP_NAME}</strong>!</p><p>Your account has been created. Use the information below to sign in:</p><table style="border-collapse:collapse;margin:12px 0;"><tr><td style="padding:4px 12px 4px 0;color:#64748b;">Portal</td><td><a href="${PORTAL_URL}">${PORTAL_URL}</a></td></tr><tr><td style="padding:4px 12px 4px 0;color:#64748b;">Email</td><td>${gRegEmail}</td></tr><tr><td style="padding:4px 12px 4px 0;color:#64748b;">PIN</td><td><strong style="font-size:1.3em;letter-spacing:2px;">${tempPin}</strong></td></tr></table><p>After signing in, complete your traveler information from your dashboard.</p><p>GlowJetters Travel</p>`;
+      await sb.from('email_queue').insert({to_email:gRegEmail,to_name:fullName,subject:TRIP_NAME+' — Your Account &amp; PIN',plain_body:plain,html_body:html,status:'queued'});
     }catch(_){}
 
+    // Close wizard and show success on the login screen
     document.getElementById('reg-wizard-modal').classList.remove('open');
-    sessionStorage.setItem('fresh_login','1');
-    await loadAndRoute(signInData.user);
+    // Pre-fill email and show green success notice
+    const emailInput=document.getElementById('login-email');
+    if(emailInput)emailInput.value=gRegEmail;
+    const loginAlert=document.getElementById('login-alert');
+    if(loginAlert){
+      loginAlert.className='alert alert-success';
+      loginAlert.innerHTML='🎉 Account created! <strong>Check your email for your 6-digit PIN</strong>, then sign in below.';
+      loginAlert.style.display='block';
+    }
   }catch(e){
     console.error('[reg] unexpected error',e);
     showErr('Registration error: '+errDetail(e));
