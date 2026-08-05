@@ -5252,7 +5252,7 @@ async function loadTravelers(){
     {data:allPayments},
     {data:allCabinTravelers}
   ]=await Promise.all([
-    sb.from('profiles').select('id,name,email,status,needs_doc_info').eq('is_admin',false).order('name'),
+    sb.from('profiles').select('id,name,email,status,needs_doc_info').neq('is_admin',true).order('name'),
     sb.rpc('admin_get_all_cabin_assignments'),
     sb.from('user_payments').select('user_id,amount_due,amount_paid'),
     sb.from('cabin_travelers').select('id,account_owner_id,first_name,middle_name,last_name,name_suffix,citizenship_type,country_of_citizenship,phone,date_of_birth,gender').order('created_at',{ascending:true})
@@ -7879,7 +7879,7 @@ function handleTravelerAction(sel,userId){
       emailAccountCreated({name:d.name,email:d.email},'their reserved cabin');
     }
   }
-  else if(v==='edit_profile')openAdminEditProfile(d.userId,d.name,d.email);
+  else if(v==='edit_profile')openManageTravelers(d.userId,d.name,d.numGuests||1);
   else if(v==='manage_travelers')openManageTravelers(d.userId,d.name,d.numGuests||1);
   else if(v==='approve_cabin_change'){
     adminApproveCabinChange(d.userId,d.name,d.email,d.cabinType,d.requestedCabinType);
@@ -7924,7 +7924,10 @@ async function openEditOccupant(travelerId,ownerId){
 }
 async function handleOccupantAction(sel,travelerId,name,ownerId){
   const v=sel.value;sel.value='';
-  if(v==='edit'){openEditOccupant(travelerId,ownerId);}
+  if(v==='edit'){
+    const ownerData=window.gTravelerData?.[ownerId];
+    openManageTravelers(ownerId,ownerData?.name||name,ownerData?.numGuests||1);
+  }
   else if(v==='remove'){
     if(!travelerId){alert('Cannot remove — traveler ID not found.');return;}
     if(!confirm('Remove '+name+' from the cabin?\n\nThis will delete their traveler record. The account holder can re-add them from their dashboard.\n\nContinue?'))return;
