@@ -2448,11 +2448,22 @@ async function checkEmailContinue(){
     document.getElementById('login-pin-step').style.display='block';
     document.getElementById('lp0').focus();
   } else {
-    // New user — open registration wizard starting with Welcome Aboard screen
+    // No profile found — check if an orphaned auth account exists
+    let authExists=false;
+    try{const{data:ae}=await sb.rpc('check_auth_email_exists',{p_email:email});authExists=!!ae;}catch(_){}
+
     gRegEmail=email;
     regGoStep(0);
     document.getElementById('reg-wizard-modal').classList.add('open');
-    document.getElementById('reg-alert').style.display='none';
+    const regAlertEl=document.getElementById('reg-alert');
+    if(authExists&&regAlertEl){
+      // Orphaned state: auth account exists but no profile — show explanation
+      regAlertEl.className='alert alert-warning';
+      regAlertEl.innerHTML='⚠️ An account was started for this email but not completed. Fill in the form below to finish setting up your account.';
+      regAlertEl.style.display='block';
+    } else if(regAlertEl){
+      regAlertEl.style.display='none';
+    }
     // Load live inventory in the background so cabin options are ready for Step 1
     loadRegInventory();
   }
@@ -2559,8 +2570,9 @@ async function completeRegistration(){
     try{
       const plain=`Hello ${firstName},\n\nWelcome to the ${TRIP_NAME}!\n\nYour account has been created. Use the information below to sign in:\n\nPortal: ${PORTAL_URL}\nEmail: ${gRegEmail}\nPIN: ${tempPin}\n\nAfter signing in, complete your traveler information from your dashboard.\n\nGlowJetters Travel`;
       const html=`<p>Hello ${firstName},</p><p>Welcome to the <strong>${TRIP_NAME}</strong>!</p><p>Your account has been created. Use the information below to sign in:</p><table style="border-collapse:collapse;margin:12px 0;"><tr><td style="padding:4px 12px 4px 0;color:#64748b;">Portal</td><td><a href="${PORTAL_URL}">${PORTAL_URL}</a></td></tr><tr><td style="padding:4px 12px 4px 0;color:#64748b;">Email</td><td>${gRegEmail}</td></tr><tr><td style="padding:4px 12px 4px 0;color:#64748b;">PIN</td><td><strong style="font-size:1.3em;letter-spacing:2px;">${tempPin}</strong></td></tr></table><p>After signing in, complete your traveler information from your dashboard.</p><p>GlowJetters Travel</p>`;
-      await sb.from('email_queue').insert({to_email:gRegEmail,to_name:fullName,subject:TRIP_NAME+' — Your Account &amp; PIN',plain_body:plain,html_body:html,status:'queued'});
-    }catch(_){}
+      const{error:eqErr}=await sb.from('email_queue').insert({to_email:gRegEmail,to_name:fullName,subject:TRIP_NAME+' — Your Account & PIN',plain_body:plain,html_body:html,status:'queued'});
+      if(eqErr)console.warn('[reg] email queue insert failed:',eqErr);
+    }catch(eqEx){console.warn('[reg] email queue exception:',eqEx);}
 
     // Close wizard and show success on the login screen
     document.getElementById('reg-wizard-modal').classList.remove('open');
