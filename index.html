@@ -2510,16 +2510,13 @@ async function completeRegistration(){
   function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';btn.disabled=false;busy.style.display='none';}
 
   try{
-    // 1. Create auth account
-    const{data:signUpData,error:signUpErr}=await sb.auth.signUp({email:gRegEmail,password:pin,options:{data:{full_name:fullName}}});
+    // 1. Create auth account directly in the DB — no confirmation email sent,
+    //    bypasses Supabase email rate limits entirely.
+    const{data:userId,error:signUpErr}=await sb.rpc('create_confirmed_user',{p_email:gRegEmail,p_pin:pin});
     if(signUpErr)throw signUpErr;
-    const userId=signUpData.user?.id;
     if(!userId)throw new Error('Account creation failed — no user ID returned.');
 
-    // 2. Confirm email immediately so sign-in works
-    try{await sb.rpc('confirm_user_email',{p_email:gRegEmail});}catch(e){}
-
-    // 3. Sign in FIRST — establishes auth.uid() so all subsequent table writes pass RLS
+    // 2. Sign in FIRST — establishes auth.uid() so all subsequent table writes pass RLS
     const{data:signInData,error:signInErr}=await sb.auth.signInWithPassword({email:gRegEmail,password:pin});
     if(signInErr)throw signInErr;
 
@@ -2633,19 +2630,17 @@ async function doSignup(){
 
   flash('signup-alert','Creating your account…','info');
   const fullName=firstName+' '+lastName;
-  const{data,error}=await sb.auth.signUp({email,password:pin,options:{data:{full_name:fullName}}});
+  // Use direct DB insert — bypasses Supabase email rate limit entirely
+  const{data:newUserId,error}=await sb.rpc('create_confirmed_user',{p_email:email,p_pin:pin});
   if(error){flash('signup-alert',error.message);return;}
 
-  // Auto-confirm the email so the traveler can sign in immediately without an email verification step
-  if(data.user){try{await sb.rpc('confirm_user_email',{p_email:email});}catch(e){}}
+  // Sign in to establish session so profile insert passes RLS
+  const{data:siData,error:siErr}=await sb.auth.signInWithPassword({email,password:pin});
+  if(siErr){flash('signup-alert','Account created but sign-in failed: '+siErr.message);return;}
 
-  if(data.user){
+  if(newUserId){
     const isAdmin=email.toLowerCase()===ADMIN_EMAIL.toLowerCase();
-    // citizenship_type:'other' is a placeholder — it can be removed once the
-    // new-columns.sql migration (drop not null on profiles.citizenship_type) has been run.
-    // Without it, the insert fails silently when NOT NULL is still enforced, leaving the
-    // user with an Auth account but no profiles row, which causes cabin FK errors later.
-    const profileData={id:data.user.id,name:fullName,email,is_admin:isAdmin,citizenship_type:'other'};
+    const profileData={id:newUserId,name:fullName,email,is_admin:isAdmin,citizenship_type:'other'};
     const{error:pErr}=await sb.from('profiles').insert(profileData);
     if(pErr){
       // Profile creation failed — user has an Auth account but no profile.
@@ -2672,12 +2667,11 @@ async function doSignup(){
     );
   }
   // If Supabase returned a session (email confirmation disabled), go straight to dashboard
-  if(data?.session){
+  if(siData?.user){
     sessionStorage.setItem('fresh_login','1');
     flash('signup-alert','&#x1F389; Account created! Taking you to your dashboard…','success');
-    setTimeout(()=>loadAndRoute(data.session.user),1200);
+    setTimeout(()=>loadAndRoute(siData.user),1200);
   } else {
-    // Supabase still requires confirmation — show login with softer message
     flash('signup-alert','&#x1F389; Account created! You can now sign in below.','success');
     setTimeout(()=>showPage('login'),2000);
   }
@@ -8084,30 +8078,24 @@ async function adminAddTraveler(){
     try{
       const tempPin=String(Math.floor(100000+Math.random()*900000));
       const fullName=tr.firstName+' '+tr.lastName;
-      const sbUrl=sb.supabaseUrl;
-      const sbKey=sb.supabaseKey;
-      const {createClient}=window.supabase;
-      const sb2=createClient(sbUrl,sbKey);
-      const{data:signUpData,error:signUpErr}=await sb2.auth.signUp({email:tr.email,password:tempPin,options:{data:{full_name:fullName}}});
 
+      // Create auth account via direct DB insert — bypasses email rate limits
       let newUserId=null;
+      const{data:createdId,error:signUpErr}=await sb.rpc('create_confirmed_user',{p_email:tr.email,p_pin:tempPin});
       if(signUpErr){
         const em=(signUpErr.message||'').toLowerCase();
-        if(em.includes('already')||em.includes('registered')){
-          // User exists in auth.users (possibly from a prior failed add) — retrieve their ID
+        if(em.includes('already')||em.includes('exists')){
+          // User already exists — retrieve their ID and reset PIN
           const{data:existingId,error:idErr}=await sb.rpc('admin_get_user_id',{p_email:tr.email});
           if(idErr||!existingId)throw new Error('User already exists but ID could not be retrieved. Run Statement 28 in urgent-fixes.sql first.');
           newUserId=existingId;
-          // Reset their password to the new temp PIN so they can log in
           try{await sb.rpc('admin_reset_user_pin',{p_email:tr.email,p_new_pin:tempPin});}catch(e){}
         } else {
           throw signUpErr;
         }
       } else {
-        newUserId=signUpData.user?.id;
+        newUserId=createdId;
         if(!newUserId)throw new Error('No user ID returned');
-        // Auto-confirm so the traveler can sign in immediately
-        try{await sb.rpc('confirm_user_email',{p_email:tr.email});}catch(e){}
       }
 
       const dob=(tr.dobY&&tr.dobM&&tr.dobD)?(tr.dobY+'-'+String(tr.dobM).padStart(2,'0')+'-'+String(tr.dobD).padStart(2,'0')):null;
