@@ -2438,32 +2438,24 @@ async function checkEmailContinue(){
   }
 
   alertEl.className='alert';alertEl.textContent='Checking…';alertEl.style.display='block';
-  // Check if a profile exists for this email
-  const{data:prof}=await sb.from('profiles').select('id').eq('email',email).maybeSingle();
+  // Use SECURITY DEFINER RPC so RLS doesn't block the anon lookup
+  let authExists=false;
+  try{const{data:ae}=await sb.rpc('check_auth_email_exists',{p_email:email});authExists=!!ae;}catch(_){}
   alertEl.style.display='none';
-  if(prof){
-    // Existing user — show PIN step
+
+  if(authExists){
+    // Existing account — show PIN entry step
     document.getElementById('login-email-display').textContent=email;
     document.getElementById('login-email-step').style.display='none';
     document.getElementById('login-pin-step').style.display='block';
     document.getElementById('lp0').focus();
   } else {
-    // No profile found — check if an orphaned auth account exists
-    let authExists=false;
-    try{const{data:ae}=await sb.rpc('check_auth_email_exists',{p_email:email});authExists=!!ae;}catch(_){}
-
+    // No account found — open registration wizard
     gRegEmail=email;
     regGoStep(0);
     document.getElementById('reg-wizard-modal').classList.add('open');
     const regAlertEl=document.getElementById('reg-alert');
-    if(authExists&&regAlertEl){
-      // Orphaned state: auth account exists but no profile — show explanation
-      regAlertEl.className='alert alert-warning';
-      regAlertEl.innerHTML='⚠️ An account was started for this email but not completed. Fill in the form below to finish setting up your account.';
-      regAlertEl.style.display='block';
-    } else if(regAlertEl){
-      regAlertEl.style.display='none';
-    }
+    if(regAlertEl)regAlertEl.style.display='none';
     // Load live inventory in the background so cabin options are ready for Step 1
     loadRegInventory();
   }
