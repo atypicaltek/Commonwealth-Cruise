@@ -1163,6 +1163,7 @@
 <!-- PROFILE SETUP MODAL (shown after first login if no cabin assignment exists) -->
 <div id="profile-setup-modal" class="modal-overlay">
   <div class="modal-box" style="max-width:520px;max-height:90vh;overflow-y:auto;position:relative;">
+    <button onclick="document.getElementById('profile-setup-modal').classList.remove('open')" style="position:absolute;top:10px;right:12px;background:none;border:none;font-size:1.4rem;color:#94a3b8;cursor:pointer;line-height:1;" title="Close">✕</button>
     <div style="font-size:2rem;text-align:center;margin-bottom:8px;">🛳️</div>
     <h3 style="text-align:center;color:var(--primary);margin-bottom:6px;">Reserve Your Cabin</h3>
     <p style="font-size:.86rem;color:var(--muted);text-align:center;margin-bottom:16px;">Select your cabin type and the number of guests. Citizenship documentation is collected per traveler on your dashboard.</p>
@@ -2830,6 +2831,13 @@ async function doReset(){
 }
 
 async function doLogout(){sessionStorage.removeItem('fresh_login');sessionStorage.removeItem('welcome_modal_shown');await sb.auth.signOut();gUser=null;gProfile=null;showPage('login');}
+// Show "Welcome Aboard" first-login-modal at most once per login session.
+// Call this instead of directly opening the modal — prevents mid-session reappearance.
+function maybeShowWelcomeModal(){
+  if(sessionStorage.getItem('welcome_modal_shown'))return;
+  sessionStorage.setItem('welcome_modal_shown','1');
+  document.getElementById('first-login-modal').classList.add('open');
+}
 
 function onGratLinkOpened(){
   gGratLinkOpened=true;
@@ -3089,11 +3097,17 @@ async function doProfileSetup(){
   if(isSuite&&!suitePhone)return flash('psetup-alert','Please enter a phone number for your suite request.');
 
   // ── Duplicate cabin check ─────────────────────────────────
-  if(!gDupConfirmed){
-    const{data:existingCabin}=await sb.from('cabin_assignments').select('id,cabin_type').eq('user_id',gUser.id).single();
-    if(existingCabin){
+  // Always check — UPSERT will handle the update gracefully, but we still want
+  // to warn the user if they already have a cabin so they don't overwrite it accidentally.
+  {
+    const{data:existingCabin}=await sb.from('cabin_assignments').select('id,cabin_type').eq('user_id',gUser.id).maybeSingle();
+    if(existingCabin&&!gDupConfirmed){
       showDupWarning(null);
       return;
+    }
+    if(existingCabin&&gDupConfirmed){
+      // User confirmed they want to change — UPSERT below will update their row.
+      // No need to block; just proceed.
     }
   }
 
@@ -3162,7 +3176,7 @@ async function doProfileSetup(){
   const email=gProfile?.email||gUser.email;
 
   if(isSuite){
-    const{error:caErr}=await sb.from('cabin_assignments').insert({user_id:gUser.id,cabin_type:backupCabin,suite_pending:true,num_guests:numGuests,backup_cabin_type:backupCabin});
+    const{error:caErr}=await sb.from('cabin_assignments').upsert({user_id:gUser.id,cabin_type:backupCabin,suite_pending:true,num_guests:numGuests,backup_cabin_type:backupCabin},{onConflict:'user_id'});
     if(caErr){flash('psetup-alert','Reservation error: '+caErr.message+'. Please try again or contact the trip organizer.');return;}
     await sb.rpc('decrement_cabin',{cabin:backupCabin});
     const{error:srErr}=await sb.from('suite_requests').insert({user_id:gUser.id,requestor_name:name,requestor_email:email,requestor_phone:suitePhone,backup_cabin_type:backupCabin});
@@ -3172,7 +3186,7 @@ async function doProfileSetup(){
     const caPayload={user_id:gUser.id,cabin_type:cabinType,num_guests:numGuests};
     if(backupPref)caPayload.backup_cabin_type=backupPref;
     if(isHighOcc)caPayload.high_occupancy_pending=true;
-    const{error:caErr}=await sb.from('cabin_assignments').insert(caPayload);
+    const{error:caErr}=await sb.from('cabin_assignments').upsert({...caPayload,user_id:gUser.id},{onConflict:'user_id'});
     if(caErr){flash('psetup-alert','Reservation error: '+caErr.message+'. Please try again or contact the trip organizer.');return;}
     await sb.rpc('decrement_cabin',{cabin:cabinType});
     // Decrement the cheapest available price tier; store price_per_person for inventory tracking.
@@ -3207,8 +3221,11 @@ async function doProfileSetup(){
   document.getElementById('profile-setup-modal').classList.remove('open');
   const{data:updatedProfile}=await sb.from('profiles').select('*').eq('id',gUser.id).single();
   gProfile=updatedProfile;
-  // Do NOT open first-login-modal here — user just completed cabin selection mid-flow.
-  // loadDashboard() below will open it once per session if travelers still outstanding.
+  // Open "Welcome Aboard" once after cabin is selected — user still needs to add travelers.
+  // maybeShowWelcomeModal() uses sessionStorage so it will NOT reappear mid-session.
+  if(!gProfile?.first_login_complete){
+    maybeShowWelcomeModal();
+  }
   loadDashboard();
 }
 
@@ -3510,11 +3527,10 @@ if(dsBadge){
   }
 
   // Traveler reminder — show Welcome Aboard once per login session when cabin is set
-  // but travelers are not yet complete.  sessionStorage flag prevents re-showing
-  // mid-session (e.g. after cabin selection or after each loadDashboard() refresh).
-  if(cabin&&gProfile&&!gProfile.first_login_complete&&!sessionStorage.getItem('welcome_modal_shown')){
-    sessionStorage.setItem('welcome_modal_shown','1');
-    document.getElementById('first-login-modal').classList.add('open');
+  // but travelers are not yet complete.  maybeShowWelcomeModal() uses a sessionStorage
+  // flag so it never opens more than once per session.
+  if(cabin&&gProfile&&!gProfile.first_login_complete){
+    maybeShowWelcomeModal();
   }
 
   // ── Payment schedule calculations ────────────────────────────
