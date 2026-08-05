@@ -7408,7 +7408,11 @@ async function openManageTravelers(ownerId, ownerName, numGuests){
       .select('id,salutation,first_name,middle_name,last_name,name_suffix,date_of_birth,gender,citizenship_type,country_of_citizenship,phone,account_owner_id')
       .eq('account_owner_id',ownerId)
       .order('created_at',{ascending:true});
-    if(fetchErr)console.warn('cabin_travelers fetch:',fetchErr.message);
+    if(fetchErr){
+      alertEl.className='alert alert-error';
+      alertEl.textContent='Could not load traveler records: '+fetchErr.message+'. If this persists, run Statement 33 in Supabase SQL Editor.';
+      alertEl.style.display='block';
+    }
     gMtExisting=existing||[];
     let slots='';
     for(let i=0;i<ng;i++){slots+=mtSlotHtml(i,gMtExisting[i]||null);}
@@ -8020,13 +8024,19 @@ async function adminAddTraveler(){
       }
 
       const dob=(tr.dobY&&tr.dobM&&tr.dobD)?(tr.dobY+'-'+String(tr.dobM).padStart(2,'0')+'-'+String(tr.dobD).padStart(2,'0')):null;
-      // Write both name and full_name — loadTravelers queries the name column
-      await sb.from('profiles').upsert({id:newUserId,name:fullName,full_name:fullName,email:tr.email,phone:tr.phone||null,pin:tempPin,needs_pin_reset:true,gender:tr.gender||null,state_of_residency:tr.state||null,is_admin:false});
+      // Use SECURITY DEFINER RPC so admin can write profiles for other users regardless of RLS
+      const{error:pErr}=await sb.rpc('admin_upsert_profile',{
+        p_user_id:newUserId,p_name:fullName,p_full_name:fullName,p_email:tr.email,
+        p_phone:tr.phone||null,p_pin:tempPin,p_needs_pin_reset:true,
+        p_gender:tr.gender||null,p_state_of_residency:tr.state||null,p_is_admin:false
+      });
+      if(pErr)throw new Error('Profile creation failed: '+pErr.message+' — Run Statement 34 in Supabase SQL Editor.');
 
       // Only insert cabin_assignment if one doesn't already exist
       const{data:existingCabin}=await sb.from('cabin_assignments').select('id').eq('user_id',newUserId).maybeSingle();
       if(!existingCabin){
-        await sb.from('cabin_assignments').insert({user_id:newUserId,cabin_type:cabinType,num_guests:numGuests,deposit_status:'pending',admin_assigned:true});
+        const{error:caErr}=await sb.from('cabin_assignments').insert({user_id:newUserId,cabin_type:cabinType,num_guests:numGuests,deposit_status:'pending',admin_assigned:true});
+        if(caErr)throw new Error('Cabin assignment failed: '+caErr.message);
         // Decrement inventory (Suite has no tier tracking)
         if(cabinType!=='Suite'){
           try{await sb.rpc('decrement_cabin',{cabin:cabinType});}catch(e){}
