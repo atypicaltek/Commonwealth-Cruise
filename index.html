@@ -1482,6 +1482,7 @@ let gUser=null,gProfile=null,gInventory={},gProfileSetupComplete=false,gInventor
 let gMilestones=[],gPayments=[],gCabinCost=null,gDupConfirmed=false,gPendingSetup=null;
 let gEditingTravelerId=null,gEditingTravelerOld=null,gGratLinkOpened=false,gCitLinkOpened={};
 let gActiveTravelerSlot=-1,gWaitlistData=[];
+let gMtOwnerId='',gMtExisting=[];
 
 // ── ROUTER ─────────────────────────────────────────────────
 function showPage(name){
@@ -2286,6 +2287,9 @@ async function emailTravelerInfoComplete(travelers,ownerName,ownerEmail,minorIss
 
 async function runMinorAndCompleteChecks(ownerId,travelers,ownerName,ownerEmail){
   if(!travelers||travelers.length===0)return;
+  // Mark traveler info as complete so Welcome Aboard modal doesn't reappear on next login
+  try{await sb.from('profiles').update({first_login_complete:true}).eq('id',ownerId);}catch(e){}
+  if(gProfile&&gProfile.id===ownerId)gProfile.first_login_complete=true;
   const issues=getMinorPolicyIssues(travelers);
   const ownerPhone=travelers[0]?.phone||'';
   if(issues.length>0){
@@ -5401,6 +5405,7 @@ async function loadTravelers(){
     if(!occupantMap[t.account_owner_id])occupantMap[t.account_owner_id]=[];
     occupantMap[t.account_owner_id].push(t);
   });
+  window.gOccupantMap=occupantMap; // cache for openManageTravelers (avoids RLS-blocked direct query)
   window.gTravelerData={};
 
   const active=profiles.filter(p=>p.status!=='cancelled');
@@ -7446,7 +7451,6 @@ async function changeCabinType(userId,name,currentType,currentNumGuests){
 
 
 // ── ADMIN MANAGE ALL TRAVELERS ────────────────────────────────
-let gMtOwnerId='', gMtExisting=[];
 
 function mtSlotHtml(idx, t){
   const isFirst = idx===0;
@@ -7518,19 +7522,24 @@ async function openManageTravelers(ownerId, ownerName, numGuests){
   if(slotsEl)slotsEl.innerHTML='<div class="loading"><div class="spinner"></div></div>';
   document.getElementById('admin-mt-modal').classList.add('open');
   try{
-    const{data:existing,error:fetchErr}=await sb.from('cabin_travelers')
-      .select('id,salutation,first_name,middle_name,last_name,name_suffix,date_of_birth,gender,citizenship_type,country_of_citizenship,phone,account_owner_id')
-      .eq('account_owner_id',ownerId)
-      .order('created_at',{ascending:true});
-    if(fetchErr){
-      alertEl.className='alert alert-error';
-      alertEl.textContent='Could not load traveler records: '+fetchErr.message+'. If this persists, run Statement 33 in Supabase SQL Editor.';
-      alertEl.style.display='block';
+    // Use cached occupant data from loadTravelers (avoids RLS blocking admin's direct query)
+    let existing=window.gOccupantMap?window.gOccupantMap[ownerId]||[]:null;
+    if(existing===null){
+      // Fallback: direct query (only if cache not available yet)
+      const{data:fetched,error:fetchErr}=await sb.from('cabin_travelers')
+        .select('id,salutation,first_name,middle_name,last_name,name_suffix,date_of_birth,gender,citizenship_type,country_of_citizenship,phone,account_owner_id')
+        .eq('account_owner_id',ownerId)
+        .order('created_at',{ascending:true});
+      if(fetchErr){
+        const alertEl=document.getElementById('mt-alert');
+        if(alertEl){alertEl.className='alert alert-error';alertEl.textContent='Could not load traveler records: '+fetchErr.message+'. Try refreshing the Travelers tab.';alertEl.style.display='block';}
+      }
+      existing=fetched||[];
     }
-    gMtExisting=existing||[];
+    gMtExisting=existing;
     let slots='';
     for(let i=0;i<ng;i++){slots+=mtSlotHtml(i,gMtExisting[i]||null);}
-    slotsEl.innerHTML=slots||'<p style="color:var(--muted);padding:8px;">No slots to display.</p>';
+    if(slotsEl)slotsEl.innerHTML=slots||'<p style="color:var(--muted);padding:8px;">No slots to display.</p>';
   }catch(e){
     const alertEl2=document.getElementById('mt-alert');
     if(alertEl2){alertEl2.className='alert alert-error';alertEl2.textContent='Error loading travelers: '+e.message;alertEl2.style.display='block';}
@@ -8111,20 +8120,28 @@ async function adminAddTraveler(){
   const btn=document.getElementById('aad-submit-btn');
   btn.disabled=true;btn.textContent='Adding...';alertEl.style.display='none';
   const results=[];
-  for(const tr of travelers){
+  let primaryUserId=null; // Traveler 1's userId — secondary travelers go under this account
+
+  for(let ti=0;ti<travelers.length;ti++){
+    const tr=travelers[ti];
+    const isPrimary=ti===0;
     try{
       const tempPin=String(Math.floor(100000+Math.random()*900000));
       const fullName=tr.firstName+' '+tr.lastName;
 
-      // Create auth account via direct DB insert — bypasses email rate limits
+      // Every traveler gets their own auth account so they can log in independently
       let newUserId=null;
       const{data:createdId,error:signUpErr}=await sb.rpc('create_confirmed_user',{p_email:tr.email,p_pin:tempPin});
       if(signUpErr){
         const em=(signUpErr.message||'').toLowerCase();
         if(em.includes('already')||em.includes('exists')){
-          // User already exists — retrieve their ID and reset PIN
           const{data:existingId,error:idErr}=await sb.rpc('admin_get_user_id',{p_email:tr.email});
           if(idErr||!existingId)throw new Error('User already exists but ID could not be retrieved. Run Statement 28 in urgent-fixes.sql first.');
+          // Safety guard: confirm the existing account's email matches before touching any data
+          const{data:existingProf}=await sb.from('profiles').select('email,name').eq('id',existingId).maybeSingle();
+          if(existingProf&&existingProf.email&&existingProf.email.toLowerCase()!==tr.email.toLowerCase()){
+            throw new Error(`Email lookup returned a different traveler (${existingProf.name}). Cannot overwrite existing data. Please verify the email address.`);
+          }
           newUserId=existingId;
           try{await sb.rpc('admin_reset_user_pin',{p_email:tr.email,p_new_pin:tempPin});}catch(e){}
         } else {
@@ -8135,31 +8152,35 @@ async function adminAddTraveler(){
         if(!newUserId)throw new Error('No user ID returned');
       }
 
+      if(isPrimary) primaryUserId=newUserId;
+
       const dob=(tr.dobY&&tr.dobM&&tr.dobD)?(tr.dobY+'-'+String(tr.dobM).padStart(2,'0')+'-'+String(tr.dobD).padStart(2,'0')):null;
-      // Use SECURITY DEFINER RPC so admin can write profiles for other users regardless of RLS
       const{error:pErr}=await sb.rpc('admin_upsert_profile',{
         p_user_id:newUserId,p_name:fullName,p_email:tr.email,
         p_phone:tr.phone||null,p_pin:tempPin,p_needs_pin_reset:true,
         p_gender:tr.gender||null,p_state_of_residency:tr.state||null,p_is_admin:false
       });
-      if(pErr)throw new Error('Profile creation failed: '+pErr.message+' — Run Statement 34 in Supabase SQL Editor.');
+      if(pErr)throw new Error('Profile creation failed: '+pErr.message);
 
-      // Only insert cabin_assignment if one doesn't already exist
-      const{data:existingCabin}=await sb.from('cabin_assignments').select('id').eq('user_id',newUserId).maybeSingle();
-      if(!existingCabin){
-        const{error:caErr}=await sb.from('cabin_assignments').insert({user_id:newUserId,cabin_type:cabinType,num_guests:numGuests,deposit_status:'pending',admin_assigned:true});
-        if(caErr)throw new Error('Cabin assignment failed: '+caErr.message);
-        // Decrement inventory (Suite has no tier tracking)
-        if(cabinType!=='Suite'){
-          try{await sb.rpc('decrement_cabin',{cabin:cabinType});}catch(e){}
-          try{await sb.rpc('decrement_cabin_tier',{p_cabin_type:cabinType});}catch(e){}
+      if(isPrimary){
+        // Primary traveler gets the cabin assignment (with full guest count)
+        const{data:existingCabin}=await sb.from('cabin_assignments').select('id').eq('user_id',newUserId).maybeSingle();
+        if(!existingCabin){
+          const{error:caErr}=await sb.from('cabin_assignments').insert({user_id:newUserId,cabin_type:cabinType,num_guests:numGuests,deposit_status:'pending',admin_assigned:true});
+          if(caErr)throw new Error('Cabin assignment failed: '+caErr.message);
+          if(cabinType!=='Suite'){
+            try{await sb.rpc('decrement_cabin',{cabin:cabinType});}catch(e){}
+            try{await sb.rpc('decrement_cabin_tier',{p_cabin_type:cabinType});}catch(e){}
+          }
         }
       }
+      // Secondary travelers: no separate cabin_assignment — they share the primary's cabin
 
-      // Only insert cabin_travelers if they don't already have an entry
-      const{data:existingOccupant}=await sb.from('cabin_travelers').select('id').eq('account_owner_id',newUserId).eq('first_name',tr.firstName).eq('last_name',tr.lastName).maybeSingle();
+      // cabin_travelers entry: primary uses own ID as owner; secondary uses primaryUserId
+      const ownerIdForEntry=isPrimary?newUserId:(primaryUserId||newUserId);
+      const{data:existingOccupant}=await sb.from('cabin_travelers').select('id').eq('account_owner_id',ownerIdForEntry).eq('first_name',tr.firstName).eq('last_name',tr.lastName).maybeSingle();
       if(!existingOccupant){
-        await sb.from('cabin_travelers').insert({account_owner_id:newUserId,first_name:tr.firstName,last_name:tr.lastName,date_of_birth:dob,gender:tr.gender||null,citizenship_type:tr.citizenship||null});
+        await sb.from('cabin_travelers').insert({account_owner_id:ownerIdForEntry,first_name:tr.firstName,last_name:tr.lastName,date_of_birth:dob,gender:tr.gender||null,citizenship_type:tr.citizenship||null});
       }
 
       if(sendEmail){
@@ -8810,6 +8831,14 @@ async function sendAllHeldEmails(btn){
   loadEmailQueueTab();
 }
 
+async function deleteEmailQueueEntry(id,btn){
+  if(!confirm('Delete this held email? This cannot be undone.'))return;
+  if(btn){btn.disabled=true;btn.textContent='…';}
+  const{error}=await sb.from('email_queue').delete().eq('id',id);
+  if(error){alert('Delete failed: '+error.message);if(btn){btn.disabled=false;btn.textContent='🗑 Delete';}return;}
+  loadEmailQueueTab();
+}
+
 async function sendOneHeldEmail(id,btn){
   if(btn){btn.disabled=true;btn.textContent='Sending…';}
   const{data:eq}=await sb.from('email_queue').select('*').eq('id',id).single();
@@ -8893,7 +8922,7 @@ function renderEmailQueueRows(rows,includeHeldBtn=false){
           :'<span class="badge badge-warn">Queued</span>';
     const src=e.meta?.source?`<small style="color:var(--muted);">${e.meta.source}</small>`:'';
     const actionBtn=includeHeldBtn
-      ?`<button class="btn btn-ghost btn-sm" onclick="sendOneHeldEmail('${e.id}',this)">↺ Send</button>`
+      ?`<button class="btn btn-ghost btn-sm" onclick="sendOneHeldEmail('${e.id}',this)" style="margin-right:4px;">↺ Send</button><button class="btn btn-ghost btn-sm" onclick="deleteEmailQueueEntry('${e.id}',this)" style="color:var(--danger);">🗑 Delete</button>`
       :`<button class="btn btn-ghost btn-sm" onclick="resendQueuedEmail('${e.id}',this)">↺ Resend</button>`;
     return`<tr>
       <td style="font-size:.82rem;">${d}</td>
