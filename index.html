@@ -1303,8 +1303,8 @@
     <div id="aad-travelers-container" style="display:flex;flex-direction:column;gap:12px;margin-bottom:12px;"></div>
     <button type="button" onclick="addAnotherTravelerCard()" style="background:none;border:1.5px dashed var(--primary);color:var(--primary);border-radius:8px;padding:7px 16px;font-size:.9rem;font-weight:600;cursor:pointer;width:100%;margin-bottom:12px;">+ Add Another Traveler</button>
     <div class="form-group" style="margin-bottom:10px;display:flex;align-items:center;gap:8px;">
-      <input type="checkbox" id="aad-send-email" checked style="width:16px;height:16px;">
-      <label for="aad-send-email" style="font-size:.87rem;font-weight:600;color:#92400e;cursor:pointer;">Send welcome email with temporary PIN to each traveler</label>
+      <input type="checkbox" id="aad-send-email" style="width:16px;height:16px;">
+      <label for="aad-send-email" style="font-size:.87rem;font-weight:600;color:#92400e;cursor:pointer;">Send welcome email with temporary PIN to primary traveler</label>
     </div>
         <div style="display:flex;gap:10px;justify-content:flex-end;">
       <button class="btn btn-ghost" onclick="closeAdminAddModal()">Cancel</button>
@@ -1323,6 +1323,30 @@
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
       <button class="btn btn-ghost" onclick="document.getElementById('admin-mt-modal').classList.remove('open')">Cancel</button>
       <button class="btn btn-primary" id="mt-submit-btn" onclick="saveManageTravelers()">Save All Travelers</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN EDIT PAYMENT RECORD MODAL -->
+<div class="modal-overlay" id="admin-edit-pay-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box" style="max-width:440px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <h3 style="margin:0;color:var(--primary);">✏️ Edit Payment Record</h3>
+      <button onclick="document.getElementById('admin-edit-pay-modal').classList.remove('open')" style="background:none;border:none;font-size:1.6rem;color:#94a3b8;cursor:pointer;line-height:1;padding:0 4px;">&times;</button>
+    </div>
+    <div id="epm-alert" class="alert" style="display:none;"></div>
+    <div style="background:#f8faff;border:1px solid #dde3f0;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.87rem;">
+      <div><span style="color:var(--muted);font-size:.78rem;">Traveler</span><br><strong id="epm-traveler"></strong></div>
+      <div style="margin-top:6px;"><span style="color:var(--muted);font-size:.78rem;">Milestone</span><br><strong id="epm-milestone"></strong></div>
+    </div>
+    <div class="grid-2" style="margin-bottom:10px;">
+      <div class="form-group" style="margin:0;"><label>Amount Due ($)</label><input type="number" id="epm-due" step="0.01" min="0" placeholder="0.00"></div>
+      <div class="form-group" style="margin:0;"><label>Amount Paid ($)</label><input type="number" id="epm-paid" step="0.01" min="0" placeholder="0.00"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:16px;"><label>Date Paid</label><input type="date" id="epm-date"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="document.getElementById('admin-edit-pay-modal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" id="epm-save-btn" onclick="saveEditPayment()">Save Changes</button>
     </div>
   </div>
 </div>
@@ -5498,7 +5522,17 @@ async function loadTravelers(){
   }
 
   const thead='<thead><tr><th>Traveler</th><th>Cabin</th><th>Res. / Link</th><th class="col-r">Paid</th><th class="col-r">Balance</th><th>Progress</th><th>Actions</th></tr></thead>';
-  el.innerHTML='<div class="table-wrap"><table>'+thead+'<tbody>'+active.map(makeRow).join('')+'</tbody></table></div>';
+  // Sort: (1) cabin # assigned → (2) payment applied → (3) all cabin info entered → (4) other
+  function travelerPriority(p){
+    const ca=cabinMap[p.id];
+    if(ca?.cabin_number)return 0;
+    if((payMap[p.id]?.paid||0)>0)return 1;
+    const occs=occupantMap[p.id]||[];
+    if(occs.length>0&&occs.length>=(ca?.num_guests||1))return 2;
+    return 3;
+  }
+  const sortedActive=[...active].sort((a,b)=>travelerPriority(a)-travelerPriority(b)||(a.name||'').localeCompare(b.name||''));
+  el.innerHTML='<div class="table-wrap"><table>'+thead+'<tbody>'+sortedActive.map(makeRow).join('')+'</tbody></table></div>';
 }
 
 
@@ -5768,6 +5802,8 @@ async function loadAdminPayments(){
     }
     const pd=p.paid_at?new Date(p.paid_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—';
     const cabinInfo=cabinInfoMap[p.user_id]||{cabinNum:'—',resNum:'—'};
+    const editBtn=isCancRefund?'':
+      `<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;" onclick="openEditPaymentModal('${p.id}','${(p.profiles?.name||'').replace(/'/g,"\\'")}','${(p.payment_milestones?.label||'').replace(/'/g,"\\'")}',${due},${paid},'${p.paid_at||''}')">✏️ Edit</button>`;
     return`<tr${isRef?' style="opacity:.8;background:#f5f3ff;"':''}>
       <td><strong>${p.profiles?.name||'—'}</strong><br><small style="color:var(--muted)">${p.profiles?.email||''}</small></td>
       <td>${p.payment_milestones?.label||'—'}</td>
@@ -5776,7 +5812,7 @@ async function loadAdminPayments(){
       <td class="col-r">${fmt(due)}</td>
       <td class="col-r">${isRef?'<span style="color:#6b21a8;font-weight:700;">'+fmt(paid)+'</span>':fmt(paid)}</td>
       <td>${pd}</td>
-      <td>${badge}${refundBtn?'<br>'+refundBtn:''}</td>
+      <td>${badge}${refundBtn?'<br>'+refundBtn:''}${editBtn?'<br>'+editBtn:''}</td>
     </tr>`;
   }
 
@@ -5806,6 +5842,39 @@ async function loadAdminPayments(){
   }
 
   el.innerHTML=html;
+}
+
+// ── EDIT PAYMENT RECORD ───────────────────────────────────────
+let gEditPayId=null;
+function openEditPaymentModal(payId,travelerName,milestoneLabel,amtDue,amtPaid,paidAt){
+  gEditPayId=payId;
+  document.getElementById('epm-traveler').textContent=travelerName;
+  document.getElementById('epm-milestone').textContent=milestoneLabel;
+  document.getElementById('epm-due').value=amtDue||'';
+  document.getElementById('epm-paid').value=amtPaid||'';
+  document.getElementById('epm-date').value=paidAt?new Date(paidAt).toISOString().slice(0,10):'';
+  const al=document.getElementById('epm-alert');al.style.display='none';
+  document.getElementById('admin-edit-pay-modal').classList.add('open');
+}
+async function saveEditPayment(){
+  if(!gEditPayId)return;
+  const amtDue=parseFloat(document.getElementById('epm-due').value)||0;
+  const amtPaid=parseFloat(document.getElementById('epm-paid').value)||0;
+  const paidDate=document.getElementById('epm-date').value;
+  const al=document.getElementById('epm-alert');
+  const btn=document.getElementById('epm-save-btn');
+  btn.disabled=true;btn.textContent='Saving…';al.style.display='none';
+  const{error}=await sb.from('user_payments').update({
+    amount_due:amtDue,
+    amount_paid:amtPaid,
+    paid_at:paidDate?new Date(paidDate).toISOString():null
+  }).eq('id',gEditPayId);
+  btn.disabled=false;btn.textContent='Save Changes';
+  if(error){al.className='alert alert-error';al.textContent='Error: '+error.message;al.style.display='block';return;}
+  document.getElementById('admin-edit-pay-modal').classList.remove('open');
+  // Refresh both Payments and Travelers tabs so profile reflects the update
+  loadAdminPayments();
+  if(typeof loadTravelers==='function')try{loadTravelers();}catch(e){}
 }
 
 function toggleRefundedPayments(){
@@ -8090,7 +8159,7 @@ async function handleOccupantAction(sel,travelerId,name,ownerId){
 function showAdminAddTraveler(){
   ['aad-firstname','aad-lastname','aad-email','aad-dob-m','aad-dob-d','aad-dob-y','aad-phone','aad-country'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   ['aad-cabin-type','aad-num-guests','aad-gender','aad-citizenship'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
-  document.getElementById('aad-send-email').checked=true;
+  document.getElementById('aad-send-email').checked=false; // default: no email
   document.getElementById('admin-add-alert').innerHTML='';
   const ctr=document.getElementById('aad-travelers-container');
   if(ctr&&ctr.children.length===0)addAnotherTravelerCard();
@@ -8112,8 +8181,9 @@ async function adminAddTraveler(){
     const idx=cards[i].dataset.idx;
     const fn2=fv('aad-fn-'+idx),ln=fv('aad-ln-'+idx),em=fv('aad-em-'+idx);
     if(!fn2||!ln)return showErr('First and Last Name required for Traveler '+(i+1));
-    if(!em||!em.includes('@'))return showErr('Valid email required for Traveler '+(i+1));
-    travelers.push({idx,firstName:fn2,lastName:ln,email:em,
+    // Email only required for primary traveler (Traveler 1)
+    if(i===0&&(!em||!em.includes('@')))return showErr('Valid email required for Traveler 1 (primary account holder)');
+    travelers.push({idx,firstName:fn2,lastName:ln,email:em||null,
       dobM:fv('aad-dobm-'+idx),dobD:fv('aad-dobd-'+idx),dobY:fv('aad-doby-'+idx),
       gender:fv('aad-gender-'+idx),citizenship:fv('aad-cit-'+idx),state:fv('aad-state-'+idx),phone:fv('aad-phone-'+idx)});
   }
@@ -8125,45 +8195,44 @@ async function adminAddTraveler(){
   for(let ti=0;ti<travelers.length;ti++){
     const tr=travelers[ti];
     const isPrimary=ti===0;
+    const fullName=tr.firstName+' '+tr.lastName;
     try{
-      const tempPin=String(Math.floor(100000+Math.random()*900000));
-      const fullName=tr.firstName+' '+tr.lastName;
-
-      // Every traveler gets their own auth account so they can log in independently
-      let newUserId=null;
-      const{data:createdId,error:signUpErr}=await sb.rpc('create_confirmed_user',{p_email:tr.email,p_pin:tempPin});
-      if(signUpErr){
-        const em=(signUpErr.message||'').toLowerCase();
-        if(em.includes('already')||em.includes('exists')){
-          const{data:existingId,error:idErr}=await sb.rpc('admin_get_user_id',{p_email:tr.email});
-          if(idErr||!existingId)throw new Error('User already exists but ID could not be retrieved. Run Statement 28 in urgent-fixes.sql first.');
-          // Safety guard: confirm the existing account's email matches before touching any data
-          const{data:existingProf}=await sb.from('profiles').select('email,name').eq('id',existingId).maybeSingle();
-          if(existingProf&&existingProf.email&&existingProf.email.toLowerCase()!==tr.email.toLowerCase()){
-            throw new Error(`Email lookup returned a different traveler (${existingProf.name}). Cannot overwrite existing data. Please verify the email address.`);
-          }
-          newUserId=existingId;
-          try{await sb.rpc('admin_reset_user_pin',{p_email:tr.email,p_new_pin:tempPin});}catch(e){}
-        } else {
-          throw signUpErr;
-        }
-      } else {
-        newUserId=createdId;
-        if(!newUserId)throw new Error('No user ID returned');
-      }
-
-      if(isPrimary) primaryUserId=newUserId;
-
       const dob=(tr.dobY&&tr.dobM&&tr.dobD)?(tr.dobY+'-'+String(tr.dobM).padStart(2,'0')+'-'+String(tr.dobD).padStart(2,'0')):null;
-      const{error:pErr}=await sb.rpc('admin_upsert_profile',{
-        p_user_id:newUserId,p_name:fullName,p_email:tr.email,
-        p_phone:tr.phone||null,p_pin:tempPin,p_needs_pin_reset:true,
-        p_gender:tr.gender||null,p_state_of_residency:tr.state||null,p_is_admin:false
-      });
-      if(pErr)throw new Error('Profile creation failed: '+pErr.message);
 
       if(isPrimary){
-        // Primary traveler gets the cabin assignment (with full guest count)
+        // ── PRIMARY TRAVELER: create auth account, profile, cabin assignment ──
+        const tempPin=String(Math.floor(100000+Math.random()*900000));
+        let newUserId=null;
+        const{data:createdId,error:signUpErr}=await sb.rpc('create_confirmed_user',{p_email:tr.email,p_pin:tempPin});
+        if(signUpErr){
+          const em=(signUpErr.message||'').toLowerCase();
+          if(em.includes('already')||em.includes('exists')){
+            const{data:existingId,error:idErr}=await sb.rpc('admin_get_user_id',{p_email:tr.email});
+            if(idErr||!existingId)throw new Error('User already exists but ID could not be retrieved. Run Statement 28 in urgent-fixes.sql first.');
+            // Safety guard: confirm the existing account email matches before touching any data
+            const{data:existingProf}=await sb.from('profiles').select('email,name').eq('id',existingId).maybeSingle();
+            if(existingProf&&existingProf.email&&existingProf.email.toLowerCase()!==tr.email.toLowerCase()){
+              throw new Error(`Email lookup returned a different traveler (${existingProf.name}). Cannot overwrite existing data. Please verify the email address.`);
+            }
+            newUserId=existingId;
+            try{await sb.rpc('admin_reset_user_pin',{p_email:tr.email,p_new_pin:tempPin});}catch(e){}
+          } else {
+            throw signUpErr;
+          }
+        } else {
+          newUserId=createdId;
+          if(!newUserId)throw new Error('No user ID returned');
+        }
+        primaryUserId=newUserId;
+
+        const{error:pErr}=await sb.rpc('admin_upsert_profile',{
+          p_user_id:newUserId,p_name:fullName,p_email:tr.email,
+          p_phone:tr.phone||null,p_pin:tempPin,p_needs_pin_reset:true,
+          p_gender:tr.gender||null,p_state_of_residency:tr.state||null,p_is_admin:false
+        });
+        if(pErr)throw new Error('Profile creation failed: '+pErr.message);
+
+        // Cabin assignment for primary only
         const{data:existingCabin}=await sb.from('cabin_assignments').select('id').eq('user_id',newUserId).maybeSingle();
         if(!existingCabin){
           const{error:caErr}=await sb.from('cabin_assignments').insert({user_id:newUserId,cabin_type:cabinType,num_guests:numGuests,deposit_status:'pending',admin_assigned:true});
@@ -8173,23 +8242,32 @@ async function adminAddTraveler(){
             try{await sb.rpc('decrement_cabin_tier',{p_cabin_type:cabinType});}catch(e){}
           }
         }
-      }
-      // Secondary travelers: no separate cabin_assignment — they share the primary's cabin
 
-      // cabin_travelers entry: primary uses own ID as owner; secondary uses primaryUserId
-      const ownerIdForEntry=isPrimary?newUserId:(primaryUserId||newUserId);
-      const{data:existingOccupant}=await sb.from('cabin_travelers').select('id').eq('account_owner_id',ownerIdForEntry).eq('first_name',tr.firstName).eq('last_name',tr.lastName).maybeSingle();
-      if(!existingOccupant){
-        await sb.from('cabin_travelers').insert({account_owner_id:ownerIdForEntry,first_name:tr.firstName,last_name:tr.lastName,date_of_birth:dob,gender:tr.gender||null,citizenship_type:tr.citizenship||null});
+        // cabin_travelers for primary
+        const{data:existingOcc}=await sb.from('cabin_travelers').select('id').eq('account_owner_id',newUserId).eq('first_name',tr.firstName).eq('last_name',tr.lastName).maybeSingle();
+        if(!existingOcc){
+          await sb.from('cabin_travelers').insert({account_owner_id:newUserId,first_name:tr.firstName,last_name:tr.lastName,date_of_birth:dob,gender:tr.gender||null,citizenship_type:tr.citizenship||null,phone:tr.phone||null});
+        }
+
+        if(sendEmail&&tr.email){
+          const plain='Hello '+tr.firstName+',\n\nYour Commonwealth Cruise 2027 traveler account has been created.\n\nEmail: '+tr.email+'\nTemporary PIN: '+tempPin+'\n\nPortal: https://atypicaltek.github.io/Commonwealth-Cruise/\n\nYou will be prompted to create a personal PIN when you first log in.\n\nGlowJetters Travel';
+          const html=buildEmailHtml(tr.firstName,'<p>Your <strong>Commonwealth Cruise 2027</strong> traveler account has been created by the trip organizer.</p><div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:12px;padding:18px 22px;margin:18px 0;text-align:center;"><p style="margin:0 0 6px;font-weight:700;color:#166534;">&#x1F511; Your Temporary Login PIN</p><p style="margin:0;font-size:2.2rem;font-weight:900;letter-spacing:10px;color:#1e293b;">'+tempPin+'</p><p style="margin:8px 0 0;font-size:.82rem;color:#64748b;">You will be prompted to set a personal PIN on your first login.</p></div><p><strong>Email:</strong> '+tr.email+'</p><p><a href="https://atypicaltek.github.io/Commonwealth-Cruise/" style="background:var(--primary);color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;">&#x1F680; Access Your Portal</a></p>');
+          await sb.from('email_queue').insert({to_email:tr.email,to_name:fullName,subject:'Your Commonwealth Cruise 2027 Portal Access',plain_body:plain,html_body:html,status:'queued'});
+        }
+
+      } else {
+        // ── SECONDARY TRAVELER (cabin occupant): NO auth account created ──
+        // Only grouped in this cabin because they were entered together in this form.
+        // Email/phone are NOT used to match or link. account_owner_id = primaryUserId always.
+        if(!primaryUserId)throw new Error('Primary traveler must be added first.');
+        const{data:existingOcc}=await sb.from('cabin_travelers').select('id').eq('account_owner_id',primaryUserId).eq('first_name',tr.firstName).eq('last_name',tr.lastName).maybeSingle();
+        if(!existingOcc){
+          await sb.from('cabin_travelers').insert({account_owner_id:primaryUserId,first_name:tr.firstName,last_name:tr.lastName,date_of_birth:dob,gender:tr.gender||null,citizenship_type:tr.citizenship||null,phone:tr.phone||null});
+        }
       }
 
-      if(sendEmail){
-        const plain='Hello '+tr.firstName+',\n\nYour Commonwealth Cruise 2027 traveler account has been created.\n\nEmail: '+tr.email+'\nTemporary PIN: '+tempPin+'\n\nPortal: https://atypicaltek.github.io/Commonwealth-Cruise/\n\nYou will be prompted to create a personal PIN when you first log in.\n\nGlowJetters Travel';
-        const html=buildEmailHtml(tr.firstName,'<p>Your <strong>Commonwealth Cruise 2027</strong> traveler account has been created by the trip organizer.</p><div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:12px;padding:18px 22px;margin:18px 0;text-align:center;"><p style="margin:0 0 6px;font-weight:700;color:#166534;">&#x1F511; Your Temporary Login PIN</p><p style="margin:0;font-size:2.2rem;font-weight:900;letter-spacing:10px;color:#1e293b;">'+tempPin+'</p><p style="margin:8px 0 0;font-size:.82rem;color:#64748b;">You will be prompted to set a personal PIN on your first login.</p></div><p><strong>Email:</strong> '+tr.email+'</p><p><a href="https://atypicaltek.github.io/Commonwealth-Cruise/" style="background:var(--primary);color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;">&#x1F680; Access Your Portal</a></p>');
-        await sb.from('email_queue').insert({to_email:tr.email,to_name:fullName,subject:'Your Commonwealth Cruise 2027 Portal Access',plain_body:plain,html_body:html,status:'queued'});
-      }
       results.push({name:fullName,ok:true});
-    }catch(e){results.push({name:(tr.firstName+' '+tr.lastName),ok:false,err:e.message});}
+    }catch(e){results.push({name:fullName,ok:false,err:e.message});}
   }
   btn.disabled=false;btn.textContent='Add Traveler(s)';
   const ok=results.filter(r=>r.ok),fail=results.filter(r=>!r.ok);
@@ -8224,7 +8302,11 @@ function addAnotherTravelerCard(){
   card.style.cssText='border:1.5px solid #dde3f0;border-radius:10px;padding:14px;background:#f8faff;position:relative;';
   const monthOpts=[...Array(12)].map((_,i)=>'<option value="'+(i+1)+'">'+(i+1)+'</option>').join('');
   const dayOpts=[...Array(31)].map((_,i)=>'<option value="'+(i+1)+'">'+(i+1)+'</option>').join('');
-  card.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><strong style="color:var(--primary);font-size:.95rem;">Traveler '+(idx+1)+'</strong>'+(idx>0?'<button type="button" onclick="this.closest(\'.aad-traveler-card\').remove();renumberTravelerCards()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:1.1rem;padding:0;">&#x2715;</button>':'')+'</div><div class="grid-2" style="margin-bottom:8px;"><div class="form-group" style="margin:0;"><label>First Name *</label><input type="text" id="aad-fn-'+idx+'" placeholder="Jane" autocomplete="off"></div><div class="form-group" style="margin:0;"><label>Last Name *</label><input type="text" id="aad-ln-'+idx+'" placeholder="Smith" autocomplete="off"></div></div><div class="form-group" style="margin-bottom:8px;"><label>Email *</label><input type="email" id="aad-em-'+idx+'" placeholder="jane@email.com" autocomplete="off"></div><div class="grid-2" style="margin-bottom:8px;"><div class="form-group" style="margin:0;"><label>Date of Birth</label><div style="display:flex;gap:4px;"><select id="aad-dobm-'+idx+'" style="flex:1;"><option value="">MM</option>'+monthOpts+'</select><select id="aad-dobd-'+idx+'" style="flex:1;"><option value="">DD</option>'+dayOpts+'</select><input type="number" id="aad-doby-'+idx+'" placeholder="YYYY" style="flex:1.2;min-width:0;"></div></div><div class="form-group" style="margin:0;"><label>Gender</label><select id="aad-gender-'+idx+'"><option value="">Select...</option><option>Male</option><option>Female</option><option>Non-binary</option><option>Prefer not to say</option></select></div></div><div class="grid-2" style="margin-bottom:8px;"><div class="form-group" style="margin:0;"><label>Citizenship Type</label><select id="aad-cit-'+idx+'"><option value="">Select...</option><option>US Citizen/Passport</option><option>US Citizen/Birth Certificate</option><option>Permanent Resident</option><option>Foreign National</option></select></div><div class="form-group" style="margin:0;"><label>State of Residency</label><input type="text" id="aad-state-'+idx+'" placeholder="TX" autocomplete="off"></div></div><div class="form-group" style="margin:0;"><label>Phone</label><input type="tel" id="aad-phone-'+idx+'" placeholder="555-000-0000" autocomplete="off"></div>';
+  const isPrimary=idx===0;
+  const emailLabel=isPrimary?'Email *':'Email <span style="font-weight:400;color:var(--muted);font-size:.78rem;">(optional — cabin occupant)</span>';
+  const emailPlaceholder=isPrimary?'jane@email.com':'Leave blank if no portal login needed';
+  const secondaryNote=isPrimary?'':'<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:7px;padding:7px 11px;font-size:.78rem;color:#0369a1;margin-bottom:8px;">ℹ️ Cabin occupant — will share '+("<strong>Traveler 1's</strong>")+" cabin. Email is optional. To give this traveler their own portal login, add them separately via <em>Add Traveler Manually</em> as Traveler 1.</div>";
+  card.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><strong style="color:var(--primary);font-size:.95rem;">Traveler '+(idx+1)+'</strong>'+(idx>0?'<button type="button" onclick="this.closest(\'.aad-traveler-card\').remove();renumberTravelerCards()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:1.1rem;padding:0;">&#x2715;</button>':'')+'</div>'+secondaryNote+'<div class="grid-2" style="margin-bottom:8px;"><div class="form-group" style="margin:0;"><label>First Name *</label><input type="text" id="aad-fn-'+idx+'" placeholder="Jane" autocomplete="off"></div><div class="form-group" style="margin:0;"><label>Last Name *</label><input type="text" id="aad-ln-'+idx+'" placeholder="Smith" autocomplete="off"></div></div><div class="form-group" style="margin-bottom:8px;"><label>'+emailLabel+'</label><input type="email" id="aad-em-'+idx+'" placeholder="'+emailPlaceholder+'" autocomplete="off"></div><div class="grid-2" style="margin-bottom:8px;"><div class="form-group" style="margin:0;"><label>Date of Birth</label><div style="display:flex;gap:4px;"><select id="aad-dobm-'+idx+'" style="flex:1;"><option value="">MM</option>'+monthOpts+'</select><select id="aad-dobd-'+idx+'" style="flex:1;"><option value="">DD</option>'+dayOpts+'</select><input type="number" id="aad-doby-'+idx+'" placeholder="YYYY" style="flex:1.2;min-width:0;"></div></div><div class="form-group" style="margin:0;"><label>Gender</label><select id="aad-gender-'+idx+'"><option value="">Select...</option><option>Male</option><option>Female</option><option>Non-binary</option><option>Prefer not to say</option></select></div></div><div class="grid-2" style="margin-bottom:8px;"><div class="form-group" style="margin:0;"><label>Citizenship Type</label><select id="aad-cit-'+idx+'"><option value="">Select...</option><option>US Citizen/Passport</option><option>US Citizen/Birth Certificate</option><option>Permanent Resident</option><option>Foreign National</option></select></div><div class="form-group" style="margin:0;"><label>State of Residency</label><input type="text" id="aad-state-'+idx+'" placeholder="TX" autocomplete="off"></div></div><div class="form-group" style="margin:0;"><label>Phone</label><input type="tel" id="aad-phone-'+idx+'" placeholder="555-000-0000" autocomplete="off"></div>';
   container.appendChild(card);
 }
 function renumberTravelerCards(){
