@@ -1028,25 +1028,13 @@
     </div>
     <!-- STEP 2: Traveler Info -->
     <div id="reg-step-2" style="display:none;">
-      <div style="font-weight:700;color:var(--primary);margin-bottom:14px;">Step 2: Your Information</div>
+      <div style="font-weight:700;color:var(--primary);margin-bottom:6px;">Step 2: Your Name</div>
+      <p style="font-size:.86rem;color:var(--muted);margin-bottom:14px;">Additional details (date of birth, gender, contact info) are collected from your dashboard after account creation.</p>
       <div class="grid-2" style="margin-bottom:8px;">
         <div class="form-group" style="margin:0;"><label>First Name *</label><input type="text" id="reg-firstname" placeholder="Jane" autocomplete="off"></div>
         <div class="form-group" style="margin:0;"><label>Last Name *</label><input type="text" id="reg-lastname" placeholder="Smith" autocomplete="off"></div>
       </div>
-      <div class="form-group"><label>Date of Birth</label>
-        <div style="display:flex;gap:6px;">
-          <select id="reg-dob-m" style="flex:1;"><option value="">Month</option><option value="01">Jan</option><option value="02">Feb</option><option value="03">Mar</option><option value="04">Apr</option><option value="05">May</option><option value="06">Jun</option><option value="07">Jul</option><option value="08">Aug</option><option value="09">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option></select>
-          <select id="reg-dob-d" style="flex:1;"><option value="">Day</option><option>01</option><option>02</option><option>03</option><option>04</option><option>05</option><option>06</option><option>07</option><option>08</option><option>09</option><option>10</option><option>11</option><option>12</option><option>13</option><option>14</option><option>15</option><option>16</option><option>17</option><option>18</option><option>19</option><option>20</option><option>21</option><option>22</option><option>23</option><option>24</option><option>25</option><option>26</option><option>27</option><option>28</option><option>29</option><option>30</option><option>31</option></select>
-          <input type="number" id="reg-dob-y" placeholder="Year" style="flex:1.2;min-width:0;" min="1920" max="2025">
-        </div>
-      </div>
-      <div class="grid-2" style="margin-bottom:8px;">
-        <div class="form-group" style="margin:0;"><label>Gender</label><select id="reg-gender"><option value="">Select...</option><option>Male</option><option>Female</option><option>Non-binary</option><option>Prefer not to say</option></select></div>
-        <div class="form-group" style="margin:0;"><label>State of Residency</label><input type="text" id="reg-state" placeholder="TX" autocomplete="off"></div>
-      </div>
-      <div class="form-group"><label>Citizenship Type</label><select id="reg-citizenship"><option value="">Select...</option><option>US Citizen/Passport</option><option>US Citizen/Birth Certificate</option><option>Permanent Resident</option><option>Foreign National</option></select></div>
-      <div class="form-group"><label>Phone</label><input type="tel" id="reg-phone" placeholder="555-000-0000" autocomplete="off"></div>
-      <div style="display:flex;gap:10px;justify-content:space-between;">
+      <div style="display:flex;gap:10px;justify-content:space-between;margin-top:8px;">
         <button class="btn btn-ghost" onclick="regGoStep(1)">&#x2190; Back</button>
         <button class="btn btn-primary" onclick="regGoStep(3)">Next &#x2192;</button>
       </div>
@@ -2498,30 +2486,32 @@ async function completeRegistration(){
   const fullName=firstName+' '+lastName;
   const cabinType=document.getElementById('reg-cabin-type').value;
   const numGuests=parseInt(document.getElementById('reg-num-guests').value)||1;
-  const dobM=document.getElementById('reg-dob-m').value;
-  const dobD=document.getElementById('reg-dob-d').value;
-  const dobY=document.getElementById('reg-dob-y').value;
-  const dob=(dobY&&dobM&&dobD)?(dobY+'-'+dobM+'-'+dobD):null;
-  const gender=document.getElementById('reg-gender').value||null;
-  const state=document.getElementById('reg-state').value.trim()||null;
-  const citizenship=document.getElementById('reg-citizenship').value||null;
-  const phone=document.getElementById('reg-phone').value.trim()||null;
 
   function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';btn.disabled=false;busy.style.display='none';}
 
   try{
     // 1. Create auth account directly in the DB — no confirmation email sent,
     //    bypasses Supabase email rate limits entirely.
+    //    If a partial registration left an orphaned auth.users row (no profile),
+    //    create_confirmed_user returns that existing ID so we can finish setup.
     const{data:userId,error:signUpErr}=await sb.rpc('create_confirmed_user',{p_email:gRegEmail,p_pin:pin});
-    if(signUpErr)throw signUpErr;
+    if(signUpErr){
+      const msg=(signUpErr.message||'').toLowerCase();
+      if(msg.includes('already')&&msg.includes('profile')){
+        // Fully registered account — redirect to sign-in
+        showErr('An account already exists with this email. Please sign in, or use Forgot PIN if you need to reset it.');
+        return;
+      }
+      throw signUpErr;
+    }
     if(!userId)throw new Error('Account creation failed — no user ID returned.');
 
     // 2. Sign in FIRST — establishes auth.uid() so all subsequent table writes pass RLS
     const{data:signInData,error:signInErr}=await sb.auth.signInWithPassword({email:gRegEmail,password:pin});
     if(signInErr)throw signInErr;
 
-    // 4. Create profile (auth.uid() is now set)
-    const{error:pErr}=await sb.from('profiles').upsert({id:userId,name:fullName,email:gRegEmail,phone,gender,state_of_residency:state,pin,citizenship_type:'other'});
+    // 3. Create profile (auth.uid() is now set); upsert handles partial-registration retry
+    const{error:pErr}=await sb.from('profiles').upsert({id:userId,name:fullName,email:gRegEmail,pin,citizenship_type:'other'});
     if(pErr)throw pErr;
 
     // 5. Create cabin assignment (decrement price tier); cabin_cost left null — admin sets via "Set Cost"
@@ -2529,7 +2519,8 @@ async function completeRegistration(){
     await sb.from('cabin_assignments').insert({user_id:userId,cabin_type:cabinType,num_guests:numGuests,price_per_person:price||null,deposit_status:'pending'});
 
     // 6. Create primary cabin traveler record
-    await sb.from('cabin_travelers').insert({account_owner_id:userId,first_name:firstName,last_name:lastName,date_of_birth:dob,gender,citizenship_type:citizenship,state_of_residency:state,phone});
+    // Only first/last name collected at registration — remaining fields completed from dashboard
+    await sb.from('cabin_travelers').insert({account_owner_id:userId,first_name:firstName,last_name:lastName});
 
     // 7. Send welcome email
     try{
