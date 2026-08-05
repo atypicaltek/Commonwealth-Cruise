@@ -1015,30 +1015,37 @@
       <button class="btn btn-primary btn-full" onclick="regGoStep(1)" style="font-size:1rem;padding:14px;">Let's Get Started &#x2192;</button>
     </div>
 
-    <!-- STEP 1: Cabin -->
-    <div id="reg-step-1">
-      <div style="font-weight:700;color:var(--primary);margin-bottom:14px;">Step 1: Choose Your Cabin</div>
+    <!-- STEP 1: All registration info in one screen -->
+    <div id="reg-step-1" style="display:none;">
+
+      <!-- Cabin Selection -->
+      <div style="font-weight:700;color:var(--primary);font-size:.95rem;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;">🛳️ Cabin Selection</div>
       <div class="form-group"><label>Cabin Type *</label>
         <select id="reg-cabin-type"><option value="">Select cabin type...</option><option value="Interior">Interior</option><option value="Ocean View">Ocean View</option><option value="Balcony">Balcony</option><option value="Suite">Suite</option></select>
       </div>
-      <div class="form-group"><label>Number of Guests in Cabin *</label>
+      <div class="form-group"><label>Number of Guests in Your Cabin *</label>
         <select id="reg-num-guests"><option value="">Select...</option><option value="1">1 (Solo — full cabin rate applies)</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
       </div>
-      <div style="display:flex;justify-content:space-between;"><button class="btn btn-ghost" onclick="regGoStep(0)">&#x2190; Back</button><button class="btn btn-primary" onclick="regGoStep(2)">Next &#x2192;</button></div>
-    </div>
-    <!-- STEP 2: Traveler Info -->
-    <div id="reg-step-2" style="display:none;">
-      <div style="font-weight:700;color:var(--primary);margin-bottom:6px;">Step 2: Your Name</div>
-      <p style="font-size:.86rem;color:var(--muted);margin-bottom:14px;">Additional details (date of birth, gender, contact info) are collected from your dashboard after account creation.</p>
-      <div class="grid-2" style="margin-bottom:8px;">
-        <div class="form-group" style="margin:0;"><label>First Name *</label><input type="text" id="reg-firstname" placeholder="Jane" autocomplete="off"></div>
-        <div class="form-group" style="margin:0;"><label>Last Name *</label><input type="text" id="reg-lastname" placeholder="Smith" autocomplete="off"></div>
+
+      <!-- Primary Traveler -->
+      <div style="font-weight:700;color:var(--primary);font-size:.95rem;margin:18px 0 10px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;">👤 Primary Traveler</div>
+      <p style="font-size:.84rem;color:var(--muted);margin-bottom:12px;">Date of birth, gender, citizenship, and contact info are completed from your dashboard after account creation.</p>
+      <div class="grid-2" style="margin-bottom:4px;">
+        <div class="form-group" style="margin:0 0 10px;"><label>First Name *</label><input type="text" id="reg-firstname" placeholder="Jane" autocomplete="off"></div>
+        <div class="form-group" style="margin:0 0 10px;"><label>Last Name *</label><input type="text" id="reg-lastname" placeholder="Smith" autocomplete="off"></div>
       </div>
-      <p style="font-size:.82rem;color:var(--muted);margin:10px 0 4px;"><strong>📧 A PIN will be emailed to you</strong> — use it to sign in after registration.</p>
+
+      <!-- Additional Travelers Note -->
+      <div style="background:#f0f9ff;border:1px solid #bde0f5;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:.83rem;color:#0c4a6e;">
+        <strong>👥 Cabin travelers:</strong> After your account is created, add all other travelers sharing your cabin from your dashboard. Required before first payment.
+      </div>
+
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:10px;">📧 <strong>A 6-digit PIN will be emailed to you</strong> — use it to sign in to the portal.</p>
+
       <div id="reg-busy" style="display:none;text-align:center;padding:10px;color:#1a4a7c;font-weight:600;">Creating your account…</div>
-      <div style="display:flex;gap:10px;justify-content:space-between;margin-top:12px;">
-        <button class="btn btn-ghost" onclick="regGoStep(1)">&#x2190; Back</button>
-        <button class="btn btn-primary" id="reg-complete-btn" onclick="completeRegistration()">&#x2713; Complete Registration</button>
+      <div style="display:flex;gap:10px;justify-content:space-between;margin-top:4px;">
+        <button class="btn btn-ghost" onclick="regGoStep(0)">&#x2190; Back</button>
+        <button class="btn btn-primary" id="reg-complete-btn" onclick="completeRegistration()" style="min-width:180px;">&#x2713; Complete Registration</button>
       </div>
     </div>
   </div>
@@ -2434,20 +2441,11 @@ let gRegEmail='';
 function regGoStep(n){
   const alertEl=document.getElementById('reg-alert');
   alertEl.style.display='none';
-  // Validate cabin+guests before advancing to Step 2
-  if(n===2){
-    const cabin=document.getElementById('reg-cabin-type').value;
-    const guests=document.getElementById('reg-num-guests').value;
-    if(!cabin){alertEl.className='alert alert-error';alertEl.textContent='Please select a cabin type.';alertEl.style.display='block';return;}
-    if(!guests){alertEl.className='alert alert-error';alertEl.textContent='Please select number of guests.';alertEl.style.display='block';return;}
-  }
-  [0,1,2].forEach(i=>{const el=document.getElementById('reg-step-'+i);if(el)el.style.display=(i===n?'block':'none');});
+  [0,1].forEach(i=>{const el=document.getElementById('reg-step-'+i);if(el)el.style.display=(i===n?'block':'none');});
   const title=document.getElementById('reg-modal-title');
   if(title)title.innerHTML=n===0?'&#x1F6F3;&#xFE0F; Welcome Aboard!':'&#x1F3AB; Create Your Account';
-  const labels=['','Step 1 of 2','Step 2 of 2'];
-  const pct=[0,50,100];
-  document.getElementById('reg-step-indicator').textContent=n===0?'':labels[n];
-  document.getElementById('reg-progress-bar').style.width=pct[n]+'%';
+  document.getElementById('reg-step-indicator').textContent=n===0?'':'';
+  document.getElementById('reg-progress-bar').style.width=n===0?'0%':'100%';
 }
 
 async function completeRegistration(){
