@@ -3487,6 +3487,17 @@ if(dsBadge){
     // Cabin # and guest count
     document.getElementById('dash-cabin-num-display').textContent=cabin.cabin_number||'Pending';
     document.getElementById('dash-guests-display').textContent=cabin.num_guests||'—';
+    // Yellow tile if occupant change is pending
+    const guestTileEl=document.getElementById('dash-guests-display')?.closest('div[onclick]');
+    if(guestTileEl){
+      if(cabin.occupant_change_pending){
+        guestTileEl.style.background='rgba(245,158,11,.45)';
+        guestTileEl.title='Guest count change request pending';
+      } else {
+        guestTileEl.style.background='';
+        guestTileEl.title='';
+      }
+    }
     // Single occupancy notice
     const singleNote=document.getElementById('dash-single-occ-note');
     singleNote.style.display=(cabin.num_guests===1)?'block':'none';
@@ -3547,11 +3558,12 @@ if(dsBadge){
     }
   }
 
-  // Traveler reminder — show Welcome Aboard once per login session when cabin is set
-  // but travelers are not yet complete.  maybeShowWelcomeModal() uses a sessionStorage
-  // flag so it never opens more than once per session.
+  // Welcome Aboard modal — deferred to loadCabinTravelers() so it can check
+  // whether all traveler slots are already filled before deciding to show it.
   if(cabin&&gProfile&&!gProfile.first_login_complete){
-    maybeShowWelcomeModal();
+    window._pendingWelcomeModalCheck=true;
+  } else {
+    window._pendingWelcomeModalCheck=false;
   }
 
   // ── Payment schedule calculations ────────────────────────────
@@ -4099,17 +4111,19 @@ async function addCabinTraveler(){
     }
   }
 
-  // Duplicate traveler check — same first name + last name + DOB already on this account
-  const{data:dupCheck}=await sb.from('cabin_travelers')
-    .select('id')
-    .eq('account_owner_id',gUser.id)
-    .ilike('first_name',first)
-    .ilike('last_name',last)
-    .eq('date_of_birth',`${year}-${month}-${day}`)
-    .maybeSingle();
-  if(dupCheck){
-    flash('cabin-alert',`A traveler named ${first} ${last} with that date of birth is already saved on your account. Please review your existing travelers before adding again.`);
-    return;
+  // Duplicate traveler check — only for new inserts (not when editing an existing record)
+  if(!gEditingTravelerId){
+    const{data:dupCheck}=await sb.from('cabin_travelers')
+      .select('id')
+      .eq('account_owner_id',gUser.id)
+      .ilike('first_name',first)
+      .ilike('last_name',last)
+      .eq('date_of_birth',`${year}-${month}-${day}`)
+      .maybeSingle();
+    if(dupCheck){
+      flash('cabin-alert',`A traveler named ${first} ${last} with that date of birth is already saved on your account. Please review your existing travelers before adding again.`);
+      return;
+    }
   }
 
   // Ensure profile row exists (FK guard — drops not-null on citizenship_type must be run in Supabase first)
@@ -4387,11 +4401,12 @@ async function loadCabinTravelers(){
   // Fetch traveler records and cabin assignment (for num_guests cap)
   const[travRes,caRes]=await Promise.all([
     sb.from('cabin_travelers').select('*').eq('account_owner_id',gUser.id).order('created_at',{ascending:true}),
-    sb.from('cabin_assignments').select('num_guests').eq('user_id',gUser.id).single()
+    sb.from('cabin_assignments').select('num_guests,occupant_change_pending,requested_guest_count').eq('user_id',gUser.id).single()
   ]);
   const travelers=travRes.data||[];
   window.gDashTravelers=travelers; // stored for Travelers tile modal
   const numGuests=caRes.data?.num_guests||null;
+  const occupantChangePending=caRes.data?.occupant_change_pending===true;
   // All traveler info (including account holder) must be in cabin_travelers.
   // Account holder is no longer pre-counted — they must add their own info as Traveler 1.
   const totalAdded=travelers.length;
@@ -4400,6 +4415,17 @@ async function loadCabinTravelers(){
   // Update cabin card progress counter
   const progEl=document.getElementById('dash-travelers-progress');
   if(progEl)progEl.textContent=`${totalAdded}/${numGuests||'—'}`;
+  // Yellow tile while occupant change is pending
+  const travelerTileEl=progEl?.closest('div[onclick]');
+  if(travelerTileEl){
+    if(occupantChangePending){
+      travelerTileEl.style.background='rgba(245,158,11,.45)';
+      travelerTileEl.title='Guest count change request pending';
+    } else {
+      travelerTileEl.style.background='';
+      travelerTileEl.title='';
+    }
+  }
 
   // Update badge beside card header
   const badgeEl=document.getElementById('dash-traveler-count-badge');
@@ -4469,6 +4495,8 @@ async function loadCabinTravelers(){
       <strong style="color:var(--danger);">⚠️ Action Required — Traveler Information Missing</strong>
       <p style="font-size:.86rem;color:#7b1c14;margin-top:6px;line-height:1.5;">No travelers have been added yet. Click "+ Add Traveler" to get started.</p>
     </div>`;
+    // Travelers are empty — show Welcome Aboard if pending
+    if(window._pendingWelcomeModalCheck){window._pendingWelcomeModalCheck=false;maybeShowWelcomeModal();}
     return;
   }
 
@@ -4477,6 +4505,16 @@ async function loadCabinTravelers(){
 
   // Refresh missing-info banner with latest data (cabin from caRes, travelers from DB)
   checkMissingInfoBanner(caRes.data||null, travelers);
+
+  // Deferred Welcome Aboard check — only show when travelers are NOT yet complete
+  if(window._pendingWelcomeModalCheck){
+    window._pendingWelcomeModalCheck=false;
+    if(!atCapacity){
+      // Travelers incomplete — show the modal
+      maybeShowWelcomeModal();
+    }
+    // If atCapacity: all done, no modal needed
+  }
 
   el.innerHTML=travelers.map((t,i)=>{
     const dob=fmtDate(t.date_of_birth);
@@ -5243,11 +5281,45 @@ async function loadWaitlist(){
   const notifyBtn=document.getElementById('btn-notify-waitlist');
   if(!el)return;
   el.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+
+  // Load occupant change requests section first
+  let occupantHtml='';
+  try{
+    const{data:ocReqs}=await sb.rpc('admin_get_occupant_change_requests');
+    if(ocReqs&&ocReqs.length>0){
+      const rows=ocReqs.map(r=>{
+        const dt=r.requested_at?new Date(r.requested_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+        const safeId=r.user_id.replace(/-/g,'_');
+        return`<tr>
+          <td><strong>${r.name||'—'}</strong><br><span style="font-size:.78rem;color:var(--muted);">${r.email||''}</span></td>
+          <td style="font-size:.83rem;">${r.cabin_type||'—'} ${r.cabin_number?'#'+r.cabin_number:''}</td>
+          <td style="text-align:center;">${r.current_num_guests||'—'} → <strong>${r.requested_guest_count||'—'}</strong></td>
+          <td style="font-size:.83rem;max-width:200px;">${r.occupant_change_notes||'—'}</td>
+          <td style="font-size:.78rem;">${dt}</td>
+          <td>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <div style="display:flex;gap:5px;align-items:center;">
+                <input type="number" id="ocr-cost-${safeId}" placeholder="New total cost" style="width:110px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:.8rem;" value="${r.cabin_cost||''}">
+                <button class="btn btn-primary btn-sm" style="font-size:.76rem;" onclick="adminApproveOccupantChange('${r.user_id}',${r.requested_guest_count},'ocr-cost-${safeId}',this)">Approve</button>
+              </div>
+              <button class="btn btn-ghost btn-sm" style="font-size:.76rem;color:var(--danger);" onclick="adminDeclineOccupantChange('${r.user_id}',this)">Decline</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+      occupantHtml=`<div class="section-hdr" style="background:#fef3c7;color:#92400e;border:1.5px solid #f59e0b;margin-bottom:0;">⚠️ Guest Count Change Requests — ${ocReqs.length} pending</div>
+        <div class="table-wrap"><table><thead><tr>
+          <th>Traveler</th><th>Cabin</th><th style="text-align:center;">Count Change</th><th>Notes</th><th>Requested</th><th>Action</th>
+        </tr></thead><tbody>${rows}</tbody></table></div>
+        <div style="height:20px;"></div>`;
+    }
+  }catch(e){}
+
   const{data:wl,error}=await sb.rpc('admin_get_waitlist');
-  if(error){el.innerHTML='<div class="alert alert-error show">'+error.message+'</div>';if(notifyBtn)notifyBtn.style.display='none';return;}
+  if(error){el.innerHTML=occupantHtml+'<div class="alert alert-error show">'+error.message+'</div>';if(notifyBtn)notifyBtn.style.display='none';return;}
   gWaitlistData=wl||[];
   if(!gWaitlistData.length){
-    el.innerHTML='<div class="empty"><div class="ei">⏳</div><p>No waitlist entries.</p></div>';
+    el.innerHTML=occupantHtml+'<div class="empty"><div class="ei">⏳</div><p>No cabin waitlist entries.</p></div>';
     if(notifyBtn)notifyBtn.style.display='none';
     return;
   }
@@ -5281,9 +5353,31 @@ async function loadWaitlist(){
     });
     html+='</tbody></table></div>';
   });
-  el.innerHTML=html;
+  el.innerHTML=occupantHtml+html;
   if(notifyBtn)notifyBtn.style.display='inline-flex';
   updateWaitlistNotifyBtn();
+}
+
+async function adminApproveOccupantChange(userId,newCount,costInputId,btn){
+  const costVal=parseFloat(document.getElementById(costInputId)?.value||'');
+  if(!costVal||isNaN(costVal)||costVal<=0){
+    alert('Please enter the new total cabin cost before approving.');
+    return;
+  }
+  if(!confirm(`Approve: change cabin to ${newCount} guest${newCount!==1?'s':''} with new cost $${costVal.toFixed(2)}?`))return;
+  btn.disabled=true;btn.textContent='Saving...';
+  const{error}=await sb.rpc('admin_approve_occupant_change',{p_user_id:userId,p_new_count:newCount,p_new_cost:costVal});
+  if(error){alert('Error: '+error.message);btn.disabled=false;btn.textContent='Approve';return;}
+  loadWaitlist();
+  if(typeof loadTravelers==='function')try{loadTravelers();}catch(e){}
+}
+
+async function adminDeclineOccupantChange(userId,btn){
+  if(!confirm('Decline this guest count change request?'))return;
+  btn.disabled=true;btn.textContent='Declining...';
+  const{error}=await sb.rpc('admin_decline_occupant_change',{p_user_id:userId});
+  if(error){alert('Error: '+error.message);btn.disabled=false;btn.textContent='Decline';return;}
+  loadWaitlist();
 }
 
 function toggleWaitlistGroup(ckbox,cabinType){
@@ -7521,7 +7615,7 @@ async function changeCabinType(userId,name,currentType,currentNumGuests){
 
 // ── ADMIN MANAGE ALL TRAVELERS ────────────────────────────────
 
-function mtSlotHtml(idx, t){
+function mtSlotHtml(idx, t, ownerEmail){
   const isFirst = idx===0;
   const label = isFirst ? 'Traveler 1 (Account Holder / Primary)' : `Traveler ${idx+1}`;
   const bg = isFirst ? '#f0f7ff' : '#f8fafc';
@@ -7539,6 +7633,7 @@ function mtSlotHtml(idx, t){
   const cit = t?.citizenship_type||'';
   const cty = t?.country_of_citizenship||'';
   const ph  = t?.phone||'';
+  const em  = isFirst ? (ownerEmail||'') : '';
 
   const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const monthOpts = months.map((m,i)=>`<option value="${String(i+1).padStart(2,'0')}" ${dobM===i+1?'selected':''}>${m}</option>`).join('');
@@ -7574,6 +7669,7 @@ function mtSlotHtml(idx, t){
       <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">State of Residency *</label><input type="text" id="mt-cty-${idx}" value="${cty}" placeholder="e.g. United States" autocomplete="off"></div>
       <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">Phone</label><input type="tel" id="mt-ph-${idx}" value="${ph}" placeholder="(555) 000-0000"></div>
     </div>
+    ${isFirst ? `<div class="form-group" style="margin:4px 0 0;"><label style="font-size:.76rem;">Email (Account Holder)</label><input type="email" id="mt-em-0" value="${em}" placeholder="email@example.com" autocomplete="off"></div>` : ''}
   </div>`;
 }
 
@@ -7606,8 +7702,19 @@ async function openManageTravelers(ownerId, ownerName, numGuests){
       existing=fetched||[];
     }
     gMtExisting=existing;
+    // Fetch owner email for slot 0
+    let ownerEmail='';
+    const cachedProf=window.gTravelerData&&window.gTravelerData[ownerId];
+    if(cachedProf&&cachedProf.email){
+      ownerEmail=cachedProf.email;
+    } else {
+      try{
+        const{data:profRow}=await sb.from('profiles').select('email').eq('id',ownerId).maybeSingle();
+        if(profRow?.email)ownerEmail=profRow.email;
+      }catch(e2){}
+    }
     let slots='';
-    for(let i=0;i<ng;i++){slots+=mtSlotHtml(i,gMtExisting[i]||null);}
+    for(let i=0;i<ng;i++){slots+=mtSlotHtml(i,gMtExisting[i]||null,i===0?ownerEmail:'');}
     if(slotsEl)slotsEl.innerHTML=slots||'<p style="color:var(--muted);padding:8px;">No slots to display.</p>';
   }catch(e){
     const alertEl2=document.getElementById('mt-alert');
@@ -7664,10 +7771,13 @@ async function saveManageTravelers(){
         if(error)throw new Error(`Traveler ${i+1} insert failed: `+error.message);
       }
 
-      // If primary traveler (slot 0), also update profiles.name
+      // If primary traveler (slot 0), also update profiles.name and email
       if(i===0){
         const fullName=[fn,ln].filter(Boolean).join(' ');
-        await sb.from('profiles').update({name:fullName}).eq('id',gMtOwnerId);
+        const newEmail=document.getElementById('mt-em-0')?.value.trim()||null;
+        const profileUpdate={name:fullName};
+        if(newEmail)profileUpdate.email=newEmail;
+        await sb.from('profiles').update(profileUpdate).eq('id',gMtOwnerId);
       }
     }
     // After all slots saved: check if ALL required fields are complete for every slot
@@ -8573,26 +8683,9 @@ function openDeckPlan(){
   const existing=document.getElementById('deck-plan-prompt');
   if(existing)existing.remove();
   const blobUrl=getDeckPlanBlobUrl();
-  // Open in a true new popup window (not a tab) positioned above the current window
-  const w=window.open('','_blank','width=1000,height=750,left=100,top=60,resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=no');
-  if(w){
-    w.document.write(`<!DOCTYPE html><html><head><title>Carnival Freedom — Deck Plan</title>
-      <style>*{margin:0;padding:0;box-sizing:border-box;}
-        body{display:flex;flex-direction:column;height:100vh;background:#0f2744;font-family:sans-serif;}
-        header{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;flex-shrink:0;}
-        header span{color:#fff;font-weight:700;font-size:.97rem;}
-        header button{background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.45);color:#fff;border-radius:8px;padding:5px 14px;font-size:1rem;cursor:pointer;font-weight:800;}
-        iframe{flex:1;border:none;width:100%;}
-      </style></head>
-      <body>
-        <header>
-          <span>🗺️ Carnival Freedom — Deck Plan</span>
-          <button onclick="window.close()">✕ Close</button>
-        </header>
-        <iframe src="${blobUrl}"></iframe>
-      </body></html>`);
-    w.document.close();
-  }
+  // Open the blob URL directly in a new tab — this works because the blob
+  // was created in THIS window's origin. Cross-origin popup iframes block blob URLs.
+  window.open(blobUrl,'_blank');
 }
 
 function downloadDeckPlan(){
@@ -8601,7 +8694,9 @@ function downloadDeckPlan(){
   const a=document.createElement('a');
   a.href=getDeckPlanBlobUrl();
   a.download='Carnival-Freedom-Deck-Plan.pdf';
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
 }
 
 // ── CABIN TILE MODALS ─────────────────────────────────────────
@@ -8631,6 +8726,7 @@ function showGuestsTileModal(){
   const maxGuests=maxMap[cabinType]||4;
   const cabin=window.gDashCabinData;
   const gratPaid=cabin?.gratuity_paid===true;
+  const hasPendingChange=cabin?.occupant_change_pending===true;
 
   // Find gratuity milestone amount
   const gratMs=(gMilestones||[]).find(m=>!m.due_date||m.label?.toLowerCase().includes('grat'));
@@ -8646,6 +8742,15 @@ function showGuestsTileModal(){
       </div>`
     :`<div style="margin-top:12px;font-size:.8rem;color:#64748b;">Gratuities are charged per person, per day. Contact the trip organizer for your specific amount.</div>`;
 
+  const pendingBanner=hasPendingChange
+    ?`<div style="margin-top:12px;background:#fef3c7;border:2px solid #f59e0b;border-radius:9px;padding:12px 14px;">
+        <div style="font-weight:700;color:#92400e;font-size:.88rem;">⏳ Guest Count Change Request Pending</div>
+        <div style="font-size:.83rem;color:#78350f;margin-top:4px;">Your request to change to <strong>${cabin.requested_guest_count}</strong> guest${(cabin.requested_guest_count||0)!==1?'s':''} is being reviewed. The trip organizer will update your profile once processed.</div>
+      </div>` : '';
+
+  const changeBtn=(!hasPendingChange&&cabin&&cabin.cabin_type)
+    ?`<div style="margin-top:16px;text-align:center;"><button onclick="document.querySelector('.modal-overlay.open').classList.remove('open');openGuestChangeModal()" style="background:#1a4a7c;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:.87rem;font-weight:700;cursor:pointer;">✏️ Request Guest Count Change</button></div>` : '';
+
   _showInfoModal('👥 Guests',`
     <div style="padding:8px 0;">
       <div style="text-align:center;margin-bottom:16px;">
@@ -8657,7 +8762,102 @@ function showGuestsTileModal(){
         <div><strong>Max Occupancy:</strong> ${maxGuests} guests</div>
       </div>
       ${gratRow}
+      ${pendingBanner}
+      ${changeBtn}
     </div>`);
+}
+
+// ── GUEST COUNT CHANGE REQUEST ─────────────────────────────
+function openGuestChangeModal(){
+  const cabin=window.gDashCabinData;
+  const cabinType=cabin?.cabin_type||'your cabin';
+  const currentCount=cabin?.num_guests||1;
+  const maxMap={'Interior':4,'Ocean View':4,'Balcony':4,'Suite':3};
+  const maxGuests=maxMap[cabinType]||4;
+  const existing=document.getElementById('guest-change-modal');
+  if(existing)existing.remove();
+
+  // Build count options (1 to maxGuests, exclude current)
+  let opts='';
+  for(let i=1;i<=maxGuests;i++){
+    if(i===currentCount)opts+=`<option value="${i}" selected>— ${i} guest${i!==1?'s':''} (current)</option>`;
+    else opts+=`<option value="${i}">${i} guest${i!==1?'s':''}</option>`;
+  }
+
+  const d=document.createElement('div');
+  d.id='guest-change-modal';
+  d.className='modal-overlay';
+  d.style.cssText='display:flex;';
+  d.innerHTML=`
+    <div class="modal-box" style="max-width:480px;">
+      <button class="modal-close" onclick="document.getElementById('guest-change-modal').remove()">✕</button>
+      <h3 style="margin:0 0 4px;">✏️ Request Guest Count Change</h3>
+      <p style="font-size:.84rem;color:var(--muted);margin:0 0 16px;line-height:1.5;">Request a change to the number of guests in your cabin. Your trip organizer will review and process this request.</p>
+      <div id="gcm-alert" class="alert" style="display:none;margin-bottom:12px;"></div>
+      <div style="background:#fffbeb;border:1.5px solid #f59e0b;border-radius:9px;padding:12px 14px;margin-bottom:16px;font-size:.84rem;line-height:1.5;color:#78350f;">
+        ⚠️ <strong>Price Notice:</strong> Changes to the number of cabin guests will affect your total reservation cost. A new price will be set by the trip organizer and reflected in your payment schedule.
+      </div>
+      <div class="form-group">
+        <label>New Guest Count</label>
+        <select id="gcm-count">${opts}</select>
+      </div>
+      <div class="form-group">
+        <label>Notes <span style="font-weight:400;color:var(--muted);font-size:.78rem;">(required — list travelers to add or remove by name)</span></label>
+        <textarea id="gcm-notes" rows="3" placeholder="e.g. Adding Jane Doe and removing John Smith" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.87rem;resize:vertical;"></textarea>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+        <button class="btn btn-ghost" onclick="document.getElementById('guest-change-modal').remove()">Cancel</button>
+        <button id="gcm-submit-btn" class="btn btn-primary" onclick="submitGuestChangeRequest()">Submit Request</button>
+      </div>
+    </div>`;
+  document.body.appendChild(d);
+  setTimeout(()=>d.classList.add('open'),10);
+}
+
+async function submitGuestChangeRequest(){
+  const newCount=parseInt(document.getElementById('gcm-count')?.value)||0;
+  const notes=(document.getElementById('gcm-notes')?.value||'').trim();
+  const alertEl=document.getElementById('gcm-alert');
+  const btn=document.getElementById('gcm-submit-btn');
+  const cabin=window.gDashCabinData;
+  const currentCount=cabin?.num_guests||1;
+
+  if(!alertEl||!btn)return;
+  alertEl.style.display='none';
+
+  function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';}
+
+  if(newCount===currentCount){return showErr('Please select a different guest count from your current reservation.');}
+  if(!notes){return showErr('Please provide notes listing which travelers to add or remove.');}
+
+  btn.disabled=true;btn.textContent='Submitting...';
+
+  const{error}=await sb.from('cabin_assignments').update({
+    occupant_change_pending:true,
+    requested_guest_count:newCount,
+    occupant_change_notes:notes,
+    occupant_change_requested_at:new Date().toISOString()
+  }).eq('user_id',gUser.id);
+
+  if(error){
+    btn.disabled=false;btn.textContent='Submit Request';
+    return showErr('Could not submit request: '+error.message);
+  }
+
+  document.getElementById('guest-change-modal')?.remove();
+  // Update local cache
+  if(window.gDashCabinData){
+    window.gDashCabinData.occupant_change_pending=true;
+    window.gDashCabinData.requested_guest_count=newCount;
+  }
+  // Refresh dashboard to show yellow tiles
+  loadDashboard();
+  // Show confirmation
+  const pop=document.createElement('div');
+  pop.style.cssText='position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#0f2744;color:#fff;padding:14px 24px;border-radius:12px;z-index:99999;font-size:.93rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.3);';
+  pop.textContent='✅ Request submitted — your trip organizer will review and process it.';
+  document.body.appendChild(pop);
+  setTimeout(()=>pop.remove(),4500);
 }
 
 function showTravelersTileModal(){
