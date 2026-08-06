@@ -4554,12 +4554,12 @@ async function deleteCabinTraveler(id){
 async function editCabinTraveler(id){
   const{data:t}=await sb.from('cabin_travelers').select('*').eq('id',id).single();
   if(!t)return;
-  gEditingTravelerId=id;
   gEditingTravelerOld={...t};
   const form=document.getElementById('add-traveler-form');
   form.classList.add('open');
   clearFlash('cabin-alert');
-  resetTravelerForm();
+  resetTravelerForm(); // clears gEditingTravelerId — must re-set AFTER
+  gEditingTravelerId=id; // set AFTER resetTravelerForm so it isn't nulled out
 
   // Pre-fill all fields
   document.getElementById('ct-salutation').value=t.salutation||'';
@@ -8749,7 +8749,7 @@ function showGuestsTileModal(){
       </div>` : '';
 
   const changeBtn=(!hasPendingChange&&cabin&&cabin.cabin_type)
-    ?`<div style="margin-top:16px;text-align:center;"><button onclick="document.querySelector('.modal-overlay.open').classList.remove('open');openGuestChangeModal()" style="background:#1a4a7c;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:.87rem;font-weight:700;cursor:pointer;">✏️ Request Guest Count Change</button></div>` : '';
+    ?`<div style="margin-top:16px;text-align:center;"><button onclick="document.getElementById('tile-info-modal')?.remove();openGuestChangeModal()" style="background:#1a4a7c;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:.87rem;font-weight:700;cursor:pointer;">✏️ Request Guest Count Change</button></div>` : '';
 
   _showInfoModal('👥 Guests',`
     <div style="padding:8px 0;">
