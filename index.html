@@ -1343,7 +1343,15 @@
       <div class="form-group" style="margin:0;"><label>Amount Due ($)</label><input type="number" id="epm-due" step="0.01" min="0" placeholder="0.00"></div>
       <div class="form-group" style="margin:0;"><label>Amount Paid ($)</label><input type="number" id="epm-paid" step="0.01" min="0" placeholder="0.00"></div>
     </div>
-    <div class="form-group" style="margin-bottom:16px;"><label>Date Paid</label><input type="date" id="epm-date"></div>
+    <div class="form-group" style="margin-bottom:12px;"><label>Date Paid</label><input type="date" id="epm-date"></div>
+    <!-- Receipt Upload -->
+    <div style="background:#f0f7ff;border:1.5px solid #bfdbfe;border-radius:9px;padding:12px 14px;margin-bottom:16px;">
+      <div style="font-weight:700;font-size:.84rem;color:#1a4a7c;margin-bottom:8px;">📎 Payment Receipt</div>
+      <div id="epm-receipt-current" style="margin-bottom:8px;display:none;font-size:.82rem;"></div>
+      <label style="font-size:.8rem;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Upload Receipt (PDF, JPG, PNG)</label>
+      <input type="file" id="epm-receipt-file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp" style="width:100%;font-size:.82rem;padding:4px 0;">
+      <p style="font-size:.75rem;color:#64748b;margin:5px 0 0;">Max 5 MB. Replaces any existing receipt.</p>
+    </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;">
       <button class="btn btn-ghost" onclick="document.getElementById('admin-edit-pay-modal').classList.remove('open')">Cancel</button>
       <button class="btn btn-primary" id="epm-save-btn" onclick="saveEditPayment()">Save Changes</button>
@@ -5865,7 +5873,7 @@ async function savePayment(){
 }
 async function loadAdminPayments(){
   const[{data},{data:allCabins},{data:cancelledProfs},{data:cancelRecs}]=await Promise.all([
-    sb.from('user_payments').select('*, profiles(name,email,status), payment_milestones(label,due_date)').order('created_at',{ascending:false}),
+    sb.from('user_payments').select('*, profiles(name,email,status), payment_milestones(label,due_date), receipt_url, receipt_filename, receipt_sent, receipt_sent_at').order('created_at',{ascending:false}),
     sb.rpc('admin_get_all_cabin_assignments'),
     sb.from('profiles').select('id,status').eq('status','cancelled'),
     sb.from('cancellations').select('original_user_id,refund_processed')
@@ -5896,8 +5904,21 @@ async function loadAdminPayments(){
     }
     const pd=p.paid_at?new Date(p.paid_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—';
     const cabinInfo=cabinInfoMap[p.user_id]||{cabinNum:'—',resNum:'—'};
+    const safeRcptUrl=(p.receipt_url||'').replace(/'/g,"\\'");
+    const safeRcptFile=(p.receipt_filename||'').replace(/'/g,"\\'");
     const editBtn=isCancRefund?'':
-      `<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;" onclick="openEditPaymentModal('${p.id}','${(p.profiles?.name||'').replace(/'/g,"\\'")}','${(p.payment_milestones?.label||'').replace(/'/g,"\\'")}',${due},${paid},'${p.paid_at||''}')">✏️ Edit</button>`;
+      `<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;" onclick="openEditPaymentModal('${p.id}','${(p.profiles?.name||'').replace(/'/g,"\\'")}','${(p.payment_milestones?.label||'').replace(/'/g,"\\'")}',${due},${paid},'${p.paid_at||''}','${safeRcptUrl}','${safeRcptFile}')">✏️ Edit</button>`;
+    // Receipt status button
+    let rcptBtn='';
+    if(p.receipt_url){
+      if(p.receipt_sent){
+        rcptBtn=`<button onclick="openReceiptModal('${p.id}','${safeRcptUrl}','${safeRcptFile}','${(p.profiles?.email||'').replace(/'/g,"\\'")}','${(p.profiles?.name||'').replace(/'/g,"\\'")}',true)" title="Receipt sent — click to view/re-send" style="background:#dcfce7;color:#166534;border:1.5px solid #86efac;border-radius:6px;padding:3px 9px;font-size:.78rem;font-weight:700;cursor:pointer;">✉️ Sent ✓</button>`;
+      } else {
+        rcptBtn=`<button onclick="openReceiptModal('${p.id}','${safeRcptUrl}','${safeRcptFile}','${(p.profiles?.email||'').replace(/'/g,"\\'")}','${(p.profiles?.name||'').replace(/'/g,"\\'")}',false)" title="Receipt on file — click to send" style="background:#dbeafe;color:#1e40af;border:1.5px solid #93c5fd;border-radius:6px;padding:3px 9px;font-size:.78rem;font-weight:700;cursor:pointer;">📎 Send Receipt</button>`;
+      }
+    } else {
+      rcptBtn=`<span title="No receipt uploaded" style="color:#9ca3af;font-size:.78rem;">📎 —</span>`;
+    }
     return`<tr${isRef?' style="opacity:.8;background:#f5f3ff;"':''}>
       <td><strong>${p.profiles?.name||'—'}</strong><br><small style="color:var(--muted)">${p.profiles?.email||''}</small></td>
       <td>${p.payment_milestones?.label||'—'}</td>
@@ -5906,11 +5927,12 @@ async function loadAdminPayments(){
       <td class="col-r">${fmt(due)}</td>
       <td class="col-r">${isRef?'<span style="color:#6b21a8;font-weight:700;">'+fmt(paid)+'</span>':fmt(paid)}</td>
       <td>${pd}</td>
+      <td>${rcptBtn}</td>
       <td>${badge}${refundBtn?'<br>'+refundBtn:''}${editBtn?'<br>'+editBtn:''}</td>
     </tr>`;
   }
 
-  const thead=`<table><thead><tr><th>Traveler</th><th>Milestone</th><th>Due Date</th><th>Cabin # / Res. #</th><th class="col-r">Amt Due</th><th class="col-r">Paid</th><th>Paid On</th><th>Status</th></tr></thead><tbody>`;
+  const thead=`<table><thead><tr><th>Traveler</th><th>Milestone</th><th>Due Date</th><th>Cabin # / Res. #</th><th class="col-r">Amt Due</th><th class="col-r">Paid</th><th>Paid On</th><th>Receipt</th><th>Status</th></tr></thead><tbody>`;
 
   // Separate active vs cancelled+refunded
   const activeRows=[];const refundedRows=[];
@@ -5939,14 +5961,25 @@ async function loadAdminPayments(){
 }
 
 // ── EDIT PAYMENT RECORD ───────────────────────────────────────
-let gEditPayId=null;
-function openEditPaymentModal(payId,travelerName,milestoneLabel,amtDue,amtPaid,paidAt){
+let gEditPayId=null,gEditPayReceiptUrl=null;
+function openEditPaymentModal(payId,travelerName,milestoneLabel,amtDue,amtPaid,paidAt,receiptUrl,receiptFilename){
   gEditPayId=payId;
+  gEditPayReceiptUrl=receiptUrl||null;
   document.getElementById('epm-traveler').textContent=travelerName;
   document.getElementById('epm-milestone').textContent=milestoneLabel;
   document.getElementById('epm-due').value=amtDue||'';
   document.getElementById('epm-paid').value=amtPaid||'';
   document.getElementById('epm-date').value=paidAt?new Date(paidAt).toISOString().slice(0,10):'';
+  // Show existing receipt info
+  const rcEl=document.getElementById('epm-receipt-current');
+  if(receiptUrl&&rcEl){
+    rcEl.style.display='block';
+    rcEl.innerHTML=`<span style="color:#065f46;font-weight:600;">✅ Receipt on file:</span> <a href="${receiptUrl}" target="_blank" style="color:#1a4a7c;font-weight:600;">${receiptFilename||'View Receipt'}</a>`;
+  } else if(rcEl){
+    rcEl.style.display='none';rcEl.innerHTML='';
+  }
+  // Reset file input
+  const fi=document.getElementById('epm-receipt-file');if(fi)fi.value='';
   const al=document.getElementById('epm-alert');al.style.display='none';
   document.getElementById('admin-edit-pay-modal').classList.add('open');
 }
@@ -5958,15 +5991,43 @@ async function saveEditPayment(){
   const al=document.getElementById('epm-alert');
   const btn=document.getElementById('epm-save-btn');
   btn.disabled=true;btn.textContent='Saving…';al.style.display='none';
-  const{error}=await sb.from('user_payments').update({
+
+  let receiptUrl=gEditPayReceiptUrl;
+  let receiptFilename=null;
+  const fileInput=document.getElementById('epm-receipt-file');
+  const file=fileInput?.files?.[0];
+
+  if(file){
+    if(file.size>5*1024*1024){
+      al.className='alert alert-error';al.textContent='File too large — max 5 MB.';al.style.display='block';
+      btn.disabled=false;btn.textContent='Save Changes';return;
+    }
+    btn.textContent='Uploading receipt…';
+    const ext=file.name.split('.').pop().toLowerCase();
+    const filename=`receipt-${gEditPayId}-${Date.now()}.${ext}`;
+    const{error:upErr}=await sb.storage.from('payment-receipts').upload(filename,file,{upsert:true,contentType:file.type});
+    if(upErr){
+      al.className='alert alert-error';al.textContent='Receipt upload failed: '+upErr.message;al.style.display='block';
+      btn.disabled=false;btn.textContent='Save Changes';return;
+    }
+    const{data:urlData}=sb.storage.from('payment-receipts').getPublicUrl(filename);
+    receiptUrl=urlData.publicUrl;
+    receiptFilename=file.name;
+    btn.textContent='Saving…';
+  }
+
+  const updatePayload={
     amount_due:amtDue,
     amount_paid:amtPaid,
     paid_at:paidDate?new Date(paidDate).toISOString():null
-  }).eq('id',gEditPayId);
+  };
+  if(receiptUrl!==undefined)updatePayload.receipt_url=receiptUrl||null;
+  if(receiptFilename)updatePayload.receipt_filename=receiptFilename;
+
+  const{error}=await sb.from('user_payments').update(updatePayload).eq('id',gEditPayId);
   btn.disabled=false;btn.textContent='Save Changes';
   if(error){al.className='alert alert-error';al.textContent='Error: '+error.message;al.style.display='block';return;}
   document.getElementById('admin-edit-pay-modal').classList.remove('open');
-  // Refresh both Payments and Travelers tabs so profile reflects the update
   loadAdminPayments();
   if(typeof loadTravelers==='function')try{loadTravelers();}catch(e){}
 }
@@ -5978,6 +6039,160 @@ function toggleRefundedPayments(){
   const open=body.style.display==='block';
   body.style.display=open?'none':'block';
   if(chev)chev.style.transform=open?'':'rotate(180deg)';
+}
+
+// ── RECEIPT MODAL ─────────────────────────────────────────────
+let gReceiptPayId=null,gReceiptUrl=null,gReceiptFilename=null;
+async function openReceiptModal(payId,receiptUrl,receiptFilename,primaryEmail,travelerName,alreadySent){
+  gReceiptPayId=payId;gReceiptUrl=receiptUrl;gReceiptFilename=receiptFilename;
+
+  // Build modal if not present
+  let mo=document.getElementById('receipt-send-modal');
+  if(!mo){
+    mo=document.createElement('div');
+    mo.id='receipt-send-modal';
+    mo.className='modal-overlay';
+    mo.innerHTML=`
+    <div class="modal" style="max-width:520px;max-height:90vh;overflow-y:auto;">
+      <div class="modal-header">
+        <h3 id="rsm-title" style="margin:0;font-size:1.05rem;">📎 Payment Receipt</h3>
+        <button class="modal-close" onclick="document.getElementById('receipt-send-modal').classList.remove('open')">✕</button>
+      </div>
+      <div style="padding:16px 20px 20px;">
+        <div id="rsm-receipt-link" style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.85rem;"></div>
+
+        <div id="rsm-send-history" style="margin-bottom:14px;"></div>
+
+        <div style="font-weight:700;font-size:.88rem;color:#1a4a7c;margin-bottom:6px;">📧 Send Receipt Email</div>
+        <div id="rsm-email-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
+        <button onclick="addReceiptEmailRow()" style="font-size:.8rem;color:#1a4a7c;background:none;border:1.5px dashed #93c5fd;border-radius:6px;padding:5px 12px;cursor:pointer;width:100%;margin-bottom:12px;">+ Add Another Email</button>
+
+        <div style="margin-bottom:10px;">
+          <label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:4px;">Subject</label>
+          <input id="rsm-subject" type="text" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.85rem;">
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:4px;">Message (optional — added above the receipt link)</label>
+          <textarea id="rsm-message" rows="3" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.85rem;resize:vertical;"></textarea>
+        </div>
+        <div id="rsm-alert" style="display:none;padding:8px 12px;border-radius:7px;font-size:.84rem;margin-bottom:10px;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button class="btn btn-ghost" onclick="document.getElementById('receipt-send-modal').classList.remove('open')">Cancel</button>
+          <button id="rsm-send-btn" class="btn btn-primary" onclick="sendReceiptEmails()">Send Receipt</button>
+        </div>
+      </div>
+    </div>`;
+    document.body.appendChild(mo);
+  }
+
+  // Populate receipt link section
+  document.getElementById('rsm-title').textContent=alreadySent?'✉️ Receipt — Sent':'📎 Send Payment Receipt';
+  document.getElementById('rsm-receipt-link').innerHTML=`
+    <strong>Receipt file:</strong> <a href="${receiptUrl}" target="_blank" style="color:#1a4a7c;font-weight:600;">${receiptFilename||'View Receipt'}</a>
+    &nbsp;·&nbsp; <a href="${receiptUrl}" download="${receiptFilename||'receipt'}" style="color:#166534;font-weight:600;">⬇ Download</a>`;
+
+  // Load send history
+  const histEl=document.getElementById('rsm-send-history');
+  histEl.innerHTML='<div style="font-size:.8rem;color:var(--muted);">Loading send history…</div>';
+  const{data:logs}=await sb.from('payment_receipt_logs').select('*').eq('payment_id',payId).order('sent_at',{ascending:false});
+  if(logs&&logs.length>0){
+    histEl.innerHTML=`<div style="font-weight:700;font-size:.82rem;color:#374151;margin-bottom:5px;">Send History</div>`+
+      `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:7px;padding:8px 12px;font-size:.8rem;">` +
+      logs.map(l=>`<div style="padding:3px 0;border-bottom:1px solid #f3f4f6;">${new Date(l.sent_at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})} → <strong>${l.sent_to_email}</strong>${l.sent_to_name?' ('+l.sent_to_name+')':''}</div>`).join('')+
+      `</div>`;
+  } else {
+    histEl.innerHTML='';
+  }
+
+  // Pre-populate email rows — primary email first
+  const listEl=document.getElementById('rsm-email-list');
+  listEl.innerHTML='';
+  addReceiptEmailRow(primaryEmail,travelerName);
+
+  // Default subject
+  document.getElementById('rsm-subject').value=`Your Payment Receipt — GlowJetters 2026`;
+  document.getElementById('rsm-message').value='';
+  const al=document.getElementById('rsm-alert');al.style.display='none';
+
+  mo.classList.add('open');
+}
+
+function addReceiptEmailRow(email='',name=''){
+  const list=document.getElementById('rsm-email-list');
+  const row=document.createElement('div');
+  row.style.cssText='display:flex;gap:6px;align-items:center;';
+  row.innerHTML=`
+    <input type="email" placeholder="email@example.com" value="${email}" style="flex:2;padding:6px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.84rem;">
+    <input type="text" placeholder="Name (optional)" value="${name}" style="flex:2;padding:6px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.84rem;">
+    <button onclick="this.parentElement.remove()" title="Remove" style="flex:0 0 auto;background:none;border:none;font-size:1.1rem;color:#9ca3af;cursor:pointer;padding:0 4px;">✕</button>`;
+  list.appendChild(row);
+}
+
+async function sendReceiptEmails(){
+  if(!gReceiptPayId||!gReceiptUrl)return;
+  const al=document.getElementById('rsm-alert');
+  const btn=document.getElementById('rsm-send-btn');
+  const subject=document.getElementById('rsm-subject').value.trim()||'Your Payment Receipt';
+  const customMsg=document.getElementById('rsm-message').value.trim();
+
+  // Collect all email rows
+  const rows=[...document.getElementById('rsm-email-list').querySelectorAll('div')];
+  const recipients=rows.map(r=>{
+    const inputs=r.querySelectorAll('input');
+    return{email:(inputs[0]?.value||'').trim(),name:(inputs[1]?.value||'').trim()};
+  }).filter(r=>r.email&&r.email.includes('@'));
+
+  if(recipients.length===0){
+    al.className='alert alert-error';al.textContent='Add at least one valid email address.';al.style.display='block';return;
+  }
+  btn.disabled=true;btn.textContent='Sending…';al.style.display='none';
+
+  const msgHtml=customMsg?`<p style="margin-bottom:12px;">${customMsg.replace(/\n/g,'<br>')}</p>`:'';
+  const receiptBlock=`<div style="margin:16px 0;padding:12px 16px;background:#f0f9ff;border-radius:8px;border:1.5px solid #bae6fd;">
+    <p style="margin:0 0 8px;font-weight:700;">📎 Your Payment Receipt</p>
+    <a href="${gReceiptUrl}" style="display:inline-block;background:#1a4a7c;color:#fff;padding:8px 18px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.9rem;">View / Download Receipt</a>
+  </div>`;
+
+  let sentCount=0;
+  const errors=[];
+  for(const recip of recipients){
+    const body=buildEmailHtml(subject,`${msgHtml}${receiptBlock}`,'',recip.name||recip.email);
+    const{error:qErr}=await sb.from('email_queue').insert({
+      to_email:recip.email,
+      subject,
+      body_html:body,
+      status:'pending',
+      bypass_hold:true
+    });
+    if(qErr){errors.push(`${recip.email}: ${qErr.message}`);continue;}
+    // Log the send
+    await sb.from('payment_receipt_logs').insert({
+      payment_id:gReceiptPayId,
+      sent_to_email:recip.email,
+      sent_to_name:recip.name||null,
+      subject,
+      receipt_url:gReceiptUrl
+    });
+    sentCount++;
+  }
+
+  // Mark payment as receipt_sent if at least one succeeded
+  if(sentCount>0){
+    await sb.from('user_payments').update({receipt_sent:true,receipt_sent_at:new Date().toISOString()}).eq('id',gReceiptPayId);
+  }
+
+  btn.disabled=false;btn.textContent='Send Receipt';
+  if(errors.length>0){
+    al.className='alert alert-error';al.textContent=`Sent ${sentCount}, ${errors.length} failed: ${errors.join('; ')}`;al.style.display='block';
+  } else {
+    document.getElementById('receipt-send-modal').classList.remove('open');
+    loadAdminPayments();
+    // Show toast
+    const t=document.createElement('div');
+    t.style.cssText='position:fixed;bottom:24px;right:24px;background:#166534;color:#fff;padding:12px 20px;border-radius:10px;font-weight:700;font-size:.9rem;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.25);';
+    t.textContent=`✉️ Receipt sent to ${sentCount} recipient${sentCount>1?'s':''}!`;
+    document.body.appendChild(t);setTimeout(()=>t.remove(),4000);
+  }
 }
 
 // ── INVENTORY ─────────────────────────────────────────────────
@@ -7424,6 +7639,12 @@ function selectEmailTemplate(idx){
       <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Email Body</label>
       <textarea id="eg-body" rows="16" style="width:100%;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.85rem;font-family:monospace;line-height:1.55;resize:vertical;box-sizing:border-box;">${preview.body.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
     </div>
+    <div style="margin-bottom:16px;background:#f8faff;border:1.5px solid #c7d7f0;border-radius:9px;padding:12px 14px;">
+      <div style="font-weight:700;font-size:.82rem;color:#1a4a7c;margin-bottom:6px;">📎 Attachment (optional)</div>
+      <div id="eg-attachment-current" style="display:none;margin-bottom:6px;font-size:.82rem;"></div>
+      <input type="file" id="eg-attachment-file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx" style="font-size:.82rem;width:100%;">
+      <p style="font-size:.76rem;color:#64748b;margin:5px 0 0;">File will be uploaded and included as a download link in the email. Max 10 MB.</p>
+    </div>
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
       <button class="btn btn-primary" onclick="egSendEmail()" style="font-size:.88rem;">📤 Send Email</button>
       <button class="btn btn-ghost" onclick="copyEmailBody()" style="font-size:.88rem;">📋 Copy Body</button>
@@ -7533,6 +7754,31 @@ async function sendGeneratedEmail(){
     return;
   }
   if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
+
+  // Handle optional attachment
+  let attachmentHtml='';
+  const attFile=document.getElementById('eg-attachment-file')?.files?.[0];
+  if(attFile){
+    if(attFile.size>10*1024*1024){
+      if(statusEl){statusEl.textContent='⚠️ Attachment too large — max 10 MB.';statusEl.style.color='#d97706';}
+      return;
+    }
+    if(statusEl){statusEl.textContent='Uploading attachment…';statusEl.style.color='#64748b';}
+    const ext=attFile.name.split('.').pop().toLowerCase();
+    const attFilename=`email-attach-${Date.now()}.${ext}`;
+    const{error:attErr}=await sb.storage.from('payment-receipts').upload(attFilename,attFile,{upsert:true,contentType:attFile.type});
+    if(attErr){
+      if(statusEl){statusEl.textContent='⚠️ Attachment upload failed: '+attErr.message;statusEl.style.color='#dc2626';}
+      return;
+    }
+    const{data:attUrlData}=sb.storage.from('payment-receipts').getPublicUrl(attFilename);
+    const attUrl=attUrlData.publicUrl;
+    attachmentHtml=`<div style="margin-top:18px;padding:12px 16px;background:#f0f9ff;border-radius:8px;border:1.5px solid #bae6fd;">
+      <p style="margin:0 0 8px;font-weight:700;font-size:.9rem;">📎 Attachment</p>
+      <a href="${attUrl}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;padding:8px 18px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.88rem;">Download ${attFile.name}</a>
+    </div>`;
+    if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
+  }
   // Convert body to HTML with formatting rules:
   // 1. ALL-CAPS lines → bold dark heading
   // 2. "Commonwealth Cruise Travel Portal" line → clickable button link
@@ -7556,7 +7802,7 @@ async function sendGeneratedEmail(){
     if(trimmed==='')return'<div style="height:10px;"></div>';
     return escaped;
   });
-  const htmlBody=buildEmailHtml(toName,`<p style="line-height:1.85;font-size:.95rem;">${bodyHtmlLines.join('<br>')}</p>`);
+  const htmlBody=buildEmailHtml(toName,`<p style="line-height:1.85;font-size:.95rem;">${bodyHtmlLines.join('<br>')}</p>${attachmentHtml}`);
   const result=await sendEmail(toEmail,toName,subject,body,htmlBody);
   if(statusEl){
     if(result?.holdFailed){
