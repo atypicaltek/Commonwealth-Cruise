@@ -1339,6 +1339,20 @@
       <div><span style="color:var(--muted);font-size:.78rem;">Traveler</span><br><strong id="epm-traveler"></strong></div>
       <div style="margin-top:6px;"><span style="color:var(--muted);font-size:.78rem;">Milestone</span><br><strong id="epm-milestone"></strong></div>
     </div>
+    <!-- Traveler count + per-person rate helper -->
+    <div id="epm-rate-helper" style="display:none;background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:.83rem;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span id="epm-travelers-label" style="color:#166534;font-weight:700;"></span>
+        <span style="color:#6b7280;">×</span>
+        <div style="display:flex;align-items:center;gap:5px;">
+          <label style="font-size:.8rem;color:#166534;font-weight:600;white-space:nowrap;">$ per person:</label>
+          <input type="number" id="epm-per-person" step="0.01" min="0" placeholder="0.00" style="width:90px;padding:4px 8px;border:1.5px solid #86efac;border-radius:6px;font-size:.84rem;" oninput="epmRecalcDue()">
+        </div>
+        <span style="color:#6b7280;">=</span>
+        <span id="epm-calc-total" style="color:#166534;font-weight:700;font-size:.95rem;"></span>
+      </div>
+      <div style="font-size:.75rem;color:#6b7280;margin-top:4px;">Auto-fills Amount Due below. Edit Amount Due directly to override.</div>
+    </div>
     <div class="grid-2" style="margin-bottom:10px;">
       <div class="form-group" style="margin:0;"><label>Amount Due ($)</label><input type="number" id="epm-due" step="0.01" min="0" placeholder="0.00"></div>
       <div class="form-group" style="margin:0;"><label>Amount Paid ($)</label><input type="number" id="epm-paid" step="0.01" min="0" placeholder="0.00"></div>
@@ -5907,7 +5921,7 @@ async function loadAdminPayments(){
     const safeRcptUrl=(p.receipt_url||'').replace(/'/g,"\\'");
     const safeRcptFile=(p.receipt_filename||'').replace(/'/g,"\\'");
     const editBtn=isCancRefund?'':
-      `<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;" onclick="openEditPaymentModal('${p.id}','${(p.profiles?.name||'').replace(/'/g,"\\'")}','${(p.payment_milestones?.label||'').replace(/'/g,"\\'")}',${due},${paid},'${p.paid_at||''}','${safeRcptUrl}','${safeRcptFile}')">✏️ Edit</button>`;
+      `<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;" onclick="openEditPaymentModal('${p.id}','${p.user_id||''}','${(p.profiles?.name||'').replace(/'/g,"\\'")}','${(p.payment_milestones?.label||'').replace(/'/g,"\\'")}',${due},${paid},'${p.paid_at||''}','${safeRcptUrl}','${safeRcptFile}')">✏️ Edit</button>`;
     // Receipt status button
     let rcptBtn='';
     if(p.receipt_url){
@@ -5985,8 +5999,8 @@ async function uploadReceiptFile(file, prefix='receipt'){
 }
 
 // ── EDIT PAYMENT RECORD ───────────────────────────────────────
-let gEditPayId=null,gEditPayReceiptUrl=null;
-function openEditPaymentModal(payId,travelerName,milestoneLabel,amtDue,amtPaid,paidAt,receiptUrl,receiptFilename){
+let gEditPayId=null,gEditPayReceiptUrl=null,gEditPayNumGuests=1;
+async function openEditPaymentModal(payId,userId,travelerName,milestoneLabel,amtDue,amtPaid,paidAt,receiptUrl,receiptFilename){
   gEditPayId=payId;
   gEditPayReceiptUrl=receiptUrl||null;
   document.getElementById('epm-traveler').textContent=travelerName;
@@ -6002,10 +6016,44 @@ function openEditPaymentModal(payId,travelerName,milestoneLabel,amtDue,amtPaid,p
   } else if(rcEl){
     rcEl.style.display='none';rcEl.innerHTML='';
   }
-  // Reset file input
+  // Reset file input and per-person helper
   const fi=document.getElementById('epm-receipt-file');if(fi)fi.value='';
+  const ppEl=document.getElementById('epm-per-person');if(ppEl)ppEl.value='';
+  document.getElementById('epm-rate-helper').style.display='none';
   const al=document.getElementById('epm-alert');al.style.display='none';
   document.getElementById('admin-edit-pay-modal').classList.add('open');
+  // Fetch cabin traveler count for this user
+  if(userId){
+    try{
+      const{data:cab}=await sb.from('cabin_assignments').select('num_guests').eq('user_id',userId).maybeSingle();
+      const n=cab?.num_guests||1;
+      gEditPayNumGuests=n;
+      const helperEl=document.getElementById('epm-rate-helper');
+      const labelEl=document.getElementById('epm-travelers-label');
+      if(helperEl&&labelEl&&n>0){
+        labelEl.textContent=n+' traveler'+(n!==1?'s':'');
+        helperEl.style.display='block';
+        // Pre-fill per-person from current amtDue / n
+        if(amtDue&&n>1&&ppEl){
+          ppEl.value=(parseFloat(amtDue)/n).toFixed(2);
+        }
+        epmRecalcDue();
+      }
+    }catch(e){/* silent — helper is optional */}
+  }
+}
+function epmRecalcDue(){
+  const n=gEditPayNumGuests||1;
+  const pp=parseFloat(document.getElementById('epm-per-person')?.value)||0;
+  const totalEl=document.getElementById('epm-calc-total');
+  const dueEl=document.getElementById('epm-due');
+  if(pp>0){
+    const total=(pp*n).toFixed(2);
+    if(totalEl)totalEl.textContent='$'+parseFloat(total).toLocaleString('en-US',{minimumFractionDigits:2});
+    if(dueEl)dueEl.value=total;
+  } else {
+    if(totalEl)totalEl.textContent='';
+  }
 }
 async function saveEditPayment(){
   if(!gEditPayId)return;
@@ -6086,7 +6134,7 @@ async function openReceiptModal(payId,receiptUrl,receiptFilename,primaryEmail,tr
 
         <div style="font-weight:700;font-size:.88rem;color:#1a4a7c;margin-bottom:6px;">📧 Send Receipt Email</div>
         <div id="rsm-email-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
-        <button onclick="addReceiptEmailRow()" style="font-size:.8rem;color:#1a4a7c;background:none;border:1.5px dashed #93c5fd;border-radius:6px;padding:5px 12px;cursor:pointer;width:100%;margin-bottom:12px;">+ Add Another Email</button>
+        <button onclick="addReceiptEmailRow('','',false)" style="font-size:.8rem;color:#1a4a7c;background:none;border:1.5px dashed #93c5fd;border-radius:6px;padding:5px 12px;cursor:pointer;width:100%;margin-bottom:12px;">+ Add Another Email</button>
 
         <div style="margin-bottom:10px;">
           <label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:4px;">Subject</label>
@@ -6125,10 +6173,23 @@ async function openReceiptModal(payId,receiptUrl,receiptFilename,primaryEmail,tr
     histEl.innerHTML='';
   }
 
-  // Pre-populate email rows — primary email first
+  // Load all known emails for this traveler to build the dropdown
+  let knownEmails=[{email:primaryEmail,name:travelerName}];
+  try{
+    // Also check payment_receipt_logs for past recipients
+    const{data:pastLogs}=await sb.from('payment_receipt_logs').select('sent_to_email,sent_to_name').eq('payment_id',payId).order('sent_at',{ascending:false});
+    (pastLogs||[]).forEach(l=>{
+      if(l.sent_to_email&&!knownEmails.find(e=>e.email===l.sent_to_email)){
+        knownEmails.push({email:l.sent_to_email,name:l.sent_to_name||''});
+      }
+    });
+  }catch(e){}
+  window._receiptKnownEmails=knownEmails;
+
+  // Pre-populate email rows — primary email first as dropdown
   const listEl=document.getElementById('rsm-email-list');
   listEl.innerHTML='';
-  addReceiptEmailRow(primaryEmail,travelerName);
+  addReceiptEmailRow(primaryEmail,travelerName,true);
 
   // Default subject
   document.getElementById('rsm-subject').value=`Your Payment Receipt — GlowJetters 2026`;
@@ -6138,14 +6199,47 @@ async function openReceiptModal(payId,receiptUrl,receiptFilename,primaryEmail,tr
   mo.classList.add('open');
 }
 
-function addReceiptEmailRow(email='',name=''){
+function addReceiptEmailRow(email='',name='',isDropdown=false){
   const list=document.getElementById('rsm-email-list');
   const row=document.createElement('div');
-  row.style.cssText='display:flex;gap:6px;align-items:center;';
-  row.innerHTML=`
-    <input type="email" placeholder="email@example.com" value="${email}" style="flex:2;padding:6px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.84rem;">
-    <input type="text" placeholder="Name (optional)" value="${name}" style="flex:2;padding:6px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.84rem;">
-    <button onclick="this.parentElement.remove()" title="Remove" style="flex:0 0 auto;background:none;border:none;font-size:1.1rem;color:#9ca3af;cursor:pointer;padding:0 4px;">✕</button>`;
+  row.className='rsm-email-row';
+  row.style.cssText='display:flex;gap:6px;align-items:center;margin-bottom:4px;';
+  if(isDropdown){
+    // Primary row: dropdown seeded with known emails
+    const knownEmails=window._receiptKnownEmails||[];
+    const opts=knownEmails.map(e=>`<option value="${e.email}" data-name="${e.name||''}" ${e.email===email?'selected':''}>${e.email}${e.name?' — '+e.name:''}</option>`).join('');
+    const hasKnown=knownEmails.length>0;
+    row.innerHTML=`
+      <select class="rsm-email-select" style="flex:3;padding:6px 10px;border:1.5px solid #93c5fd;border-radius:7px;font-size:.84rem;background:#f0f9ff;">
+        ${!hasKnown?'<option value="">Enter email below</option>':''}${opts}
+        <option value="__custom__">✏️ Other email…</option>
+      </select>
+      <input type="text" class="rsm-name-input" placeholder="Name (optional)" value="${name}" style="flex:2;padding:6px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.84rem;">
+      <span style="flex:0 0 auto;width:28px;"></span>`;
+    // Handle "Other email…" selection
+    const sel=row.querySelector('.rsm-email-select');
+    sel.addEventListener('change',function(){
+      if(this.value==='__custom__'){
+        const customInp=document.createElement('input');
+        customInp.type='email';customInp.placeholder='email@example.com';
+        customInp.className='rsm-email-select';
+        customInp.style.cssText='flex:3;padding:6px 10px;border:1.5px solid #93c5fd;border-radius:7px;font-size:.84rem;';
+        this.replaceWith(customInp);
+      } else {
+        // Auto-fill name from selection
+        const opt=this.options[this.selectedIndex];
+        const nameVal=opt.dataset.name||'';
+        const nameInp=row.querySelector('.rsm-name-input');
+        if(nameInp&&nameVal)nameInp.value=nameVal;
+      }
+    });
+  } else {
+    // Additional rows: free-text
+    row.innerHTML=`
+      <input type="email" class="rsm-email-select" placeholder="email@example.com" value="${email}" style="flex:2;padding:6px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.84rem;">
+      <input type="text" class="rsm-name-input" placeholder="Name (optional)" value="${name}" style="flex:2;padding:6px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.84rem;">
+      <button onclick="this.closest('.rsm-email-row').remove()" title="Remove" style="flex:0 0 auto;background:none;border:none;font-size:1.1rem;color:#9ca3af;cursor:pointer;padding:0 4px;">✕</button>`;
+  }
   list.appendChild(row);
 }
 
@@ -6156,12 +6250,13 @@ async function sendReceiptEmails(){
   const subject=document.getElementById('rsm-subject').value.trim()||'Your Payment Receipt';
   const customMsg=document.getElementById('rsm-message').value.trim();
 
-  // Collect all email rows
-  const rows=[...document.getElementById('rsm-email-list').querySelectorAll('div')];
+  // Collect all email rows — each row has .rsm-email-select (input or select) + .rsm-name-input
+  const rows=[...document.getElementById('rsm-email-list').querySelectorAll('.rsm-email-row')];
   const recipients=rows.map(r=>{
-    const inputs=r.querySelectorAll('input');
-    return{email:(inputs[0]?.value||'').trim(),name:(inputs[1]?.value||'').trim()};
-  }).filter(r=>r.email&&r.email.includes('@'));
+    const emailEl=r.querySelector('.rsm-email-select');
+    const nameEl=r.querySelector('.rsm-name-input');
+    return{email:(emailEl?.value||'').trim(),name:(nameEl?.value||'').trim()};
+  }).filter(r=>r.email&&r.email.includes('@')&&r.email!=='__custom__');
 
   if(recipients.length===0){
     al.className='alert alert-error';al.textContent='Add at least one valid email address.';al.style.display='block';return;
@@ -6177,13 +6272,17 @@ async function sendReceiptEmails(){
   let sentCount=0;
   const errors=[];
   for(const recip of recipients){
-    const body=buildEmailHtml(subject,`${msgHtml}${receiptBlock}`,'',recip.name||recip.email);
+    const recipName=recip.name||recip.email;
+    const htmlBody=buildEmailHtml(recipName,`${msgHtml}${receiptBlock}`);
+    const plainBody=(customMsg?customMsg+'\n\n':'')+'Your payment receipt is available at:\n'+gReceiptUrl;
     const{error:qErr}=await sb.from('email_queue').insert({
       to_email:recip.email,
+      to_name:recipName,
       subject,
-      body_html:body,
-      status:'pending',
-      bypass_hold:true
+      plain_body:plainBody,
+      html_body:htmlBody,
+      status:'queued',
+      created_at:new Date().toISOString()
     });
     if(qErr){errors.push(`${recip.email}: ${qErr.message}`);continue;}
     // Log the send
@@ -7646,15 +7745,15 @@ function selectEmailTemplate(idx){
     <div style="margin-bottom:14px;">
       <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">To</label>
       <div style="display:flex;gap:10px;">
-        <input type="text" id="eg-to-name" value="${preview.toName||''}" placeholder="Recipient Name" style="flex:1;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;">
-        <input type="email" id="eg-to-email" value="${isAdmin?ADMIN_EMAIL:''}" placeholder="${preview.toPlaceholder||'email@example.com'}" style="flex:2;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;"${isAdmin?' readonly':''}>
+        <input type="text" id="eg-to-name" value="" placeholder="Recipient Name" autocomplete="off" style="flex:1;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;">
+        <input type="email" id="eg-to-email" value="${isAdmin?ADMIN_EMAIL:''}" placeholder="${preview.toPlaceholder||'email@example.com'}" autocomplete="off" style="flex:2;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;"${isAdmin?' readonly':''}>
       </div>
       ${isAdmin?'<p style="font-size:.76rem;color:#64748b;margin:5px 0 0;">Sends to admin email automatically.</p>':''}
     </div>
     ${preview.extraFields||''}
     <div style="margin-bottom:14px;">
       <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Subject</label>
-      <input type="text" id="eg-subject" value="${preview.subject.replace(/"/g,'&quot;')}" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+      <input type="text" id="eg-subject" value="${preview.subject.replace(/"/g,'&quot;')}" autocomplete="off" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
     </div>
     <div style="margin-bottom:14px;">
       <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Email Body</label>
@@ -7662,9 +7761,12 @@ function selectEmailTemplate(idx){
     </div>
     <div style="margin-bottom:16px;background:#f8faff;border:1.5px solid #c7d7f0;border-radius:9px;padding:12px 14px;">
       <div style="font-weight:700;font-size:.82rem;color:#1a4a7c;margin-bottom:6px;">📎 Attachment (optional)</div>
-      <div id="eg-attachment-current" style="display:none;margin-bottom:6px;font-size:.82rem;"></div>
-      <input type="file" id="eg-attachment-file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx" style="font-size:.82rem;width:100%;">
-      <p style="font-size:.76rem;color:#64748b;margin:5px 0 0;">File will be uploaded and included as a download link in the email. Max 10 MB.</p>
+      <div id="eg-attachment-current" style="display:none;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:.82rem;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <span id="eg-att-name" style="color:#065f46;font-weight:600;"></span>
+        <button onclick="egRemoveAttachment()" title="Remove attachment" style="background:#fef2f2;border:1px solid #fca5a5;border-radius:5px;color:#dc2626;font-size:.78rem;font-weight:700;padding:2px 8px;cursor:pointer;">✕ Remove</button>
+      </div>
+      <input type="file" id="eg-attachment-file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx" style="font-size:.82rem;width:100%;" onchange="egShowAttachment(this)">
+      <p style="font-size:.76rem;color:#64748b;margin:5px 0 0;">File will be uploaded and a download link added to the email. Max 10 MB.</p>
     </div>
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
       <button class="btn btn-primary" onclick="egSendEmail()" style="font-size:.88rem;">📤 Send Email</button>
@@ -7680,6 +7782,23 @@ function copyEmailBody(){
     const s=document.getElementById('eg-send-status');
     if(s){s.textContent='✅ Copied to clipboard';setTimeout(()=>{s.textContent='';},2500);}
   });
+}
+function egShowAttachment(input){
+  const file=input?.files?.[0];
+  const cur=document.getElementById('eg-attachment-current');
+  const nameEl=document.getElementById('eg-att-name');
+  if(file&&cur&&nameEl){
+    nameEl.textContent='📎 '+file.name+' ('+Math.round(file.size/1024)+' KB)';
+    cur.style.display='flex';
+  }
+}
+function egRemoveAttachment(){
+  const fi=document.getElementById('eg-attachment-file');
+  if(fi)fi.value='';
+  const cur=document.getElementById('eg-attachment-current');
+  if(cur)cur.style.display='none';
+  const nameEl=document.getElementById('eg-att-name');
+  if(nameEl)nameEl.textContent='';
 }
 
 async function egSendEmail(){
@@ -7790,10 +7909,13 @@ async function sendGeneratedEmail(){
       if(statusEl){statusEl.textContent='⚠️ Attachment upload failed: '+attErr;statusEl.style.color='#dc2626';}
       return;
     }
-    attachmentHtml=`<div style="margin-top:18px;padding:12px 16px;background:#f0f9ff;border-radius:8px;border:1.5px solid #bae6fd;">
-      <p style="margin:0 0 8px;font-weight:700;font-size:.9rem;">📎 Attachment</p>
-      <a href="${attUrl}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;padding:8px 18px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.88rem;">Download ${attFile.name}</a>
+    attachmentHtml=`<div style="margin-top:18px;padding:14px 18px;background:#f0f9ff;border-radius:8px;border:1.5px solid #bae6fd;">
+      <p style="margin:0 0 10px;font-weight:700;font-size:.95rem;color:#1a4a7c;">📎 Attached Document</p>
+      <a href="${attUrl}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;padding:10px 22px;border-radius:7px;text-decoration:none;font-weight:700;font-size:.92rem;letter-spacing:.01em;">⬇ Download ${attFile.name}</a>
+      <p style="margin:10px 0 0;font-size:.8rem;color:#64748b;">If the button doesn't work, copy this link: ${attUrl}</p>
     </div>`;
+    // Append plain-text download URL so fallback/mailto also carries it
+    body=body+'\n\nAttachment — '+attFile.name+':\n'+attUrl;
     if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
   }
   // Convert body to HTML with formatting rules:
