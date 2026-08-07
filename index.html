@@ -5926,9 +5926,9 @@ async function loadAdminPayments(){
     let rcptBtn='';
     if(p.receipt_url){
       if(p.receipt_sent){
-        rcptBtn=`<button onclick="openReceiptModal('${p.id}','${safeRcptUrl}','${safeRcptFile}','${(p.profiles?.email||'').replace(/'/g,"\\'")}','${(p.profiles?.name||'').replace(/'/g,"\\'")}',true,${paid})" title="Receipt sent — click to view/re-send" style="background:#dcfce7;color:#166534;border:1.5px solid #86efac;border-radius:6px;padding:3px 9px;font-size:.78rem;font-weight:700;cursor:pointer;">✉️ Sent ✓</button>`;
+        rcptBtn=`<button onclick="openReceiptModal('${p.id}','${safeRcptUrl}','${safeRcptFile}','${(p.profiles?.email||'').replace(/'/g,"\\'")}','${(p.profiles?.name||'').replace(/'/g,"\\'")}',true,${paid})" title="Receipt previously sent — click to re-send or use new email/receipt" style="background:#dcfce7;color:#166534;border:1.5px solid #86efac;border-radius:6px;padding:3px 9px;font-size:.78rem;font-weight:700;cursor:pointer;">📎 Send Receipt</button>`;
       } else {
-        rcptBtn=`<button onclick="openReceiptModal('${p.id}','${safeRcptUrl}','${safeRcptFile}','${(p.profiles?.email||'').replace(/'/g,"\\'")}','${(p.profiles?.name||'').replace(/'/g,"\\'")}',false,${paid})" title="Receipt on file — click to send" style="background:#dbeafe;color:#1e40af;border:1.5px solid #93c5fd;border-radius:6px;padding:3px 9px;font-size:.78rem;font-weight:700;cursor:pointer;">📎 Send Receipt</button>`;
+        rcptBtn=`<button onclick="openReceiptModal('${p.id}','${safeRcptUrl}','${safeRcptFile}','${(p.profiles?.email||'').replace(/'/g,"\\'")}','${(p.profiles?.name||'').replace(/'/g,"\\'")}',false,${paid})" title="Receipt on file — click to email it" style="background:#f0fdf4;color:#15803d;border:1.5px solid #86efac;border-radius:6px;padding:3px 9px;font-size:.78rem;font-weight:700;cursor:pointer;">✉️ Sent</button>`;
       }
     } else {
       rcptBtn=`<span title="No receipt uploaded" style="color:#9ca3af;font-size:.78rem;">📎 —</span>`;
@@ -6159,6 +6159,22 @@ async function openReceiptModal(payId,receiptUrl,receiptFilename,primaryEmail,tr
           <p style="margin:6px 0 0 24px;font-size:.75rem;color:#6b7280;">Check this box to include a download link for the stored receipt in the email.</p>
         </div>
 
+        <!-- Upload new receipt file -->
+        <div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:14px;">
+          <div style="font-weight:700;font-size:.82rem;color:#92400e;margin-bottom:6px;">📁 Upload New Receipt File (optional)</div>
+          <input type="file" id="rsm-new-receipt-file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx" style="font-size:.82rem;width:100%;" onchange="(function(f){const i=document.getElementById('rsm-new-rcpt-info');if(f){i.textContent='📎 '+f.name+' ('+Math.round(f.size/1024)+' KB)';i.style.display='block';}else{i.style.display='none';}})(this.files[0])">
+          <div id="rsm-new-rcpt-info" style="display:none;font-size:.8rem;color:#374151;margin-top:6px;padding:4px 8px;background:#fef9c3;border-radius:5px;font-weight:600;"></div>
+          <p style="font-size:.75rem;color:#6b7280;margin:5px 0 0;">If provided, this file becomes the new receipt on record and replaces the existing one.</p>
+        </div>
+
+        <!-- Additional attachments (up to 2 extra) -->
+        <div style="background:#f8faff;border:1.5px solid #c7d7f0;border-radius:8px;padding:10px 14px;margin-bottom:14px;">
+          <div style="font-weight:700;font-size:.82rem;color:#1a4a7c;margin-bottom:6px;">📎 Additional Attachments (optional, up to 2)</div>
+          <div id="rsm-extra-attachments"></div>
+          <button type="button" id="rsm-add-attach-btn" onclick="rsmAddAttachment()" style="font-size:.8rem;color:#1a4a7c;background:none;border:1.5px dashed #93c5fd;border-radius:6px;padding:5px 12px;cursor:pointer;width:100%;margin-top:4px;">+ Add Attachment</button>
+          <p style="font-size:.75rem;color:#6b7280;margin:5px 0 0;">Download links for these files will be included in the email body. Max 10 MB each.</p>
+        </div>
+
         <div id="rsm-alert" style="display:none;padding:8px 12px;border-radius:7px;font-size:.84rem;margin-bottom:10px;"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;">
           <button class="btn btn-ghost" onclick="document.getElementById('receipt-send-modal').classList.remove('open')">Cancel</button>
@@ -6187,6 +6203,12 @@ async function openReceiptModal(payId,receiptUrl,receiptFilename,primaryEmail,tr
   const chk=document.getElementById('rsm-attach-receipt');
   if(chk){chk.checked=false;}
   document.getElementById('rsm-attach-info').style.display='none';
+  // Reset new receipt upload
+  const nrf=document.getElementById('rsm-new-receipt-file');if(nrf)nrf.value='';
+  const nri=document.getElementById('rsm-new-rcpt-info');if(nri){nri.textContent='';nri.style.display='none';}
+  // Reset extra attachments
+  const extContainer=document.getElementById('rsm-extra-attachments');if(extContainer)extContainer.innerHTML='';
+  const addBtn=document.getElementById('rsm-add-attach-btn');if(addBtn)addBtn.style.display='';
 
   // Load send history
   const histEl=document.getElementById('rsm-send-history');
@@ -6229,6 +6251,19 @@ async function openReceiptModal(payId,receiptUrl,receiptFilename,primaryEmail,tr
   mo.classList.add('open');
 }
 
+function rsmAddAttachment(){
+  const container=document.getElementById('rsm-extra-attachments');
+  const btn=document.getElementById('rsm-add-attach-btn');
+  if(!container)return;
+  const count=container.querySelectorAll('.rsm-attach-slot').length;
+  if(count>=2){btn.style.display='none';return;}
+  const slot=document.createElement('div');
+  slot.className='rsm-attach-slot';
+  slot.style.cssText='display:flex;align-items:center;gap:6px;margin-bottom:6px;';
+  slot.innerHTML=`<input type="file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx" style="flex:1;font-size:.82rem;"><button type="button" onclick="this.closest('.rsm-attach-slot').remove();document.getElementById('rsm-add-attach-btn').style.display='';" style="background:none;border:1px solid #fca5a5;border-radius:5px;color:#dc2626;font-size:.78rem;padding:2px 8px;cursor:pointer;">✕</button>`;
+  container.appendChild(slot);
+  if(container.querySelectorAll('.rsm-attach-slot').length>=2)btn.style.display='none';
+}
 function addReceiptEmailRow(email='',name='',isDropdown=false){
   const list=document.getElementById('rsm-email-list');
   const row=document.createElement('div');
@@ -6277,6 +6312,44 @@ async function sendReceiptEmails(){
   if(!gReceiptPayId)return;
   const al=document.getElementById('rsm-alert');
   const btn=document.getElementById('rsm-send-btn');
+  al.style.display='none';
+
+  // Handle new receipt file upload first (replaces existing)
+  const newRcptFile=document.getElementById('rsm-new-receipt-file')?.files?.[0];
+  if(newRcptFile){
+    btn.disabled=true;btn.textContent='Uploading new receipt…';
+    const{url:newUrl,error:newErr}=await uploadReceiptFile(newRcptFile,'receipt');
+    if(newErr){
+      al.className='alert alert-error';al.textContent='⚠️ New receipt upload failed: '+newErr;al.style.display='block';
+      btn.disabled=false;btn.textContent='Queue in Hold';return;
+    }
+    gReceiptUrl=newUrl;gReceiptFilename=newRcptFile.name;
+    await sb.from('user_payments').update({receipt_url:newUrl,receipt_filename:newRcptFile.name}).eq('id',gReceiptPayId);
+    const nrf=document.getElementById('rsm-new-receipt-file');if(nrf)nrf.value='';
+    const nri=document.getElementById('rsm-new-rcpt-info');if(nri){nri.textContent='';nri.style.display='none';}
+    // Update receipt link preview in modal
+    const rl=document.getElementById('rsm-receipt-link');
+    if(rl)rl.innerHTML=`<strong>Receipt on file:</strong> <a href="${newUrl}" target="_blank" style="color:#1a4a7c;font-weight:600;">${newRcptFile.name}</a>&nbsp;·&nbsp;<a href="${newUrl}" download="${newRcptFile.name}" style="color:#166534;font-weight:600;">⬇ Download</a>`;
+    const attLink=document.getElementById('rsm-attach-link');const attDl=document.getElementById('rsm-attach-dl');
+    if(attLink){attLink.href=newUrl;attLink.textContent=newRcptFile.name;}
+    if(attDl){attDl.href=newUrl;attDl.download=newRcptFile.name;}
+  }
+
+  // Upload extra attachments
+  const extraSlots=[...document.querySelectorAll('.rsm-attach-slot input[type=file]')];
+  const extraLinks=[];
+  for(const slot of extraSlots){
+    const f=slot.files?.[0];
+    if(!f)continue;
+    btn.disabled=true;btn.textContent='Uploading attachments…';
+    const{url:eUrl,error:eErr}=await uploadReceiptFile(f,'email-attach');
+    if(eErr){
+      al.className='alert alert-error';al.textContent='⚠️ Attachment upload failed for "'+f.name+'": '+eErr;al.style.display='block';
+      btn.disabled=false;btn.textContent='Queue in Hold';return;
+    }
+    extraLinks.push({name:f.name,url:eUrl});
+  }
+
   const subject=document.getElementById('rsm-subject').value.trim()||`Your Payment Receipt-${TRIP_NAME}`;
   const customMsg=document.getElementById('rsm-message').value.trim();
   const attachReceipt=document.getElementById('rsm-attach-receipt')?.checked&&gReceiptUrl;
@@ -6301,14 +6374,17 @@ async function sendReceiptEmails(){
     <p style="margin:10px 0 0;font-size:.78rem;color:#64748b;">If the button doesn't work, copy this link: ${gReceiptUrl}</p>
   </div>`:'';
   const receiptPlain=attachReceipt?'\n\nReceipt download: '+gReceiptUrl:'';
+  // Build extra attachment HTML
+  const extraAttachHtml=extraLinks.map(a=>`<div style="margin-top:10px;padding:10px 14px;background:#f0f9ff;border-radius:7px;border:1.5px solid #bae6fd;"><p style="margin:0 0 6px;font-size:.85rem;font-weight:700;color:#1a4a7c;">📎 ${a.name}</p><a href="${a.url}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;padding:8px 18px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.85rem;">⬇ Download ${a.name}</a></div>`).join('');
+  const extraAttachPlain=extraLinks.map(a=>'\n\nAttachment — '+a.name+':\n'+a.url).join('');
 
   let queuedCount=0;
   const errors=[];
   for(const recip of recipients){
     const recipName=recip.name||recip.email;
     const msgHtml=customMsg?`<p style="line-height:1.7;margin-bottom:12px;">${customMsg.replace(/\n/g,'<br>')}</p>`:'';
-    const htmlBody=buildEmailHtml(recipName,`${msgHtml}${receiptBlock}`);
-    const plainBody=(customMsg||'')+receiptPlain;
+    const htmlBody=buildEmailHtml(recipName,`${msgHtml}${receiptBlock}${extraAttachHtml}`);
+    const plainBody=(customMsg||'')+receiptPlain+extraAttachPlain;
     // Insert into hold queue so admin can review and release
     const{error:qErr}=await sb.from('email_queue').insert({
       to_email:recip.email,
@@ -7718,16 +7794,9 @@ Your Commonwealth Cruise Team`
 
 Thank you for your reservation on the ${TRIP_NAME}! We are looking forward to an amazing journey together.
 
-DEPOSIT REQUIRED — ROOM HOLD IS PENDING
-
-A deposit of $100.00 per person in your cabin is required to confirm your reservation. Until your deposit payment has been received, your room hold is pending and your reservation is not finalized.
-
-The deposit must be paid by credit card. To submit your deposit, please complete the CC Authorization Form and return it to your trip organizer:
-https://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf
-
 ACTION REQUIRED: COMPLETE CABIN TRAVELER INFORMATION
 
-To finalize your reservation and begin processing, we need complete traveler information for all guests in your cabin.
+To complete the processing of your hold, we need you to complete the traveler information for all guests in your cabin.
 
 Please log in to the Commonwealth Cruise Travel Portal and complete the following for each guest:
 
@@ -7739,7 +7808,40 @@ Commonwealth Cruise Travel Portal
 - Citizenship type and country of citizenship
 - Phone number
 
-This information is required for all cabin occupants before your reservation can be fully processed. Incomplete records may delay your booking confirmation.
+This information is required for all cabin occupants before your hold can be fully processed. Incomplete records may delay your booking confirmation.
+
+DEPOSIT REQUIRED — ROOM HOLD IS PENDING
+
+An initial deposit of $100.00 per person in your cabin is required to maintain the hold status. Until your deposit payment has been received, your room hold is pending. A full deposit of $250.00 per person in your cabin is required to confirm an ASSIGNED cabin and finalize your reservation. Once your cabin is reserved, a personalized payment link will be provided to make the remainder of your payments.
+
+All initial deposits (up to $250.00 per person, based on the payment schedule) must be paid by credit card. To submit your deposit, please complete the CC Authorization Form and return it to your trip organizer. Or if you prefer, reply requesting a call from one of our team members to receive your credit card information by phone for payment. A receipt will be provided for all payments.
+
+https://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf
+
+Please complete this at your earliest convenience. If you have any questions, reply to this email and we will be happy to assist.
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
+    })
+  },
+  {
+    id:'deposit_required',label:'Deposit Payment Required',icon:'💳',
+    toMode:'traveler',
+    buildPreview:()=>({
+      subject:`${TRIP_NAME} — Deposit Payment Required`,
+      toLabel:'Traveler email',
+      toPlaceholder:'traveler@email.com',
+      toName:'',
+      body:`Hello [Traveler Name],
+
+DEPOSIT REQUIRED — ROOM HOLD IS PENDING
+
+Until your deposit payment has been received, your room hold is pending. A full deposit of $250.00 per person in your cabin is required to confirm an ASSIGNED cabin and finalize your reservation. Once your cabin is reserved, a personalized payment link will be provided to make the remainder of your payments.
+
+All initial deposits (up to $250.00 per person, based on the payment schedule) must be paid by credit card. To submit your deposit, please complete the CC Authorization Form and return it to your trip organizer. Or if you prefer, reply requesting a call from one of our team members to receive your credit card information by phone for payment. A receipt will be provided for all payments.
+
+https://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf
 
 Please complete this at your earliest convenience. If you have any questions, reply to this email and we will be happy to assist.
 
@@ -7796,19 +7898,18 @@ function selectEmailTemplate(idx){
       <textarea id="eg-body" rows="16" style="width:100%;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.85rem;font-family:monospace;line-height:1.55;resize:vertical;box-sizing:border-box;">${preview.body.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
     </div>
     <div style="margin-bottom:16px;background:#f8faff;border:1.5px solid #c7d7f0;border-radius:9px;padding:12px 14px;">
-      <div style="font-weight:700;font-size:.82rem;color:#1a4a7c;margin-bottom:6px;">📎 Attachment (optional)</div>
-      <div id="eg-attachment-current" style="display:none;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:.82rem;display:flex;align-items:center;justify-content:space-between;gap:8px;">
-        <span id="eg-att-name" style="color:#065f46;font-weight:600;"></span>
-        <button onclick="egRemoveAttachment()" title="Remove attachment" style="background:#fef2f2;border:1px solid #fca5a5;border-radius:5px;color:#dc2626;font-size:.78rem;font-weight:700;padding:2px 8px;cursor:pointer;">✕ Remove</button>
-      </div>
-      <input type="file" id="eg-attachment-file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx" style="font-size:.82rem;width:100%;" onchange="egShowAttachment(this)">
-      <p style="font-size:.76rem;color:#64748b;margin:5px 0 0;">File will be uploaded and a download link added to the email. Max 10 MB.</p>
+      <div style="font-weight:700;font-size:.82rem;color:#1a4a7c;margin-bottom:8px;">📎 Attachments (optional, up to 3)</div>
+      <div id="eg-attachment-slots"></div>
+      <button type="button" id="eg-add-attach-btn" onclick="egAddAttachSlot()" style="font-size:.8rem;color:#1a4a7c;background:none;border:1.5px dashed #93c5fd;border-radius:6px;padding:5px 12px;cursor:pointer;width:100%;margin-top:4px;">+ Add Attachment</button>
+      <p style="font-size:.76rem;color:#64748b;margin:6px 0 0;">Each file will be uploaded and a download link added to the email. Max 10 MB per file.</p>
     </div>
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
       <button class="btn btn-primary" onclick="egSendEmail()" style="font-size:.88rem;">📤 Send Email</button>
       <button class="btn btn-ghost" onclick="copyEmailBody()" style="font-size:.88rem;">📋 Copy Body</button>
       <span id="eg-send-status" style="font-size:.85rem;"></span>
     </div>`;
+  // Auto-add first attachment slot
+  egAddAttachSlot();
 }
 
 function copyEmailBody(){
@@ -7819,23 +7920,41 @@ function copyEmailBody(){
     if(s){s.textContent='✅ Copied to clipboard';setTimeout(()=>{s.textContent='';},2500);}
   });
 }
-function egShowAttachment(input){
-  const file=input?.files?.[0];
-  const cur=document.getElementById('eg-attachment-current');
-  const nameEl=document.getElementById('eg-att-name');
-  if(file&&cur&&nameEl){
-    nameEl.textContent='📎 '+file.name+' ('+Math.round(file.size/1024)+' KB)';
-    cur.style.display='flex';
-  }
+function egAddAttachSlot(){
+  const slotsEl=document.getElementById('eg-attachment-slots');
+  const addBtn=document.getElementById('eg-add-attach-btn');
+  if(!slotsEl)return;
+  const count=slotsEl.querySelectorAll('.eg-attach-slot').length;
+  if(count>=3){if(addBtn)addBtn.style.display='none';return;}
+  const slot=document.createElement('div');
+  slot.className='eg-attach-slot';
+  slot.style.cssText='margin-bottom:8px;';
+  slot.innerHTML=`
+    <div style="display:flex;align-items:center;gap:6px;">
+      <input type="file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx" style="flex:1;font-size:.82rem;" onchange="egSlotFileChange(this)">
+      <button type="button" onclick="egRemoveSlot(this)" title="Remove" style="background:#fef2f2;border:1px solid #fca5a5;border-radius:5px;color:#dc2626;font-size:.78rem;font-weight:700;padding:2px 8px;cursor:pointer;white-space:nowrap;">✕ Remove</button>
+    </div>
+    <div class="eg-slot-info" style="display:none;font-size:.8rem;color:#065f46;font-weight:600;padding:3px 6px;background:#ecfdf5;border-radius:5px;margin-top:4px;"></div>`;
+  slotsEl.appendChild(slot);
+  const newCount=slotsEl.querySelectorAll('.eg-attach-slot').length;
+  if(newCount>=3&&addBtn)addBtn.style.display='none';
 }
-function egRemoveAttachment(){
-  const fi=document.getElementById('eg-attachment-file');
-  if(fi)fi.value='';
-  const cur=document.getElementById('eg-attachment-current');
-  if(cur)cur.style.display='none';
-  const nameEl=document.getElementById('eg-att-name');
-  if(nameEl)nameEl.textContent='';
+function egSlotFileChange(input){
+  const slot=input.closest('.eg-attach-slot');
+  const info=slot?.querySelector('.eg-slot-info');
+  const f=input.files?.[0];
+  if(f&&info){info.textContent='📎 '+f.name+' ('+Math.round(f.size/1024)+' KB)';info.style.display='block';}
+  else if(info){info.style.display='none';}
 }
+function egRemoveSlot(btn){
+  const slot=btn.closest('.eg-attach-slot');
+  if(slot)slot.remove();
+  const addBtn=document.getElementById('eg-add-attach-btn');
+  if(addBtn)addBtn.style.display='';
+}
+// Legacy stubs kept for compatibility
+function egShowAttachment(input){egSlotFileChange(input);}
+function egRemoveAttachment(){}
 
 async function egSendEmail(){
   if(window.gCurrentEmailTemplate&&window.gCurrentEmailTemplate.customSend){
@@ -7931,27 +8050,31 @@ async function sendGeneratedEmail(){
   }
   if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
 
-  // Handle optional attachment
+  // Handle up to 3 attachments from slot inputs
   let attachmentHtml='';
-  const attFile=document.getElementById('eg-attachment-file')?.files?.[0];
-  if(attFile){
-    if(attFile.size>10*1024*1024){
-      if(statusEl){statusEl.textContent='⚠️ Attachment too large — max 10 MB.';statusEl.style.color='#d97706';}
-      return;
+  const attSlots=[...document.querySelectorAll('.eg-attach-slot input[type=file]')];
+  const attFiles=attSlots.map(s=>s.files?.[0]).filter(Boolean).slice(0,3);
+  if(attFiles.length>0){
+    for(const af of attFiles){
+      if(af.size>10*1024*1024){
+        if(statusEl){statusEl.textContent='⚠️ "'+af.name+'" exceeds 10 MB limit.';statusEl.style.color='#d97706';}
+        return;
+      }
     }
-    if(statusEl){statusEl.textContent='Uploading attachment…';statusEl.style.color='#64748b';}
-    const{url:attUrl,error:attErr}=await uploadReceiptFile(attFile,'email-attach');
-    if(attErr){
-      if(statusEl){statusEl.textContent='⚠️ Attachment upload failed: '+attErr;statusEl.style.color='#dc2626';}
-      return;
+    if(statusEl){statusEl.textContent='Uploading attachments…';statusEl.style.color='#64748b';}
+    for(const af of attFiles){
+      const{url:attUrl,error:attErr}=await uploadReceiptFile(af,'email-attach');
+      if(attErr){
+        if(statusEl){statusEl.textContent='⚠️ Upload failed for "'+af.name+'": '+attErr;statusEl.style.color='#dc2626';}
+        return;
+      }
+      attachmentHtml+=`<div style="margin-top:14px;padding:14px 18px;background:#f0f9ff;border-radius:8px;border:1.5px solid #bae6fd;">
+        <p style="margin:0 0 8px;font-weight:700;font-size:.92rem;color:#1a4a7c;">📎 ${af.name}</p>
+        <a href="${attUrl}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;padding:9px 20px;border-radius:7px;text-decoration:none;font-weight:700;font-size:.88rem;">⬇ Download ${af.name}</a>
+        <p style="margin:8px 0 0;font-size:.78rem;color:#64748b;">Direct link: ${attUrl}</p>
+      </div>`;
+      body=body+'\n\nAttachment — '+af.name+':\n'+attUrl;
     }
-    attachmentHtml=`<div style="margin-top:18px;padding:14px 18px;background:#f0f9ff;border-radius:8px;border:1.5px solid #bae6fd;">
-      <p style="margin:0 0 10px;font-weight:700;font-size:.95rem;color:#1a4a7c;">📎 Attached Document</p>
-      <a href="${attUrl}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;padding:10px 22px;border-radius:7px;text-decoration:none;font-weight:700;font-size:.92rem;letter-spacing:.01em;">⬇ Download ${attFile.name}</a>
-      <p style="margin:10px 0 0;font-size:.8rem;color:#64748b;">If the button doesn't work, copy this link: ${attUrl}</p>
-    </div>`;
-    // Append plain-text download URL so fallback/mailto also carries it
-    body=body+'\n\nAttachment — '+attFile.name+':\n'+attUrl;
     if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
   }
   // Convert body to HTML with formatting rules:
