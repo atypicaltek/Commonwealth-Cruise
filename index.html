@@ -5873,7 +5873,7 @@ async function savePayment(){
 }
 async function loadAdminPayments(){
   const[{data},{data:allCabins},{data:cancelledProfs},{data:cancelRecs}]=await Promise.all([
-    sb.from('user_payments').select('*, profiles(name,email,status), payment_milestones(label,due_date), receipt_url, receipt_filename, receipt_sent, receipt_sent_at').order('created_at',{ascending:false}),
+    sb.from('user_payments').select('*, profiles(name,email,status), payment_milestones(label,due_date)').order('created_at',{ascending:false}),
     sb.rpc('admin_get_all_cabin_assignments'),
     sb.from('profiles').select('id,status').eq('status','cancelled'),
     sb.from('cancellations').select('original_user_id,refund_processed')
@@ -5960,6 +5960,30 @@ async function loadAdminPayments(){
   el.innerHTML=html;
 }
 
+// ── STORAGE UPLOAD HELPER ─────────────────────────────────────
+// Uploads a file to the payment-receipts bucket.
+// Returns {url, error}. Tries to create the bucket if it doesn't exist.
+async function uploadReceiptFile(file, prefix='receipt'){
+  const BUCKET='payment-receipts';
+  const ext=file.name.split('.').pop().toLowerCase();
+  const filename=`${prefix}-${Date.now()}.${ext}`;
+  let{error:upErr}=await sb.storage.from(BUCKET).upload(filename,file,{upsert:true,contentType:file.type});
+  if(upErr&&(upErr.message?.includes('Bucket not found')||upErr.message?.includes('does not exist'))){
+    // Bucket doesn't exist — try to create it (requires admin service role or dashboard)
+    const{error:createErr}=await sb.storage.createBucket(BUCKET,{public:true});
+    if(createErr){
+      return{url:null,error:'Storage bucket "payment-receipts" not found. Please create it in your Supabase Dashboard → Storage → New bucket → Name: payment-receipts → Public: ON, then run Statement 48 in urgent-fixes.sql.'};
+    }
+    // Retry upload after bucket created
+    const{error:retryErr}=await sb.storage.from(BUCKET).upload(filename,file,{upsert:true,contentType:file.type});
+    if(retryErr)return{url:null,error:retryErr.message};
+  } else if(upErr){
+    return{url:null,error:upErr.message};
+  }
+  const{data:urlData}=sb.storage.from(BUCKET).getPublicUrl(filename);
+  return{url:urlData.publicUrl,error:null};
+}
+
 // ── EDIT PAYMENT RECORD ───────────────────────────────────────
 let gEditPayId=null,gEditPayReceiptUrl=null;
 function openEditPaymentModal(payId,travelerName,milestoneLabel,amtDue,amtPaid,paidAt,receiptUrl,receiptFilename){
@@ -6003,15 +6027,12 @@ async function saveEditPayment(){
       btn.disabled=false;btn.textContent='Save Changes';return;
     }
     btn.textContent='Uploading receipt…';
-    const ext=file.name.split('.').pop().toLowerCase();
-    const filename=`receipt-${gEditPayId}-${Date.now()}.${ext}`;
-    const{error:upErr}=await sb.storage.from('payment-receipts').upload(filename,file,{upsert:true,contentType:file.type});
+    const{url,error:upErr}=await uploadReceiptFile(file,`receipt-${gEditPayId}`);
     if(upErr){
-      al.className='alert alert-error';al.textContent='Receipt upload failed: '+upErr.message;al.style.display='block';
+      al.className='alert alert-error';al.textContent=upErr;al.style.display='block';
       btn.disabled=false;btn.textContent='Save Changes';return;
     }
-    const{data:urlData}=sb.storage.from('payment-receipts').getPublicUrl(filename);
-    receiptUrl=urlData.publicUrl;
+    receiptUrl=url;
     receiptFilename=file.name;
     btn.textContent='Saving…';
   }
@@ -7764,15 +7785,11 @@ async function sendGeneratedEmail(){
       return;
     }
     if(statusEl){statusEl.textContent='Uploading attachment…';statusEl.style.color='#64748b';}
-    const ext=attFile.name.split('.').pop().toLowerCase();
-    const attFilename=`email-attach-${Date.now()}.${ext}`;
-    const{error:attErr}=await sb.storage.from('payment-receipts').upload(attFilename,attFile,{upsert:true,contentType:attFile.type});
+    const{url:attUrl,error:attErr}=await uploadReceiptFile(attFile,'email-attach');
     if(attErr){
-      if(statusEl){statusEl.textContent='⚠️ Attachment upload failed: '+attErr.message;statusEl.style.color='#dc2626';}
+      if(statusEl){statusEl.textContent='⚠️ Attachment upload failed: '+attErr;statusEl.style.color='#dc2626';}
       return;
     }
-    const{data:attUrlData}=sb.storage.from('payment-receipts').getPublicUrl(attFilename);
-    const attUrl=attUrlData.publicUrl;
     attachmentHtml=`<div style="margin-top:18px;padding:12px 16px;background:#f0f9ff;border-radius:8px;border:1.5px solid #bae6fd;">
       <p style="margin:0 0 8px;font-weight:700;font-size:.9rem;">📎 Attachment</p>
       <a href="${attUrl}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;padding:8px 18px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.88rem;">Download ${attFile.name}</a>
