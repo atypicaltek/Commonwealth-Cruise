@@ -5926,9 +5926,9 @@ async function loadAdminPayments(){
     let rcptBtn='';
     if(p.receipt_url){
       if(p.receipt_sent){
-        rcptBtn=`<button onclick="openReceiptModal('${p.id}','${safeRcptUrl}','${safeRcptFile}','${(p.profiles?.email||'').replace(/'/g,"\\'")}','${(p.profiles?.name||'').replace(/'/g,"\\'")}',true)" title="Receipt sent — click to view/re-send" style="background:#dcfce7;color:#166534;border:1.5px solid #86efac;border-radius:6px;padding:3px 9px;font-size:.78rem;font-weight:700;cursor:pointer;">✉️ Sent ✓</button>`;
+        rcptBtn=`<button onclick="openReceiptModal('${p.id}','${safeRcptUrl}','${safeRcptFile}','${(p.profiles?.email||'').replace(/'/g,"\\'")}','${(p.profiles?.name||'').replace(/'/g,"\\'")}',true,${paid})" title="Receipt sent — click to view/re-send" style="background:#dcfce7;color:#166534;border:1.5px solid #86efac;border-radius:6px;padding:3px 9px;font-size:.78rem;font-weight:700;cursor:pointer;">✉️ Sent ✓</button>`;
       } else {
-        rcptBtn=`<button onclick="openReceiptModal('${p.id}','${safeRcptUrl}','${safeRcptFile}','${(p.profiles?.email||'').replace(/'/g,"\\'")}','${(p.profiles?.name||'').replace(/'/g,"\\'")}',false)" title="Receipt on file — click to send" style="background:#dbeafe;color:#1e40af;border:1.5px solid #93c5fd;border-radius:6px;padding:3px 9px;font-size:.78rem;font-weight:700;cursor:pointer;">📎 Send Receipt</button>`;
+        rcptBtn=`<button onclick="openReceiptModal('${p.id}','${safeRcptUrl}','${safeRcptFile}','${(p.profiles?.email||'').replace(/'/g,"\\'")}','${(p.profiles?.name||'').replace(/'/g,"\\'")}',false,${paid})" title="Receipt on file — click to send" style="background:#dbeafe;color:#1e40af;border:1.5px solid #93c5fd;border-radius:6px;padding:3px 9px;font-size:.78rem;font-weight:700;cursor:pointer;">📎 Send Receipt</button>`;
       }
     } else {
       rcptBtn=`<span title="No receipt uploaded" style="color:#9ca3af;font-size:.78rem;">📎 —</span>`;
@@ -6112,8 +6112,9 @@ function toggleRefundedPayments(){
 
 // ── RECEIPT MODAL ─────────────────────────────────────────────
 let gReceiptPayId=null,gReceiptUrl=null,gReceiptFilename=null;
-async function openReceiptModal(payId,receiptUrl,receiptFilename,primaryEmail,travelerName,alreadySent){
+async function openReceiptModal(payId,receiptUrl,receiptFilename,primaryEmail,travelerName,alreadySent,amtPaid){
   gReceiptPayId=payId;gReceiptUrl=receiptUrl;gReceiptFilename=receiptFilename;
+  const paidFmt=amtPaid>0?'$'+parseFloat(amtPaid).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
 
   // Build modal if not present
   let mo=document.getElementById('receipt-send-modal');
@@ -6140,43 +6141,69 @@ async function openReceiptModal(payId,receiptUrl,receiptFilename,primaryEmail,tr
           <label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:4px;">Subject</label>
           <input id="rsm-subject" type="text" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.85rem;">
         </div>
-        <div style="margin-bottom:14px;">
-          <label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:4px;">Message (optional — added above the receipt link)</label>
-          <textarea id="rsm-message" rows="3" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.85rem;resize:vertical;"></textarea>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:4px;">Message</label>
+          <textarea id="rsm-message" rows="4" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.85rem;resize:vertical;"></textarea>
         </div>
+
+        <!-- Opt-in receipt attachment -->
+        <div style="background:#f8faff;border:1.5px solid #c7d7f0;border-radius:8px;padding:10px 14px;margin-bottom:14px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem;font-weight:600;color:#1a4a7c;">
+            <input type="checkbox" id="rsm-attach-receipt" style="width:16px;height:16px;cursor:pointer;">
+            📎 Attach receipt to this email
+          </label>
+          <div id="rsm-attach-info" style="display:none;margin-top:8px;font-size:.8rem;color:#374151;padding-left:24px;">
+            File: <a id="rsm-attach-link" href="#" target="_blank" style="color:#1a4a7c;font-weight:600;"></a>
+            &nbsp;·&nbsp; <a id="rsm-attach-dl" href="#" download style="color:#166534;font-weight:600;">⬇ Download</a>
+          </div>
+          <p style="margin:6px 0 0 24px;font-size:.75rem;color:#6b7280;">Check this box to include a download link for the stored receipt in the email.</p>
+        </div>
+
         <div id="rsm-alert" style="display:none;padding:8px 12px;border-radius:7px;font-size:.84rem;margin-bottom:10px;"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;">
           <button class="btn btn-ghost" onclick="document.getElementById('receipt-send-modal').classList.remove('open')">Cancel</button>
-          <button id="rsm-send-btn" class="btn btn-primary" onclick="sendReceiptEmails()">Send Receipt</button>
+          <button id="rsm-send-btn" class="btn btn-primary" onclick="sendReceiptEmails()">Queue in Hold</button>
         </div>
       </div>
     </div>`;
     document.body.appendChild(mo);
+    // Wire up checkbox toggle
+    document.getElementById('rsm-attach-receipt').addEventListener('change',function(){
+      document.getElementById('rsm-attach-info').style.display=this.checked?'block':'none';
+    });
   }
 
-  // Populate receipt link section
+  // Populate receipt link preview (for when checkbox is checked)
   document.getElementById('rsm-title').textContent=alreadySent?'✉️ Receipt — Sent':'📎 Send Payment Receipt';
   document.getElementById('rsm-receipt-link').innerHTML=`
-    <strong>Receipt file:</strong> <a href="${receiptUrl}" target="_blank" style="color:#1a4a7c;font-weight:600;">${receiptFilename||'View Receipt'}</a>
+    <strong>Receipt on file:</strong> <a href="${receiptUrl}" target="_blank" style="color:#1a4a7c;font-weight:600;">${receiptFilename||'receipt'}</a>
     &nbsp;·&nbsp; <a href="${receiptUrl}" download="${receiptFilename||'receipt'}" style="color:#166534;font-weight:600;">⬇ Download</a>`;
+  // Set attach-info link targets
+  const attLink=document.getElementById('rsm-attach-link');
+  const attDl=document.getElementById('rsm-attach-dl');
+  if(attLink){attLink.href=receiptUrl;attLink.textContent=receiptFilename||'View Receipt';}
+  if(attDl){attDl.href=receiptUrl;attDl.download=receiptFilename||'receipt';}
+  // Reset checkbox to unchecked each open
+  const chk=document.getElementById('rsm-attach-receipt');
+  if(chk){chk.checked=false;}
+  document.getElementById('rsm-attach-info').style.display='none';
 
   // Load send history
   const histEl=document.getElementById('rsm-send-history');
-  histEl.innerHTML='<div style="font-size:.8rem;color:var(--muted);">Loading send history…</div>';
+  histEl.innerHTML='<div style="font-size:.8rem;color:var(--muted);">Loading history…</div>';
   const{data:logs}=await sb.from('payment_receipt_logs').select('*').eq('payment_id',payId).order('sent_at',{ascending:false});
   if(logs&&logs.length>0){
     histEl.innerHTML=`<div style="font-weight:700;font-size:.82rem;color:#374151;margin-bottom:5px;">Send History</div>`+
-      `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:7px;padding:8px 12px;font-size:.8rem;">` +
+      `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:7px;padding:8px 12px;font-size:.8rem;">`+
       logs.map(l=>`<div style="padding:3px 0;border-bottom:1px solid #f3f4f6;">${new Date(l.sent_at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})} → <strong>${l.sent_to_email}</strong>${l.sent_to_name?' ('+l.sent_to_name+')':''}</div>`).join('')+
       `</div>`;
   } else {
     histEl.innerHTML='';
   }
 
-  // Load all known emails for this traveler to build the dropdown
+  // Load known emails for dropdown
   let knownEmails=[{email:primaryEmail,name:travelerName}];
   try{
-    // Also check payment_receipt_logs for past recipients
     const{data:pastLogs}=await sb.from('payment_receipt_logs').select('sent_to_email,sent_to_name').eq('payment_id',payId).order('sent_at',{ascending:false});
     (pastLogs||[]).forEach(l=>{
       if(l.sent_to_email&&!knownEmails.find(e=>e.email===l.sent_to_email)){
@@ -6186,14 +6213,17 @@ async function openReceiptModal(payId,receiptUrl,receiptFilename,primaryEmail,tr
   }catch(e){}
   window._receiptKnownEmails=knownEmails;
 
-  // Pre-populate email rows — primary email first as dropdown
+  // Reset email list
   const listEl=document.getElementById('rsm-email-list');
   listEl.innerHTML='';
   addReceiptEmailRow(primaryEmail,travelerName,true);
 
-  // Default subject
-  document.getElementById('rsm-subject').value=`Your Payment Receipt — GlowJetters 2026`;
-  document.getElementById('rsm-message').value='';
+  // Default subject and auto-filled message
+  document.getElementById('rsm-subject').value=`Your Payment Receipt-${TRIP_NAME}`;
+  const defaultMsg=paidFmt
+    ?`Thank you for your payment of ${paidFmt}. Please retain the attached receipt for your records.`
+    :`Thank you for your payment. Please retain the attached receipt for your records.`;
+  document.getElementById('rsm-message').value=defaultMsg;
   const al=document.getElementById('rsm-alert');al.style.display='none';
 
   mo.classList.add('open');
@@ -6244,13 +6274,14 @@ function addReceiptEmailRow(email='',name='',isDropdown=false){
 }
 
 async function sendReceiptEmails(){
-  if(!gReceiptPayId||!gReceiptUrl)return;
+  if(!gReceiptPayId)return;
   const al=document.getElementById('rsm-alert');
   const btn=document.getElementById('rsm-send-btn');
-  const subject=document.getElementById('rsm-subject').value.trim()||'Your Payment Receipt';
+  const subject=document.getElementById('rsm-subject').value.trim()||`Your Payment Receipt-${TRIP_NAME}`;
   const customMsg=document.getElementById('rsm-message').value.trim();
+  const attachReceipt=document.getElementById('rsm-attach-receipt')?.checked&&gReceiptUrl;
 
-  // Collect all email rows — each row has .rsm-email-select (input or select) + .rsm-name-input
+  // Collect recipients
   const rows=[...document.getElementById('rsm-email-list').querySelectorAll('.rsm-email-row')];
   const recipients=rows.map(r=>{
     const emailEl=r.querySelector('.rsm-email-select');
@@ -6261,57 +6292,62 @@ async function sendReceiptEmails(){
   if(recipients.length===0){
     al.className='alert alert-error';al.textContent='Add at least one valid email address.';al.style.display='block';return;
   }
-  btn.disabled=true;btn.textContent='Sending…';al.style.display='none';
+  btn.disabled=true;btn.textContent='Queueing…';al.style.display='none';
 
-  const msgHtml=customMsg?`<p style="margin-bottom:12px;">${customMsg.replace(/\n/g,'<br>')}</p>`:'';
-  const receiptBlock=`<div style="margin:16px 0;padding:12px 16px;background:#f0f9ff;border-radius:8px;border:1.5px solid #bae6fd;">
-    <p style="margin:0 0 8px;font-weight:700;">📎 Your Payment Receipt</p>
-    <a href="${gReceiptUrl}" style="display:inline-block;background:#1a4a7c;color:#fff;padding:8px 18px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.9rem;">View / Download Receipt</a>
-  </div>`;
+  // Build receipt block only if checkbox is checked
+  const receiptBlock=attachReceipt?`<div style="margin:20px 0;padding:14px 18px;background:#f0f9ff;border-radius:8px;border:1.5px solid #bae6fd;">
+    <p style="margin:0 0 10px;font-weight:700;font-size:.95rem;color:#1a4a7c;">📎 Your Payment Receipt</p>
+    <a href="${gReceiptUrl}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;padding:10px 22px;border-radius:7px;text-decoration:none;font-weight:700;font-size:.92rem;">⬇ View / Download Receipt</a>
+    <p style="margin:10px 0 0;font-size:.78rem;color:#64748b;">If the button doesn't work, copy this link: ${gReceiptUrl}</p>
+  </div>`:'';
+  const receiptPlain=attachReceipt?'\n\nReceipt download: '+gReceiptUrl:'';
 
-  let sentCount=0;
+  let queuedCount=0;
   const errors=[];
   for(const recip of recipients){
     const recipName=recip.name||recip.email;
+    const msgHtml=customMsg?`<p style="line-height:1.7;margin-bottom:12px;">${customMsg.replace(/\n/g,'<br>')}</p>`:'';
     const htmlBody=buildEmailHtml(recipName,`${msgHtml}${receiptBlock}`);
-    const plainBody=(customMsg?customMsg+'\n\n':'')+'Your payment receipt is available at:\n'+gReceiptUrl;
+    const plainBody=(customMsg||'')+receiptPlain;
+    // Insert into hold queue so admin can review and release
     const{error:qErr}=await sb.from('email_queue').insert({
       to_email:recip.email,
       to_name:recipName,
       subject,
       plain_body:plainBody,
       html_body:htmlBody,
-      status:'queued',
+      meta:{source:'receipt_send',held:true},
+      status:'held',
       created_at:new Date().toISOString()
     });
     if(qErr){errors.push(`${recip.email}: ${qErr.message}`);continue;}
-    // Log the send
+    // Log in receipt history
     await sb.from('payment_receipt_logs').insert({
       payment_id:gReceiptPayId,
       sent_to_email:recip.email,
       sent_to_name:recip.name||null,
       subject,
-      receipt_url:gReceiptUrl
+      receipt_url:gReceiptUrl||null
     });
-    sentCount++;
+    queuedCount++;
   }
 
-  // Mark payment as receipt_sent if at least one succeeded
-  if(sentCount>0){
+  // Mark payment as receipt_sent if at least one queued successfully
+  if(queuedCount>0&&gReceiptUrl){
     await sb.from('user_payments').update({receipt_sent:true,receipt_sent_at:new Date().toISOString()}).eq('id',gReceiptPayId);
   }
 
-  btn.disabled=false;btn.textContent='Send Receipt';
+  btn.disabled=false;btn.textContent='Queue in Hold';
   if(errors.length>0){
-    al.className='alert alert-error';al.textContent=`Sent ${sentCount}, ${errors.length} failed: ${errors.join('; ')}`;al.style.display='block';
+    al.className='alert alert-error';al.textContent=`Queued ${queuedCount}, ${errors.length} failed: ${errors.join('; ')}`;al.style.display='block';
   } else {
     document.getElementById('receipt-send-modal').classList.remove('open');
     loadAdminPayments();
-    // Show toast
+    if(document.getElementById('admin-heldemails'))loadEmailQueueTab();
     const t=document.createElement('div');
-    t.style.cssText='position:fixed;bottom:24px;right:24px;background:#166534;color:#fff;padding:12px 20px;border-radius:10px;font-weight:700;font-size:.9rem;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.25);';
-    t.textContent=`✉️ Receipt sent to ${sentCount} recipient${sentCount>1?'s':''}!`;
-    document.body.appendChild(t);setTimeout(()=>t.remove(),4000);
+    t.style.cssText='position:fixed;bottom:24px;right:24px;background:#1a4a7c;color:#fff;padding:12px 20px;border-radius:10px;font-weight:700;font-size:.9rem;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.25);';
+    t.textContent=`📋 Queued in hold for ${queuedCount} recipient${queuedCount>1?'s':''}. Release from Email Queue → Held Emails.`;
+    document.body.appendChild(t);setTimeout(()=>t.remove(),6000);
   }
 }
 
