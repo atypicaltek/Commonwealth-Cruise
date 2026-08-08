@@ -366,7 +366,7 @@
         <a id="dash-paylink-btn" href="#" target="_blank" style="background:#22c55e;color:#fff;border-radius:8px;padding:10px 20px;font-weight:700;font-size:.9rem;text-decoration:none;white-space:nowrap;flex-shrink:0;">💳 Make a Payment ↗</a>
       </div>
       <div class="stats-grid">
-        <div class="stat-card" onclick="showPaidDetail()" style="cursor:pointer;" title="View payment history"><div class="stat-icon">✅</div><div class="stat-val paid" id="dash-paid-val">$0</div><div class="stat-label">Total Paid</div></div>
+        <div class="stat-card" onclick="showPaidDetail()" style="cursor:pointer;" title="View payment history"><div class="stat-icon">✅</div><div class="stat-val paid" id="dash-paid-val">$0</div><div class="stat-label">Total Paid</div><div style="margin-top:6px;"><button onclick="event.stopPropagation();openMyReceiptsModal()" style="background:#1a4a7c;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;">📋 View Receipts</button></div></div>
         <div class="stat-card" onclick="showBalanceDetail()" style="cursor:pointer;" title="View balance breakdown"><div class="stat-icon">⏳</div><div class="stat-val" id="dash-balance-val" style="color:var(--muted);font-size:1rem;">Pending</div><div class="stat-label">Balance Due</div><div id="dash-balance-grat" style="font-size:.7rem;color:var(--muted);margin-top:3px;line-height:1.3;"></div></div>
         <div class="stat-card" onclick="showScheduleDetail()" style="cursor:pointer;" title="View full payment schedule"><div class="stat-icon">📅</div><div class="stat-val date" id="dash-nextdue-val">—</div><div class="stat-label">Next Due Date</div><div id="dash-nextdue-label" style="font-size:.72rem;color:var(--muted);margin-top:3px;line-height:1.3;"></div><div id="dash-nextdue-amt" style="font-size:.82rem;font-weight:700;color:var(--danger);margin-top:2px;"></div></div>
       </div>
@@ -2157,6 +2157,14 @@ function toggleItinerary(){
   // Hide the flashing arrow once open — it's only a "click me" hint
   if(arrow)arrow.style.display=open?'':'none';
 }
+function toggleCabinAssignDue(){
+  const body=document.getElementById('cabin-assign-due-body');
+  const chev=document.getElementById('cabin-assign-due-chev');
+  if(!body)return;
+  const open=body.style.display==='block';
+  body.style.display=open?'none':'block';
+  if(chev)chev.style.transform=open?'':'rotate(90deg)';
+}
 
 // ── REFUND DEADLINE REMINDER ────────────────────────────────
 function emailFullRefundReminder(name, email, totalPaid){
@@ -3527,7 +3535,7 @@ if(dsBadge){
     const backupRow=document.getElementById('dash-backup-cabin-row');
     const backupDisplay=document.getElementById('dash-backup-cabin-display');
     if(backupRow&&backupDisplay){
-      if(cabin.backup_cabin_type&&!cabin.suite_pending){
+      if(cabin.backup_cabin_type&&!cabin.suite_pending&&!cabin.cabin_number){
         backupDisplay.textContent=cabin.backup_cabin_type;
         backupRow.style.display='block';
       } else {
@@ -3566,6 +3574,8 @@ if(dsBadge){
         const isSuiteCabin=(cabin.cabin_type==='Suite');
         const gratRate=isSuiteCabin?GRAT_RATE_SUITE:GRAT_RATE_STANDARD;
         const gratPP=gratRate*CRUISE_DAYS; // total gratuity per person
+        // Amount due before cabin # assigned = full deposit threshold ($250 × effective guests)
+        const cabinAssignThreshold=250*effectiveGuests;
         cabinCostBreakdownEl.style.display='block';
         cabinCostBreakdownEl.innerHTML=
           '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;opacity:.7;margin-bottom:8px;">💰 Cost Summary</div>'+
@@ -3573,7 +3583,20 @@ if(dsBadge){
             '<tr><td style="padding:3px 0;opacity:.85;">Rate per Person</td><td style="text-align:right;font-weight:700;">'+(isSingleOcc?`${fmt(setPpp)} <span style="font-size:.74rem;opacity:.8;">(×2 single occ.)</span>`:fmt(setPpp))+'</td></tr>'+
             '<tr><td style="padding:3px 0;opacity:.85;">'+(isSingleOcc?'Total Cabin Cost<br><span style="font-size:.73rem;opacity:.75;">1 traveler · double rate</span>':'Total Cabin Cost<br><span style="font-size:.73rem;opacity:.75;">('+ng+' guest'+(ng>1?'s':'')+')</span>')+'</td><td style="text-align:right;font-weight:800;font-size:.97rem;">'+fmt(setCost)+'</td></tr>'+
             '<tr><td colspan="2" style="padding:6px 0 3px;border-top:1px solid rgba(255,255,255,.25);font-size:.77rem;opacity:.8;">Gratuities: <strong>'+fmt(gratPP)+'/person</strong> — paid separately<br><span style="opacity:.7;">($'+gratRate+'/day × '+CRUISE_DAYS+' days per person)</span></td></tr>'+
-          '</table>';
+          '</table>'+
+          '<div style="margin-top:8px;border-top:1px solid rgba(255,255,255,.2);padding-top:8px;">'+
+            '<button onclick="toggleCabinAssignDue()" style="background:none;border:none;color:inherit;font-size:.78rem;font-weight:700;cursor:pointer;opacity:.85;padding:0;width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;">'+
+              '<span>🔑 Amount Due Before Cabin # Assigned</span>'+
+              '<span id="cabin-assign-due-chev" style="font-size:.72rem;transition:transform .2s;">▶</span>'+
+            '</button>'+
+            '<div id="cabin-assign-due-body" style="display:none;margin-top:6px;background:rgba(255,255,255,.12);border-radius:6px;padding:8px 10px;font-size:.8rem;">'+
+              '<div style="display:flex;justify-content:space-between;align-items:center;">'+
+                '<span style="opacity:.85;">Full Deposit Required</span>'+
+                '<strong>'+fmt(cabinAssignThreshold)+'</strong>'+
+              '</div>'+
+              '<div style="font-size:.73rem;opacity:.7;margin-top:3px;">$250 \xd7 '+effectiveGuests+' guest'+(effectiveGuests>1?'s':'')+' — cabin number is assigned once this amount is paid.</div>'+
+            '</div>'+
+          '</div>';
       } else {
         cabinCostBreakdownEl.style.display='none';
       }
@@ -4677,6 +4700,98 @@ function openPayDetailModal(title,html){
   document.getElementById('pay-detail-modal').classList.add('open');
 }
 
+async function openMyReceiptsModal(){
+  // Fetch receipt logs for current user's payments
+  const existing=document.getElementById('my-receipts-modal');
+  if(existing)existing.remove();
+  const mo=document.createElement('div');
+  mo.id='my-receipts-modal';
+  mo.className='modal-overlay';
+  mo.innerHTML=`
+    <div class="modal" style="max-width:600px;max-height:90vh;overflow-y:auto;">
+      <div class="modal-header">
+        <h3 style="margin:0;font-size:1.05rem;">📋 My Payment Receipts</h3>
+        <button class="modal-close" onclick="document.getElementById('my-receipts-modal').classList.remove('open')">✕</button>
+      </div>
+      <div style="padding:16px 20px 20px;" id="my-receipts-body">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>`;
+  document.body.appendChild(mo);
+  mo.classList.add('open');
+
+  // Fetch all receipt logs for this user's payments
+  const myPaymentIds=(gPayments||[]).map(p=>p.id);
+  if(myPaymentIds.length===0){
+    document.getElementById('my-receipts-body').innerHTML='<div class="empty"><div class="ei">📭</div><p>No receipts found.</p></div>';
+    return;
+  }
+  const{data:logs}=await sb.from('payment_receipt_logs').select('*').in('payment_id',myPaymentIds).order('sent_at',{ascending:false});
+  if(!logs||logs.length===0){
+    document.getElementById('my-receipts-body').innerHTML='<div class="empty"><div class="ei">📭</div><p>No receipts have been emailed yet. Contact your trip organizer for receipt information.</p></div>';
+    return;
+  }
+
+  // Group by payment_id with sequential receipt numbers
+  const payOrder=[];const byPay={};
+  // Sort by sent_at ascending to assign numbers correctly
+  const sorted=[...logs].sort((a,b)=>new Date(a.sent_at)-new Date(b.sent_at));
+  sorted.forEach(l=>{
+    if(!byPay[l.payment_id]){byPay[l.payment_id]=[];payOrder.push(l.payment_id);}
+    byPay[l.payment_id].push(l);
+  });
+
+  let html='';
+  let globalIdx=1;
+  // Keep original sent_at desc order for display
+  const logsByPayDesc={};
+  logs.forEach(l=>{
+    if(!logsByPayDesc[l.payment_id])logsByPayDesc[l.payment_id]=[];
+    logsByPayDesc[l.payment_id].push(l);
+  });
+
+  // Assign receipt numbers in sent_at ascending order
+  const rcptNums={};
+  sorted.forEach(l=>{
+    if(!rcptNums[l.payment_id])rcptNums[l.payment_id]=0;
+    // Find milestone label for this payment
+    const pay=gPayments.find(p=>p.id===l.payment_id);
+    // Only first log per payment increments the counter
+    if(rcptNums[l.payment_id]===0){
+      rcptNums[l.payment_id]=globalIdx;
+      globalIdx++;
+    }
+  });
+
+  // Build receipt cards
+  sorted.forEach((l,idx)=>{
+    const rcptNum=rcptNums[l.payment_id]||idx+1;
+    const sentDate=new Date(l.sent_at).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+    const isImage=l.receipt_url&&/\.(jpg|jpeg|png|gif|webp)$/i.test(l.receipt_url);
+    const isPdf=l.receipt_url&&/\.pdf$/i.test(l.receipt_url);
+    const viewerHtml=l.receipt_url?
+      (isPdf
+        ?`<iframe src="${l.receipt_url}" style="width:100%;height:420px;border:1.5px solid #e2e8f0;border-radius:8px;margin-top:10px;" title="Receipt #${rcptNum}"></iframe>`
+        :isImage
+          ?`<img src="${l.receipt_url}" alt="Receipt #${rcptNum}" style="max-width:100%;border-radius:8px;border:1.5px solid #e2e8f0;margin-top:10px;display:block;">`
+          :`<div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:8px;padding:12px;margin-top:10px;font-size:.85rem;color:#1a4a7c;">📎 This receipt file format can be downloaded below.</div>`
+      ):'';
+    html+=`
+      <div style="border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:16px;">
+        <div style="background:#f0f9ff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <div>
+            <span style="font-weight:800;font-size:.92rem;color:#1a4a7c;">Receipt #${rcptNum}</span>
+            <span style="font-size:.8rem;color:var(--muted);margin-left:8px;">Sent ${sentDate}</span>
+          </div>
+          ${l.receipt_url?`<a href="${l.receipt_url}" download style="background:#166534;color:#fff;border-radius:6px;padding:5px 14px;font-size:.8rem;font-weight:700;text-decoration:none;">⬇ Download</a>`:''}
+        </div>
+        ${l.receipt_url?`<div style="padding:12px 16px;">${viewerHtml}</div>`:'<div style="padding:12px 16px;font-size:.85rem;color:var(--muted);">No receipt file attached to this send.</div>'}
+      </div>`;
+  });
+
+  document.getElementById('my-receipts-body').innerHTML=html||'<div class="empty"><div class="ei">📭</div><p>No receipts found.</p></div>';
+}
+
 function showPaidDetail(){
   if(!gMilestones.length&&!gPayments.length){return;}
   const payMap={};gPayments.forEach(p=>{payMap[p.milestone_id]=p;});
@@ -5625,7 +5740,7 @@ async function loadTravelers(){
     return'<tr>'+
       '<td><a href="#" onclick="openManageTravelers(\''+p.id+'\',\''+safeN+'\','+( ca?.num_guests||1)+');return false;" style="font-weight:800;color:var(--primary);text-decoration:none;">'+(p.name||'<em style="color:var(--muted)">No name</em>')+'</a> '+docB+suiteB+noCabinB+needsCCLB+'<br><small style="color:var(--muted)">'+(p.email||'')+'</small></td>'+
       '<td><span class="badge badge-purple">'+cabinStr+'</span>'+
-        (ca?.backup_cabin_type&&!ca?.suite_pending?'<br><span style="font-size:.74rem;color:var(--muted);">🔄 Backup: '+ca.backup_cabin_type+'</span>':'')+
+        (ca?.backup_cabin_type&&!ca?.suite_pending&&!ca?.cabin_number?'<br><span style="font-size:.74rem;color:var(--muted);">🔄 Backup: '+ca.backup_cabin_type+'</span>':'')+
         (ca?.high_occupancy_pending?'<br><span class="badge badge-warn" style="font-size:.72rem;">⚠️ High Occ. Pending</span>':'')+
         (ca?.cabin_change_pending&&ca?.requested_cabin_type?'<br><span class="badge badge-warn" style="font-size:.72rem;">🔄 Change Req: '+ca.requested_cabin_type+'</span>':'')+
       '</td>'+
@@ -5885,9 +6000,19 @@ async function savePayment(){
 
   loadAdminPayments();loadTravelers();
 }
+// Toggle collapsible traveler payment rows
+function toggleTravelerPayRows(uid){
+  const safeUid=uid.replace(/-/g,'');
+  const rows=document.querySelectorAll('.pay-trav-rows-'+safeUid);
+  const chev=document.getElementById('pay-chev-'+safeUid);
+  const expanded=rows.length>0&&rows[0].style.display!=='none';
+  rows.forEach(r=>{r.style.display=expanded?'none':'';});
+  if(chev)chev.textContent=expanded?'▶':'▼';
+}
+
 async function loadAdminPayments(){
   const[{data},{data:allCabins},{data:cancelledProfs},{data:cancelRecs}]=await Promise.all([
-    sb.from('user_payments').select('*, profiles(name,email,status), payment_milestones(label,due_date)').order('created_at',{ascending:false}),
+    sb.from('user_payments').select('*, profiles(name,email,status), payment_milestones(label,due_date)').order('created_at',{ascending:true}),
     sb.rpc('admin_get_all_cabin_assignments'),
     sb.from('profiles').select('id,status').eq('status','cancelled'),
     sb.from('cancellations').select('original_user_id,refund_processed')
@@ -5901,7 +6026,23 @@ async function loadAdminPayments(){
   const cancelledIds=new Set((cancelledProfs||[]).map(p=>p.id));
   const refundedIds=new Set((cancelRecs||[]).filter(r=>r.refund_processed).map(r=>r.original_user_id));
 
-  function makePayRow(p,isCancRefund){
+  // Group payments by user_id (sorted by created_at ASC already)
+  const userOrder=[];
+  const byUser={};
+  data.forEach(p=>{
+    const uid=p.user_id;
+    if(!byUser[uid]){
+      byUser[uid]={name:p.profiles?.name||'—',email:p.profiles?.email||'',payments:[]};
+      userOrder.push(uid);
+    }
+    byUser[uid].payments.push(p);
+  });
+  // Assign sequential receipt numbers per user (by created_at order)
+  userOrder.forEach(uid=>{
+    byUser[uid].payments.forEach((p,i)=>{p._receiptNum=i+1;});
+  });
+
+  function makePayRow(p,isCancRefund,safeUid){
     const due=parseFloat(p.amount_due||0),paid=parseFloat(p.amount_paid||0);
     const isRef=!!p.is_refunded;
     let badge,refundBtn='';
@@ -5922,51 +6063,77 @@ async function loadAdminPayments(){
     const safeRcptFile=(p.receipt_filename||'').replace(/'/g,"\\'");
     const editBtn=isCancRefund?'':
       `<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;" onclick="openEditPaymentModal('${p.id}','${p.user_id||''}','${(p.profiles?.name||'').replace(/'/g,"\\'")}','${(p.payment_milestones?.label||'').replace(/'/g,"\\'")}',${due},${paid},'${p.paid_at||''}','${safeRcptUrl}','${safeRcptFile}')">✏️ Edit</button>`;
-    // Receipt status button
-    let rcptBtn='';
+    // Receipt column: show Receipt #N — date, then action button
+    let rcptCell='';
     if(p.receipt_url){
+      const rcptDate=p.receipt_sent_at
+        ?new Date(p.receipt_sent_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+        :(p.paid_at?new Date(p.paid_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—');
+      const rcptLabel=`<div style="font-weight:700;font-size:.8rem;color:#1a4a7c;">Receipt #${p._receiptNum}</div><div style="font-size:.74rem;color:var(--muted);margin-bottom:4px;">${rcptDate}</div>`;
       if(p.receipt_sent){
-        rcptBtn=`<button onclick="openReceiptModal('${p.id}','${safeRcptUrl}','${safeRcptFile}','${(p.profiles?.email||'').replace(/'/g,"\\'")}','${(p.profiles?.name||'').replace(/'/g,"\\'")}',true,${paid})" title="Receipt previously sent — click to re-send or use new email/receipt" style="background:#dcfce7;color:#166534;border:1.5px solid #86efac;border-radius:6px;padding:3px 9px;font-size:.78rem;font-weight:700;cursor:pointer;">📎 Send Receipt</button>`;
+        rcptCell=rcptLabel+`<button onclick="openReceiptModal('${p.id}','${safeRcptUrl}','${safeRcptFile}','${(p.profiles?.email||'').replace(/'/g,"\\'")}','${(p.profiles?.name||'').replace(/'/g,"\\'")}',true,${paid})" title="Receipt previously sent — click to re-send or use new email/receipt" style="background:#dcfce7;color:#166534;border:1.5px solid #86efac;border-radius:6px;padding:3px 9px;font-size:.78rem;font-weight:700;cursor:pointer;">📎 Send Receipt</button>`;
       } else {
-        rcptBtn=`<button onclick="openReceiptModal('${p.id}','${safeRcptUrl}','${safeRcptFile}','${(p.profiles?.email||'').replace(/'/g,"\\'")}','${(p.profiles?.name||'').replace(/'/g,"\\'")}',false,${paid})" title="Receipt on file — click to email it" style="background:#f0fdf4;color:#15803d;border:1.5px solid #86efac;border-radius:6px;padding:3px 9px;font-size:.78rem;font-weight:700;cursor:pointer;">✉️ Sent</button>`;
+        rcptCell=rcptLabel+`<button onclick="openReceiptModal('${p.id}','${safeRcptUrl}','${safeRcptFile}','${(p.profiles?.email||'').replace(/'/g,"\\'")}','${(p.profiles?.name||'').replace(/'/g,"\\'")}',false,${paid})" title="Receipt on file — click to email it" style="background:#f0fdf4;color:#15803d;border:1.5px solid #86efac;border-radius:6px;padding:3px 9px;font-size:.78rem;font-weight:700;cursor:pointer;">✉️ Sent</button>`;
       }
     } else {
-      rcptBtn=`<span title="No receipt uploaded" style="color:#9ca3af;font-size:.78rem;">📎 —</span>`;
+      rcptCell=`<span title="No receipt uploaded" style="color:#9ca3af;font-size:.78rem;">📎 —</span>`;
     }
-    return`<tr${isRef?' style="opacity:.8;background:#f5f3ff;"':''}>
-      <td><strong>${p.profiles?.name||'—'}</strong><br><small style="color:var(--muted)">${p.profiles?.email||''}</small></td>
+    const rowCls=safeUid?` class="pay-trav-rows-${safeUid}"`:'';
+    return`<tr${rowCls}${isRef?' style="opacity:.8;background:#f5f3ff;"':''}>
       <td>${p.payment_milestones?.label||'—'}</td>
       <td>${fmtDate(p.payment_milestones?.due_date)}</td>
       <td style="font-size:.82rem;"><div style="font-weight:600;">${cabinInfo.cabinNum}</div><div style="color:var(--muted);font-size:.78rem;">Res: ${cabinInfo.resNum}</div></td>
       <td class="col-r">${fmt(due)}</td>
       <td class="col-r">${isRef?'<span style="color:#6b21a8;font-weight:700;">'+fmt(paid)+'</span>':fmt(paid)}</td>
       <td>${pd}</td>
-      <td>${rcptBtn}</td>
+      <td>${rcptCell}</td>
       <td>${badge}${refundBtn?'<br>'+refundBtn:''}${editBtn?'<br>'+editBtn:''}</td>
     </tr>`;
   }
 
-  const thead=`<table><thead><tr><th>Traveler</th><th>Milestone</th><th>Due Date</th><th>Cabin # / Res. #</th><th class="col-r">Amt Due</th><th class="col-r">Paid</th><th>Paid On</th><th>Receipt</th><th>Status</th></tr></thead><tbody>`;
+  const thead=`<table style="width:100%;border-collapse:collapse;"><thead><tr><th>Milestone</th><th>Due Date</th><th>Cabin # / Res. #</th><th class="col-r">Amt Due</th><th class="col-r">Paid</th><th>Paid On</th><th>Receipt</th><th>Status</th></tr></thead><tbody>`;
 
-  // Separate active vs cancelled+refunded
-  const activeRows=[];const refundedRows=[];
-  data.forEach(p=>{
-    const isCancelledAndRefunded=cancelledIds.has(p.user_id)&&refundedIds.has(p.user_id);
-    if(isCancelledAndRefunded)refundedRows.push(makePayRow(p,true));
-    else activeRows.push(makePayRow(p,false));
-  });
+  // Separate active vs cancelled+refunded user groups
+  const activeUids=userOrder.filter(uid=>!(cancelledIds.has(uid)&&refundedIds.has(uid)));
+  const refundedUids=userOrder.filter(uid=>cancelledIds.has(uid)&&refundedIds.has(uid));
 
-  let html=`${thead}${activeRows.join('')}</tbody></table>`;
+  function buildTravelerSection(uid,isCancRefund){
+    const u=byUser[uid];
+    const safeUid=uid.replace(/-/g,'');
+    const totalPaid=u.payments.reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+    const rcptCount=u.payments.filter(p=>p.receipt_url).length;
+    const sentCount=u.payments.filter(p=>p.receipt_sent).length;
+    const rcptInfo=rcptCount>0?` · ${sentCount}/${rcptCount} receipt${rcptCount>1?'s':''} sent`:'';
+    const headerStyle=isCancRefund
+      ?'background:#fef2f2;border-bottom:1px solid #fecaca;'
+      :'background:#f0f9ff;border-bottom:1px solid #bae6fd;';
+    const rows=u.payments.map(p=>makePayRow(p,isCancRefund,safeUid)).join('');
+    return`
+      <tr style="cursor:pointer;${headerStyle}" onclick="toggleTravelerPayRows('${uid}')">
+        <td colspan="8" style="padding:9px 14px;">
+          <span style="font-weight:800;font-size:.9rem;color:${isCancRefund?'#9f1239':'#1a4a7c'};">
+            <span id="pay-chev-${safeUid}" style="margin-right:6px;font-size:.8rem;">▼</span>${u.name}
+          </span>
+          <span style="color:var(--muted);font-size:.8rem;margin-left:8px;">${u.email}</span>
+          <span style="font-size:.78rem;color:#166534;font-weight:600;float:right;margin-right:8px;">Total Paid: ${fmt(totalPaid)}${rcptInfo}</span>
+        </td>
+      </tr>
+      ${rows}`;
+  }
 
-  if(refundedRows.length>0){
+  const activeSections=activeUids.map(uid=>buildTravelerSection(uid,false)).join('');
+  let html=`${thead}${activeSections}</tbody></table>`;
+
+  if(refundedUids.length>0){
+    const refundedSections=refundedUids.map(uid=>buildTravelerSection(uid,true)).join('');
     html+=`
     <div style="margin-top:20px;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;background:#f8fafc;cursor:pointer;border-bottom:1px solid #e2e8f0;" onclick="toggleRefundedPayments()">
-        <span style="font-weight:700;font-size:.9rem;color:#9f1239;">🚫 Cancelled & Refunded Traveler Payments (${refundedRows.length} records)</span>
+        <span style="font-weight:700;font-size:.9rem;color:#9f1239;">🚫 Cancelled & Refunded Traveler Payments (${refundedUids.length} traveler${refundedUids.length>1?'s':''})</span>
         <span id="refunded-pay-chevron" style="color:var(--muted);transition:transform .2s;">▼</span>
       </div>
       <div id="refunded-pay-body" style="display:none;">
-        ${thead}${refundedRows.join('')}</tbody></table>
+        ${thead}${refundedSections}</tbody></table>
       </div>
     </div>`;
   }
@@ -6146,25 +6313,12 @@ async function openReceiptModal(payId,receiptUrl,receiptFilename,primaryEmail,tr
           <textarea id="rsm-message" rows="4" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.85rem;resize:vertical;"></textarea>
         </div>
 
-        <!-- Opt-in receipt attachment -->
-        <div style="background:#f8faff;border:1.5px solid #c7d7f0;border-radius:8px;padding:10px 14px;margin-bottom:14px;">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem;font-weight:600;color:#1a4a7c;">
-            <input type="checkbox" id="rsm-attach-receipt" style="width:16px;height:16px;cursor:pointer;">
-            📎 Attach receipt to this email
-          </label>
-          <div id="rsm-attach-info" style="display:none;margin-top:8px;font-size:.8rem;color:#374151;padding-left:24px;">
-            File: <a id="rsm-attach-link" href="#" target="_blank" style="color:#1a4a7c;font-weight:600;"></a>
-            &nbsp;·&nbsp; <a id="rsm-attach-dl" href="#" download style="color:#166534;font-weight:600;">⬇ Download</a>
-          </div>
-          <p style="margin:6px 0 0 24px;font-size:.75rem;color:#6b7280;">Check this box to include a download link for the stored receipt in the email.</p>
-        </div>
-
-        <!-- Upload new receipt file -->
+        <!-- Upload receipt to send (required each time) -->
         <div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:14px;">
-          <div style="font-weight:700;font-size:.82rem;color:#92400e;margin-bottom:6px;">📁 Upload New Receipt File (optional)</div>
+          <div style="font-weight:700;font-size:.82rem;color:#92400e;margin-bottom:6px;">📁 Upload Receipt to Send</div>
           <input type="file" id="rsm-new-receipt-file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx" style="font-size:.82rem;width:100%;" onchange="(function(f){const i=document.getElementById('rsm-new-rcpt-info');if(f){i.textContent='📎 '+f.name+' ('+Math.round(f.size/1024)+' KB)';i.style.display='block';}else{i.style.display='none';}})(this.files[0])">
           <div id="rsm-new-rcpt-info" style="display:none;font-size:.8rem;color:#374151;margin-top:6px;padding:4px 8px;background:#fef9c3;border-radius:5px;font-weight:600;"></div>
-          <p style="font-size:.75rem;color:#6b7280;margin:5px 0 0;">If provided, this file becomes the new receipt on record and replaces the existing one.</p>
+          <p style="font-size:.75rem;color:#6b7280;margin:5px 0 0;">Upload a receipt file to include a download link in the email. A new upload also updates the receipt on record.</p>
         </div>
 
         <!-- Additional attachments (up to 2 extra) -->
@@ -6183,27 +6337,20 @@ async function openReceiptModal(payId,receiptUrl,receiptFilename,primaryEmail,tr
       </div>
     </div>`;
     document.body.appendChild(mo);
-    // Wire up checkbox toggle
-    document.getElementById('rsm-attach-receipt').addEventListener('change',function(){
-      document.getElementById('rsm-attach-info').style.display=this.checked?'block':'none';
-    });
   }
 
-  // Populate receipt link preview (for when checkbox is checked)
+  // Populate receipt link preview (reference only)
   document.getElementById('rsm-title').textContent=alreadySent?'✉️ Receipt — Sent':'📎 Send Payment Receipt';
-  document.getElementById('rsm-receipt-link').innerHTML=`
-    <strong>Receipt on file:</strong> <a href="${receiptUrl}" target="_blank" style="color:#1a4a7c;font-weight:600;">${receiptFilename||'receipt'}</a>
-    &nbsp;·&nbsp; <a href="${receiptUrl}" download="${receiptFilename||'receipt'}" style="color:#166534;font-weight:600;">⬇ Download</a>`;
-  // Set attach-info link targets
-  const attLink=document.getElementById('rsm-attach-link');
-  const attDl=document.getElementById('rsm-attach-dl');
-  if(attLink){attLink.href=receiptUrl;attLink.textContent=receiptFilename||'View Receipt';}
-  if(attDl){attDl.href=receiptUrl;attDl.download=receiptFilename||'receipt';}
-  // Reset checkbox to unchecked each open
-  const chk=document.getElementById('rsm-attach-receipt');
-  if(chk){chk.checked=false;}
-  document.getElementById('rsm-attach-info').style.display='none';
-  // Reset new receipt upload
+  if(receiptUrl){
+    document.getElementById('rsm-receipt-link').innerHTML=`
+      <strong>Previously uploaded receipt:</strong> <a href="${receiptUrl}" target="_blank" style="color:#1a4a7c;font-weight:600;">${receiptFilename||'receipt'}</a>
+      &nbsp;·&nbsp; <a href="${receiptUrl}" download="${receiptFilename||'receipt'}" style="color:#166534;font-weight:600;">⬇ Download</a>
+      <span style="display:block;font-size:.75rem;color:#6b7280;margin-top:4px;">Upload a new receipt file above to include it in this email.</span>`;
+    document.getElementById('rsm-receipt-link').style.display='block';
+  } else {
+    document.getElementById('rsm-receipt-link').style.display='none';
+  }
+  // Reset receipt upload each open
   const nrf=document.getElementById('rsm-new-receipt-file');if(nrf)nrf.value='';
   const nri=document.getElementById('rsm-new-rcpt-info');if(nri){nri.textContent='';nri.style.display='none';}
   // Reset extra attachments
@@ -6352,7 +6499,8 @@ async function sendReceiptEmails(){
 
   const subject=document.getElementById('rsm-subject').value.trim()||`Your Payment Receipt-${TRIP_NAME}`;
   const customMsg=document.getElementById('rsm-message').value.trim();
-  const attachReceipt=document.getElementById('rsm-attach-receipt')?.checked&&gReceiptUrl;
+  // Receipt block is built only from the newly uploaded file (uploaded in this send session)
+  const attachReceipt=!!newRcptFile&&gReceiptUrl; // gReceiptUrl is updated above if new file was uploaded
 
   // Collect recipients
   const rows=[...document.getElementById('rsm-email-list').querySelectorAll('.rsm-email-row')];
@@ -6392,7 +6540,7 @@ async function sendReceiptEmails(){
       subject,
       plain_body:plainBody,
       html_body:htmlBody,
-      meta:{source:'receipt_send',held:true},
+      meta:{source:'receipt_send',held:true,payment_id:gReceiptPayId},
       status:'held',
       created_at:new Date().toISOString()
     });
@@ -9649,6 +9797,10 @@ async function sendAllHeldEmails(btn){
     // bypassHold=true: releasing from hold queue must skip the hold check or it re-queues
     await sendEmail(eq.to_email,eq.to_name,eq.subject,eq.plain_body,eq.html_body,false,true);
     await sb.from('email_queue').update({status:'sent',sent_at:new Date().toISOString()}).eq('id',eq.id);
+    // Sync receipt_sent on payment record when releasing a receipt email
+    if(eq.meta?.source==='receipt_send'&&eq.meta?.payment_id){
+      await sb.from('user_payments').update({receipt_sent:true,receipt_sent_at:new Date().toISOString()}).eq('id',eq.meta.payment_id);
+    }
     sent++;
     await new Promise(r=>setTimeout(r,500));
   }
@@ -9672,6 +9824,10 @@ async function sendOneHeldEmail(id,btn){
   // bypassHold=true: releasing from hold queue must skip the hold check or it re-queues
   await sendEmail(eq.to_email,eq.to_name,eq.subject,eq.plain_body,eq.html_body,false,true);
   await sb.from('email_queue').update({status:'sent',sent_at:new Date().toISOString()}).eq('id',id);
+  // Sync receipt_sent on payment record when releasing a receipt email
+  if(eq.meta?.source==='receipt_send'&&eq.meta?.payment_id){
+    await sb.from('user_payments').update({receipt_sent:true,receipt_sent_at:new Date().toISOString()}).eq('id',eq.meta.payment_id);
+  }
   loadEmailQueueTab();
 }
 
