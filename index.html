@@ -7912,20 +7912,31 @@ Your Commonwealth Cruise Team`,
 
 Thank you for your reservation on the ${TRIP_NAME}! We are excited to have you sailing with us.
 
-To proceed with your cabin reservation, we need a credit card authorization on file. A detailed authorization form and payment policy will be included in the email sent to you.
+To proceed with your cabin reservation, we need a credit card authorization on file. Please review the payment policy below.
+
+PAYMENT POLICY — HOW YOUR CARD WILL BE USED:
+- Initial charge: Your card will be charged $100.00 ($100.00 per person) to reserve your cabin.
+- Cabin assignment: A specific cabin number will NOT be assigned until the full deposit of $250.00 (per person in cabin) has been received.
+- Card usage limit: The credit card provided on this form will ONLY be used for payments up to the full deposit amount, based on the payment schedule.
+- Remaining balance: After the full deposit is received, a personal payment link will be sent to you for any and all remaining balance payments.
+
+--------------------------------------------
+--------------------------------------------
 
 NEXT STEPS:
-1. Download and print the CC Authorization Form (link in email)
+1. Download and print the CC Authorization Form:
+https://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf
 2. Complete all fields, including your card number and billing address
-3. Sign the form
+3. Sign the form (accepting or declining travel insurance)
 4. Reply to this email with the completed form attached
 
-A minimum of $100.00 per person in cabin is required to place a cabin of requested type on hold.
+After your full deposit is received, a personal payment link will be sent for all remaining balance payments.
 
-A minimum of $250.00 per person in cabin is required to confirm your reservation of a specific cabin# and generate a personalized payment link for future payments.
+Questions? Reply to this email or contact us at glowjetters@gmail.com.
 
 Thank you,
-Your Commonwealth Cruise Team`
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
     }),
     customSend:()=>{
       const name=(document.getElementById('eg-to-name')||{}).value?.trim();
@@ -7960,9 +7971,9 @@ ACTION REQUIRED: COMPLETE CABIN TRAVELER INFORMATION
 
 To complete the processing of your hold, we need you to complete the traveler information for all guests in your cabin.
 
-Please log in to the link below and complete the following for each guest:
+Please log in to the Commonwealth Cruise Travel Portal and complete the following for each guest:
 
-https://atypicaltek.github.io/Commonwealth-Cruise/
+Commonwealth Cruise Travel Portal
 
 - Full legal name (as it appears on travel documents)
 - Date of birth
@@ -7974,7 +7985,9 @@ This information is required for all cabin occupants before your hold can be ful
 
 DEPOSIT REQUIRED — ROOM HOLD IS PENDING
 
-An initial deposit of $100.00 per person in your cabin is required to maintain the hold status. Until your deposit payment has been received, your room hold is pending. A full deposit of $250.00 per person in your cabin is required to confirm an ASSIGNED cabin and finalize your reservation. Once your cabin is reserved, a personalized payment link will be provided to make the remainder of your payments.
+An initial deposit of $100.00 per person in your cabin is required to maintain the hold status. Until your deposit payment has been received, your room hold is pending.
+
+A full deposit of $250.00 per person in your cabin is required to confirm an ASSIGNED cabin and finalize your reservation. Once your cabin is reserved, a personalized payment link will be provided to make the remainder of your payments.
 
 To submit your deposit, please complete the CC Authorization Form and return it to your trip organizer. Or if you prefer, reply requesting a call from one of our team members to receive your credit card information by phone for payment. A receipt will be provided for all payments.
 
@@ -7996,17 +8009,14 @@ This email was sent by the ${TRIP_NAME} portal.`
       toPlaceholder:'traveler@email.com',
       toName:'',
       body:`Hello [Traveler Name],
+
 Thank you for your reservation on the ${TRIP_NAME}! We are looking forward to an amazing journey together.
 
-Until your initial deposit payment of $100.00 per person in cabin has been received, your room type hold request is pending.
+DEPOSIT REQUIRED — ROOM HOLD IS PENDING
 
-A full deposit payment of $250.00 per person in cabin will confirm your reservation for a specific cabin# and generate a personalized payment link for future payments.
+Until your initial deposit has been received, your room hold is pending. A full deposit of $250.00 per person in your cabin is required to confirm an ASSIGNED cabin and finalize your reservation. Once your cabin is RESERVED, a personalized payment link will be provided to make the remainder of your payments.
 
-To submit your initial deposit payment, please complete the attached CC Authorization Form and return it to your trip organizer.
-
-Or if you prefer, reply to this email requesting a call from one of our team members to provide your credit card information for payment over the phone.
-
-A receipt will be provided for all payments.
+All initial deposits must be paid by credit card. To submit your deposit, please complete the CC Authorization Form and return it to your trip organizer. Or if you prefer, reply requesting a call from one of our team members to receive your credit card information by phone for payment. A receipt will be provided for all payments.
 
 https://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf
 
@@ -8788,28 +8798,24 @@ async function confirmSendCCAuth(name,email,cabinType,numGuests){
   const htmlBody=buildEmailHtml(name,`
     <p>Thank you for your reservation on the <strong>${TRIP_NAME}</strong>! We are excited to have you sailing with us.</p>
 
-    <p>To proceed with your <strong>${cabinType||'cabin'}</strong> reservation, we need a credit card authorization on file. Please review the payment policy below before completing the form.</p>
+    <p>To proceed with your <strong>${cabinType||'cabin'}</strong> reservation, we need a credit card authorization on file. Please review the payment policy below.</p>
 
     <div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:10px;padding:16px 18px;margin:18px 0;font-size:.86rem;line-height:1.8;color:#0c4a6e;">
-      <strong style="display:block;font-size:.92rem;margin-bottom:10px;color:#0f2744;">💳 Payment Policy — How Your Card Will Be Used</strong>
-      <p style="margin:0 0 8px;">• <strong>Initial charge:</strong> Your card will be charged <strong>${initialDisplay}</strong> ($${initialPP}.00 per person) to reserve your cabin.</p>
-      <p style="margin:0 0 8px;">• <strong>Cabin assignment:</strong> A specific cabin number will <em>not</em> be assigned until the full deposit of <strong>${fullDepDisplay}</strong> ($${fullDepPP}.00 per person) has been received.</p>
-      <p style="margin:0 0 8px;">• <strong>Card usage limit:</strong> The credit card provided on this form will <em>only</em> be used for payments up to the full deposit amount, based on the payment schedule.</p>
+      <strong style="display:block;font-size:.92rem;margin-bottom:10px;color:#0f2744;">💳 PAYMENT POLICY — HOW YOUR CARD WILL BE USED:</strong>
+      <p style="margin:0 0 8px;">• <strong>Initial charge:</strong> Your card will be charged <strong style="color:#dc2626;">${initialDisplay}</strong> (<strong style="color:#dc2626;">$${initialPP}.00</strong> per person) to reserve your cabin.</p>
+      <p style="margin:0 0 8px;">• <strong>Cabin assignment:</strong> A specific cabin number will NOT be <strong style="color:#dc2626;">ASSIGNED</strong> until the full deposit of <strong style="color:#dc2626;">${fullDepDisplay}</strong> (<strong style="color:#dc2626;">$${fullDepPP}.00</strong> per person in cabin) has been received.</p>
+      <p style="margin:0 0 8px;">• <strong>Card usage limit:</strong> The credit card provided on this form will ONLY be used for payments up to the full deposit amount, based on the payment schedule.</p>
       <p style="margin:0;">• <strong>Remaining balance:</strong> After the full deposit is received, a personal payment link will be sent to you for any and all remaining balance payments.</p>
     </div>
 
     <hr style="border:none;border-top:1.5px solid #e2e8f0;margin:18px 0;">
+    <hr style="border:none;border-top:1.5px solid #e2e8f0;margin:18px 0;">
 
-    <div style="background:#f8fafc;border-left:4px solid #1a4a7c;border-radius:0 8px 8px 0;padding:14px 16px;margin-bottom:16px;font-size:.85rem;line-height:1.7;color:#1e293b;">
-      <strong style="display:block;margin-bottom:8px;font-size:.9rem;color:#0f2744;"></p>
-    </div>
-
-    <p style="font-weight:700;color:#0f2744;margin-bottom:8px;">📋 Next Steps:</p>
+    <p style="font-weight:700;color:#0f2744;margin-bottom:8px;">📋 NEXT STEPS:</p>
     <ol style="font-size:.88rem;line-height:2;padding-left:20px;color:#1e293b;margin:0 0 16px;">
       <li>Download and print the <strong>CC Authorization Form</strong> using the button below</li>
       <li>Complete all fields, including your card number and billing address</li>
-      <li>Sign the form (accepting or declining travel insurance as applicable)</li>
-      <li>Attach a legible copy of the <strong>front and back of your credit card</strong></li>
+      <li>Sign the form (accepting or declining travel insurance)</li>
       <li><strong>Reply to this email</strong> with the completed form attached</li>
     </ol>
 
@@ -8829,24 +8835,20 @@ Thank you for your reservation on the ${TRIP_NAME}! We are excited to have you s
 To proceed with your ${cabinType||'cabin'} reservation, we need a credit card authorization on file. Please review the payment policy below.
 
 PAYMENT POLICY — HOW YOUR CARD WILL BE USED:
-
 - Initial charge: Your card will be charged ${initialDisplay} ($${initialPP}.00 per person) to reserve your cabin.
-
-- Cabin assignment: A specific cabin number will NOT be assigned until the full deposit of ${fullDepDisplay} ($${fullDepPP}.00 per person) has been received.
-
+- Cabin assignment: A specific cabin number will NOT be assigned until the full deposit of ${fullDepDisplay} ($${fullDepPP}.00 per person in cabin) has been received.
 - Card usage limit: The credit card provided on this form will ONLY be used for payments up to the full deposit amount, based on the payment schedule.
-
 - Remaining balance: After the full deposit is received, a personal payment link will be sent to you for any and all remaining balance payments.
 
 --------------------------------------------
-
 --------------------------------------------
 
 NEXT STEPS:
-1. Download and print the CC Authorization Form: ${CC_AUTH_FORM_URL}
+1. Download and print the CC Authorization Form:
+${CC_AUTH_FORM_URL}
 2. Complete all fields, including your card number and billing address
 3. Sign the form (accepting or declining travel insurance)
-5. Reply to this email with the completed form attached
+4. Reply to this email with the completed form attached
 
 After your full deposit is received, a personal payment link will be sent for all remaining balance payments.
 
