@@ -6000,6 +6000,35 @@ async function savePayment(){
 
   loadAdminPayments();loadTravelers();
 }
+// Quick receipt viewer for admin payment records
+function viewAdminReceipt(url,filename,num){
+  const existing=document.getElementById('admin-rcpt-viewer-modal');
+  if(existing)existing.remove();
+  const isPdf=/\.pdf$/i.test(url||'');
+  const isImg=/\.(jpg|jpeg|png|gif|webp)$/i.test(url||'');
+  const mo=document.createElement('div');
+  mo.id='admin-rcpt-viewer-modal';
+  mo.className='modal-overlay';
+  mo.innerHTML=`
+    <div class="modal" style="max-width:700px;max-height:92vh;overflow-y:auto;">
+      <div class="modal-header">
+        <h3 style="margin:0;font-size:1rem;">📋 Receipt #${num}${filename?' — '+filename:''}</h3>
+        <button class="modal-close" onclick="document.getElementById('admin-rcpt-viewer-modal').classList.remove('open')">✕</button>
+      </div>
+      <div style="padding:12px 18px 18px;">
+        <div style="text-align:right;margin-bottom:10px;">
+          <a href="${url}" target="_blank" rel="noopener" style="background:#1a4a7c;color:#fff;border-radius:6px;padding:6px 14px;font-size:.82rem;font-weight:700;text-decoration:none;margin-right:8px;">↗ Open</a>
+          <a href="${url}" download="${filename||'receipt'}" style="background:#166534;color:#fff;border-radius:6px;padding:6px 14px;font-size:.82rem;font-weight:700;text-decoration:none;">⬇ Download</a>
+        </div>
+        ${isPdf?`<iframe src="${url}" style="width:100%;height:540px;border:1.5px solid #e2e8f0;border-radius:8px;" title="Receipt #${num}"></iframe>`
+          :isImg?`<img src="${url}" alt="Receipt #${num}" style="max-width:100%;border-radius:8px;border:1.5px solid #e2e8f0;display:block;">`
+          :`<div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:8px;padding:20px;text-align:center;color:#1a4a7c;font-size:.9rem;">This file type cannot be previewed inline. Use Open or Download above.</div>`}
+      </div>
+    </div>`;
+  document.body.appendChild(mo);
+  mo.classList.add('open');
+}
+
 // Toggle collapsible traveler payment rows
 function toggleTravelerPayRows(uid){
   const safeUid=uid.replace(/-/g,'');
@@ -6069,7 +6098,7 @@ async function loadAdminPayments(){
       const rcptDate=p.receipt_sent_at
         ?new Date(p.receipt_sent_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
         :(p.paid_at?new Date(p.paid_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—');
-      const rcptLabel=`<div style="font-weight:700;font-size:.8rem;color:#1a4a7c;">Receipt #${p._receiptNum}</div><div style="font-size:.74rem;color:var(--muted);margin-bottom:4px;">${rcptDate}</div>`;
+      const rcptLabel=`<div style="font-weight:700;font-size:.8rem;"><a href="#" onclick="event.preventDefault();viewAdminReceipt('${safeRcptUrl}','${safeRcptFile.replace(/'/g,"\\'")}',${p._receiptNum})" style="color:#1a4a7c;text-decoration:underline;cursor:pointer;">Receipt #${p._receiptNum}</a></div><div style="font-size:.74rem;color:var(--muted);margin-bottom:4px;">${rcptDate}</div>`;
       if(p.receipt_sent){
         rcptCell=rcptLabel+`<button onclick="openReceiptModal('${p.id}','${safeRcptUrl}','${safeRcptFile}','${(p.profiles?.email||'').replace(/'/g,"\\'")}','${(p.profiles?.name||'').replace(/'/g,"\\'")}',true,${paid})" title="Receipt previously sent — click to re-send or use new email/receipt" style="background:#dcfce7;color:#166534;border:1.5px solid #86efac;border-radius:6px;padding:3px 9px;font-size:.78rem;font-weight:700;cursor:pointer;">📎 Send Receipt</button>`;
       } else {
@@ -6283,79 +6312,63 @@ async function openReceiptModal(payId,receiptUrl,receiptFilename,primaryEmail,tr
   gReceiptPayId=payId;gReceiptUrl=receiptUrl;gReceiptFilename=receiptFilename;
   const paidFmt=amtPaid>0?'$'+parseFloat(amtPaid).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
 
-  // Build modal if not present
-  let mo=document.getElementById('receipt-send-modal');
-  if(!mo){
-    mo=document.createElement('div');
-    mo.id='receipt-send-modal';
-    mo.className='modal-overlay';
-    mo.innerHTML=`
-    <div class="modal" style="max-width:520px;max-height:90vh;overflow-y:auto;">
-      <div class="modal-header">
-        <h3 id="rsm-title" style="margin:0;font-size:1.05rem;">📎 Payment Receipt</h3>
-        <button class="modal-close" onclick="document.getElementById('receipt-send-modal').classList.remove('open')">✕</button>
+  // Always destroy and rebuild — guarantees clean state with zero pre-loaded attachments
+  const existing=document.getElementById('receipt-send-modal');
+  if(existing)existing.remove();
+
+  const mo=document.createElement('div');
+  mo.id='receipt-send-modal';
+  mo.className='modal-overlay';
+  mo.innerHTML=`
+  <div class="modal" style="max-width:520px;max-height:90vh;overflow-y:auto;">
+    <div class="modal-header">
+      <h3 id="rsm-title" style="margin:0;font-size:1.05rem;">${alreadySent?'✉️ Receipt — Sent':'📎 Send Payment Receipt'}</h3>
+      <button class="modal-close" onclick="document.getElementById('receipt-send-modal').classList.remove('open')">✕</button>
+    </div>
+    <div style="padding:16px 20px 20px;">
+      <div id="rsm-send-history" style="margin-bottom:14px;"></div>
+
+      <div style="font-weight:700;font-size:.88rem;color:#1a4a7c;margin-bottom:6px;">📧 Send Receipt Email</div>
+      <div id="rsm-email-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
+      <button onclick="addReceiptEmailRow('','',false)" style="font-size:.8rem;color:#1a4a7c;background:none;border:1.5px dashed #93c5fd;border-radius:6px;padding:5px 12px;cursor:pointer;width:100%;margin-bottom:12px;">+ Add Another Email</button>
+
+      <div style="margin-bottom:10px;">
+        <label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:4px;">Subject</label>
+        <input id="rsm-subject" type="text" value="Your Payment Receipt-${TRIP_NAME}" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.85rem;">
       </div>
-      <div style="padding:16px 20px 20px;">
-        <div id="rsm-receipt-link" style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.85rem;"></div>
-
-        <div id="rsm-send-history" style="margin-bottom:14px;"></div>
-
-        <div style="font-weight:700;font-size:.88rem;color:#1a4a7c;margin-bottom:6px;">📧 Send Receipt Email</div>
-        <div id="rsm-email-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
-        <button onclick="addReceiptEmailRow('','',false)" style="font-size:.8rem;color:#1a4a7c;background:none;border:1.5px dashed #93c5fd;border-radius:6px;padding:5px 12px;cursor:pointer;width:100%;margin-bottom:12px;">+ Add Another Email</button>
-
-        <div style="margin-bottom:10px;">
-          <label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:4px;">Subject</label>
-          <input id="rsm-subject" type="text" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.85rem;">
-        </div>
-        <div style="margin-bottom:12px;">
-          <label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:4px;">Message</label>
-          <textarea id="rsm-message" rows="4" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.85rem;resize:vertical;"></textarea>
-        </div>
-
-        <!-- Upload receipt to send (required each time) -->
-        <div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:14px;">
-          <div style="font-weight:700;font-size:.82rem;color:#92400e;margin-bottom:6px;">📁 Upload Receipt to Send</div>
-          <input type="file" id="rsm-new-receipt-file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx" style="font-size:.82rem;width:100%;" onchange="(function(f){const i=document.getElementById('rsm-new-rcpt-info');if(f){i.textContent='📎 '+f.name+' ('+Math.round(f.size/1024)+' KB)';i.style.display='block';}else{i.style.display='none';}})(this.files[0])">
-          <div id="rsm-new-rcpt-info" style="display:none;font-size:.8rem;color:#374151;margin-top:6px;padding:4px 8px;background:#fef9c3;border-radius:5px;font-weight:600;"></div>
-          <p style="font-size:.75rem;color:#6b7280;margin:5px 0 0;">Upload a receipt file to include a download link in the email. A new upload also updates the receipt on record.</p>
-        </div>
-
-        <!-- Additional attachments (up to 2 extra) -->
-        <div style="background:#f8faff;border:1.5px solid #c7d7f0;border-radius:8px;padding:10px 14px;margin-bottom:14px;">
-          <div style="font-weight:700;font-size:.82rem;color:#1a4a7c;margin-bottom:6px;">📎 Additional Attachments (optional, up to 2)</div>
-          <div id="rsm-extra-attachments"></div>
-          <button type="button" id="rsm-add-attach-btn" onclick="rsmAddAttachment()" style="font-size:.8rem;color:#1a4a7c;background:none;border:1.5px dashed #93c5fd;border-radius:6px;padding:5px 12px;cursor:pointer;width:100%;margin-top:4px;">+ Add Attachment</button>
-          <p style="font-size:.75rem;color:#6b7280;margin:5px 0 0;">Download links for these files will be included in the email body. Max 10 MB each.</p>
-        </div>
-
-        <div id="rsm-alert" style="display:none;padding:8px 12px;border-radius:7px;font-size:.84rem;margin-bottom:10px;"></div>
-        <div style="display:flex;gap:10px;justify-content:flex-end;">
-          <button class="btn btn-ghost" onclick="document.getElementById('receipt-send-modal').classList.remove('open')">Cancel</button>
-          <button id="rsm-send-btn" class="btn btn-primary" onclick="sendReceiptEmails()">Queue in Hold</button>
-        </div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:4px;">Message</label>
+        <textarea id="rsm-message" rows="4" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.85rem;resize:vertical;">${paidFmt?'Thank you for your payment of '+paidFmt+'. Please retain the attached receipt for your records.':'Thank you for your payment. Please retain the attached receipt for your records.'}</textarea>
       </div>
-    </div>`;
-    document.body.appendChild(mo);
-  }
 
-  // Populate receipt link preview (reference only)
-  document.getElementById('rsm-title').textContent=alreadySent?'✉️ Receipt — Sent':'📎 Send Payment Receipt';
-  if(receiptUrl){
-    document.getElementById('rsm-receipt-link').innerHTML=`
-      <strong>Previously uploaded receipt:</strong> <a href="${receiptUrl}" target="_blank" style="color:#1a4a7c;font-weight:600;">${receiptFilename||'receipt'}</a>
-      &nbsp;·&nbsp; <a href="${receiptUrl}" download="${receiptFilename||'receipt'}" style="color:#166534;font-weight:600;">⬇ Download</a>
-      <span style="display:block;font-size:.75rem;color:#6b7280;margin-top:4px;">Upload a new receipt file above to include it in this email.</span>`;
-    document.getElementById('rsm-receipt-link').style.display='block';
-  } else {
-    document.getElementById('rsm-receipt-link').style.display='none';
-  }
-  // Reset receipt upload each open
-  const nrf=document.getElementById('rsm-new-receipt-file');if(nrf)nrf.value='';
-  const nri=document.getElementById('rsm-new-rcpt-info');if(nri){nri.textContent='';nri.style.display='none';}
-  // Reset extra attachments
-  const extContainer=document.getElementById('rsm-extra-attachments');if(extContainer)extContainer.innerHTML='';
-  const addBtn=document.getElementById('rsm-add-attach-btn');if(addBtn)addBtn.style.display='';
+      <!-- Upload receipt to send (clean each open) -->
+      <div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:14px;">
+        <div style="font-weight:700;font-size:.82rem;color:#92400e;margin-bottom:6px;">📁 Upload Receipt to Send</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <input type="file" id="rsm-new-receipt-file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx" style="flex:1;font-size:.82rem;"
+            onchange="(function(inp){const f=inp.files[0];const i=document.getElementById('rsm-new-rcpt-info');const clr=document.getElementById('rsm-new-rcpt-clear');if(f){i.textContent='📎 '+f.name+' ('+Math.round(f.size/1024)+' KB)';i.style.display='block';clr.style.display='inline-block';}else{i.style.display='none';clr.style.display='none';}})(this)">
+          <button type="button" id="rsm-new-rcpt-clear" onclick="const inp=document.getElementById('rsm-new-receipt-file');inp.value='';document.getElementById('rsm-new-rcpt-info').style.display='none';this.style.display='none';" style="display:none;background:none;border:1px solid #fca5a5;border-radius:5px;color:#dc2626;font-size:.78rem;padding:2px 8px;cursor:pointer;white-space:nowrap;">✕ Clear</button>
+        </div>
+        <div id="rsm-new-rcpt-info" style="display:none;font-size:.8rem;color:#374151;margin-top:6px;padding:4px 8px;background:#fef9c3;border-radius:5px;font-weight:600;"></div>
+        <p style="font-size:.75rem;color:#6b7280;margin:5px 0 0;">Upload a receipt file to include a download link in the email. This also updates the receipt on record.</p>
+      </div>
+
+      <!-- Additional attachments (up to 2 extra) -->
+      <div style="background:#f8faff;border:1.5px solid #c7d7f0;border-radius:8px;padding:10px 14px;margin-bottom:14px;">
+        <div style="font-weight:700;font-size:.82rem;color:#1a4a7c;margin-bottom:6px;">📎 Additional Attachments (optional, up to 2)</div>
+        <div id="rsm-extra-attachments"></div>
+        <button type="button" id="rsm-add-attach-btn" onclick="rsmAddAttachment()" style="font-size:.8rem;color:#1a4a7c;background:none;border:1.5px dashed #93c5fd;border-radius:6px;padding:5px 12px;cursor:pointer;width:100%;margin-top:4px;">+ Add Attachment</button>
+        <p style="font-size:.75rem;color:#6b7280;margin:5px 0 0;">Download links for these files will be included in the email body. Max 10 MB each.</p>
+      </div>
+
+      <div id="rsm-alert" style="display:none;padding:8px 12px;border-radius:7px;font-size:.84rem;margin-bottom:10px;"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-ghost" onclick="document.getElementById('receipt-send-modal').classList.remove('open')">Cancel</button>
+        <button id="rsm-send-btn" class="btn btn-primary" onclick="sendReceiptEmails()">Queue in Hold</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(mo);
 
   // Load send history
   const histEl=document.getElementById('rsm-send-history');
@@ -7905,10 +7918,11 @@ NEXT STEPS:
 1. Download and print the CC Authorization Form (link in email)
 2. Complete all fields, including your card number and billing address
 3. Sign the form
-4. Attach a legible copy of the front and back of your credit card
 4. Reply to this email with the completed form attached
 
-After your full deposit is received, a personal payment link will be sent for all remaining balance payments.
+A minimum of $100.00 per person in cabin is required to place a cabin of requested type on hold.
+
+A minimum of $250.00 per person in cabin is required to confirm your reservation of a specific cabin# and generate a personalized payment link for future payments.
 
 Thank you,
 Your Commonwealth Cruise Team`
@@ -7946,9 +7960,9 @@ ACTION REQUIRED: COMPLETE CABIN TRAVELER INFORMATION
 
 To complete the processing of your hold, we need you to complete the traveler information for all guests in your cabin.
 
-Please log in to the Commonwealth Cruise Travel Portal and complete the following for each guest:
+Please log in to the link below and complete the following for each guest:
 
-Commonwealth Cruise Travel Portal
+https://atypicaltek.github.io/Commonwealth-Cruise/
 
 - Full legal name (as it appears on travel documents)
 - Date of birth
@@ -7962,7 +7976,7 @@ DEPOSIT REQUIRED — ROOM HOLD IS PENDING
 
 An initial deposit of $100.00 per person in your cabin is required to maintain the hold status. Until your deposit payment has been received, your room hold is pending. A full deposit of $250.00 per person in your cabin is required to confirm an ASSIGNED cabin and finalize your reservation. Once your cabin is reserved, a personalized payment link will be provided to make the remainder of your payments.
 
-All initial deposits (up to $250.00 per person, based on the payment schedule) must be paid by credit card. To submit your deposit, please complete the CC Authorization Form and return it to your trip organizer. Or if you prefer, reply requesting a call from one of our team members to receive your credit card information by phone for payment. A receipt will be provided for all payments.
+To submit your deposit, please complete the CC Authorization Form and return it to your trip organizer. Or if you prefer, reply requesting a call from one of our team members to receive your credit card information by phone for payment. A receipt will be provided for all payments.
 
 https://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf
 
@@ -7982,12 +7996,17 @@ This email was sent by the ${TRIP_NAME} portal.`
       toPlaceholder:'traveler@email.com',
       toName:'',
       body:`Hello [Traveler Name],
+Thank you for your reservation on the ${TRIP_NAME}! We are looking forward to an amazing journey together.
 
-DEPOSIT REQUIRED — ROOM HOLD IS PENDING
+Until your initial deposit payment of $100.00 per person in cabin has been received, your room type hold request is pending.
 
-Until your deposit payment has been received, your room hold is pending. A full deposit of $250.00 per person in your cabin is required to confirm an ASSIGNED cabin and finalize your reservation. Once your cabin is reserved, a personalized payment link will be provided to make the remainder of your payments.
+A full deposit payment of $250.00 per person in cabin will confirm your reservation for a specific cabin# and generate a personalized payment link for future payments.
 
-All initial deposits (up to $250.00 per person, based on the payment schedule) must be paid by credit card. To submit your deposit, please complete the CC Authorization Form and return it to your trip organizer. Or if you prefer, reply requesting a call from one of our team members to receive your credit card information by phone for payment. A receipt will be provided for all payments.
+To submit your initial deposit payment, please complete the attached CC Authorization Form and return it to your trip organizer.
+
+Or if you prefer, reply to this email requesting a call from one of our team members to provide your credit card information for payment over the phone.
+
+A receipt will be provided for all payments.
 
 https://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf
 
@@ -8229,6 +8248,10 @@ async function sendGeneratedEmail(){
   // 1. ALL-CAPS lines → bold dark heading
   // 2. "Commonwealth Cruise Travel Portal" line → clickable button link
   // 3. Blank lines → paragraph break (extra spacing)
+  // 4. Dollar amounts → bold red; "ASSIGNED" → bold red
+  const inlineFmt=(s)=>s
+    .replace(/(\$[\d,]+\.?\d*)/g,'<strong style="color:#dc2626;">$1</strong>')
+    .replace(/\bASSIGNED\b/g,'<strong style="color:#dc2626;">ASSIGNED</strong>');
   const bodyHtmlLines=body.split('\n').map(line=>{
     const trimmed=line.trim();
     const escaped=trimmed.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -8242,11 +8265,11 @@ async function sendGeneratedEmail(){
     }
     // ALL-CAPS lines → bold heading (must be 5+ chars, allow spaces/punctuation)
     if(/^[A-Z][A-Z\s!?.,'"-]{4,}$/.test(trimmed)&&trimmed.length>0){
-      return`<strong style="font-size:1.08rem;color:#0f2744;display:block;margin:4px 0;">${escaped}</strong>`;
+      return`<strong style="font-size:1.08rem;color:#0f2744;display:block;margin:4px 0;">${inlineFmt(escaped)}</strong>`;
     }
     // Blank line → spacer
     if(trimmed==='')return'<div style="height:10px;"></div>';
-    return escaped;
+    return inlineFmt(escaped);
   });
   const htmlBody=buildEmailHtml(toName,`<p style="line-height:1.85;font-size:.95rem;">${bodyHtmlLines.join('<br>')}</p>${attachmentHtml}`);
   const result=await sendEmail(toEmail,toName,subject,body,htmlBody);
