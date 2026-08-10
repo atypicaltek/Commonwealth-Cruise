@@ -1584,6 +1584,11 @@ const PORTAL_URL        = 'https://atypicaltek.github.io/Commonwealth-Cruise/';
 const WIX_PAYMENT_URL   = ''; // ← paste your Wix payment page URL here
 const LOGO_GIF_URL      = ''; // ← hosted URL for Glowjetters animated GIF (data URIs are blocked by email clients)
 const CC_AUTH_FORM_URL  = 'https://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf'; // ← CC Authorization PDF (deploy to GitHub Pages alongside index.html)
+// ── Deck Plan PDF URL ──────────────────────────────────────
+// Upload carnival-freedom-deck-plan-pdf.pdf to GitHub Pages next to index.html,
+// then set this URL. When set, the iframe loads directly from URL (most reliable).
+// Leave blank to fall back to the embedded base64 version.
+const DECK_PLAN_URL = 'https://atypicaltek.github.io/Commonwealth-Cruise/carnival-freedom-deck-plan-pdf.pdf';
 
 // ── Google Apps Script Email Web App ──────────────────────
 // Paste your deployed Web App URL below (see send-email.gs for setup steps).
@@ -1594,7 +1599,7 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzBceNPe3DkBRib
 //   Verizon:  7572708789@vtext.com
 //   AT&T:     7572708789@txt.att.net
 //   T-Mobile: 7572708789@tmomail.net
-const ADMIN_SMS_GATEWAY = '7572708789@vtext.com';
+const ADMIN_SMS_GATEWAY = '7572708789@tmomail.net';
 const GRAT_RATE_STANDARD = 17;  // $ per person per day
 const GRAT_RATE_SUITE    = 19;  // $ per person per day for suites
 const CRUISE_DAYS        = 6;   // voyage length in days
@@ -5778,8 +5783,27 @@ async function showAdminPendingPopup(){
     if(missingCabinType||missingGuestCount||missingTravelerInfo)missingInfoCount++;
   });
 
+  // Store for review modal
+  window._missingInfoProfiles=[];
+  activeProfiles.forEach(p=>{
+    const ca=cabinMap[p.id];
+    const missingCabinType=!ca||!ca.cabin_type;
+    const missingGuestCount=!ca||!ca.num_guests;
+    const occupants=occupantCountMap[p.id]||0;
+    const expectedGuests=ca?.num_guests||0;
+    const missingTravelerInfo=expectedGuests>0&&occupants<expectedGuests;
+    if(missingCabinType||missingGuestCount||missingTravelerInfo){
+      window._missingInfoProfiles.push({
+        id:p.id,name:p.name||'Unknown',email:p.email||'',
+        missingCabinType,missingGuestCount,
+        missingTravelerInfo,occupants,expectedGuests,
+        cabinType:ca?.cabin_type||null
+      });
+    }
+  });
+
   const items=[];
-  if(missingInfoCount>0)items.push({label:'Profile'+(missingInfoCount>1?'s':'')+' missing cabin type, guest count, or traveler info',count:missingInfoCount,tab:'travelers'});
+  if(missingInfoCount>0)items.push({label:'Profile'+(missingInfoCount>1?'s':'')+' missing cabin type, guest count, or traveler info',count:missingInfoCount,fn:'showMissingInfoModal()'});
   if(highOccReqs?.length)items.push({label:'High Occupancy Request'+(highOccReqs.length>1?'s':''),count:highOccReqs.length,tab:'highocc'});
   if(cabinChanges?.length)items.push({label:'Cabin Change Request'+(cabinChanges.length>1?'s':''),count:cabinChanges.length,tab:'cabinchange'});
   if(suiteReqs?.length)items.push({label:'Suite Request'+(suiteReqs.length>1?'s':''),count:suiteReqs.length,tab:'suiterequests'});
@@ -5807,13 +5831,68 @@ async function showAdminPendingPopup(){
         ${items.map(it=>`
           <div style="display:flex;align-items:center;justify-content:space-between;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;">
             <span style="font-size:.88rem;color:#1e293b;font-weight:600;">⚠️ ${it.count} ${it.label}</span>
-            <button onclick="document.getElementById('admin-pending-popup').remove();document.querySelector('[onclick*=\\'${it.tab}\\']')?.click()" style="background:#0f2744;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:.78rem;font-weight:700;cursor:pointer;">Go to Tab →</button>
+            ${it.fn
+              ? `<button onclick="document.getElementById('admin-pending-popup').remove();${it.fn}" style="background:#0f2744;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:.78rem;font-weight:700;cursor:pointer;">Review →</button>`
+              : `<button onclick="document.getElementById('admin-pending-popup').remove();document.querySelector('[onclick*=\\'${it.tab}\\']')?.click()" style="background:#0f2744;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:.78rem;font-weight:700;cursor:pointer;">Go to Tab →</button>`
+            }
           </div>`).join('')}
       </div>
       <button onclick="document.getElementById('admin-pending-popup').remove()" style="width:100%;background:#e5e7eb;color:#374151;border:none;border-radius:8px;padding:10px;font-size:.88rem;cursor:pointer;font-weight:600;">Dismiss — I'll Review Later</button>
     </div>`;
   document.body.appendChild(d);
 }
+function showMissingInfoModal(){
+  const list=window._missingInfoProfiles||[];
+  const existing=document.getElementById('missing-info-review-modal');
+  if(existing)existing.remove();
+  const d=document.createElement('div');
+  d.id='missing-info-review-modal';
+  d.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;';
+  const rows=list.map(p=>{
+    const issues=[];
+    if(p.missingCabinType)issues.push('No cabin type');
+    if(p.missingGuestCount)issues.push('No guest count');
+    if(p.missingTravelerInfo)issues.push(`Traveler info: ${p.occupants}/${p.expectedGuests} added`);
+    const issueHtml=issues.map(i=>`<span style="display:inline-block;background:#fef2f2;border:1px solid #fca5a5;border-radius:4px;padding:1px 7px;font-size:.76rem;color:#991b1b;margin:1px 2px;">${i}</span>`).join('');
+    const safeId=p.id.replace(/'/g,"\\'");
+    const safeName=(p.name||'').replace(/'/g,"\\'");
+    return`<tr style="border-bottom:1px solid #f1f5f9;">
+      <td style="padding:9px 10px;font-weight:600;color:#0f2744;font-size:.88rem;">${p.name||'—'}<br><span style="font-size:.76rem;color:#64748b;font-weight:400;">${p.email||''}</span></td>
+      <td style="padding:9px 10px;">${issueHtml}</td>
+      <td style="padding:9px 10px;text-align:right;">
+        <button onclick="document.getElementById('missing-info-review-modal').remove();openManageTravelers('${safeId}','${safeName}',1)" style="background:#0f2744;color:#fff;border:none;border-radius:6px;padding:5px 11px;font-size:.77rem;font-weight:700;cursor:pointer;">Fix →</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  d.innerHTML=`
+    <div style="background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.3);width:100%;max-width:640px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px 14px;border-bottom:1.5px solid #e2e8f0;flex-shrink:0;">
+        <div>
+          <h2 style="margin:0;font-size:1.05rem;color:#0f2744;">⚠️ Profiles With Missing Information</h2>
+          <p style="margin:3px 0 0;font-size:.81rem;color:#64748b;">${list.length} profile${list.length!==1?'s':''} need cabin type, guest count, or traveler info.</p>
+        </div>
+        <button onclick="document.getElementById('missing-info-review-modal').remove()" style="background:none;border:none;font-size:1.4rem;color:#94a3b8;cursor:pointer;line-height:1;padding:0 2px;">✕</button>
+      </div>
+      <div style="overflow-y:auto;flex:1;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:#f8fafc;border-bottom:1.5px solid #e2e8f0;">
+              <th style="padding:8px 10px;text-align:left;font-size:.78rem;color:#64748b;font-weight:700;text-transform:uppercase;">Traveler</th>
+              <th style="padding:8px 10px;text-align:left;font-size:.78rem;color:#64748b;font-weight:700;text-transform:uppercase;">Missing</th>
+              <th style="padding:8px 10px;"></th>
+            </tr>
+          </thead>
+          <tbody>${rows||'<tr><td colspan="3" style="padding:20px;text-align:center;color:#64748b;">No profiles with missing info.</td></tr>'}</tbody>
+        </table>
+      </div>
+      <div style="padding:14px 22px;border-top:1.5px solid #e2e8f0;flex-shrink:0;">
+        <button onclick="document.getElementById('missing-info-review-modal').remove()" style="width:100%;background:#e5e7eb;color:#374151;border:none;border-radius:8px;padding:9px;font-size:.88rem;cursor:pointer;font-weight:600;">Close</button>
+      </div>
+    </div>`;
+  document.body.appendChild(d);
+}
+
 function switchTab(name,btn){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
@@ -9994,7 +10073,8 @@ function getDeckPlanBlobUrl(){
 function openDeckPlan(){
   const existing=document.getElementById('deck-plan-prompt');
   if(existing)existing.remove();
-  // Show in an embedded viewer modal so it always works regardless of popup blockers
+  // Prefer hosted URL (no blob/CSP issues); fall back to embedded base64
+  const pdfSrc=DECK_PLAN_URL||getDeckPlanBlobUrl();
   const mo=document.createElement('div');
   mo.id='deck-plan-viewer-modal';
   mo.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:10001;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;';
@@ -10007,18 +10087,19 @@ function openDeckPlan(){
           <button onclick="document.getElementById('deck-plan-viewer-modal').remove()" style="background:#f1f5f9;color:#374151;border:none;border-radius:7px;padding:7px 14px;font-size:.83rem;font-weight:700;cursor:pointer;">✕ Close</button>
         </div>
       </div>
-      <iframe id="deck-plan-iframe" src="" style="flex:1;width:100%;border:none;" title="Carnival Freedom Deck Plan"></iframe>
+      <iframe id="deck-plan-iframe" src="${pdfSrc}" style="flex:1;width:100%;border:none;" title="Carnival Freedom Deck Plan"></iframe>
     </div>`;
   document.body.appendChild(mo);
-  // Set src after appending to avoid timing issues
-  try{
-    document.getElementById('deck-plan-iframe').src=getDeckPlanBlobUrl();
-  }catch(e){
-    document.getElementById('deck-plan-iframe').src=getDeckPlanDataUrl();
-  }
 }
 
 function downloadDeckPlanDirect(){
+  // Prefer direct URL download
+  if(DECK_PLAN_URL){
+    const a=document.createElement('a');
+    a.href=DECK_PLAN_URL;a.download='Carnival-Freedom-Deck-Plan.pdf';a.target='_blank';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    return;
+  }
   try{
     const bytes=atob(DECK_PLAN_B64);
     const arr=new Uint8Array(bytes.length);
@@ -10030,7 +10111,6 @@ function downloadDeckPlanDirect(){
     document.body.appendChild(a);a.click();
     setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
   }catch(e){
-    // Fallback: data URL download
     const a=document.createElement('a');
     a.href=getDeckPlanDataUrl();a.download='Carnival-Freedom-Deck-Plan.pdf';
     document.body.appendChild(a);a.click();document.body.removeChild(a);
