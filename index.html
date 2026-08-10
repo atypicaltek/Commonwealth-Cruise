@@ -341,6 +341,7 @@
         <div id="dash-high-occ-note" style="display:none;background:rgba(255,200,0,.18);border:1px solid rgba(255,200,0,.4);border-radius:7px;padding:8px 12px;margin-top:8px;font-size:.82rem;line-height:1.5;">⏳ <strong>Occupancy Pending Review:</strong> Your cabin occupancy request is pending review by the Commonwealth Cruise Team for compliance with Carnival's cabin occupancy policy.</div>
         <div id="dash-cabin-change-pending" style="display:none;background:rgba(255,200,0,.18);border:1px solid rgba(255,200,0,.4);border-radius:7px;padding:8px 12px;margin-top:8px;font-size:.82rem;line-height:1.5;">⏳ <strong>Cabin Change Request Pending:</strong> Your request to change to <span id="dash-cabin-change-requested" style="font-weight:800;"></span> is pending approval by the Commonwealth Cruise Team.</div>
         <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <button id="dash-cabin-photo-btn" onclick="openCabinPhotoModal()" style="display:none;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:7px;padding:6px 14px;font-size:.82rem;cursor:pointer;font-weight:600;">📷 Typical <span id="dash-cabin-photo-label"></span> Stateroom</button>
           <button id="dash-cabin-change-btn" onclick="openCabinChangeRequest()" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:7px;padding:6px 14px;font-size:.82rem;cursor:pointer;font-weight:600;">🔄 Change Cabin</button>
         </div>
         <!-- Cost breakdown: shown only once admin has manually set cabin_cost -->
@@ -983,6 +984,47 @@
   </div>
 </div>
 
+<!-- CABIN PHOTO MODAL -->
+<div class="modal-overlay" id="cabin-photo-modal" onclick="if(event.target===this)document.getElementById('cabin-photo-modal').classList.remove('open')">
+  <div class="modal-box" style="max-width:560px;max-height:92vh;overflow-y:auto;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.3);">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px 14px;border-bottom:1.5px solid #e2e8f0;">
+      <h3 id="cabin-photo-modal-title" style="margin:0;font-size:1.05rem;color:#0f2744;font-weight:800;">📷 Typical Stateroom</h3>
+      <button onclick="document.getElementById('cabin-photo-modal').classList.remove('open')" style="background:none;border:none;font-size:1.5rem;color:#94a3b8;cursor:pointer;line-height:1;padding:0 2px;" title="Close">&times;</button>
+    </div>
+    <div style="padding:16px 22px 22px;">
+      <img id="cabin-photo-modal-img" src="" alt="Typical Stateroom" style="width:100%;border-radius:10px;margin-bottom:14px;display:block;">
+      <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:11px 13px;font-size:.83rem;color:#78350f;line-height:1.55;">
+        ⚠️ <strong>Please note:</strong> While standard amenities like closets, bedding, and bathrooms are very similar, your exact cabin layout, configuration, furniture placement, and decor may vary slightly depending on your ship, deck and specific room category.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN CABIN PHOTO UPLOAD MODAL -->
+<div class="modal-overlay" id="admin-cabin-photo-modal" onclick="if(event.target===this)document.getElementById('admin-cabin-photo-modal').classList.remove('open')">
+  <div class="modal-box" style="max-width:460px;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.3);">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px 14px;border-bottom:1.5px solid #e2e8f0;">
+      <h3 id="admin-cabin-photo-title" style="margin:0;font-size:1.05rem;color:#0f2744;font-weight:800;">📷 Upload Cabin Photo</h3>
+      <button onclick="document.getElementById('admin-cabin-photo-modal').classList.remove('open')" style="background:none;border:none;font-size:1.5rem;color:#94a3b8;cursor:pointer;line-height:1;padding:0 2px;" title="Close">&times;</button>
+    </div>
+    <div style="padding:16px 22px 22px;">
+      <p id="admin-cabin-photo-desc" style="font-size:.88rem;color:#475569;margin:0 0 14px;"></p>
+      <div class="form-group">
+        <label>Select Photo (JPG, PNG, WEBP — max 5 MB)</label>
+        <input type="file" id="admin-cabin-photo-file" accept="image/*" style="width:100%;padding:8px 0;">
+      </div>
+      <div id="admin-cabin-photo-preview" style="display:none;margin-bottom:12px;">
+        <img id="admin-cabin-photo-preview-img" src="" alt="Preview" style="width:100%;border-radius:8px;max-height:220px;object-fit:cover;">
+      </div>
+      <div id="admin-cabin-photo-status" style="min-height:20px;font-size:.85rem;margin-bottom:10px;"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-ghost" onclick="document.getElementById('admin-cabin-photo-modal').classList.remove('open')">Cancel</button>
+        <button class="btn btn-primary" id="admin-cabin-photo-upload-btn" onclick="uploadCabinPhoto()">📤 Upload Photo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- REGISTRATION WIZARD MODAL -->
 <div class="modal-overlay" id="reg-wizard-modal">
   <div class="modal-box" style="max-width:560px;max-height:92vh;overflow-y:auto;">
@@ -1026,7 +1068,7 @@
 
       <!-- Next steps info -->
       <div style="background:#f0f9ff;border:1px solid #bde0f5;border-radius:8px;padding:11px 13px;margin-bottom:16px;font-size:.83rem;color:#0c4a6e;line-height:1.55;">
-        📋 <strong>Cabin traveler information</strong> are added from your dashboard after account creation and must be completed before your first payment. Once logged in you'll be asked to select your cabin type with live pricing.
+        📋 Next you'll select your <strong>cabin type</strong> and <strong>number of travelers</strong>. After logging in, you'll complete individual cabin traveler info from your dashboard.
       </div>
 
       <!-- PIN Creation -->
@@ -1043,10 +1085,42 @@
         </div>
       </div>
 
-      <div id="reg-busy" style="display:none;text-align:center;padding:10px;color:#1a4a7c;font-weight:600;" class="reg-busy-pulse">⏳ Creating your account…</div>
       <div style="display:flex;gap:10px;justify-content:space-between;margin-top:4px;">
         <button class="btn btn-ghost" onclick="regGoStep(0)">&#x2190; Back</button>
-        <button class="btn btn-primary" id="reg-complete-btn" onclick="completeRegistration()" style="min-width:180px;">&#x2713; Complete Registration</button>
+        <button class="btn btn-primary" onclick="regStep1Next()" style="min-width:180px;">Next &#x2192; Cabin Info</button>
+      </div>
+    </div>
+
+    <!-- STEP 2: Cabin type + number of travelers -->
+    <div id="reg-step-2" style="display:none;">
+      <div style="font-weight:700;color:var(--primary);font-size:.93rem;margin-bottom:10px;padding-bottom:5px;border-bottom:2px solid #e2e8f0;">🛳️ Cabin Preferences</div>
+      <div class="form-group" style="margin-bottom:14px;">
+        <label>Cabin Type *</label>
+        <select id="reg-cabin-type" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.9rem;">
+          <option value="">— Select cabin type —</option>
+          <option value="Interior">Interior Cabin</option>
+          <option value="Ocean View">Ocean View Cabin</option>
+          <option value="Balcony">Balcony Cabin</option>
+          <option value="Suite">Suite ⭐ — Request Only (Pricing Varies)</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label>Number of Travelers in Cabin *</label>
+        <select id="reg-num-guests" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.9rem;">
+          <option value="">— Select number of travelers —</option>
+          <option value="1">1 Traveler (Solo)</option>
+          <option value="2">2 Travelers</option>
+          <option value="3">3 Travelers</option>
+          <option value="4">4 Travelers</option>
+        </select>
+      </div>
+      <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px 13px;margin-bottom:16px;font-size:.82rem;color:#92400e;line-height:1.55;">
+        ℹ️ After logging in you'll be asked to enter each traveler's name, date of birth, and other details required for cruise check-in.
+      </div>
+      <div id="reg-busy" style="display:none;text-align:center;padding:10px;color:#1a4a7c;font-weight:600;" class="reg-busy-pulse">⏳ Creating your account…</div>
+      <div style="display:flex;gap:10px;justify-content:space-between;margin-top:4px;">
+        <button class="btn btn-ghost" onclick="regGoStep(1)">&#x2190; Back</button>
+        <button class="btn btn-primary" id="reg-complete-btn" onclick="completeRegistration()" style="min-width:180px;">&#x2713; Create Account</button>
       </div>
     </div>
   </div>
@@ -1152,11 +1226,10 @@
     </div>
 
     <div style="display:flex;flex-direction:column;gap:9px;margin-top:6px;">
-      <button class="btn btn-primary btn-full" onclick="firstLoginGoTravelers()">&#x1F9F3; Complete Cabin Traveler Info</button>
-      <button class="btn btn-full" style="background:#f1f5f9;color:var(--text);border:1.5px solid #e2e8f0;" onclick="firstLoginCloseLater()">&#x1F552; Close and Complete Later</button>
+      <button class="btn btn-primary btn-full" onclick="firstLoginGoTravelers()">&#x1F9F3; Complete Cabin Traveler Info Now</button>
       <button class="btn btn-full" style="background:#fff;color:var(--danger);border:1.5px solid #fca5a5;" onclick="firstLoginSignOut()">&#x1F6AA; Sign Out</button>
     </div>
-    <p style="text-align:center;margin-top:10px;font-size:.79rem;color:var(--muted);">&#x24D8; This notice will reappear each login until your cabin traveler info is complete.</p>
+    <p style="text-align:center;margin-top:10px;font-size:.79rem;color:var(--muted);">&#x24D8; Cabin traveler information is required before your first payment can be processed.</p>
   </div>
 </div>
 
@@ -1250,12 +1323,12 @@
 
 <!-- PAYMENT DETAIL MODAL (dashboard tile click) -->
 <div id="pay-detail-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="modal-box" style="max-width:580px;max-height:90vh;overflow-y:auto;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-      <h3 id="pay-detail-title" style="color:var(--primary);font-size:1.1rem;font-weight:800;">Payment Details</h3>
+  <div class="modal-box" style="max-width:580px;max-height:90vh;overflow-y:auto;background:#ffffff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.3);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0;padding:18px 22px 14px;border-bottom:1.5px solid #e2e8f0;">
+      <h3 id="pay-detail-title" style="color:var(--primary);font-size:1.1rem;font-weight:800;margin:0;">Payment Details</h3>
       <button onclick="document.getElementById('pay-detail-modal').classList.remove('open')" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px;">×</button>
     </div>
-    <div id="pay-detail-content"></div>
+    <div id="pay-detail-content" style="padding:16px 22px 22px;"></div>
   </div>
 </div>
 
@@ -1516,6 +1589,12 @@ const CC_AUTH_FORM_URL  = 'https://atypicaltek.github.io/Commonwealth-Cruise/CC_
 // Paste your deployed Web App URL below (see send-email.gs for setup steps).
 // Leave as-is and emails will fall back to a mailto: draft instead.
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzBceNPe3DkBRib2QfGiNWVoPCleJ9rwzvFXvCSPl228oK2FKxIZLQ498ftbL9KraDdqA/exec';
+// ── Admin SMS Notification (email-to-SMS gateway) ─────────
+// Change the gateway address to match the carrier of 757-270-8789:
+//   Verizon:  7572708789@vtext.com
+//   AT&T:     7572708789@txt.att.net
+//   T-Mobile: 7572708789@tmomail.net
+const ADMIN_SMS_GATEWAY = '7572708789@vtext.com';
 const GRAT_RATE_STANDARD = 17;  // $ per person per day
 const GRAT_RATE_SUITE    = 19;  // $ per person per day for suites
 const CRUISE_DAYS        = 6;   // voyage length in days
@@ -1711,6 +1790,20 @@ async function sendEmail(toEmail,toName,subject,message,htmlBody,skipAdminCopy=f
     }
     return{ok:true};
   }catch(e){console.error('Email error:',e);return{ok:false,error:e};}
+}
+
+// Send a short SMS notification to admin via email-to-SMS gateway.
+// Requires APPS_SCRIPT_URL and ADMIN_SMS_GATEWAY to be configured.
+function sendAdminSms(message){
+  if(!APPS_SCRIPT_URL||APPS_SCRIPT_URL==='YOUR_APPS_SCRIPT_WEB_APP_URL')return;
+  if(!ADMIN_SMS_GATEWAY)return;
+  try{
+    fetch(APPS_SCRIPT_URL,{
+      method:'POST',
+      mode:'no-cors',
+      body:JSON.stringify({to_email:ADMIN_SMS_GATEWAY,to_name:'Admin',subject:'',message,html:message})
+    });
+  }catch(e){console.warn('[SMS] send failed:',e);}
 }
 
 function emailAccountCreated(profile,cabinType){
@@ -2490,11 +2583,27 @@ let gRegEmail='';
 function regGoStep(n){
   const alertEl=document.getElementById('reg-alert');
   alertEl.style.display='none';
-  [0,1].forEach(i=>{const el=document.getElementById('reg-step-'+i);if(el)el.style.display=(i===n?'block':'none');});
+  [0,1,2].forEach(i=>{const el=document.getElementById('reg-step-'+i);if(el)el.style.display=(i===n?'block':'none');});
   const title=document.getElementById('reg-modal-title');
-  if(title)title.innerHTML=n===0?'&#x1F6F3;&#xFE0F; Welcome Aboard!':'&#x1F3AB; Create Your Account';
-  document.getElementById('reg-step-indicator').textContent=n===0?'':'';
-  document.getElementById('reg-progress-bar').style.width=n===0?'0%':'100%';
+  const titles=['&#x1F6F3;&#xFE0F; Welcome Aboard!','&#x1F3AB; Create Your Account','&#x1F6F3;&#xFE0F; Cabin Preferences'];
+  if(title)title.innerHTML=titles[n]||titles[0];
+  const indicators=['','Step 1 of 2','Step 2 of 2'];
+  document.getElementById('reg-step-indicator').textContent=indicators[n]||'';
+  const pcts=[0,50,100];
+  document.getElementById('reg-progress-bar').style.width=(pcts[n]||0)+'%';
+}
+
+function regStep1Next(){
+  const alertEl=document.getElementById('reg-alert');
+  const firstName=document.getElementById('reg-firstname').value.trim();
+  const lastName=document.getElementById('reg-lastname').value.trim();
+  const pin=(document.getElementById('reg-pin').value||'').trim();
+  const pinConfirm=(document.getElementById('reg-pin-confirm').value||'').trim();
+  function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';}
+  if(!firstName||!lastName){showErr('First and last name are required.');return;}
+  if(!/^\d{6}$/.test(pin)){showErr('PIN must be exactly 6 digits (numbers only).');return;}
+  if(pin!==pinConfirm){showErr('PINs do not match — please re-enter.');return;}
+  regGoStep(2);
 }
 
 async function completeRegistration(){
@@ -2507,6 +2616,8 @@ async function completeRegistration(){
   const suffix=document.getElementById('reg-suffix').value||null;
   const pin=(document.getElementById('reg-pin').value||'').trim();
   const pinConfirm=(document.getElementById('reg-pin-confirm').value||'').trim();
+  const cabinType=(document.getElementById('reg-cabin-type')?.value||'').trim();
+  const numGuests=parseInt(document.getElementById('reg-num-guests')?.value||'0',10)||0;
 
   function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';btn.disabled=false;busy.style.display='none';}
   function errDetail(e){
@@ -2524,6 +2635,8 @@ async function completeRegistration(){
   if(!firstName||!lastName)return showErr('First and last name are required.');
   if(!/^\d{6}$/.test(pin))return showErr('PIN must be exactly 6 digits (numbers only).');
   if(pin!==pinConfirm)return showErr('PINs do not match — please re-enter.');
+  if(!cabinType)return showErr('Please select a cabin type.');
+  if(!numGuests)return showErr('Please select the number of travelers.');
 
   const fullName=[firstName,lastName].filter(Boolean).join(' ');
   btn.disabled=true;busy.style.display='block';alertEl.style.display='none';
@@ -2551,6 +2664,14 @@ async function completeRegistration(){
       return;
     }
 
+    // Store cabin preferences so they can be saved to DB on first login
+    if(cabinType&&numGuests){
+      sessionStorage.setItem('pendingCabinType',cabinType);
+      sessionStorage.setItem('pendingNumGuests',String(numGuests));
+    }
+    // SMS alert to admin
+    const _fullName=[document.getElementById('reg-firstname')?.value?.trim(),document.getElementById('reg-lastname')?.value?.trim()].filter(Boolean).join(' ');
+    sendAdminSms(`New CruisePortal account: ${_fullName||'Unknown'} (${gRegEmail}) — ${cabinType||'cabin TBD'} x${numGuests||'?'}`);
     // Close wizard and route back to login with pre-filled email
     document.getElementById('reg-wizard-modal').classList.remove('open');
     const emailInput=document.getElementById('login-email');
@@ -2674,6 +2795,9 @@ async function doSignup(){
       // Show a clear error rather than silently continuing.
       flash('signup-alert','Account created but profile setup failed: '+pErr.message+'. Please contact the trip organizer at '+ADMIN_EMAIL+' before signing in.');
       console.error('Profile insert error:',pErr.message);
+    } else {
+      // SMS alert to admin on new profile creation
+      sendAdminSms(`New CruisePortal account: ${fullName} (${email})`);
     }
     // Welcome email — citizenship & cabin will be set at first login
     const _wUrl=PORTAL_URL;
@@ -2958,6 +3082,27 @@ async function loadAndRoute(user){
   const isAdminByEmail=user.email.toLowerCase()===ADMIN_EMAIL.toLowerCase();
   const{data:prof}=await sb.from('profiles').select('*').eq('id',user.id).single();
   gProfile=prof;
+
+  // Apply pending cabin preference from registration wizard
+  if(!isAdminByEmail&&!prof?.is_admin){
+    const pendingCabinType=sessionStorage.getItem('pendingCabinType');
+    const pendingNumGuests=parseInt(sessionStorage.getItem('pendingNumGuests')||'0',10)||0;
+    if(pendingCabinType&&pendingNumGuests){
+      // Only create if no cabin assignment exists yet
+      const{data:existingCa}=await sb.from('cabin_assignments').select('id').eq('user_id',user.id).limit(1);
+      if(!existingCa||existingCa.length===0){
+        await sb.from('cabin_assignments').insert({
+          user_id:user.id,
+          cabin_type:pendingCabinType,
+          num_guests:pendingNumGuests,
+          deposit_status:'pending'
+        }).catch(e=>console.warn('[reg] cabin_assignments insert:',e.message));
+      }
+      sessionStorage.removeItem('pendingCabinType');
+      sessionStorage.removeItem('pendingNumGuests');
+    }
+  }
+
   if(isAdminByEmail||prof?.is_admin){showPage('admin');adminInit();}
   else{
     showPage('dashboard');
@@ -3510,6 +3655,8 @@ if(dsBadge){
     // Cabin type + status label
     const typeLabel=cabin.suite_pending?`${cabin.cabin_type} (Suite Requested)`:cabin.cabin_type;
     document.getElementById('dash-cabin-type-display').textContent=typeLabel;
+    // Show cabin photo button if a photo has been uploaded for this cabin type
+    checkAndShowCabinPhotoBtn(cabin.cabin_type||'');
     const statusTxt=cabin.suite_pending?'Waitlisted — Suite pending availability':cabin.cabin_number?'Confirmed':'Reservation Held — Cabin # Assigned After Full Deposit';
     document.getElementById('dash-cabin-status-display').textContent=statusTxt;
     // Store cabin data globally for tile modals
@@ -3589,13 +3736,30 @@ if(dsBadge){
               '<span>🔑 Amount Due Before Cabin # Assigned</span>'+
               '<span id="cabin-assign-due-chev" style="font-size:.72rem;transition:transform .2s;">▶</span>'+
             '</button>'+
-            '<div id="cabin-assign-due-body" style="display:none;margin-top:6px;background:rgba(255,255,255,.12);border-radius:6px;padding:8px 10px;font-size:.8rem;">'+
-              '<div style="display:flex;justify-content:space-between;align-items:center;">'+
-                '<span style="opacity:.85;">Full Deposit Required</span>'+
-                '<strong>'+fmt(cabinAssignThreshold)+'</strong>'+
-              '</div>'+
-              '<div style="font-size:.73rem;opacity:.7;margin-top:3px;">$250 \xd7 '+effectiveGuests+' guest'+(effectiveGuests>1?'s':'')+' — cabin number is assigned once this amount is paid.</div>'+
-            '</div>'+
+            (()=>{
+              const depositPaid=payments.filter(p=>!p.is_refunded).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+              const depositRemaining=Math.max(0,cabinAssignThreshold-depositPaid);
+              const depositMet=depositRemaining===0;
+              const paidPct=Math.min(100,Math.round((depositPaid/cabinAssignThreshold)*100));
+              return '<div id="cabin-assign-due-body" style="display:none;margin-top:6px;background:rgba(255,255,255,.12);border-radius:6px;padding:8px 10px;font-size:.8rem;">'+
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'+
+                  '<span style="opacity:.85;">Full Deposit Required</span>'+
+                  '<strong>'+fmt(cabinAssignThreshold)+'</strong>'+
+                '</div>'+
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'+
+                  '<span style="opacity:.85;">Paid Toward Deposit</span>'+
+                  '<strong style="color:'+(depositPaid>0?'#86efac':'inherit')+';">'+fmt(depositPaid)+'</strong>'+
+                '</div>'+
+                '<div style="background:rgba(255,255,255,.15);border-radius:4px;height:6px;margin:5px 0;">'+
+                  '<div style="background:'+(depositMet?'#22c55e':'#facc15')+';border-radius:4px;height:6px;width:'+paidPct+'%;transition:width .4s;"></div>'+
+                '</div>'+
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">'+
+                  '<span style="opacity:.85;font-weight:700;">'+(depositMet?'✅ Deposit Satisfied':'Amount Still Due')+'</span>'+
+                  '<strong style="font-size:.9rem;color:'+(depositMet?'#86efac':'#fde68a')+';">'+(depositMet?'$0.00':fmt(depositRemaining))+'</strong>'+
+                '</div>'+
+                '<div style="font-size:.73rem;opacity:.7;margin-top:4px;">$250 \xd7 '+effectiveGuests+' guest'+(effectiveGuests>1?'s':'')+' — cabin number is '+(depositMet?'eligible to be':'')+'assigned once this amount is paid.</div>'+
+              '</div>';
+            })()+
           '</div>';
       } else {
         cabinCostBreakdownEl.style.display='none';
@@ -4708,12 +4872,12 @@ async function openMyReceiptsModal(){
   mo.id='my-receipts-modal';
   mo.className='modal-overlay';
   mo.innerHTML=`
-    <div class="modal" style="max-width:600px;max-height:90vh;overflow-y:auto;">
-      <div class="modal-header">
-        <h3 style="margin:0;font-size:1.05rem;">📋 My Payment Receipts</h3>
-        <button class="modal-close" onclick="document.getElementById('my-receipts-modal').classList.remove('open')">✕</button>
+    <div class="modal-box" style="max-width:620px;max-height:90vh;overflow-y:auto;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.3);">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px 14px;border-bottom:1.5px solid #e2e8f0;">
+        <h3 style="margin:0;font-size:1.05rem;color:#0f2744;font-weight:800;">📋 My Payment Receipts</h3>
+        <button onclick="document.getElementById('my-receipts-modal').classList.remove('open')" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;line-height:1;padding:0 4px;">×</button>
       </div>
-      <div style="padding:16px 20px 20px;" id="my-receipts-body">
+      <div style="padding:16px 22px 22px;" id="my-receipts-body">
         <div class="loading"><div class="spinner"></div></div>
       </div>
     </div>`;
@@ -5584,16 +5748,38 @@ async function showAdminPendingPopup(){
     {data:suiteReqs},
     {data:cancels},
     {data:docReqs},
-    {data:highOccReqs}
+    {data:highOccReqs},
+    {data:allProfiles},
+    {data:allCabins},
+    {data:allCabinTravelers}
   ]=await Promise.all([
     sb.from('cabin_change_requests').select('id').eq('status','pending'),
     sb.from('suite_requests').select('id').eq('status','pending'),
     sb.from('cancellation_requests').select('id').eq('status','pending'),
     sb.from('doc_requests').select('id').eq('status','pending'),
-    sb.from('cabin_assignments').select('id').eq('high_occupancy_pending',true)
+    sb.from('cabin_assignments').select('id').eq('high_occupancy_pending',true),
+    sb.from('profiles').select('id,status').neq('is_admin',true),
+    sb.rpc('admin_get_all_cabin_assignments'),
+    sb.rpc('admin_get_all_cabin_travelers')
   ]);
 
+  // Detect profiles missing cabin traveler info, cabin type, or traveler count
+  const cabinMap={};(allCabins||[]).forEach(c=>{cabinMap[c.user_id]=c;});
+  const occupantCountMap={};(allCabinTravelers||[]).forEach(t=>{occupantCountMap[t.account_owner_id]=(occupantCountMap[t.account_owner_id]||0)+1;});
+  const activeProfiles=(allProfiles||[]).filter(p=>p.status!=='cancelled');
+  let missingInfoCount=0;
+  activeProfiles.forEach(p=>{
+    const ca=cabinMap[p.id];
+    const missingCabinType=!ca||!ca.cabin_type;
+    const missingGuestCount=!ca||!ca.num_guests;
+    const occupants=occupantCountMap[p.id]||0;
+    const expectedGuests=ca?.num_guests||0;
+    const missingTravelerInfo=expectedGuests>0&&occupants<expectedGuests;
+    if(missingCabinType||missingGuestCount||missingTravelerInfo)missingInfoCount++;
+  });
+
   const items=[];
+  if(missingInfoCount>0)items.push({label:'Profile'+(missingInfoCount>1?'s':'')+' missing cabin type, guest count, or traveler info',count:missingInfoCount,tab:'travelers'});
   if(highOccReqs?.length)items.push({label:'High Occupancy Request'+(highOccReqs.length>1?'s':''),count:highOccReqs.length,tab:'highocc'});
   if(cabinChanges?.length)items.push({label:'Cabin Change Request'+(cabinChanges.length>1?'s':''),count:cabinChanges.length,tab:'cabinchange'});
   if(suiteReqs?.length)items.push({label:'Suite Request'+(suiteReqs.length>1?'s':''),count:suiteReqs.length,tab:'suiterequests'});
@@ -5701,6 +5887,7 @@ async function loadTravelers(){
       '<optgroup label="Cabin Details">'+
         '<option value="cabin_num">&#x1F6AA; Cabin #'+cnChk+'</option>'+
         '<option value="cabin_type_change">&#x1F504; Change Cabin Type</option>'+
+        '<option value="cabin_photo">&#x1F4F7; Upload Cabin Photo</option>'+
         (ca?.cabin_change_pending&&ca?.requested_cabin_type?'<option value="approve_cabin_change">&#x2705; Approve Change → '+ca.requested_cabin_type+'</option>':'')+
         (ca?.cabin_change_pending&&ca?.requested_cabin_type?'<option value="decline_cabin_change">&#x274C; Decline Change Request</option>':'')+
         '<option value="cost">&#x1F4B0; Cost'+costChk+'</option>'+
@@ -5753,17 +5940,39 @@ async function loadTravelers(){
   }
 
   const thead='<thead><tr><th>Traveler</th><th>Cabin</th><th>Res. / Link</th><th class="col-r">Paid</th><th class="col-r">Balance</th><th>Progress</th><th>Actions</th></tr></thead>';
-  // Sort: (1) cabin # assigned → (2) payment applied → (3) all cabin info entered → (4) other
-  function travelerPriority(p){
-    const ca=cabinMap[p.id];
-    if(ca?.cabin_number)return 0;
-    if((payMap[p.id]?.paid||0)>0)return 1;
-    const occs=occupantMap[p.id]||[];
-    if(occs.length>0&&occs.length>=(ca?.num_guests||1))return 2;
-    return 3;
+
+  // Group travelers into three sections
+  const byName=(a,b)=>(a.name||'').localeCompare(b.name||'');
+  const grpNoPay=active.filter(p=>!(payMap[p.id]?.paid>0)&&!cabinMap[p.id]?.cabin_number).sort(byName);
+  const grpHasPay=active.filter(p=>(payMap[p.id]?.paid>0)&&!cabinMap[p.id]?.cabin_number).sort(byName);
+  const grpAssigned=active.filter(p=>!!cabinMap[p.id]?.cabin_number).sort(byName);
+
+  function buildTravelerGroup(label,icon,borderColor,bgColor,travelers,secId){
+    if(travelers.length===0)return'';
+    const rows=travelers.map(makeRow).join('');
+    return`<div style="margin-bottom:14px;border:1.5px solid ${borderColor};border-radius:10px;overflow:hidden;">
+      <div style="background:${bgColor};padding:10px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;" onclick="toggleTravelerSection('${secId}')">
+        <span style="font-weight:800;font-size:.88rem;color:${borderColor};">${icon} ${label} <span style="font-weight:600;font-size:.8rem;opacity:.75;">(${travelers.length})</span></span>
+        <span id="trav-sec-chev-${secId}" style="font-size:.8rem;color:${borderColor};">▼</span>
+      </div>
+      <div id="trav-sec-${secId}"><div class="table-wrap"><table>${thead}<tbody>${rows}</tbody></table></div></div>
+    </div>`;
   }
-  const sortedActive=[...active].sort((a,b)=>travelerPriority(a)-travelerPriority(b)||(a.name||'').localeCompare(b.name||''));
-  el.innerHTML='<div class="table-wrap"><table>'+thead+'<tbody>'+sortedActive.map(makeRow).join('')+'</tbody></table></div>';
+
+  el.innerHTML=
+    buildTravelerGroup('No Payment Made','🔴 ','#dc2626','#fff5f5',grpNoPay,'nopay')+
+    buildTravelerGroup('Payment in Progress','🟡 ','#d97706','#fffbeb',grpHasPay,'haspay')+
+    buildTravelerGroup('Cabin Assigned','🟢 ','#16a34a','#f0fdf4',grpAssigned,'assigned')||
+    '<div class="empty"><div class="ei">👥</div><p>No travelers yet.</p></div>';
+}
+
+function toggleTravelerSection(secId){
+  const body=document.getElementById('trav-sec-'+secId);
+  const chev=document.getElementById('trav-sec-chev-'+secId);
+  if(!body)return;
+  const open=body.style.display!=='none';
+  body.style.display=open?'none':'';
+  if(chev)chev.textContent=open?'▶':'▼';
 }
 
 
@@ -6075,6 +6284,12 @@ async function loadAdminPayments(){
     const due=parseFloat(p.amount_due||0),paid=parseFloat(p.amount_paid||0);
     const isRef=!!p.is_refunded;
     let badge,refundBtn='';
+    // Refund lock dates
+    const _now=new Date();
+    const _hardLock=new Date('2027-03-14T23:59:59');
+    const _overrideLock=new Date('2027-03-22T23:59:59');
+    const _refundAllowed=_now<=_hardLock;
+    const _overrideAllowed=!_refundAllowed&&_now<=_overrideLock;
     if(isCancRefund){
       badge='<span style="background:#9f1239;color:#fff;border-radius:5px;padding:2px 8px;font-size:.75rem;font-weight:700;white-space:nowrap;">🚫 Cancelled / Refunded</span>';
     } else if(isRef){
@@ -6082,16 +6297,35 @@ async function loadAdminPayments(){
       refundBtn=`<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;margin-top:4px;" onclick="adminUnmarkPaymentRefunded('${p.id}')">Undo Refund</button>`;
     } else if(due>0&&paid>=due){
       badge='<span class="badge badge-success">Paid ✓</span>';
-      if(paid>0)refundBtn=`<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;margin-top:4px;color:#6b21a8;" onclick="adminMarkPaymentRefunded('${p.id}')">Mark Refunded</button>`;
+      if(paid>0){
+        if(_refundAllowed){
+          refundBtn=`<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;margin-top:4px;color:#6b21a8;" onclick="adminMarkPaymentRefunded('${p.id}')">Mark Refunded</button>`;
+        } else if(_overrideAllowed){
+          refundBtn=`<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;margin-top:4px;color:#b45309;border-color:#fcd34d;" onclick="if(confirm('Refund window has closed (3/14/27). Use override? This is available until 3/22/27.'))adminMarkPaymentRefunded('${p.id}')">⚠️ Override Refund</button>`;
+        } else {
+          refundBtn=`<span style="font-size:.72rem;color:#9ca3af;display:block;margin-top:4px;">Refund window closed</span>`;
+        }
+      }
     } else {
       badge='<span class="badge badge-warn">Pending</span>';
+      // Show refund button even for pending payments if amount was paid
+      if(paid>0){
+        if(_refundAllowed){
+          refundBtn=`<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;margin-top:4px;color:#6b21a8;" onclick="adminMarkPaymentRefunded('${p.id}')">Mark Refunded</button>`;
+        } else if(_overrideAllowed){
+          refundBtn=`<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;margin-top:4px;color:#b45309;border-color:#fcd34d;" onclick="if(confirm('Refund window has closed (3/14/27). Use override? This is available until 3/22/27.'))adminMarkPaymentRefunded('${p.id}')">⚠️ Override Refund</button>`;
+        }
+      }
     }
     const pd=p.paid_at?new Date(p.paid_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—';
     const cabinInfo=cabinInfoMap[p.user_id]||{cabinNum:'—',resNum:'—'};
     const safeRcptUrl=(p.receipt_url||'').replace(/'/g,"\\'");
     const safeRcptFile=(p.receipt_filename||'').replace(/'/g,"\\'");
+    const safeName=(p.profiles?.name||'').replace(/'/g,"\\'");
     const editBtn=isCancRefund?'':
-      `<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;" onclick="openEditPaymentModal('${p.id}','${p.user_id||''}','${(p.profiles?.name||'').replace(/'/g,"\\'")}','${(p.payment_milestones?.label||'').replace(/'/g,"\\'")}',${due},${paid},'${p.paid_at||''}','${safeRcptUrl}','${safeRcptFile}')">✏️ Edit</button>`;
+      `<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;" onclick="openEditPaymentModal('${p.id}','${p.user_id||''}','${safeName}','${(p.payment_milestones?.label||'').replace(/'/g,"\\'")}',${due},${paid},'${p.paid_at||''}','${safeRcptUrl}','${safeRcptFile}')">✏️ Edit</button>`;
+    const deleteBtn=`<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;margin-top:3px;color:#dc2626;border-color:#fca5a5;" onclick="adminDeletePayment('${p.id}','${safeName}')">🗑 Delete</button>`;
+    const removeRcptBtn=p.receipt_url&&!isCancRefund?`<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;margin-top:3px;color:#92400e;border-color:#fde68a;" onclick="adminRemovePaymentReceipt('${p.id}','${safeName}')">📎✕ Remove Attachment</button>`:'';
     // Receipt column: show Receipt #N — date, then action button
     let rcptCell='';
     if(p.receipt_url){
@@ -6116,7 +6350,7 @@ async function loadAdminPayments(){
       <td class="col-r">${isRef?'<span style="color:#6b21a8;font-weight:700;">'+fmt(paid)+'</span>':fmt(paid)}</td>
       <td>${pd}</td>
       <td>${rcptCell}</td>
-      <td>${badge}${refundBtn?'<br>'+refundBtn:''}${editBtn?'<br>'+editBtn:''}</td>
+      <td>${badge}${refundBtn?'<br>'+refundBtn:''}${editBtn?'<br>'+editBtn:''}${removeRcptBtn?'<br>'+removeRcptBtn:''}${deleteBtn?'<br>'+deleteBtn:''}</td>
     </tr>`;
   }
 
@@ -6677,15 +6911,49 @@ async function loadInventoryTab(){
 
   const asgEl=document.getElementById('inv-assignments');
   if(!assignments||assignments.length===0){asgEl.innerHTML='<div class="empty"><div class="ei">🛏️</div><p>No cabin assignments yet.</p></div>';return;}
-  const rows=assignments.map(a=>{
-    return`<tr>
-      <td><strong>${a.profiles?.name||'—'}</strong><br><small style="color:var(--muted)">${a.profiles?.email||''}</small></td>
-      <td>${a.cabin_type}${a.suite_pending?' <span class="badge badge-warn">Suite Pending</span>':''}</td>
-      <td>${a.cabin_number||'<em style="color:var(--muted)">Not assigned</em>'}</td>
-      <td>${a.assigned_at?new Date(a.assigned_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</td>
-    </tr>`;
+  window._invSortCol=window._invSortCol||'name';
+  window._invSortDir=window._invSortDir||1;
+  renderInvAssignmentsTable();
+}
+
+function renderInvAssignmentsTable(){
+  const asgEl=document.getElementById('inv-assignments');
+  if(!asgEl)return;
+  const data=[...(gInventoryAssignments||[])];
+  const col=window._invSortCol||'name';
+  const dir=window._invSortDir||1;
+  data.sort((a,b)=>{
+    let av,bv;
+    if(col==='name'){av=(a.profiles?.name||'').toLowerCase();bv=(b.profiles?.name||'').toLowerCase();}
+    else if(col==='cabin_type'){av=(a.cabin_type||'').toLowerCase();bv=(b.cabin_type||'').toLowerCase();}
+    else if(col==='cabin_number'){av=(a.cabin_number||'').toLowerCase();bv=(b.cabin_number||'').toLowerCase();}
+    else if(col==='assigned_at'){av=a.assigned_at||'';bv=b.assigned_at||'';}
+    else{av='';bv='';}
+    if(av<bv)return -1*dir;
+    if(av>bv)return 1*dir;
+    return 0;
   });
-  asgEl.innerHTML=`<table><thead><tr><th>Traveler</th><th>Cabin Type</th><th>Cabin Number</th><th>Reserved On</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  const thStyle='cursor:pointer;user-select:none;white-space:nowrap;';
+  const arrow=(c)=>col===c?(dir===1?' ▲':' ▼'):'';
+  const thClick=(c,label)=>`<th style="${thStyle}" onclick="sortInvTable('${c}')">${label}${arrow(c)}</th>`;
+  const rows=data.map(a=>`<tr>
+    <td><strong>${a.profiles?.name||'—'}</strong><br><small style="color:var(--muted)">${a.profiles?.email||''}</small></td>
+    <td>${a.cabin_type||'—'}${a.suite_pending?' <span class="badge badge-warn">Suite Pending</span>':''}</td>
+    <td>${a.cabin_number||'<em style="color:var(--muted)">Not assigned</em>'}</td>
+    <td>${a.assigned_at?new Date(a.assigned_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</td>
+  </tr>`);
+  asgEl.innerHTML=`<table><thead><tr>
+    ${thClick('name','Traveler')}
+    ${thClick('cabin_type','Cabin Type')}
+    ${thClick('cabin_number','Cabin Number')}
+    ${thClick('assigned_at','Reserved On')}
+  </tr></thead><tbody>${rows.join('')}</tbody></table>`;
+}
+
+function sortInvTable(col){
+  if(window._invSortCol===col){window._invSortDir=(window._invSortDir||1)*-1;}
+  else{window._invSortCol=col;window._invSortDir=1;}
+  renderInvAssignmentsTable();
 }
 
 async function showInventoryDetail(cabinType){
@@ -8026,8 +8294,211 @@ Thank you,
 Your Commonwealth Cruise Team
 This email was sent by the ${TRIP_NAME} portal.`
     })
+  },
+  {
+    id:'suite_deposit_pending',label:'Suite Deposit Pending',icon:'🛳️',
+    toMode:'traveler',
+    buildPreview:()=>({
+      subject:`${TRIP_NAME} — Suite Reservation: Deposit Required`,
+      toLabel:'Traveler email',
+      toPlaceholder:'traveler@email.com',
+      toName:'',
+      extraFields:`
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Phone Number</label>
+            <input id="eg-suite-phone" type="text" placeholder="(555) 555-5555" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Backup Cabin Type</label>
+            <select id="eg-suite-backup-cabin" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;">
+              <option value="Interior">Interior</option>
+              <option value="Ocean View">Ocean View</option>
+              <option value="Balcony">Balcony</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-bottom:10px;">
+          <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Payment Link URL</label>
+          <input id="eg-suite-pay-link" type="url" placeholder="https://..." style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Occupancy</label>
+          <select id="eg-suite-occupancy" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;">
+            <option value="double">Double Occupancy</option>
+            <option value="single">Single Occupancy</option>
+          </select>
+        </div>
+        <div style="margin-bottom:4px;">
+          <button type="button" onclick="suiteDepositAutoFill()" style="background:#e0f2fe;color:#0c4a6e;border:1.5px solid #bae6fd;border-radius:7px;padding:6px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">🔍 Auto-fill from Profile</button>
+          <span style="font-size:.75rem;color:#94a3b8;margin-left:8px;">Enter traveler email first, then click to auto-fill.</span>
+        </div>`,
+      body:`[Preview only — final email is built from the fields above]
+
+Hello [Traveler Name],
+Thank you for signing up for the ${TRIP_NAME}!
+Your suite request has been received and is pending deposit payment.
+
+THE CURRENT SUITE PRICES ARE AS FOLLOWS:
+Single Occupancy — Full Suite Cabin Cost: $4,375.00. Gratuities $114.00
+Double Occupancy — $2,244.00 per person. Gratuities $114.00 per person
+
+All cruise cabins are sold based on double occupancy. As such, a minimum deposit of $500.00 is required to confirm your suite (whether single or double occupancy).
+
+Suites are limited and as such the reservation will automatically cancel in 48 hours if the deposit has not been received.
+
+Here is the payment link for your tentative reservation: [Payment Link above]
+
+[If single occupancy selected:]
+Based on the cabin traveler information submitted, you are a single traveler.
+A cabin has been tentatively held for single occupancy.
+If another guest will occupy the cabin, sign in at https://atypicaltek.github.io/Commonwealth-Cruise/
+If not, please CONFIRM SINGLE OCCUPANCY by replying to this email.
+
+While your request is being reviewed, we have reserved a [Backup Cabin] cabin as your backup.
+• If your suite is confirmed, you will receive an updated email with your suite assignment.
+• If a suite is not available, your [Backup Cabin] cabin will be confirmed.
+
+YOUR CONTACT INFORMATION ON FILE:
+• Name: [Name from To Name field]
+• Email: [Email from To Email field]
+• Phone: [Phone from field above]
+• Backup Cabin: [Backup Cabin from field above]
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
+    }),
+    customSend:()=>sendSuiteDepositEmail()
   }
 ];
+
+async function suiteDepositAutoFill(){
+  const email=(document.getElementById('eg-to-email')||{}).value?.trim();
+  if(!email){alert('Enter the traveler email first.');return;}
+  try{
+    const{data,error}=await sb.rpc('admin_get_all_cabin_assignments');
+    if(error)throw error;
+    const t=(data||[]).find(r=>(r.email||r.user_email||'').toLowerCase()===email.toLowerCase());
+    if(!t){alert('No traveler found for: '+email+'\nFill in fields manually.');return;}
+    const nameEl=document.getElementById('eg-to-name');
+    if(nameEl&&(t.full_name||t.name))nameEl.value=t.full_name||t.name||'';
+    const phoneEl=document.getElementById('eg-suite-phone');
+    if(phoneEl)phoneEl.value=t.phone||t.phone_number||'';
+    const backupEl=document.getElementById('eg-suite-backup-cabin');
+    if(backupEl&&t.backup_cabin_type)backupEl.value=t.backup_cabin_type;
+    const occEl=document.getElementById('eg-suite-occupancy');
+    if(occEl)occEl.value=(t.num_guests===1)?'single':'double';
+    const payEl=document.getElementById('eg-suite-pay-link');
+    if(payEl&&t.payment_link)payEl.value=t.payment_link||'';
+  }catch(e){alert('Auto-fill failed: '+e.message+'\nPlease fill in fields manually.');}
+}
+
+async function sendSuiteDepositEmail(){
+  const toEmail=(document.getElementById('eg-to-email')||{}).value?.trim();
+  const toName=(document.getElementById('eg-to-name')||{}).value?.trim()||toEmail;
+  const phone=(document.getElementById('eg-suite-phone')||{}).value?.trim()||'Not provided';
+  const backupCabin=(document.getElementById('eg-suite-backup-cabin')||{}).value||'Interior';
+  const payLink=(document.getElementById('eg-suite-pay-link')||{}).value?.trim();
+  const occupancy=(document.getElementById('eg-suite-occupancy')||{}).value||'double';
+  const isSingle=occupancy==='single';
+  const statusEl=document.getElementById('eg-send-status');
+  if(!toEmail){
+    if(statusEl){statusEl.textContent='⚠️ Traveler email is required.';statusEl.style.color='#d97706';}
+    return;
+  }
+  if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
+  const subject=`${TRIP_NAME} — Suite Reservation: Deposit Required`;
+  const payLinkHtml=payLink
+    ?`<div style="text-align:center;margin:16px 0;">
+        <a href="${payLink}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.95rem;padding:13px 30px;border-radius:10px;text-decoration:none;">💳 Pay Suite Deposit Now</a>
+        <p style="font-size:.78rem;color:#64748b;margin-top:6px;">${payLink}</p>
+      </div>`
+    :`<p style="color:#dc2626;font-style:italic;">A payment link will be sent to you separately.</p>`;
+  const singleOccHtml=isSingle?`
+    <p>Based on the cabin traveler information submitted, you are a single traveler.</p>
+    <p>A cabin has been tentatively held for single occupancy.</p>
+    <p>If another guest will occupy the cabin, sign in at <a href="${PORTAL_URL}" style="color:#1a4a7c;font-weight:700;">${PORTAL_URL}</a> to enter your additional cabin traveler details and review the payment schedule.</p>
+    <p><strong>If not, please <span style="color:#dc2626;font-weight:800;">CONFIRM SINGLE OCCUPANCY</span> by replying to this email.</strong></p>`:'';
+  const logoHtml=LOGO_GIF_URL?`<div style="text-align:center;margin:28px 0 8px;"><img src="${LOGO_GIF_URL}" alt="GlowJetters" style="max-width:150px;height:auto;border-radius:8px;"></div>`:'';
+  const htmlBody=buildEmailHtml(toName,`
+    <p>Thank you for signing up for the <strong>${TRIP_NAME}</strong>!</p>
+    <p>Your suite request has been received and is pending deposit payment.</p>
+    <div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:10px;padding:16px 18px;margin:18px 0;">
+      <strong style="display:block;font-size:.95rem;color:#0f2744;margin-bottom:12px;">🛳️ Current Suite Prices:</strong>
+      <table style="width:100%;border-collapse:collapse;font-size:.88rem;">
+        <tr style="border-bottom:1px solid #e2e8f0;">
+          <td style="padding:8px 6px;color:#374151;font-weight:600;">Single Occupancy — Full Suite Cabin Cost</td>
+          <td style="padding:8px 6px;text-align:right;"><strong style="color:#dc2626;">$4,375.00</strong><br><span style="font-size:.8rem;color:#64748b;">Gratuities: $114.00</span></td>
+        </tr>
+        <tr>
+          <td style="padding:8px 6px;color:#374151;font-weight:600;">Double Occupancy (per person)</td>
+          <td style="padding:8px 6px;text-align:right;"><strong style="color:#dc2626;">$2,244.00</strong><br><span style="font-size:.8rem;color:#64748b;">Gratuities: $114.00/person</span></td>
+        </tr>
+      </table>
+    </div>
+    <p>All cruise cabins are sold based on double occupancy. As such, a minimum deposit of <strong style="color:#dc2626;">$500.00</strong> is required to confirm your suite (whether single or double occupancy).</p>
+    <div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:12px 16px;font-weight:700;color:#991b1b;margin-bottom:16px;">
+      ⚠️ Suites are limited. This reservation will automatically cancel in <strong>48 hours</strong> if the deposit has not been received.
+    </div>
+    <p style="font-weight:700;color:#0f2744;">Here is the payment link for your tentative reservation:</p>
+    ${payLinkHtml}
+    ${singleOccHtml}
+    <p>While your request is being reviewed, we have reserved a <strong>${backupCabin}</strong> cabin as your backup.</p>
+    <ul style="line-height:2;font-size:.9rem;">
+      <li>If your suite is confirmed, you will receive an updated email with your suite assignment.</li>
+      <li>If a suite is not available, your <strong>${backupCabin}</strong> cabin will be confirmed.</li>
+    </ul>
+    <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:14px 18px;margin:18px 0;">
+      <strong style="display:block;color:#0f2744;margin-bottom:10px;">📋 Your Contact Information on File:</strong>
+      <table style="font-size:.88rem;line-height:2;">
+        <tr><td style="color:#64748b;padding-right:16px;">Name:</td><td><strong>${toName}</strong></td></tr>
+        <tr><td style="color:#64748b;">Email:</td><td>${toEmail}</td></tr>
+        <tr><td style="color:#64748b;">Phone:</td><td>${phone}</td></tr>
+        <tr><td style="color:#64748b;">Backup Cabin:</td><td>${backupCabin}</td></tr>
+      </table>
+    </div>
+    ${logoHtml}
+  `);
+  const payLinkPlain=payLink?'Payment Link: '+payLink:'A payment link will be sent to you separately.';
+  const singleOccPlain=isSingle?`\nBased on the cabin traveler information submitted, you are a single traveler.\nA cabin has been tentatively held for single occupancy.\n\nIf another guest will occupy the cabin, sign in at ${PORTAL_URL} to enter your additional cabin traveler details and review the payment schedule.\n\nIf not, please CONFIRM SINGLE OCCUPANCY by replying to this email.\n`:'\n';
+  const plain=`Hello ${toName},
+
+Thank you for signing up for the ${TRIP_NAME}!
+Your suite request has been received and is pending deposit payment.
+
+THE CURRENT SUITE PRICES ARE AS FOLLOWS:
+Single Occupancy — Full Suite Cabin Cost: $4,375.00. Gratuities $114.00
+Double Occupancy — $2,244.00 per person. Gratuities $114.00 per person
+
+All cruise cabins are sold based on double occupancy. As such, a minimum deposit of $500.00 is required to confirm your suite (whether single or double occupancy).
+
+Suites are limited and as such the reservation will automatically cancel in 48 hours if the deposit has not been received.
+
+Here is the payment link for your tentative reservation:
+${payLinkPlain}
+${singleOccPlain}
+While your request is being reviewed, we have reserved a ${backupCabin} cabin as your backup.
+• If your suite is confirmed, you will receive an updated email with your suite assignment.
+• If a suite is not available, your ${backupCabin} cabin will be confirmed.
+
+YOUR CONTACT INFORMATION ON FILE:
+• Name: ${toName}
+• Email: ${toEmail}
+• Phone: ${phone}
+• Backup Cabin: ${backupCabin}
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`;
+  const result=await sendEmail(toEmail,toName,subject,plain,htmlBody);
+  if(statusEl){
+    if(result?.holdFailed){statusEl.textContent='⚠️ Hold save failed.';statusEl.style.color='#dc2626';}
+    else if(result?.held){statusEl.textContent='📋 Queued in hold — check Email Queue tab.';statusEl.style.color='#d97706';}
+    else if(result?.fallback){statusEl.textContent='📧 Email client opened.';statusEl.style.color='#d97706';}
+    else{statusEl.textContent='✅ Suite deposit email sent!';statusEl.style.color='#16a34a';}
+  }
+}
 
 function loadEmailGenTab(){
   const listEl=document.getElementById('emailgen-items');
@@ -8300,6 +8771,98 @@ async function sendGeneratedEmail(){
     }
     setTimeout(()=>{if(statusEl)statusEl.textContent='';},8000);
   }
+}
+
+// ── CABIN PHOTO FUNCTIONS ─────────────────────────────────────
+let _cabinPhotoUploadType='';
+
+function cabinPhotoStorageUrl(cabinType){
+  // Public URL for cabin-photos bucket, file named by cabin type
+  return `${SUPABASE_URL}/storage/v1/object/public/cabin-photos/${encodeURIComponent(cabinType)}`;
+}
+
+function openAdminCabinPhotoUpload(cabinType){
+  _cabinPhotoUploadType=cabinType||'';
+  const title=document.getElementById('admin-cabin-photo-title');
+  const desc=document.getElementById('admin-cabin-photo-desc');
+  const fileInput=document.getElementById('admin-cabin-photo-file');
+  const preview=document.getElementById('admin-cabin-photo-preview');
+  const status=document.getElementById('admin-cabin-photo-status');
+  const btn=document.getElementById('admin-cabin-photo-upload-btn');
+  if(title)title.textContent=`📷 Upload ${cabinType||'Cabin'} Photo`;
+  if(desc)desc.textContent=`Upload a representative photo for ${cabinType||'this cabin type'}. This photo will appear on all travelers' dashboards for this cabin type.`;
+  if(fileInput)fileInput.value='';
+  if(preview)preview.style.display='none';
+  if(status)status.textContent='';
+  if(btn){btn.disabled=false;btn.textContent='📤 Upload Photo';}
+  document.getElementById('admin-cabin-photo-modal').classList.add('open');
+  // Preview on file select
+  if(fileInput){
+    fileInput.onchange=function(){
+      const f=this.files[0];
+      if(!f)return;
+      const reader=new FileReader();
+      reader.onload=e=>{
+        document.getElementById('admin-cabin-photo-preview-img').src=e.target.result;
+        preview.style.display='block';
+      };
+      reader.readAsDataURL(f);
+    };
+  }
+}
+
+async function uploadCabinPhoto(){
+  const status=document.getElementById('admin-cabin-photo-status');
+  const btn=document.getElementById('admin-cabin-photo-upload-btn');
+  const fileInput=document.getElementById('admin-cabin-photo-file');
+  const file=fileInput?.files?.[0];
+  if(!file){status.innerHTML='<span style="color:red;">Please select a photo file.</span>';return;}
+  if(file.size>5*1024*1024){status.innerHTML='<span style="color:red;">File too large (max 5 MB).</span>';return;}
+  if(!_cabinPhotoUploadType){status.innerHTML='<span style="color:red;">Cabin type not set.</span>';return;}
+  btn.disabled=true;btn.textContent='Uploading…';status.textContent='';
+  // Upload to Supabase Storage (bucket: cabin-photos, filename: cabin type)
+  const path=_cabinPhotoUploadType;
+  const{error}=await sb.storage.from('cabin-photos').upload(path,file,{upsert:true,contentType:file.type});
+  if(error){
+    status.innerHTML=`<span style="color:red;">Upload failed: ${error.message}</span>`;
+    btn.disabled=false;btn.textContent='📤 Upload Photo';
+    return;
+  }
+  status.innerHTML='<span style="color:#16a34a;font-weight:700;">✅ Photo uploaded! Travelers with a '+_cabinPhotoUploadType+' cabin will now see the "Typical Stateroom" button.</span>';
+  btn.disabled=false;btn.textContent='📤 Upload New Photo';
+}
+
+function openCabinPhotoModal(){
+  const img=document.getElementById('cabin-photo-modal-img');
+  const title=document.getElementById('cabin-photo-modal-title');
+  // Get cabin type from dashboard
+  const cabinTypeEl=document.getElementById('dash-cabin-photo-label');
+  const cabinType=cabinTypeEl?.textContent||'';
+  if(title)title.textContent=`📷 Typical ${cabinType} Stateroom`;
+  if(img){
+    img.src=cabinPhotoStorageUrl(cabinType);
+    img.onerror=function(){
+      this.style.display='none';
+      const mo=document.getElementById('cabin-photo-modal');
+      if(mo)mo.classList.remove('open');
+      alert('Cabin photo not available.');
+    };
+    img.style.display='block';
+  }
+  document.getElementById('cabin-photo-modal').classList.add('open');
+}
+
+// Check if a cabin photo exists for this cabin type and show/hide the button on dashboard
+function checkAndShowCabinPhotoBtn(cabinType){
+  const btn=document.getElementById('dash-cabin-photo-btn');
+  const lbl=document.getElementById('dash-cabin-photo-label');
+  if(!btn||!cabinType)return;
+  if(lbl)lbl.textContent=cabinType;
+  // Probe the image — if it loads, show the button; if not, hide it
+  const probe=new Image();
+  probe.onload=function(){btn.style.display='';};
+  probe.onerror=function(){btn.style.display='none';};
+  probe.src=cabinPhotoStorageUrl(cabinType)+'?t='+Date.now();
 }
 
 // ── TRAVELER ACTION HANDLERS ──────────────────────────────────
@@ -8909,6 +9472,7 @@ function handleTravelerAction(sel,userId){
   const v=sel.value;sel.value='';
   if(v==='cabin_num')assignCabinNumber(d.userId,d.name,d.cabinType,d.cabinNumber);
   else if(v==='cabin_type_change')changeCabinType(d.userId,d.name,d.cabinType,d.numGuests||1);
+  else if(v==='cabin_photo'){openAdminCabinPhotoUpload(d.cabinType||'');sel.value='';}
   else if(v==='cost')setCabinCost(d.userId,d.name,d.cabinCost);
   else if(v==='res_num')setReservationNumber(d.userId,d.name,d.resNum);
   else if(v==='pay_link')setPaymentLink(d.userId,d.name,d.payLink);
@@ -9058,6 +9622,8 @@ async function adminAddTraveler(){
           p_gender:tr.gender||null,p_state_of_residency:tr.state||null,p_is_admin:false
         });
         if(pErr)throw new Error('Profile creation failed: '+pErr.message);
+        // SMS alert to admin for new profile
+        if(createdId)sendAdminSms(`New CruisePortal account (admin-added): ${fullName} (${tr.email}) — ${cabinType} x${numGuests}`);
 
         // Cabin assignment for primary only
         const{data:existingCabin}=await sb.from('cabin_assignments').select('id').eq('user_id',newUserId).maybeSingle();
@@ -9365,6 +9931,27 @@ async function adminUnmarkPaymentRefunded(paymentId){
   loadAdminPayments();
 }
 
+async function adminDeletePayment(paymentId,travelerName){
+  if(!confirm(`Delete this payment record for ${travelerName||'this traveler'}?\n\nThis will permanently remove the payment entry and cannot be undone.`))return;
+  // Also delete any receipt logs for this payment
+  await sb.from('payment_receipt_logs').delete().eq('payment_id',paymentId);
+  const{error}=await sb.from('user_payments').delete().eq('id',paymentId);
+  if(error){alert('Error deleting payment: '+error.message);return;}
+  loadAdminPayments();
+}
+
+async function adminRemovePaymentReceipt(paymentId,travelerName){
+  if(!confirm(`Remove the receipt attachment from this payment for ${travelerName||'this traveler'}?\n\nThe payment record will remain but the file attachment will be cleared.`))return;
+  const{error}=await sb.from('user_payments').update({
+    receipt_url:null,
+    receipt_filename:null,
+    receipt_sent:false,
+    receipt_sent_at:null
+  }).eq('id',paymentId);
+  if(error){alert('Error removing attachment: '+error.message);return;}
+  loadAdminPayments();
+}
+
 function openDeckPlanPrompt(){
   const existing=document.getElementById('deck-plan-prompt');
   if(existing)existing.remove();
@@ -9386,34 +9973,74 @@ function openDeckPlanPrompt(){
   d.addEventListener('click',e=>{if(e.target===d)d.remove();});
 }
 
+function getDeckPlanDataUrl(){
+  if(window._deckPlanDataUrl)return window._deckPlanDataUrl;
+  window._deckPlanDataUrl='data:application/pdf;base64,'+DECK_PLAN_B64;
+  return window._deckPlanDataUrl;
+}
+
 function getDeckPlanBlobUrl(){
   if(window._deckPlanBlobUrl)return window._deckPlanBlobUrl;
-  const bytes=atob(DECK_PLAN_B64);
-  const arr=new Uint8Array(bytes.length);
-  for(let i=0;i<bytes.length;i++)arr[i]=bytes.charCodeAt(i);
-  const blob=new Blob([arr],{type:'application/pdf'});
-  window._deckPlanBlobUrl=URL.createObjectURL(blob);
+  try{
+    const bytes=atob(DECK_PLAN_B64);
+    const arr=new Uint8Array(bytes.length);
+    for(let i=0;i<bytes.length;i++)arr[i]=bytes.charCodeAt(i);
+    const blob=new Blob([arr],{type:'application/pdf'});
+    window._deckPlanBlobUrl=URL.createObjectURL(blob);
+  }catch(e){window._deckPlanBlobUrl=getDeckPlanDataUrl();}
   return window._deckPlanBlobUrl;
 }
 
 function openDeckPlan(){
   const existing=document.getElementById('deck-plan-prompt');
   if(existing)existing.remove();
-  const blobUrl=getDeckPlanBlobUrl();
-  // Open the blob URL directly in a new tab — this works because the blob
-  // was created in THIS window's origin. Cross-origin popup iframes block blob URLs.
-  window.open(blobUrl,'_blank');
+  // Show in an embedded viewer modal so it always works regardless of popup blockers
+  const mo=document.createElement('div');
+  mo.id='deck-plan-viewer-modal';
+  mo.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:10001;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;';
+  mo.innerHTML=`
+    <div style="background:#fff;border-radius:14px;width:100%;max-width:900px;height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.4);">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1.5px solid #e2e8f0;flex-shrink:0;">
+        <strong style="color:#0f2744;font-size:.97rem;">🗺️ Carnival Freedom Deck Plan</strong>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button onclick="downloadDeckPlanDirect()" style="background:#14532d;color:#fff;border:none;border-radius:7px;padding:7px 16px;font-size:.83rem;font-weight:700;cursor:pointer;">⬇️ Download</button>
+          <button onclick="document.getElementById('deck-plan-viewer-modal').remove()" style="background:#f1f5f9;color:#374151;border:none;border-radius:7px;padding:7px 14px;font-size:.83rem;font-weight:700;cursor:pointer;">✕ Close</button>
+        </div>
+      </div>
+      <iframe id="deck-plan-iframe" src="" style="flex:1;width:100%;border:none;" title="Carnival Freedom Deck Plan"></iframe>
+    </div>`;
+  document.body.appendChild(mo);
+  // Set src after appending to avoid timing issues
+  try{
+    document.getElementById('deck-plan-iframe').src=getDeckPlanBlobUrl();
+  }catch(e){
+    document.getElementById('deck-plan-iframe').src=getDeckPlanDataUrl();
+  }
+}
+
+function downloadDeckPlanDirect(){
+  try{
+    const bytes=atob(DECK_PLAN_B64);
+    const arr=new Uint8Array(bytes.length);
+    for(let i=0;i<bytes.length;i++)arr[i]=bytes.charCodeAt(i);
+    const blob=new Blob([arr],{type:'application/pdf'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download='Carnival-Freedom-Deck-Plan.pdf';
+    document.body.appendChild(a);a.click();
+    setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
+  }catch(e){
+    // Fallback: data URL download
+    const a=document.createElement('a');
+    a.href=getDeckPlanDataUrl();a.download='Carnival-Freedom-Deck-Plan.pdf';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+  }
 }
 
 function downloadDeckPlan(){
   const existing=document.getElementById('deck-plan-prompt');
   if(existing)existing.remove();
-  const a=document.createElement('a');
-  a.href=getDeckPlanBlobUrl();
-  a.download='Carnival-Freedom-Deck-Plan.pdf';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  downloadDeckPlanDirect();
 }
 
 // ── CABIN TILE MODALS ─────────────────────────────────────────
