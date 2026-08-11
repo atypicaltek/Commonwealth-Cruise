@@ -353,6 +353,7 @@
         <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
           <button id="dash-cabin-photo-btn" onclick="openCabinPhotoModal()" style="display:none;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:7px;padding:6px 14px;font-size:.82rem;cursor:pointer;font-weight:600;">📷 Typical <span id="dash-cabin-photo-label"></span> Stateroom</button>
           <button id="dash-cabin-change-btn" onclick="openCabinChangeRequest()" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:7px;padding:6px 14px;font-size:.82rem;cursor:pointer;font-weight:600;">🔄 Change Cabin</button>
+          <button id="dash-cc-auth-btn" onclick="openTravelerCCAuthUpload()" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:7px;padding:6px 14px;font-size:.82rem;cursor:pointer;font-weight:600;">📄 CC Auth Form</button>
         </div>
         <!-- Cost breakdown: shown only once admin has manually set cabin_cost -->
         <div id="dash-cabin-cost-breakdown" style="display:none;margin-top:12px;background:rgba(255,255,255,.12);border-radius:9px;padding:10px 14px;color:#fff;"></div>
@@ -4019,6 +4020,9 @@ if(dsBadge){
   document.getElementById('dash-loading').style.display='none';
   document.getElementById('dash-content').style.display='block';
   loadInboxUnreadCount(); // async, non-blocking
+  // Update CC Auth button label if form already submitted
+  const ccAuthBtn=document.getElementById('dash-cc-auth-btn');
+  if(ccAuthBtn&&gProfile?.cc_auth_url){ccAuthBtn.textContent='✅ CC Auth Submitted';ccAuthBtn.style.background='rgba(34,197,94,.25)';ccAuthBtn.style.borderColor='rgba(34,197,94,.6)';}
   await loadCabinTravelers();
   checkMissingInfoBanner(cabin, window.gCabinTravelers||[]);
   // Show admin-assigned cabin notification (once only) before other popups
@@ -5989,7 +5993,7 @@ async function loadTravelers(){
     {data:allPayments},
     {data:allCabinTravelers}
   ]=await Promise.all([
-    sb.from('profiles').select('id,name,email,status,needs_doc_info').neq('is_admin',true).order('name'),
+    sb.from('profiles').select('id,name,email,status,needs_doc_info,cc_auth_url,cc_auth_filename').neq('is_admin',true).order('name'),
     sb.rpc('admin_get_all_cabin_assignments'),
     sb.from('user_payments').select('user_id,amount_due,amount_paid'),
     sb.rpc('admin_get_all_cabin_travelers')
@@ -6038,7 +6042,8 @@ async function loadTravelers(){
       cabinCost:ca?.cabin_cost||'',resNum:ca?.guest_reservation_number||'',
       payLink:ca?.payment_link||'',gratPaid:!!ca?.gratuity_paid,
       backupCabinType:ca?.backup_cabin_type||'',highOccPending:!!ca?.high_occupancy_pending,
-      cabinChangePending:!!ca?.cabin_change_pending,requestedCabinType:ca?.requested_cabin_type||''};
+      cabinChangePending:!!ca?.cabin_change_pending,requestedCabinType:ca?.requested_cabin_type||'',
+      ccAuthUrl:p.cc_auth_url||'',ccAuthFilename:p.cc_auth_filename||''};
     const gratChk=ca?.gratuity_paid?' &#x2713;':'';
     const cnChk=ca?.cabin_number?' &#x2713;':'';
     const costChk=cabinCost?' &#x2713;':'';
@@ -6056,6 +6061,7 @@ async function loadTravelers(){
         '<option value="res_num">&#x1F4CB; Res. #'+resChk+'</option>'+
         '<option value="pay_link">&#x1F517; Pay Link'+plChk+'</option>'+
         '<option value="send_cc_auth">&#x1F4C4; Send CC Auth Form</option>'+
+        '<option value="view_cc_auth">&#x1F4CB; Completed CC Auth'+(p.cc_auth_url?' &#x2713;':'')+'</option>'+
         '<option value="add_note">📝 Add Note</option>'+'<option value="mark_deposit_paid">💰 Mark Deposit Paid</option>'+'<option value="send_pay_link">&#x1F4E8; Send Payment Link</option>'+
         '<option value="gratuity">&#x1F91D; Gratuity'+gratChk+'</option>'+
       '</optgroup>'+
@@ -10039,6 +10045,7 @@ function handleTravelerAction(sel,userId){
   else if(v==='res_num')setReservationNumber(d.userId,d.name,d.resNum);
   else if(v==='pay_link')setPaymentLink(d.userId,d.name,d.payLink);
   else if(v==='send_cc_auth')sendCCAuthForm(d.name,d.email,d.cabinType,d.numGuests);
+  else if(v==='view_cc_auth')openAdminCCAuthModal(d.userId,d.name,d.ccAuthUrl,d.ccAuthFilename);
   else if(v==='add_note'){showAdminNoteModal(d.userId,d.name);sel.value='';}
   else if(v==='mark_deposit_paid'){adminMarkDepositPaid(d.userId);sel.value='';}
   else if(v==='send_pay_link')emailPaymentLinkToTraveler(d.name,d.email,d.payLink);
@@ -10580,12 +10587,22 @@ function openDeckPlan(){
   document.body.appendChild(mo);
 }
 
-function downloadDeckPlanDirect(){
-  // Prefer direct URL download
+async function downloadDeckPlanDirect(){
+  // Cross-origin <a download> is blocked; fetch as blob instead
   if(DECK_PLAN_URL){
-    const a=document.createElement('a');
-    a.href=DECK_PLAN_URL;a.download='Carnival-Freedom-Deck-Plan.pdf';a.target='_blank';
-    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    try{
+      const resp=await fetch(DECK_PLAN_URL);
+      if(!resp.ok)throw new Error('HTTP '+resp.status);
+      const blob=await resp.blob();
+      const blobUrl=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=blobUrl;a.download='Carnival-Freedom-Deck-Plan.pdf';
+      document.body.appendChild(a);a.click();
+      setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(blobUrl);},1500);
+    }catch(e){
+      // Fallback: open in new tab (browser will offer Save As)
+      window.open(DECK_PLAN_URL,'_blank');
+    }
     return;
   }
   try{
@@ -10609,6 +10626,180 @@ function downloadDeckPlan(){
   const existing=document.getElementById('deck-plan-prompt');
   if(existing)existing.remove();
   downloadDeckPlanDirect();
+}
+
+// ── CC AUTH FORM UPLOAD ───────────────────────────────────────
+const CC_AUTH_BUCKET='cc-auth-forms';
+async function uploadCCAuthFile(file, userId, lastName){
+  const ext=file.name.split('.').pop().toLowerCase();
+  const storedFilename=`${lastName}_CC_authorization.${ext}`;
+  const storagePath=`${userId}/${storedFilename}`;
+  let{error:upErr}=await sb.storage.from(CC_AUTH_BUCKET).upload(storagePath,file,{upsert:true,contentType:file.type});
+  if(upErr&&(upErr.message?.includes('not found')||upErr.message?.includes('does not exist'))){
+    await sb.storage.createBucket(CC_AUTH_BUCKET,{public:false});
+    const{error:r2}=await sb.storage.from(CC_AUTH_BUCKET).upload(storagePath,file,{upsert:true,contentType:file.type});
+    if(r2)return{path:null,error:r2.message,filename:null};
+  } else if(upErr){return{path:null,error:upErr.message,filename:null};}
+  return{path:storagePath,error:null,filename:storedFilename};
+}
+async function getCCAuthSignedUrl(storagePath, expiresIn=3600){
+  const{data,error}=await sb.storage.from(CC_AUTH_BUCKET).createSignedUrl(storagePath,expiresIn);
+  if(error||!data?.signedUrl)return null;
+  return data.signedUrl;
+}
+async function viewCCAuthForm(storagePath, btn){
+  if(btn){btn.disabled=true;btn.textContent='Loading…';}
+  const url=await getCCAuthSignedUrl(storagePath);
+  if(btn){btn.disabled=false;btn.textContent='🔍 View';}
+  if(!url){alert('Could not generate a secure link. Please try again.');return;}
+  window.open(url,'_blank');
+}
+async function downloadCCAuthForm(storagePath, filename, btn){
+  if(btn){btn.disabled=true;btn.textContent='Downloading…';}
+  const url=await getCCAuthSignedUrl(storagePath);
+  if(!url){if(btn){btn.disabled=false;btn.textContent='⬇️ Download';}alert('Could not generate download link. Please try again.');return;}
+  try{
+    const resp=await fetch(url);const blob=await resp.blob();
+    const blobUrl=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=blobUrl;a.download=filename||'CC_authorization.pdf';
+    document.body.appendChild(a);a.click();
+    setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(blobUrl);},1500);
+  }catch(e){window.open(url,'_blank');}
+  if(btn){btn.disabled=false;btn.textContent='⬇️ Download';}
+}
+
+// Traveler: upload their own completed CC Auth form
+async function openTravelerCCAuthUpload(){
+  if(!gUser||!gProfile)return;
+  // Derive last name (last word of full name)
+  const nameParts=(gProfile.name||'').trim().split(/\s+/);
+  const lastName=nameParts[nameParts.length-1]||'Traveler';
+  // Fetch fresh profile to check existing
+  const{data:prof}=await sb.from('profiles').select('cc_auth_url,cc_auth_filename').eq('id',gUser.id).single();
+  const existing=prof?.cc_auth_url;
+  const existingFile=prof?.cc_auth_filename||'';
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;';
+  overlay.innerHTML=`<div style="background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.3);width:100%;max-width:520px;padding:0;overflow:hidden;">
+    <div style="background:#0f2744;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">
+      <div><div style="font-weight:800;font-size:1rem;">📄 CC Authorization Form</div><div style="font-size:.76rem;opacity:.75;margin-top:2px;">Upload your completed and signed CC Auth form</div></div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;opacity:.75;">✕</button>
+    </div>
+    <div style="padding:20px;">
+      ${existing?`<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:9px;padding:12px 16px;margin-bottom:16px;">
+        <div style="font-weight:700;color:#166534;margin-bottom:4px;">✅ Form Already On File</div>
+        <div style="font-size:.83rem;color:#166534;">${existingFile}</div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button onclick="viewCCAuthForm('${existing}',this)" style="background:#166534;color:#fff;border:none;border-radius:7px;padding:6px 16px;font-size:.82rem;font-weight:700;cursor:pointer;">🔍 View</button>
+          <button onclick="downloadCCAuthForm('${existing}','${existingFile.replace(/'/g,"\\'")}',this)" style="background:#1a4a7c;color:#fff;border:none;border-radius:7px;padding:6px 16px;font-size:.82rem;font-weight:700;cursor:pointer;">⬇️ Download</button>
+        </div>
+        <div style="font-size:.76rem;color:#15803d;margin-top:8px;">You may upload a new form below to replace it.</div>
+      </div>`:''}
+      <div style="margin-bottom:12px;">
+        <a href="${CC_AUTH_FORM_URL}" target="_blank" style="display:inline-block;background:#f0f4ff;border:1.5px solid #c7d7f9;color:#1a4a7c;border-radius:8px;padding:8px 16px;font-size:.85rem;font-weight:700;text-decoration:none;margin-bottom:14px;">📥 Download Blank CC Auth Form</a>
+        <p style="font-size:.83rem;color:#475569;margin:0 0 12px;line-height:1.5;">Complete, sign, and scan the CC Authorization form, then upload it here. Your last name will be automatically prepended to the filename.</p>
+      </div>
+      <div style="border:2px dashed #c7d7f9;border-radius:10px;padding:20px;text-align:center;margin-bottom:14px;" id="ccauth-drop-zone">
+        <div style="font-size:2rem;margin-bottom:8px;">📎</div>
+        <div style="font-size:.87rem;color:#475569;margin-bottom:10px;">Drag & drop your completed form here, or</div>
+        <input type="file" id="ccauth-file-input" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" onchange="handleCCAuthFileSelect(this,'${lastName}')">
+        <button onclick="document.getElementById('ccauth-file-input').click()" style="background:#1a4a7c;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:.88rem;font-weight:700;cursor:pointer;">Choose File</button>
+      </div>
+      <div id="ccauth-status" style="font-size:.85rem;text-align:center;min-height:20px;"></div>
+    </div>
+  </div>`;
+  // Drag & drop
+  const dropZone=overlay.querySelector('#ccauth-drop-zone');
+  dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.style.background='#eff6ff';});
+  dropZone.addEventListener('dragleave',()=>{dropZone.style.background='';});
+  dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.style.background='';const f=e.dataTransfer.files[0];if(f)handleCCAuthFileDropped(f,lastName,overlay.querySelector('#ccauth-status'));});
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+async function handleCCAuthFileSelect(input, lastName){
+  const file=input.files[0];
+  if(!file)return;
+  const statusEl=document.getElementById('ccauth-status');
+  await doUploadCCAuth(file, lastName, statusEl);
+}
+async function handleCCAuthFileDropped(file, lastName, statusEl){
+  await doUploadCCAuth(file, lastName, statusEl);
+}
+async function doUploadCCAuth(file, lastName, statusEl){
+  if(!gUser)return;
+  // Validate: must have last name in filename requirement (we enforce it on our end)
+  if(!lastName||lastName.length<1){if(statusEl){statusEl.textContent='⚠️ Could not determine your last name. Please contact the trip organizer.';statusEl.style.color='#dc2626';}return;}
+  if(statusEl){statusEl.textContent='Uploading…';statusEl.style.color='#64748b';}
+  const{path,error,filename}=await uploadCCAuthFile(file,gUser.id,lastName);
+  if(error){if(statusEl){statusEl.textContent='⚠️ Upload failed: '+error;statusEl.style.color='#dc2626';}return;}
+  // Save to profile
+  const{error:saveErr}=await sb.from('profiles').update({cc_auth_url:path,cc_auth_filename:filename}).eq('id',gUser.id);
+  if(saveErr){if(statusEl){statusEl.textContent='⚠️ Saved to storage but failed to link to profile: '+saveErr.message;statusEl.style.color='#dc2626';}return;}
+  gProfile.cc_auth_url=path;gProfile.cc_auth_filename=filename;
+  if(statusEl){statusEl.innerHTML='✅ <strong>Form uploaded successfully!</strong><br><span style="font-size:.78rem;color:#166534;">Saved as: '+filename+'</span>';statusEl.style.color='#166534';}
+  // Update dashboard button
+  const btn=document.getElementById('dash-cc-auth-btn');
+  if(btn){btn.textContent='✅ CC Auth Submitted';btn.style.background='rgba(34,197,94,.25)';btn.style.borderColor='rgba(34,197,94,.6)';}
+  setTimeout(()=>{const ov=document.querySelector('[style*="cc-auth"]');if(!ov)loadDashboard();},2000);
+}
+
+// Admin: view or manually upload a traveler's CC Auth form
+async function openAdminCCAuthModal(userId, name, ccAuthUrl, ccAuthFilename){
+  // Derive last name from name
+  const nameParts=(name||'').trim().split(/\s+/);
+  const lastName=nameParts[nameParts.length-1]||'Traveler';
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:16px;';
+  overlay.innerHTML=`<div style="background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.3);width:100%;max-width:540px;padding:0;overflow:hidden;">
+    <div style="background:#0f2744;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">
+      <div><div style="font-weight:800;font-size:1rem;">📋 Completed CC Auth — ${name}</div><div style="font-size:.76rem;opacity:.75;">View, download, or upload the traveler's CC Authorization form</div></div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;opacity:.75;">✕</button>
+    </div>
+    <div style="padding:20px;">
+      ${ccAuthUrl?`<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:9px;padding:14px 16px;margin-bottom:16px;">
+        <div style="font-weight:700;color:#166534;font-size:.92rem;margin-bottom:4px;">✅ CC Auth Form On File</div>
+        <div style="font-size:.82rem;color:#166534;margin-bottom:10px;">${ccAuthFilename||'CC Authorization'}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="viewCCAuthForm('${ccAuthUrl}',this)" style="background:#166534;color:#fff;border:none;border-radius:7px;padding:7px 18px;font-size:.83rem;font-weight:700;cursor:pointer;">🔍 View Form</button>
+          <button onclick="downloadCCAuthForm('${ccAuthUrl}','${(ccAuthFilename||'CC_authorization.pdf').replace(/'/g,"\\'")}',this)" style="background:#1a4a7c;color:#fff;border:none;border-radius:7px;padding:7px 18px;font-size:.83rem;font-weight:700;cursor:pointer;">⬇️ Download</button>
+        </div>
+      </div>`:`<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:9px;padding:12px 16px;margin-bottom:16px;font-size:.85rem;color:#991b1b;font-weight:600;">⚠️ No CC Auth form on file for this traveler.</div>`}
+      <div style="border-top:1.5px solid #e2e8f0;padding-top:16px;">
+        <div style="font-weight:700;color:#0f2744;font-size:.88rem;margin-bottom:8px;">📤 Manually Upload Form</div>
+        <div style="font-size:.82rem;color:#64748b;margin-bottom:10px;">Last name prefix: <strong>${lastName}</strong> — file will be saved as <em>${lastName}_CC_authorization.[ext]</em></div>
+        <input type="file" id="admin-ccauth-input-${userId}" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" onchange="adminHandleCCAuthUpload(this,'${userId}','${lastName}')">
+        <button onclick="document.getElementById('admin-ccauth-input-${userId}').click()" style="background:#1a4a7c;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:.87rem;font-weight:700;cursor:pointer;">📎 Choose File to Upload</button>
+        <div id="admin-ccauth-status-${userId}" style="font-size:.84rem;margin-top:10px;min-height:18px;"></div>
+      </div>
+    </div>
+  </div>`;
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+async function adminDownloadCCAuth(url, filename, btn){
+  if(btn){btn.textContent='Downloading…';btn.disabled=true;}
+  try{
+    const resp=await fetch(url);
+    const blob=await resp.blob();
+    const blobUrl=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=blobUrl;a.download=filename;
+    document.body.appendChild(a);a.click();
+    setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(blobUrl);},1500);
+  }catch(e){window.open(url,'_blank');}
+  if(btn){btn.textContent='⬇️ Download';btn.disabled=false;}
+}
+async function adminHandleCCAuthUpload(input, userId, lastName){
+  const file=input.files[0];if(!file)return;
+  const statusEl=document.getElementById('admin-ccauth-status-'+userId);
+  if(statusEl){statusEl.textContent='Uploading…';statusEl.style.color='#64748b';}
+  const{path,error,filename}=await uploadCCAuthFile(file,userId,lastName);
+  if(error){if(statusEl){statusEl.textContent='⚠️ '+error;statusEl.style.color='#dc2626';}return;}
+  const{error:saveErr}=await sb.from('profiles').update({cc_auth_url:path,cc_auth_filename:filename}).eq('id',userId);
+  if(saveErr){if(statusEl){statusEl.textContent='⚠️ Uploaded but failed to link: '+saveErr.message;statusEl.style.color='#dc2626';}return;}
+  if(statusEl){statusEl.innerHTML='✅ <strong>Uploaded & linked to traveler profile.</strong><br><span style="font-size:.77rem;color:#166534;">'+filename+'</span>';statusEl.style.color='#166534';}
+  // Update gTravelerData cache
+  if(window.gTravelerData?.[userId]){window.gTravelerData[userId].ccAuthUrl=path;window.gTravelerData[userId].ccAuthFilename=filename;}
+  setTimeout(()=>loadTravelers(),1500);
 }
 
 // ── CABIN TILE MODALS ─────────────────────────────────────────
