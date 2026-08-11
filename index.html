@@ -660,6 +660,7 @@
       <button class="tab-btn tb-emailgen" onclick="switchTab('emailgen',this);loadEmailGenTab()">✉️ Email Generation</button>
       <button class="tab-btn" style="background:#0369a1;" onclick="switchTab('emailqueue',this);loadEmailQueueTab()">📬 Email Queue</button>
       <button class="tab-btn tb-reports" onclick="switchTab('reports',this)">📊 Reports</button>
+      <button class="tab-btn tb-missinginfo" style="background:#b45309;" onclick="switchTab('missinginfo',this);loadMissingInfoTab()">⚠️ Missing Info</button>
     </div>
 
     <!-- TRAVELERS -->
@@ -930,6 +931,18 @@
       <div class="card">
         <div class="card-header"><span class="card-title">Results</span></div>
         <div id="rpt-results" class="table-wrap"><div class="empty"><div class="ei">📊</div><p>Set filters above and click Run Report.</p></div></div>
+      </div>
+    </div>
+
+    <!-- MISSING INFO -->
+    <div id="tab-missinginfo" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">⚠️ Profiles With Missing Information</span>
+          <button class="btn btn-primary btn-sm" onclick="loadMissingInfoTab()" style="font-size:.79rem;">↻ Refresh</button>
+        </div>
+        <p style="font-size:.84rem;color:var(--muted);margin:0 0 12px;">Profiles missing cabin type, guest count, or cabin traveler info. Use <strong>Fix →</strong> to open the traveler's admin profile, or <strong>✉️ Email</strong> to send a reminder.</p>
+        <div id="missing-info-tab-content"><div class="empty"><div class="ei">⚠️</div><p>Click Refresh to load missing info.</p></div></div>
       </div>
     </div>
 
@@ -1588,7 +1601,7 @@ const CC_AUTH_FORM_URL  = 'https://atypicaltek.github.io/Commonwealth-Cruise/CC_
 // Upload carnival-freedom-deck-plan-pdf.pdf to GitHub Pages next to index.html,
 // then set this URL. When set, the iframe loads directly from URL (most reliable).
 // Leave blank to fall back to the embedded base64 version.
-const DECK_PLAN_URL = 'https://atypicaltek.github.io/Commonwealth-Cruise/carnival-freedom-deck-plan-pdf.pdf';
+const DECK_PLAN_URL = ''; // Set to hosted URL once uploaded to GitHub; leave empty to use embedded base64
 
 // ── Google Apps Script Email Web App ──────────────────────
 // Paste your deployed Web App URL below (see send-email.gs for setup steps).
@@ -5763,7 +5776,7 @@ async function showAdminPendingPopup(){
     sb.from('cancellation_requests').select('id').eq('status','pending'),
     sb.from('doc_requests').select('id').eq('status','pending'),
     sb.from('cabin_assignments').select('id').eq('high_occupancy_pending',true),
-    sb.from('profiles').select('id,status').neq('is_admin',true),
+    sb.from('profiles').select('id,name,email,status').neq('is_admin',true),
     sb.rpc('admin_get_all_cabin_assignments'),
     sb.rpc('admin_get_all_cabin_travelers')
   ]);
@@ -5803,7 +5816,7 @@ async function showAdminPendingPopup(){
   });
 
   const items=[];
-  if(missingInfoCount>0)items.push({label:'Profile'+(missingInfoCount>1?'s':'')+' missing cabin type, guest count, or traveler info',count:missingInfoCount,fn:'showMissingInfoModal()'});
+  if(missingInfoCount>0)items.push({label:'Profile'+(missingInfoCount>1?'s':'')+' missing cabin type, guest count, or traveler info',count:missingInfoCount,tab:'missinginfo',tabFn:'loadMissingInfoTab()'});
   if(highOccReqs?.length)items.push({label:'High Occupancy Request'+(highOccReqs.length>1?'s':''),count:highOccReqs.length,tab:'highocc'});
   if(cabinChanges?.length)items.push({label:'Cabin Change Request'+(cabinChanges.length>1?'s':''),count:cabinChanges.length,tab:'cabinchange'});
   if(suiteReqs?.length)items.push({label:'Suite Request'+(suiteReqs.length>1?'s':''),count:suiteReqs.length,tab:'suiterequests'});
@@ -5831,9 +5844,11 @@ async function showAdminPendingPopup(){
         ${items.map(it=>`
           <div style="display:flex;align-items:center;justify-content:space-between;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;">
             <span style="font-size:.88rem;color:#1e293b;font-weight:600;">⚠️ ${it.count} ${it.label}</span>
-            ${it.fn
-              ? `<button onclick="document.getElementById('admin-pending-popup').remove();${it.fn}" style="background:#0f2744;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:.78rem;font-weight:700;cursor:pointer;">Review →</button>`
-              : `<button onclick="document.getElementById('admin-pending-popup').remove();document.querySelector('[onclick*=\\'${it.tab}\\']')?.click()" style="background:#0f2744;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:.78rem;font-weight:700;cursor:pointer;">Go to Tab →</button>`
+            ${it.tabFn
+              ? `<button onclick="document.getElementById('admin-pending-popup').remove();const _tb=document.querySelector('.tb-${it.tab}');if(_tb)switchTab('${it.tab}',_tb);${it.tabFn}" style="background:#0f2744;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:.78rem;font-weight:700;cursor:pointer;">Go to Tab →</button>`
+              : it.fn
+                ? `<button onclick="document.getElementById('admin-pending-popup').remove();${it.fn}" style="background:#0f2744;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:.78rem;font-weight:700;cursor:pointer;">Review →</button>`
+                : `<button onclick="document.getElementById('admin-pending-popup').remove();document.querySelector('[onclick*=\\'${it.tab}\\']')?.click()" style="background:#0f2744;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:.78rem;font-weight:700;cursor:pointer;">Go to Tab →</button>`
             }
           </div>`).join('')}
       </div>
@@ -5841,56 +5856,77 @@ async function showAdminPendingPopup(){
     </div>`;
   document.body.appendChild(d);
 }
-function showMissingInfoModal(){
-  const list=window._missingInfoProfiles||[];
-  const existing=document.getElementById('missing-info-review-modal');
-  if(existing)existing.remove();
-  const d=document.createElement('div');
-  d.id='missing-info-review-modal';
-  d.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;';
-  const rows=list.map(p=>{
-    const issues=[];
-    if(p.missingCabinType)issues.push('No cabin type');
-    if(p.missingGuestCount)issues.push('No guest count');
-    if(p.missingTravelerInfo)issues.push(`Traveler info: ${p.occupants}/${p.expectedGuests} added`);
-    const issueHtml=issues.map(i=>`<span style="display:inline-block;background:#fef2f2;border:1px solid #fca5a5;border-radius:4px;padding:1px 7px;font-size:.76rem;color:#991b1b;margin:1px 2px;">${i}</span>`).join('');
-    const safeId=p.id.replace(/'/g,"\\'");
-    const safeName=(p.name||'').replace(/'/g,"\\'");
-    return`<tr style="border-bottom:1px solid #f1f5f9;">
-      <td style="padding:9px 10px;font-weight:600;color:#0f2744;font-size:.88rem;">${p.name||'—'}<br><span style="font-size:.76rem;color:#64748b;font-weight:400;">${p.email||''}</span></td>
-      <td style="padding:9px 10px;">${issueHtml}</td>
-      <td style="padding:9px 10px;text-align:right;">
-        <button onclick="document.getElementById('missing-info-review-modal').remove();openManageTravelers('${safeId}','${safeName}',1)" style="background:#0f2744;color:#fff;border:none;border-radius:6px;padding:5px 11px;font-size:.77rem;font-weight:700;cursor:pointer;">Fix →</button>
-      </td>
-    </tr>`;
-  }).join('');
-
-  d.innerHTML=`
-    <div style="background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.3);width:100%;max-width:640px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px 14px;border-bottom:1.5px solid #e2e8f0;flex-shrink:0;">
-        <div>
-          <h2 style="margin:0;font-size:1.05rem;color:#0f2744;">⚠️ Profiles With Missing Information</h2>
-          <p style="margin:3px 0 0;font-size:.81rem;color:#64748b;">${list.length} profile${list.length!==1?'s':''} need cabin type, guest count, or traveler info.</p>
-        </div>
-        <button onclick="document.getElementById('missing-info-review-modal').remove()" style="background:none;border:none;font-size:1.4rem;color:#94a3b8;cursor:pointer;line-height:1;padding:0 2px;">✕</button>
-      </div>
-      <div style="overflow-y:auto;flex:1;">
-        <table style="width:100%;border-collapse:collapse;">
-          <thead>
-            <tr style="background:#f8fafc;border-bottom:1.5px solid #e2e8f0;">
-              <th style="padding:8px 10px;text-align:left;font-size:.78rem;color:#64748b;font-weight:700;text-transform:uppercase;">Traveler</th>
-              <th style="padding:8px 10px;text-align:left;font-size:.78rem;color:#64748b;font-weight:700;text-transform:uppercase;">Missing</th>
-              <th style="padding:8px 10px;"></th>
-            </tr>
-          </thead>
-          <tbody>${rows||'<tr><td colspan="3" style="padding:20px;text-align:center;color:#64748b;">No profiles with missing info.</td></tr>'}</tbody>
-        </table>
-      </div>
-      <div style="padding:14px 22px;border-top:1.5px solid #e2e8f0;flex-shrink:0;">
-        <button onclick="document.getElementById('missing-info-review-modal').remove()" style="width:100%;background:#e5e7eb;color:#374151;border:none;border-radius:8px;padding:9px;font-size:.88rem;cursor:pointer;font-weight:600;">Close</button>
-      </div>
-    </div>`;
-  document.body.appendChild(d);
+async function loadMissingInfoTab(){
+  const el=document.getElementById('missing-info-tab-content');
+  if(!el)return;
+  el.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  try{
+    const[
+      {data:allProfiles},
+      {data:allCabins},
+      {data:allCabinTravelers}
+    ]=await Promise.all([
+      sb.from('profiles').select('id,name,email,status').neq('is_admin',true),
+      sb.rpc('admin_get_all_cabin_assignments'),
+      sb.rpc('admin_get_all_cabin_travelers')
+    ]);
+    const cabinMap={};(allCabins||[]).forEach(c=>{cabinMap[c.user_id]=c;});
+    const occupantCountMap={};(allCabinTravelers||[]).forEach(t=>{
+      occupantCountMap[t.account_owner_id]=(occupantCountMap[t.account_owner_id]||0)+1;
+    });
+    const activeProfiles=(allProfiles||[]).filter(p=>p.status!=='cancelled');
+    const missing=[];
+    activeProfiles.forEach(p=>{
+      const ca=cabinMap[p.id];
+      const missingCabinType=!ca||!ca.cabin_type;
+      const missingGuestCount=!ca||!ca.num_guests;
+      const occupants=occupantCountMap[p.id]||0;
+      const expectedGuests=ca?.num_guests||0;
+      const missingTravelerInfo=expectedGuests>0&&occupants<expectedGuests;
+      if(missingCabinType||missingGuestCount||missingTravelerInfo){
+        missing.push({id:p.id,name:p.name||'Unknown',email:p.email||'',
+          missingCabinType,missingGuestCount,missingTravelerInfo,
+          occupants,expectedGuests,cabinType:ca?.cabin_type||null});
+      }
+    });
+    if(missing.length===0){
+      el.innerHTML='<div style="padding:28px;text-align:center;color:#64748b;font-size:.95rem;">✅ No profiles with missing information.</div>';
+      return;
+    }
+    const rows=missing.map(p=>{
+      const issues=[];
+      if(p.missingCabinType)issues.push('No cabin type');
+      if(p.missingGuestCount)issues.push('No guest count');
+      if(p.missingTravelerInfo)issues.push(`Travelers: ${p.occupants}/${p.expectedGuests} added`);
+      const issueHtml=issues.map(i=>`<span style="display:inline-block;background:#fef2f2;border:1px solid #fca5a5;border-radius:4px;padding:1px 7px;font-size:.76rem;color:#991b1b;margin:1px 2px;">${i}</span>`).join('');
+      const safeId=p.id.replace(/'/g,"\\'");
+      const safeName=(p.name||'').replace(/'/g,"\\'");
+      const numSlots=p.expectedGuests||1;
+      const mailtoLink='mailto:'+encodeURIComponent(p.email||'');
+      return`<tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:10px 12px;font-weight:600;color:#0f2744;font-size:.88rem;">${p.name||'—'}</td>
+        <td style="padding:10px 12px;font-size:.85rem;color:#475569;">${p.email||''}</td>
+        <td style="padding:10px 12px;">${issueHtml}</td>
+        <td style="padding:10px 12px;text-align:right;white-space:nowrap;">
+          <button onclick="(function(){const tb=document.querySelector('.tb-travelers');if(tb)switchTab('travelers',tb);openManageTravelers('${safeId}','${safeName}',${numSlots});})();" style="background:#0f2744;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:.77rem;font-weight:700;cursor:pointer;margin-right:4px;">Fix →</button>
+          <a href="${mailtoLink}" style="display:inline-block;background:#e0f2fe;color:#0c4a6e;border:1.5px solid #bae6fd;border-radius:6px;padding:4px 10px;font-size:.77rem;font-weight:700;text-decoration:none;cursor:pointer;">✉️ Email</a>
+        </td>
+      </tr>`;
+    }).join('');
+    el.innerHTML=`<div class="table-wrap"><table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="background:#f8fafc;border-bottom:1.5px solid #e2e8f0;">
+          <th style="padding:9px 12px;text-align:left;font-size:.78rem;color:#64748b;font-weight:700;text-transform:uppercase;">Name</th>
+          <th style="padding:9px 12px;text-align:left;font-size:.78rem;color:#64748b;font-weight:700;text-transform:uppercase;">Email</th>
+          <th style="padding:9px 12px;text-align:left;font-size:.78rem;color:#64748b;font-weight:700;text-transform:uppercase;">Missing</th>
+          <th style="padding:9px 12px;"></th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+  }catch(e){
+    el.innerHTML='<div style="padding:20px;color:#dc2626;">Error loading data: '+(e.message||e)+'</div>';
+  }
 }
 
 function switchTab(name,btn){
@@ -8359,20 +8395,33 @@ This email was sent by the ${TRIP_NAME} portal.`
 
 Thank you for your reservation on the ${TRIP_NAME}! We are looking forward to an amazing journey together.
 
+We have received your request to hold a [cabin type] cabin on our upcoming Bermuda cruise.
+
 DEPOSIT REQUIRED — ROOM HOLD IS PENDING
 
-Until your initial deposit has been received, your room hold is pending. A full deposit of $250.00 per person in your cabin is required to confirm an ASSIGNED cabin and finalize your reservation. Once your cabin is RESERVED, a personalized payment link will be provided to make the remainder of your payments.
+Until your initial deposit of $100.00 per person in cabin has been received, your room hold is pending.
 
-All initial deposits must be paid by credit card. To submit your deposit, please complete the CC Authorization Form and return it to your trip organizer. Or if you prefer, reply requesting a call from one of our team members to receive your credit card information by phone for payment. A receipt will be provided for all payments.
+All initial deposits must be paid by credit card.
+
+To submit your deposit, please complete the CC Authorization Form and return it to your trip organizer.
+
+Or if you prefer, reply requesting a call from one of our team members to receive your credit card information by phone for payment.
+
+A receipt will be provided for all payments.
 
 https://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf
+
+A full deposit of $250.00 per person in your cabin is required to confirm an ASSIGNED cabin # and finalize your reservation.
+
+Once your cabin is RESERVED, a personalized payment link will be provided to make the remainder of your payments.
 
 Please complete this at your earliest convenience. If you have any questions, reply to this email and we will be happy to assist.
 
 Thank you,
 Your Commonwealth Cruise Team
 This email was sent by the ${TRIP_NAME} portal.`
-    })
+    }),
+    customSend:()=>sendDepositRequiredEmail()
   },
   {
     id:'suite_deposit_pending',label:'Suite Deposit Pending',icon:'🛳️',
@@ -8576,6 +8625,76 @@ This email was sent by the ${TRIP_NAME} portal.`;
     else if(result?.held){statusEl.textContent='📋 Queued in hold — check Email Queue tab.';statusEl.style.color='#d97706';}
     else if(result?.fallback){statusEl.textContent='📧 Email client opened.';statusEl.style.color='#d97706';}
     else{statusEl.textContent='✅ Suite deposit email sent!';statusEl.style.color='#16a34a';}
+  }
+}
+
+async function sendDepositRequiredEmail(){
+  const toEmail=(document.getElementById('eg-to-email')||{}).value?.trim();
+  const toName=(document.getElementById('eg-to-name')||{}).value?.trim()||toEmail;
+  const statusEl=document.getElementById('eg-send-status');
+  if(!toEmail){
+    if(statusEl){statusEl.textContent='⚠️ Traveler email is required.';statusEl.style.color='#d97706';}
+    return;
+  }
+  if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
+  const subject=`${TRIP_NAME} — Deposit Payment Required`;
+  const htmlBody=buildEmailHtml(toName,`
+    <p style="line-height:1.85;">Hello ${toName},</p>
+    <p style="line-height:1.85;">Thank you for your reservation on the <strong>${TRIP_NAME}</strong>! We are looking forward to an amazing journey together.</p>
+    <p style="line-height:1.85;">We have received your request to hold a cabin on our upcoming Bermuda cruise.</p>
+    <div style="background:#fef2f2;border:2px solid #dc2626;border-radius:10px;padding:14px 18px;margin:18px 0;text-align:center;">
+      <strong style="font-size:1.08rem;color:#dc2626;text-decoration:underline;display:block;letter-spacing:.02em;">DEPOSIT REQUIRED — ROOM HOLD IS PENDING</strong>
+    </div>
+    <p style="line-height:1.85;">Until your <strong style="text-decoration:underline;">initial deposit of $100.00 per person in cabin</strong> has been received, your room hold is pending.</p>
+    <p style="line-height:1.85;">All initial deposits must be paid by credit card.</p>
+    <p style="line-height:1.85;">To submit your deposit, please complete the CC Authorization Form and return it to your trip organizer.</p>
+    <p style="line-height:1.85;">Or if you prefer, reply requesting a call from one of our team members to receive your credit card information by phone for payment.</p>
+    <p style="line-height:1.85;">A receipt will be provided for all payments.</p>
+    <div style="text-align:center;margin:16px 0;">
+      <a href="${CC_AUTH_FORM_URL}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.95rem;padding:11px 26px;border-radius:9px;text-decoration:none;">📄 CC Authorization Form</a>
+      <p style="font-size:.78rem;color:#64748b;margin-top:6px;">${CC_AUTH_FORM_URL}</p>
+    </div>
+    <p style="line-height:1.85;">A <strong style="text-decoration:underline;">full deposit of $250.00 per person</strong> in your cabin is required to <strong style="text-decoration:underline;">confirm an ASSIGNED cabin # and finalize your reservation</strong>.</p>
+    <p style="line-height:1.85;">Once your cabin is RESERVED, a personalized payment link will be provided to make the remainder of your payments.</p>
+    <p style="line-height:1.85;">Please complete this at your earliest convenience. If you have any questions, reply to this email and we will be happy to assist.</p>
+    <p style="line-height:1.85;">Thank you,<br>Your Commonwealth Cruise Team</p>
+  `);
+  const plain=`Hello ${toName},
+
+Thank you for your reservation on the ${TRIP_NAME}! We are looking forward to an amazing journey together.
+
+We have received your request to hold a cabin on our upcoming Bermuda cruise.
+
+DEPOSIT REQUIRED — ROOM HOLD IS PENDING
+
+Until your initial deposit of $100.00 per person in cabin has been received, your room hold is pending.
+
+All initial deposits must be paid by credit card.
+
+To submit your deposit, please complete the CC Authorization Form and return it to your trip organizer.
+
+Or if you prefer, reply requesting a call from one of our team members to receive your credit card information by phone for payment.
+
+A receipt will be provided for all payments.
+
+${CC_AUTH_FORM_URL}
+
+A full deposit of $250.00 per person in your cabin is required to confirm an ASSIGNED cabin # and finalize your reservation.
+
+Once your cabin is RESERVED, a personalized payment link will be provided to make the remainder of your payments.
+
+Please complete this at your earliest convenience. If you have any questions, reply to this email and we will be happy to assist.
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`;
+  const result=await sendEmail(toEmail,toName,subject,plain,htmlBody);
+  if(statusEl){
+    if(result?.holdFailed){statusEl.textContent='⚠️ Hold save failed.';statusEl.style.color='#dc2626';}
+    else if(result?.held){statusEl.textContent='📋 Queued in hold — check Email Queue tab.';statusEl.style.color='#d97706';if(document.getElementById('admin-heldemails'))loadEmailQueueTab();}
+    else if(result?.fallback){statusEl.textContent='📧 Email client opened.';statusEl.style.color='#d97706';}
+    else{statusEl.textContent='✅ Deposit Required email sent!';statusEl.style.color='#16a34a';}
+    setTimeout(()=>{if(statusEl)statusEl.textContent='';},8000);
   }
 }
 
@@ -10087,7 +10206,12 @@ function openDeckPlan(){
           <button onclick="document.getElementById('deck-plan-viewer-modal').remove()" style="background:#f1f5f9;color:#374151;border:none;border-radius:7px;padding:7px 14px;font-size:.83rem;font-weight:700;cursor:pointer;">✕ Close</button>
         </div>
       </div>
-      <iframe id="deck-plan-iframe" src="${pdfSrc}" style="flex:1;width:100%;border:none;" title="Carnival Freedom Deck Plan"></iframe>
+      <object id="deck-plan-iframe" data="${pdfSrc}" type="application/pdf" style="flex:1;width:100%;border:none;">
+        <div style="padding:24px;text-align:center;color:#64748b;">
+          <p style="font-size:.95rem;">PDF preview not supported in your browser.</p>
+          <button onclick="downloadDeckPlanDirect()" style="background:#1a4a7c;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:.9rem;font-weight:700;cursor:pointer;margin-top:8px;">⬇️ Download Deck Plan Instead</button>
+        </div>
+      </object>
     </div>`;
   document.body.appendChild(mo);
 }
