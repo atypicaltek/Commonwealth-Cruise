@@ -1595,13 +1595,13 @@ const PORTAL_URL        = 'https://atypicaltek.github.io/Commonwealth-Cruise/';
 // Once a traveler receives their CCL reservation link, set it via Actions → Pay Link in
 // the Travelers tab and it will override this for that traveler only.
 const WIX_PAYMENT_URL   = ''; // ← paste your Wix payment page URL here
-const LOGO_GIF_URL      = ''; // ← hosted URL for Glowjetters animated GIF (data URIs are blocked by email clients)
+const LOGO_GIF_URL      = 'https://atypicaltek.github.io/Commonwealth-Cruise/glowjetters-logo.gif';
 const CC_AUTH_FORM_URL  = 'https://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf'; // ← CC Authorization PDF (deploy to GitHub Pages alongside index.html)
 // ── Deck Plan PDF URL ──────────────────────────────────────
 // Upload carnival-freedom-deck-plan-pdf.pdf to GitHub Pages next to index.html,
 // then set this URL. When set, the iframe loads directly from URL (most reliable).
 // Leave blank to fall back to the embedded base64 version.
-const DECK_PLAN_URL = ''; // Set to hosted URL once uploaded to GitHub; leave empty to use embedded base64
+const DECK_PLAN_URL = 'https://atypicaltek.github.io/Commonwealth-Cruise/carnival-freedom-deck-plan-pdf.pdf';
 
 // ── Google Apps Script Email Web App ──────────────────────
 // Paste your deployed Web App URL below (see send-email.gs for setup steps).
@@ -1793,7 +1793,7 @@ async function sendEmail(toEmail,toName,subject,message,htmlBody,skipAdminCopy=f
     fetch(APPS_SCRIPT_URL,{
       method:'POST',
       mode:'no-cors',
-      body:JSON.stringify({to_email:toEmail,to_name:toName,subject,message,html:htmlBody||message})
+      body:JSON.stringify({to_email:toEmail,to_name:toName,subject,message,html:htmlBody||message,reply_to:ADMIN_EMAIL})
     });
     // ── Admin copy: send a copy of every traveler-facing email to ADMIN_EMAIL ──
     // Subject format: "Email Sent to [Traveler Name] — [Original Subject]"
@@ -5861,15 +5861,25 @@ async function loadMissingInfoTab(){
   if(!el)return;
   el.innerHTML='<div class="loading"><div class="spinner"></div></div>';
   try{
+    const TRAVELER_INFO_SUBJECT_KEYWORD='Complete Cabin Traveler Information';
     const[
       {data:allProfiles},
       {data:allCabins},
-      {data:allCabinTravelers}
+      {data:allCabinTravelers},
+      {data:emailLogs}
     ]=await Promise.all([
       sb.from('profiles').select('id,name,email,status').neq('is_admin',true),
       sb.rpc('admin_get_all_cabin_assignments'),
-      sb.rpc('admin_get_all_cabin_travelers')
+      sb.rpc('admin_get_all_cabin_travelers'),
+      sb.from('email_queue').select('to_email,created_at,status')
+        .ilike('subject','%'+TRAVELER_INFO_SUBJECT_KEYWORD+'%')
+        .order('created_at',{ascending:false})
     ]);
+    // Build map: email → most recent log entry
+    const emailLogMap={};
+    (emailLogs||[]).forEach(r=>{
+      if(!emailLogMap[r.to_email])emailLogMap[r.to_email]=r;
+    });
     const cabinMap={};(allCabins||[]).forEach(c=>{cabinMap[c.user_id]=c;});
     const occupantCountMap={};(allCabinTravelers||[]).forEach(t=>{
       occupantCountMap[t.account_owner_id]=(occupantCountMap[t.account_owner_id]||0)+1;
@@ -5886,43 +5896,63 @@ async function loadMissingInfoTab(){
       if(missingCabinType||missingGuestCount||missingTravelerInfo){
         missing.push({id:p.id,name:p.name||'Unknown',email:p.email||'',
           missingCabinType,missingGuestCount,missingTravelerInfo,
-          occupants,expectedGuests,cabinType:ca?.cabin_type||null});
+          occupants,expectedGuests,cabinType:ca?.cabin_type||null,
+          lastEmail:emailLogMap[p.email]||null});
       }
     });
     if(missing.length===0){
       el.innerHTML='<div style="padding:28px;text-align:center;color:#64748b;font-size:.95rem;">✅ No profiles with missing information.</div>';
       return;
     }
-    const rows=missing.map(p=>{
+    const cards=missing.map((p,idx)=>{
       const issues=[];
       if(p.missingCabinType)issues.push('No cabin type');
       if(p.missingGuestCount)issues.push('No guest count');
       if(p.missingTravelerInfo)issues.push(`Travelers: ${p.occupants}/${p.expectedGuests} added`);
-      const issueHtml=issues.map(i=>`<span style="display:inline-block;background:#fef2f2;border:1px solid #fca5a5;border-radius:4px;padding:1px 7px;font-size:.76rem;color:#991b1b;margin:1px 2px;">${i}</span>`).join('');
+      const issueHtml=issues.map(i=>`<span style="display:inline-block;background:#fef2f2;border:1px solid #fca5a5;border-radius:4px;padding:1px 7px;font-size:.75rem;color:#991b1b;margin:1px 2px;">${i}</span>`).join('');
       const safeId=p.id.replace(/'/g,"\\'");
       const safeName=(p.name||'').replace(/'/g,"\\'");
+      const safeEmail=(p.email||'').replace(/'/g,"\\'");
       const numSlots=p.expectedGuests||1;
-      const mailtoLink='mailto:'+encodeURIComponent(p.email||'');
-      return`<tr style="border-bottom:1px solid #f1f5f9;">
+      const rowId='mi-row-'+idx;
+      let lastEmailedTxt='Not yet emailed';
+      let lastEmailedColor='#94a3b8';
+      if(p.lastEmail){
+        const d=new Date(p.lastEmail.created_at);
+        lastEmailedTxt='Last: '+d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        lastEmailedColor='#16a34a';
+      }
+      return`<tr id="${rowId}" style="border-bottom:1px solid #f1f5f9;">
         <td style="padding:10px 12px;font-weight:600;color:#0f2744;font-size:.88rem;">${p.name||'—'}</td>
-        <td style="padding:10px 12px;font-size:.85rem;color:#475569;">${p.email||''}</td>
+        <td style="padding:10px 12px;font-size:.83rem;color:#475569;">${p.email||''}</td>
         <td style="padding:10px 12px;">${issueHtml}</td>
+        <td style="padding:10px 12px;text-align:center;">
+          <span class="mi-last-emailed" style="display:block;font-size:.74rem;color:${lastEmailedColor};margin-bottom:3px;">${lastEmailedTxt}</span>
+          <span class="mi-send-status" style="display:block;font-size:.73rem;min-height:14px;"></span>
+        </td>
         <td style="padding:10px 12px;text-align:right;white-space:nowrap;">
-          <button onclick="(function(){const tb=document.querySelector('.tb-travelers');if(tb)switchTab('travelers',tb);openManageTravelers('${safeId}','${safeName}',${numSlots});})();" style="background:#0f2744;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:.77rem;font-weight:700;cursor:pointer;margin-right:4px;">Fix →</button>
-          <a href="${mailtoLink}" style="display:inline-block;background:#e0f2fe;color:#0c4a6e;border:1.5px solid #bae6fd;border-radius:6px;padding:4px 10px;font-size:.77rem;font-weight:700;text-decoration:none;cursor:pointer;">✉️ Email</a>
+          <button onclick="(function(){const tb=document.querySelector('.tb-travelers');if(tb)switchTab('travelers',tb);openManageTravelers('${safeId}','${safeName}',${numSlots});})();"
+            style="background:#0f2744;color:#fff;border:none;border-radius:6px;padding:5px 11px;font-size:.75rem;font-weight:700;cursor:pointer;margin-bottom:3px;display:block;">Fix →</button>
+          <button onclick="sendMissingInfoEmailAndRefresh('${safeEmail}','${safeName}',document.getElementById('${rowId}'))"
+            style="background:#1a4a7c;color:#fff;border:none;border-radius:6px;padding:5px 11px;font-size:.75rem;font-weight:700;cursor:pointer;margin-bottom:3px;display:block;">✉️ Send Email</button>
+          <button onclick="viewTravelerEmailHistory('${safeEmail}','${safeName}')"
+            style="background:#e0f2fe;color:#0c4a6e;border:1.5px solid #bae6fd;border-radius:6px;padding:4px 10px;font-size:.73rem;font-weight:700;cursor:pointer;margin-bottom:3px;display:block;">📋 View Sent</button>
+          <button onclick="logManualEmailSent('${safeEmail}','${safeName}',document.getElementById('${rowId}'))"
+            style="background:#f8fafc;color:#475569;border:1.5px solid #e2e8f0;border-radius:6px;padding:4px 10px;font-size:.73rem;font-weight:600;cursor:pointer;display:block;">📝 Log Manual</button>
         </td>
       </tr>`;
     }).join('');
     el.innerHTML=`<div class="table-wrap"><table style="width:100%;border-collapse:collapse;">
       <thead>
         <tr style="background:#f8fafc;border-bottom:1.5px solid #e2e8f0;">
-          <th style="padding:9px 12px;text-align:left;font-size:.78rem;color:#64748b;font-weight:700;text-transform:uppercase;">Name</th>
-          <th style="padding:9px 12px;text-align:left;font-size:.78rem;color:#64748b;font-weight:700;text-transform:uppercase;">Email</th>
-          <th style="padding:9px 12px;text-align:left;font-size:.78rem;color:#64748b;font-weight:700;text-transform:uppercase;">Missing</th>
-          <th style="padding:9px 12px;"></th>
+          <th style="padding:9px 12px;text-align:left;font-size:.77rem;color:#64748b;font-weight:700;text-transform:uppercase;">Name</th>
+          <th style="padding:9px 12px;text-align:left;font-size:.77rem;color:#64748b;font-weight:700;text-transform:uppercase;">Email</th>
+          <th style="padding:9px 12px;text-align:left;font-size:.77rem;color:#64748b;font-weight:700;text-transform:uppercase;">Missing</th>
+          <th style="padding:9px 12px;text-align:center;font-size:.77rem;color:#64748b;font-weight:700;text-transform:uppercase;">Last Emailed</th>
+          <th style="padding:9px 12px;text-align:right;font-size:.77rem;color:#64748b;font-weight:700;text-transform:uppercase;">Actions</th>
         </tr>
       </thead>
-      <tbody>${rows}</tbody>
+      <tbody>${cards}</tbody>
     </table></div>`;
   }catch(e){
     el.innerHTML='<div style="padding:20px;color:#dc2626;">Error loading data: '+(e.message||e)+'</div>';
@@ -8350,9 +8380,9 @@ This email was sent by the ${TRIP_NAME} portal.`
 
 Thank you for your reservation on the ${TRIP_NAME}! We are looking forward to an amazing journey together.
 
-ACTION REQUIRED: COMPLETE CABIN TRAVELER INFORMATION
+ACTION REQUIRED: COMPLETE CABIN TYPE, CABIN TRAVELER INFORMATION and GUEST COUNT
 
-To complete the processing of your hold, we need you to complete the traveler information for all guests in your cabin.
+To complete the processing of your hold, we need you to select a cabin type and complete the traveler information for each guest who will be traveling in your cabin.
 
 Please log in to the Commonwealth Cruise Travel Portal and complete the following for each guest:
 
@@ -8368,9 +8398,15 @@ This information is required for all cabin occupants before your hold can be ful
 
 DEPOSIT REQUIRED — ROOM HOLD IS PENDING
 
-An initial deposit of $100.00 per person in your cabin is required to maintain the hold status. Until your deposit payment has been received, your room hold is pending.
+An initial deposit of $100.00 per person in your cabin is required to maintain the hold status.
 
-A full deposit of $250.00 per person in your cabin is required to confirm an ASSIGNED cabin and finalize your reservation. Once your cabin is reserved, a personalized payment link will be provided to make the remainder of your payments.
+NOTE: If you are a solo traveler, the minimum initial deposit is $200.00. Carnival Cruise Line does not have dedicated single or solo staterooms. If you travel alone, you must book a standard double-occupancy room and pay a single supplement, which equals 100% of the a second occupant's fare minus port fees and taxes.
+
+Until your initial deposit payment has been received, your room hold is pending.
+
+A full deposit of $250.00 per person in your cabin is required to confirm an ASSIGNED cabin and finalize your reservation, unless traveling solo, then the full deposit is $500.00.
+
+Once your cabin is reserved, a personalized payment link will be provided to make the remainder of your payments.
 
 To submit your deposit, please complete the CC Authorization Form and return it to your trip organizer. Or if you prefer, reply requesting a call from one of our team members to receive your credit card information by phone for payment. A receipt will be provided for all payments.
 
@@ -8379,9 +8415,12 @@ https://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf
 Please complete this at your earliest convenience. If you have any questions, reply to this email and we will be happy to assist.
 
 Thank you,
-Your Commonwealth Cruise Team
-This email was sent by the ${TRIP_NAME} portal.`
-    })
+Your Commonwealth Cruise Team`
+    }),
+    customSend:()=>sendTravelerInfoReminderEmail(
+      (document.getElementById('eg-to-email')||{}).value?.trim(),
+      (document.getElementById('eg-to-name')||{}).value?.trim()
+    )
   },
   {
     id:'deposit_required',label:'Deposit Payment Required',icon:'💳',
@@ -8695,6 +8734,205 @@ This email was sent by the ${TRIP_NAME} portal.`;
     else if(result?.fallback){statusEl.textContent='📧 Email client opened.';statusEl.style.color='#d97706';}
     else{statusEl.textContent='✅ Deposit Required email sent!';statusEl.style.color='#16a34a';}
     setTimeout(()=>{if(statusEl)statusEl.textContent='';},8000);
+  }
+}
+
+// ── TRAVELER INFO REMINDER EMAIL (used by Email Gen tab + Missing Info tab) ─────
+function buildTravelerInfoReminderHtml(recipientName){
+  return `
+    <p style="line-height:1.85;">Hello <strong>${recipientName}</strong>,</p>
+    <p style="line-height:1.85;">Thank you for your reservation on the <strong>${TRIP_NAME}</strong>! We are looking forward to an amazing journey together.</p>
+    <div style="background:#fff3cd;border:2px solid #ffc107;border-radius:10px;padding:14px 18px;margin:18px 0;text-align:center;">
+      <strong style="font-size:1.02rem;color:#856404;display:block;">⚠️ ACTION REQUIRED: COMPLETE CABIN TYPE, CABIN TRAVELER INFORMATION AND GUEST COUNT</strong>
+    </div>
+    <p style="line-height:1.85;">To complete the processing of your hold, we need you to select a cabin type and complete the traveler information for each guest who will be traveling in your cabin.</p>
+    <p style="line-height:1.85;font-weight:700;color:#0f2744;">Please log in to the Commonwealth Cruise Travel Portal and complete the following for each guest:</p>
+    <div style="text-align:center;margin:16px 0;">
+      <a href="${PORTAL_URL}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.95rem;padding:11px 26px;border-radius:9px;text-decoration:none;">🛳️ Commonwealth Cruise Travel Portal →</a>
+    </div>
+    <ul style="line-height:2;font-size:.9rem;margin:12px 0;">
+      <li>Full legal name (as it appears on travel documents)</li>
+      <li>Date of birth</li>
+      <li>Gender</li>
+      <li>Citizenship type and country of citizenship</li>
+      <li>Phone number</li>
+    </ul>
+    <p style="line-height:1.85;color:#475569;font-style:italic;">This information is required for all cabin occupants before your hold can be fully processed. Incomplete records may delay your booking confirmation.</p>
+    <div style="background:#fef2f2;border:2px solid #dc2626;border-radius:10px;padding:14px 18px;margin:18px 0;text-align:center;">
+      <strong style="font-size:1.05rem;color:#dc2626;text-decoration:underline;display:block;">DEPOSIT REQUIRED — ROOM HOLD IS PENDING</strong>
+    </div>
+    <p style="line-height:1.85;">An initial deposit of <strong style="text-decoration:underline;">$100.00 per person in your cabin</strong> is required to maintain the hold status.</p>
+    <div style="background:#fef9c3;border:2px solid #fbbf24;border-radius:10px;padding:14px 18px;margin:16px 0;">
+      <strong style="display:block;color:#92400e;margin-bottom:8px;">📌 NOTE — SOLO TRAVELERS:</strong>
+      <p style="margin:0;line-height:1.75;color:#78350f;font-size:.88rem;">If you are a solo traveler, the <strong>minimum initial deposit is $200.00</strong>. Carnival Cruise Line does not have dedicated single or solo staterooms. If you travel alone, you must book a standard double-occupancy room and pay a single supplement, which equals 100% of a second occupant's fare minus port fees and taxes.</p>
+    </div>
+    <p style="line-height:1.85;">Until your initial deposit payment has been received, your room hold is pending.</p>
+    <p style="line-height:1.85;">A full deposit of <strong style="text-decoration:underline;">$250.00 per person</strong> in your cabin is required to confirm an <strong style="text-decoration:underline;">ASSIGNED cabin and finalize your reservation</strong>, unless traveling solo, then the full deposit is <strong>$500.00</strong>.</p>
+    <p style="line-height:1.85;">Once your cabin is reserved, a personalized payment link will be provided to make the remainder of your payments.</p>
+    <p style="line-height:1.85;">To submit your deposit, please complete the CC Authorization Form and return it to your trip organizer. Or if you prefer, reply requesting a call from one of our team members to receive your credit card information by phone for payment. A receipt will be provided for all payments.</p>
+    <div style="text-align:center;margin:16px 0;">
+      <a href="${CC_AUTH_FORM_URL}" target="_blank" style="display:inline-block;background:#14532d;color:#fff;font-weight:800;font-size:.95rem;padding:11px 26px;border-radius:9px;text-decoration:none;">📄 CC Authorization Form</a>
+      <p style="font-size:.78rem;color:#64748b;margin-top:6px;">${CC_AUTH_FORM_URL}</p>
+    </div>
+    <p style="line-height:1.85;">Please complete this at your earliest convenience. If you have any questions, reply to this email and we will be happy to assist.</p>`;
+}
+async function sendTravelerInfoReminderEmail(toEmail, toName, statusElId){
+  if(!toEmail){
+    const s=document.getElementById(statusElId||'eg-send-status');
+    if(s){s.textContent='⚠️ Traveler email is required.';s.style.color='#d97706';}
+    return;
+  }
+  const name=toName||toEmail;
+  const subject=`${TRIP_NAME} — Action Required: Complete Cabin Traveler Information`;
+  const htmlBody=buildEmailHtml(name,buildTravelerInfoReminderHtml(name));
+  const plain=`Hello ${name},
+
+Thank you for your reservation on the ${TRIP_NAME}! We are looking forward to an amazing journey together.
+
+ACTION REQUIRED: COMPLETE CABIN TYPE, CABIN TRAVELER INFORMATION AND GUEST COUNT
+
+To complete the processing of your hold, we need you to select a cabin type and complete the traveler information for each guest who will be traveling in your cabin.
+
+Please log in to the Commonwealth Cruise Travel Portal:
+${PORTAL_URL}
+
+- Full legal name (as it appears on travel documents)
+- Date of birth
+- Gender
+- Citizenship type and country of citizenship
+- Phone number
+
+DEPOSIT REQUIRED — ROOM HOLD IS PENDING
+
+An initial deposit of $100.00 per person in your cabin is required to maintain the hold status.
+
+NOTE: If you are a solo traveler, the minimum initial deposit is $200.00. Carnival Cruise Line does not have dedicated single or solo staterooms.
+
+Until your initial deposit payment has been received, your room hold is pending.
+
+A full deposit of $250.00 per person in your cabin is required to confirm an ASSIGNED cabin and finalize your reservation, unless traveling solo, then the full deposit is $500.00.
+
+Once your cabin is reserved, a personalized payment link will be provided to make the remainder of your payments.
+
+To submit your deposit, please complete the CC Authorization Form:
+${CC_AUTH_FORM_URL}
+
+Please complete this at your earliest convenience. If you have any questions, reply to this email and we will be happy to assist.
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`;
+  const sid=statusElId||'eg-send-status';
+  const statusEl=document.getElementById(sid);
+  if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
+  const result=await sendEmail(toEmail,name,subject,plain,htmlBody);
+  // Log to email_queue for tracking even when sent directly (not held)
+  if(!result?.held&&!result?.fallback){
+    sb.from('email_queue').insert({
+      to_email:toEmail,to_name:name,subject,
+      plain_body:plain,html_body:htmlBody,
+      status:result?.ok?'sent':'failed',
+      created_at:new Date().toISOString(),
+      meta:{source:'traveler_info_reminder'}
+    }).catch(()=>{});
+  }
+  if(statusEl){
+    if(result?.held){statusEl.textContent='📋 Queued in hold.';statusEl.style.color='#d97706';if(document.getElementById('admin-heldemails'))loadEmailQueueTab();}
+    else if(result?.fallback){statusEl.textContent='📧 Email client opened.';statusEl.style.color='#d97706';}
+    else if(result?.ok){statusEl.textContent='✅ Email sent!';statusEl.style.color='#16a34a';}
+    else{statusEl.textContent='⚠️ Error sending.';statusEl.style.color='#dc2626';}
+    setTimeout(()=>{if(statusEl)statusEl.textContent='';},8000);
+  }
+  return result;
+}
+
+// ── MISSING INFO TAB — EMAIL HISTORY HELPERS ─────────────────
+async function viewTravelerEmailHistory(email, name){
+  const {data:logs}=await sb.from('email_queue')
+    .select('subject,created_at,status,to_name')
+    .eq('to_email',email)
+    .order('created_at',{ascending:false})
+    .limit(30);
+  const d=document.createElement('div');
+  d.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;';
+  const rows=(logs||[]).map(r=>{
+    const dt=r.created_at?new Date(r.created_at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'—';
+    const badge=r.status==='manual'
+      ?'<span style="background:#f0fdf4;border:1px solid #86efac;color:#166534;border-radius:4px;padding:1px 6px;font-size:.72rem;">Manual</span>'
+      :r.status==='sent'
+      ?'<span style="background:#f0fdf4;border:1px solid #86efac;color:#166534;border-radius:4px;padding:1px 6px;font-size:.72rem;">Sent</span>'
+      :r.status==='held'
+      ?'<span style="background:#fef9c3;border:1px solid #fde047;color:#713f12;border-radius:4px;padding:1px 6px;font-size:.72rem;">Held</span>'
+      :`<span style="background:#f8fafc;border:1px solid #e2e8f0;color:#64748b;border-radius:4px;padding:1px 6px;font-size:.72rem;">${r.status||'?'}</span>`;
+    return`<tr style="border-bottom:1px solid #f1f5f9;">
+      <td style="padding:8px 10px;font-size:.82rem;color:#1e293b;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.subject||'—'}</td>
+      <td style="padding:8px 10px;font-size:.82rem;color:#475569;white-space:nowrap;">${dt}</td>
+      <td style="padding:8px 10px;">${badge}</td>
+    </tr>`;
+  }).join('');
+  d.innerHTML=`<div style="background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.3);width:100%;max-width:620px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px 12px;border-bottom:1.5px solid #e2e8f0;flex-shrink:0;">
+      <div><h3 style="margin:0;font-size:1rem;color:#0f2744;">📧 Email History — ${name}</h3><p style="margin:2px 0 0;font-size:.78rem;color:#64748b;">${email}</p></div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;font-size:1.3rem;color:#94a3b8;cursor:pointer;">✕</button>
+    </div>
+    <div style="overflow-y:auto;flex:1;">
+      ${rows?`<table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:#f8fafc;border-bottom:1.5px solid #e2e8f0;">
+          <th style="padding:7px 10px;text-align:left;font-size:.74rem;color:#64748b;font-weight:700;text-transform:uppercase;">Subject</th>
+          <th style="padding:7px 10px;text-align:left;font-size:.74rem;color:#64748b;font-weight:700;text-transform:uppercase;">Date</th>
+          <th style="padding:7px 10px;text-align:left;font-size:.74rem;color:#64748b;font-weight:700;text-transform:uppercase;">Status</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`:'<div style="padding:20px;text-align:center;color:#64748b;font-size:.9rem;">No email history found.</div>'}
+    </div>
+    <div style="padding:12px 20px;border-top:1.5px solid #e2e8f0;flex-shrink:0;">
+      <button onclick="this.closest('[style*=fixed]').remove()" style="width:100%;background:#e5e7eb;color:#374151;border:none;border-radius:8px;padding:9px;font-size:.88rem;cursor:pointer;font-weight:600;">Close</button>
+    </div>
+  </div>`;
+  document.body.appendChild(d);
+}
+async function logManualEmailSent(email, name, rowEl){
+  const dateStr=prompt('Enter the date the email was sent (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+  if(!dateStr||!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)){alert('Invalid date format. Use YYYY-MM-DD.');return;}
+  const{error}=await sb.from('email_queue').insert({
+    to_email:email, to_name:name,
+    subject:`${TRIP_NAME} — Action Required: Complete Cabin Traveler Information`,
+    plain_body:'[Manually logged — email sent outside portal]',
+    html_body:'[Manually logged — email sent outside portal]',
+    status:'manual',
+    created_at:dateStr+'T12:00:00.000Z',
+    meta:{source:'manual_log'}
+  });
+  if(error){alert('Error saving: '+(error.message||error));return;}
+  // Update the displayed date in the row
+  if(rowEl){
+    const dateCell=rowEl.querySelector('.mi-last-emailed');
+    if(dateCell){
+      const d=new Date(dateStr+'T12:00:00.000Z');
+      dateCell.textContent='Last: '+d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      dateCell.style.color='#16a34a';
+    }
+  }
+  alert('Email date logged successfully.');
+}
+async function sendMissingInfoEmailAndRefresh(email, name, rowEl){
+  const statusEl=rowEl?.querySelector('.mi-send-status');
+  if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
+  const result=await sendTravelerInfoReminderEmail(email,name,null);
+  if(statusEl){
+    if(result?.ok||result?.held){
+      statusEl.textContent=result?.held?'📋 Held':'✅ Sent!';
+      statusEl.style.color=result?.held?'#d97706':'#16a34a';
+      // Update last-emailed display
+      const dateCell=rowEl?.querySelector('.mi-last-emailed');
+      if(dateCell){
+        dateCell.textContent='Last: '+new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        dateCell.style.color='#16a34a';
+      }
+    } else {
+      statusEl.textContent='⚠️ Error';statusEl.style.color='#dc2626';
+    }
+    setTimeout(()=>{if(statusEl)statusEl.textContent='';},6000);
   }
 }
 
