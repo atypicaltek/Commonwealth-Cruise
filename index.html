@@ -10753,14 +10753,25 @@ async function openTravelerCCAuthUpload(){
         </div>
 
         <div style="font-weight:700;color:#0f2744;font-size:.83rem;padding-bottom:4px;border-bottom:1.5px solid #e2e8f0;margin-bottom:9px;margin-top:13px;">Authorization</div>
-        <div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:8px;padding:10px 12px;font-size:.78rem;color:#0c4a6e;line-height:1.6;margin-bottom:11px;">
-          I authorize GlowJetters / Commonwealth Cruise 2027 to charge the credit card listed above for my <strong>${cabinType||'cabin'}</strong> reservation per the payment schedule. The initial charge of <strong>$100.00 per person</strong> reserves the cabin. This card will only be used for payments up to the full deposit. A personal payment link will be provided for all remaining balance.
+        <div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:8px;padding:10px 12px;font-size:.78rem;color:#0c4a6e;line-height:1.6;margin-bottom:9px;">
+          <strong style="display:block;font-size:.8rem;margin-bottom:4px;">TRAVEL PURCHASE AUTHORIZATION — For Payment Link Purchases</strong>
+          Thank you for your purchase. GlowJetters Travel is pleased to confirm the following travel arrangements. To complete your transaction and confirm your arrangements, your signature on this authorization is required. This form is <strong>NOT required</strong> for electronic purchases you complete yourself through the payment link. Charges are payable ONLY to the cruise line or other travel supplier. Independent Travel Advisor (GlowJetters Travel) may not accept and process charges through any other account, or accept checks, cash or other forms of payment.
+          <div style="margin-top:8px;padding-top:8px;border-top:1px solid #bae6fd;">
+          I authorize GlowJetters Travel to charge the credit card listed above for my <strong>${cabinType||'cabin'}</strong> reservation on the <strong>Commonwealth Cruise 2027</strong> per the payment schedule. The initial charge of <strong>$100.00 per person</strong> reserves the cabin. This card will only be used for payments up to the full deposit. A personal payment link will be provided for all remaining balance.
+          </div>
+        </div>
+        <div style="margin-bottom:9px;">
+          <label style="font-size:.79rem;color:#374151;font-weight:600;display:block;margin-bottom:3px;">Authorized Amount *</label>
+          <input id="cca-amount" type="text" placeholder="e.g. $100.00" style="width:100%;border:1.5px solid #cbd5e1;border-radius:7px;padding:8px 10px;font-size:.87rem;box-sizing:border-box;">
         </div>
         <div style="margin-bottom:13px;">
           <label style="font-size:.79rem;color:#374151;font-weight:600;display:block;margin-bottom:6px;">Travel Insurance *</label>
-          <div style="display:flex;gap:20px;">
-            <label style="display:flex;align-items:center;gap:6px;font-size:.84rem;cursor:pointer;"><input type="radio" name="cca-insurance" value="accept" style="accent-color:#166534;"> <span style="color:#166534;font-weight:600;">✓ Accept Travel Insurance</span></label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:.84rem;cursor:pointer;"><input type="radio" name="cca-insurance" value="decline" style="accent-color:#dc2626;"> <span style="color:#dc2626;font-weight:600;">✗ Decline Travel Insurance</span></label>
+          <div style="display:flex;gap:20px;margin-bottom:8px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:.84rem;cursor:pointer;"><input type="radio" name="cca-insurance" value="accept" style="accent-color:#166534;" onchange="updateInsuranceCaveat()"> <span style="color:#166534;font-weight:600;">✓ Accept</span></label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:.84rem;cursor:pointer;"><input type="radio" name="cca-insurance" value="decline" checked style="accent-color:#dc2626;" onchange="updateInsuranceCaveat()"> <span style="color:#dc2626;font-weight:600;">✗ Decline</span></label>
+          </div>
+          <div id="cca-insurance-caveat" style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:9px 12px;font-size:.76rem;color:#991b1b;line-height:1.55;">
+            I am <strong>DECLINING TRAVEL INSURANCE.</strong> I have read and understand all cancellation charges and change fees related to the above travel arrangements, and that I may not be entitled to a full refund should my travel plans change. In case of cancellation of nonrefundable airline tickets or other arrangements, I agree to pay all applicable penalties according to the travel supplier's rules.
           </div>
         </div>
 
@@ -10870,6 +10881,18 @@ async function loadJsPDF(){
     document.head.appendChild(s);
   });
 }
+function updateInsuranceCaveat(){
+  const val=document.querySelector('input[name="cca-insurance"]:checked')?.value||'decline';
+  const el=document.getElementById('cca-insurance-caveat');
+  if(!el)return;
+  if(val==='accept'){
+    el.style.background='#f0fdf4';el.style.borderColor='#86efac';el.style.color='#166534';
+    el.innerHTML='I have <strong>ACCEPTED</strong> and authorized the travel purchases above, including travel insurance, and I am aware the insurance premium is not refundable.';
+  }else{
+    el.style.background='#fef2f2';el.style.borderColor='#fca5a5';el.style.color='#991b1b';
+    el.innerHTML='I am <strong>DECLINING TRAVEL INSURANCE.</strong> I have read and understand all cancellation charges and change fees related to the above travel arrangements, and that I may not be entitled to a full refund should my travel plans change. In case of cancellation of nonrefundable airline tickets or other arrangements, I agree to pay all applicable penalties according to the travel supplier\'s rules.';
+  }
+}
 async function saveCCAuthOnlineForm(lastName, btn){
   const statusEl=document.getElementById('ccauth-online-status');
   const cardName=(document.getElementById('cca-name')?.value||'').trim();
@@ -10881,6 +10904,7 @@ async function saveCCAuthOnlineForm(lastName, btn){
   const city=(document.getElementById('cca-city')?.value||'').trim();
   const state=(document.getElementById('cca-state')?.value||'').trim();
   const zip=(document.getElementById('cca-zip')?.value||'').trim();
+  const authAmount=(document.getElementById('cca-amount')?.value||'').trim();
   const insurance=document.querySelector('input[name="cca-insurance"]:checked')?.value||'';
   const printed=(document.getElementById('cca-printed')?.value||'').trim();
   const dateStr=document.getElementById('cca-date')?.value||new Date().toLocaleDateString('en-US');
@@ -10896,12 +10920,15 @@ async function saveCCAuthOnlineForm(lastName, btn){
   if(!city)missing.push('City');
   if(!state)missing.push('State');
   if(!zip)missing.push('ZIP');
+  if(!authAmount)missing.push('Authorized amount');
   if(!insurance)missing.push('Travel insurance selection');
   if(!printed)missing.push('Printed name');
   if(sigBlank)missing.push('Signature');
   if(missing.length){if(statusEl){statusEl.textContent='⚠️ Missing: '+missing.join(', ');statusEl.style.color='#dc2626';}return;}
   if(btn){btn.disabled=true;btn.textContent='Generating PDF…';}
   if(statusEl){statusEl.textContent='Generating PDF…';statusEl.style.color='#64748b';}
+  const insAcceptText=`I have ACCEPTED and authorized the travel purchases above, including travel insurance, and I am aware the insurance premium is not refundable.`;
+  const insDeclineText=`I am DECLINING TRAVEL INSURANCE. I have read and understand all cancellation charges and change fees related to the above travel arrangements, and that I may not be entitled to a full refund should my travel plans change. In case of cancellation of nonrefundable airline tickets or other arrangements, I agree to pay all applicable penalties according to the travel supplier's rules.`;
   try{
     const JsPDF=await loadJsPDF();
     const doc=new JsPDF({orientation:'portrait',unit:'mm',format:'letter'});
@@ -10924,14 +10951,24 @@ async function saveCCAuthOnlineForm(lastName, btn){
     sec('BILLING ADDRESS');
     fld('Street Address',street,ml,tw);y+=13;
     fld('City',city,ml,72);fld('State',state,ml+77,24);fld('ZIP',zip,ml+106,tw-106);y+=14;
-    sec('AUTHORIZATION');
-    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(12,74,110);
-    const authT=`I authorize GlowJetters / Commonwealth Cruise 2027 to charge the credit card listed above for my cabin reservation per the payment schedule. The initial charge of $100.00 per person reserves the cabin. This card will ONLY be used for payments up to the full deposit amount per the schedule. A personal payment link will be sent for all remaining balance.`;
+    sec('TRAVEL PURCHASE AUTHORIZATION');
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(12,74,110);
+    const authHeader=`TRAVEL PURCHASE AUTHORIZATION — For Payment Link Purchases\nThank you for your purchase. GlowJetters Travel is pleased to confirm the following travel arrangements. To complete your transaction and confirm your arrangements, your signature on this authorization is required. This form is NOT required for electronic purchases you complete yourself through the payment link. Charges are payable ONLY to the cruise line or other travel supplier. Independent Travel Advisor (GlowJetters Travel) may not accept and process charges through any other account, or accept checks, cash or other forms of payment.`;
+    const headerLines=doc.splitTextToSize(authHeader,tw);
+    doc.text(headerLines,ml,y);y+=headerLines.length*3.8+4;
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(30,41,59);
+    const authT=`I authorize GlowJetters Travel to charge the credit card listed above for my cabin reservation on the Commonwealth Cruise 2027 per the payment schedule. The initial charge of $100.00 per person reserves the cabin. This card will ONLY be used for payments up to the full deposit amount per the schedule. A personal payment link will be sent for all remaining balance.`;
     const authLines=doc.splitTextToSize(authT,tw);
-    doc.text(authLines,ml,y);y+=authLines.length*4+4;
+    doc.text(authLines,ml,y);y+=authLines.length*4+2;
+    fld('Authorized Amount',authAmount,ml,60);y+=13;
+    // Travel Insurance
     const insColor=insurance==='accept'?[22,101,52]:[185,28,28];
-    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(...insColor);
-    doc.text('TRAVEL INSURANCE: '+(insurance==='accept'?'☑ ACCEPTED':'☒ DECLINED'),ml,y);y+=10;
+    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(...insColor);
+    doc.text('TRAVEL INSURANCE: '+(insurance==='accept'?'[X] ACCEPTED':'[ ] DECLINED'),ml,y);y+=5;
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);
+    const insText=insurance==='accept'?insAcceptText:insDeclineText;
+    const insLines=doc.splitTextToSize(insText,tw);
+    doc.text(insLines,ml,y);y+=insLines.length*3.8+6;
     sec('SIGNATURE');
     if(canvas&&!sigBlank){
       const sigData=canvas.toDataURL('image/png');
