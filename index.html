@@ -10668,53 +10668,147 @@ async function downloadCCAuthForm(storagePath, filename, btn){
   if(btn){btn.disabled=false;btn.textContent='⬇️ Download';}
 }
 
-// Traveler: upload their own completed CC Auth form
+// Traveler: complete CC Auth form online or upload signed copy
 async function openTravelerCCAuthUpload(){
   if(!gUser||!gProfile)return;
-  // Derive last name (last word of full name)
   const nameParts=(gProfile.name||'').trim().split(/\s+/);
   const lastName=nameParts[nameParts.length-1]||'Traveler';
-  // Fetch fresh profile to check existing
   const{data:prof}=await sb.from('profiles').select('cc_auth_url,cc_auth_filename').eq('id',gUser.id).single();
   const existing=prof?.cc_auth_url;
   const existingFile=prof?.cc_auth_filename||'';
+  const cabinType=window.gDashCabinData?.cabin_type||'';
+  const today=new Date().toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'numeric'});
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;';
-  overlay.innerHTML=`<div style="background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.3);width:100%;max-width:520px;padding:0;overflow:hidden;">
-    <div style="background:#0f2744;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">
-      <div><div style="font-weight:800;font-size:1rem;">📄 CC Authorization Form</div><div style="font-size:.76rem;opacity:.75;margin-top:2px;">Upload your completed and signed CC Auth form</div></div>
+  overlay.innerHTML=`<div style="background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.3);width:100%;max-width:560px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;">
+    <div style="background:#0f2744;color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+      <div><div style="font-weight:800;font-size:1rem;">📄 CC Authorization Form</div><div style="font-size:.76rem;opacity:.75;margin-top:1px;">Complete online or upload a signed copy</div></div>
       <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;opacity:.75;">✕</button>
     </div>
-    <div style="padding:20px;">
-      ${existing?`<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:9px;padding:12px 16px;margin-bottom:16px;">
-        <div style="font-weight:700;color:#166534;margin-bottom:4px;">✅ Form Already On File</div>
-        <div style="font-size:.83rem;color:#166534;">${existingFile}</div>
-        <div style="display:flex;gap:8px;margin-top:10px;">
-          <button onclick="viewCCAuthForm('${existing}',this)" style="background:#166534;color:#fff;border:none;border-radius:7px;padding:6px 16px;font-size:.82rem;font-weight:700;cursor:pointer;">🔍 View</button>
-          <button onclick="downloadCCAuthForm('${existing}','${existingFile.replace(/'/g,"\\'")}',this)" style="background:#1a4a7c;color:#fff;border:none;border-radius:7px;padding:6px 16px;font-size:.82rem;font-weight:700;cursor:pointer;">⬇️ Download</button>
+    <div style="overflow-y:auto;padding:18px;flex:1;">
+      ${existing?`<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:9px;padding:12px 16px;margin-bottom:14px;">
+        <div style="font-weight:700;color:#166534;margin-bottom:3px;">✅ Form Already On File</div>
+        <div style="font-size:.82rem;color:#166534;">${existingFile}</div>
+        <div style="display:flex;gap:8px;margin-top:9px;">
+          <button onclick="viewCCAuthForm('${existing}',this)" style="background:#166534;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:.81rem;font-weight:700;cursor:pointer;">🔍 View</button>
+          <button onclick="downloadCCAuthForm('${existing}','${existingFile.replace(/'/g,"\\'")}',this)" style="background:#1a4a7c;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:.81rem;font-weight:700;cursor:pointer;">⬇️ Download</button>
         </div>
-        <div style="font-size:.76rem;color:#15803d;margin-top:8px;">You may upload a new form below to replace it.</div>
+        <div style="font-size:.75rem;color:#15803d;margin-top:7px;">Complete a new form below to replace it.</div>
       </div>`:''}
-      <div style="margin-bottom:12px;">
+
+      <!-- Tab toggle -->
+      <div style="display:flex;border:1.5px solid #c7d7f9;border-radius:9px;overflow:hidden;margin-bottom:16px;">
+        <button id="ccauth-tab-online" onclick="ccauthSwitchTab('online')" style="flex:1;padding:9px 0;font-size:.87rem;font-weight:700;border:none;cursor:pointer;background:#1a4a7c;color:#fff;">✏️ Complete Online</button>
+        <button id="ccauth-tab-upload" onclick="ccauthSwitchTab('upload')" style="flex:1;padding:9px 0;font-size:.87rem;font-weight:700;border:none;cursor:pointer;background:#f8fafc;color:#64748b;border-left:1.5px solid #c7d7f9;">📎 Upload Signed Form</button>
+      </div>
+
+      <!-- ── ONLINE FORM ── -->
+      <div id="ccauth-panel-online">
+        <div style="font-size:.81rem;color:#475569;margin-bottom:13px;line-height:1.5;">Fill in your card details below. Your authorization will be saved securely to your traveler profile.</div>
+
+        <div style="font-weight:700;color:#0f2744;font-size:.83rem;padding-bottom:4px;border-bottom:1.5px solid #e2e8f0;margin-bottom:9px;">Cardholder Information</div>
+        <div style="margin-bottom:9px;">
+          <label style="font-size:.79rem;color:#374151;font-weight:600;display:block;margin-bottom:3px;">Full Name on Card *</label>
+          <input id="cca-name" type="text" placeholder="As it appears on your card" style="width:100%;border:1.5px solid #cbd5e1;border-radius:7px;padding:8px 10px;font-size:.87rem;box-sizing:border-box;">
+        </div>
+        <div style="margin-bottom:9px;">
+          <label style="font-size:.79rem;color:#374151;font-weight:600;display:block;margin-bottom:5px;">Card Type *</label>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            ${['Visa','Mastercard','American Express','Discover'].map(t=>`<label style="display:flex;align-items:center;gap:5px;font-size:.83rem;cursor:pointer;"><input type="radio" name="cca-cardtype" value="${t}" style="accent-color:#1a4a7c;"> ${t}</label>`).join('')}
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-bottom:9px;">
+          <div>
+            <label style="font-size:.79rem;color:#374151;font-weight:600;display:block;margin-bottom:3px;">Card Number *</label>
+            <input id="cca-cardnum" type="text" maxlength="19" placeholder="#### #### #### ####" style="width:100%;border:1.5px solid #cbd5e1;border-radius:7px;padding:8px 10px;font-size:.87rem;box-sizing:border-box;" oninput="let v=this.value.replace(/[^0-9]/g,'').slice(0,16);this.value=v.replace(/(.{4})/g,'$1 ').trim();">
+          </div>
+          <div>
+            <label style="font-size:.79rem;color:#374151;font-weight:600;display:block;margin-bottom:3px;">Expiration *</label>
+            <input id="cca-exp" type="text" maxlength="5" placeholder="MM/YY" style="width:100%;border:1.5px solid #cbd5e1;border-radius:7px;padding:8px 10px;font-size:.87rem;box-sizing:border-box;" oninput="let v=this.value.replace(/[^0-9]/g,'').slice(0,4);if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);this.value=v;">
+          </div>
+          <div>
+            <label style="font-size:.79rem;color:#374151;font-weight:600;display:block;margin-bottom:3px;">CVV *</label>
+            <input id="cca-cvv" type="text" maxlength="4" placeholder="CVV" style="width:100%;border:1.5px solid #cbd5e1;border-radius:7px;padding:8px 10px;font-size:.87rem;box-sizing:border-box;" oninput="this.value=this.value.replace(/[^0-9]/g,'');">
+          </div>
+        </div>
+
+        <div style="font-weight:700;color:#0f2744;font-size:.83rem;padding-bottom:4px;border-bottom:1.5px solid #e2e8f0;margin-bottom:9px;margin-top:13px;">Billing Address</div>
+        <div style="margin-bottom:8px;">
+          <label style="font-size:.79rem;color:#374151;font-weight:600;display:block;margin-bottom:3px;">Street Address *</label>
+          <input id="cca-street" type="text" placeholder="123 Main Street" style="width:100%;border:1.5px solid #cbd5e1;border-radius:7px;padding:8px 10px;font-size:.87rem;box-sizing:border-box;">
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-bottom:9px;">
+          <div>
+            <label style="font-size:.79rem;color:#374151;font-weight:600;display:block;margin-bottom:3px;">City *</label>
+            <input id="cca-city" type="text" style="width:100%;border:1.5px solid #cbd5e1;border-radius:7px;padding:8px 10px;font-size:.87rem;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:.79rem;color:#374151;font-weight:600;display:block;margin-bottom:3px;">State *</label>
+            <input id="cca-state" type="text" maxlength="2" placeholder="VA" style="width:100%;border:1.5px solid #cbd5e1;border-radius:7px;padding:8px 10px;font-size:.87rem;box-sizing:border-box;text-transform:uppercase;">
+          </div>
+          <div>
+            <label style="font-size:.79rem;color:#374151;font-weight:600;display:block;margin-bottom:3px;">ZIP *</label>
+            <input id="cca-zip" type="text" maxlength="10" style="width:100%;border:1.5px solid #cbd5e1;border-radius:7px;padding:8px 10px;font-size:.87rem;box-sizing:border-box;">
+          </div>
+        </div>
+
+        <div style="font-weight:700;color:#0f2744;font-size:.83rem;padding-bottom:4px;border-bottom:1.5px solid #e2e8f0;margin-bottom:9px;margin-top:13px;">Authorization</div>
+        <div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:8px;padding:10px 12px;font-size:.78rem;color:#0c4a6e;line-height:1.6;margin-bottom:11px;">
+          I authorize GlowJetters / Commonwealth Cruise 2027 to charge the credit card listed above for my <strong>${cabinType||'cabin'}</strong> reservation per the payment schedule. The initial charge of <strong>$100.00 per person</strong> reserves the cabin. This card will only be used for payments up to the full deposit. A personal payment link will be provided for all remaining balance.
+        </div>
+        <div style="margin-bottom:13px;">
+          <label style="font-size:.79rem;color:#374151;font-weight:600;display:block;margin-bottom:6px;">Travel Insurance *</label>
+          <div style="display:flex;gap:20px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:.84rem;cursor:pointer;"><input type="radio" name="cca-insurance" value="accept" style="accent-color:#166534;"> <span style="color:#166534;font-weight:600;">✓ Accept Travel Insurance</span></label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:.84rem;cursor:pointer;"><input type="radio" name="cca-insurance" value="decline" style="accent-color:#dc2626;"> <span style="color:#dc2626;font-weight:600;">✗ Decline Travel Insurance</span></label>
+          </div>
+        </div>
+
+        <div style="font-weight:700;color:#0f2744;font-size:.83rem;padding-bottom:4px;border-bottom:1.5px solid #e2e8f0;margin-bottom:8px;margin-top:13px;">Signature</div>
+        <div style="font-size:.77rem;color:#64748b;margin-bottom:5px;">Sign below using your mouse or finger:</div>
+        <div style="position:relative;border:1.5px solid #cbd5e1;border-radius:8px;background:#fafafa;margin-bottom:5px;overflow:hidden;">
+          <canvas id="cca-sig-canvas" style="display:block;width:100%;height:88px;cursor:crosshair;touch-action:none;"></canvas>
+          <button onclick="clearCCASig()" style="position:absolute;top:4px;right:6px;background:none;border:none;font-size:.73rem;color:#94a3b8;cursor:pointer;padding:2px 6px;">Clear</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+          <div>
+            <label style="font-size:.79rem;color:#374151;font-weight:600;display:block;margin-bottom:3px;">Printed Name *</label>
+            <input id="cca-printed" type="text" value="${(gProfile.name||'').replace(/"/g,'&quot;')}" style="width:100%;border:1.5px solid #cbd5e1;border-radius:7px;padding:8px 10px;font-size:.87rem;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:.79rem;color:#374151;font-weight:600;display:block;margin-bottom:3px;">Date</label>
+            <input id="cca-date" type="text" value="${today}" readonly style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:8px 10px;font-size:.87rem;box-sizing:border-box;background:#f8fafc;color:#64748b;">
+          </div>
+        </div>
+        <div id="ccauth-online-status" style="font-size:.83rem;min-height:18px;margin-bottom:10px;text-align:center;"></div>
+        <button onclick="saveCCAuthOnlineForm('${lastName.replace(/'/g,"\\'")}',this)" style="width:100%;background:#1a4a7c;color:#fff;border:none;border-radius:9px;padding:11px;font-size:.92rem;font-weight:800;cursor:pointer;">💾 Save & Submit Authorization</button>
+      </div>
+
+      <!-- ── UPLOAD TAB ── -->
+      <div id="ccauth-panel-upload" style="display:none;">
         <a href="${CC_AUTH_FORM_URL}" target="_blank" style="display:inline-block;background:#f0f4ff;border:1.5px solid #c7d7f9;color:#1a4a7c;border-radius:8px;padding:8px 16px;font-size:.85rem;font-weight:700;text-decoration:none;margin-bottom:14px;">📥 Download Blank CC Auth Form</a>
         <p style="font-size:.83rem;color:#475569;margin:0 0 12px;line-height:1.5;">Complete, sign, and scan the CC Authorization form, then upload it here. Your last name will be automatically prepended to the filename.</p>
+        <div style="border:2px dashed #c7d7f9;border-radius:10px;padding:20px;text-align:center;margin-bottom:14px;" id="ccauth-drop-zone">
+          <div style="font-size:2rem;margin-bottom:8px;">📎</div>
+          <div style="font-size:.87rem;color:#475569;margin-bottom:10px;">Drag & drop your completed form here, or</div>
+          <input type="file" id="ccauth-file-input" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" onchange="handleCCAuthFileSelect(this,'${lastName}')">
+          <button onclick="document.getElementById('ccauth-file-input').click()" style="background:#1a4a7c;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:.88rem;font-weight:700;cursor:pointer;">Choose File</button>
+        </div>
+        <div id="ccauth-status" style="font-size:.85rem;text-align:center;min-height:20px;"></div>
       </div>
-      <div style="border:2px dashed #c7d7f9;border-radius:10px;padding:20px;text-align:center;margin-bottom:14px;" id="ccauth-drop-zone">
-        <div style="font-size:2rem;margin-bottom:8px;">📎</div>
-        <div style="font-size:.87rem;color:#475569;margin-bottom:10px;">Drag & drop your completed form here, or</div>
-        <input type="file" id="ccauth-file-input" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" onchange="handleCCAuthFileSelect(this,'${lastName}')">
-        <button onclick="document.getElementById('ccauth-file-input').click()" style="background:#1a4a7c;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:.88rem;font-weight:700;cursor:pointer;">Choose File</button>
-      </div>
-      <div id="ccauth-status" style="font-size:.85rem;text-align:center;min-height:20px;"></div>
     </div>
   </div>`;
-  // Drag & drop
-  const dropZone=overlay.querySelector('#ccauth-drop-zone');
-  dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.style.background='#eff6ff';});
-  dropZone.addEventListener('dragleave',()=>{dropZone.style.background='';});
-  dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.style.background='';const f=e.dataTransfer.files[0];if(f)handleCCAuthFileDropped(f,lastName,overlay.querySelector('#ccauth-status'));});
   overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
   document.body.appendChild(overlay);
+  // Drop zone events
+  const dropZone=overlay.querySelector('#ccauth-drop-zone');
+  if(dropZone){
+    dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.style.background='#eff6ff';});
+    dropZone.addEventListener('dragleave',()=>{dropZone.style.background='';});
+    dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.style.background='';const f=e.dataTransfer.files[0];if(f)handleCCAuthFileDropped(f,lastName,overlay.querySelector('#ccauth-status'));});
+  }
+  // Init signature pad after DOM paint
+  requestAnimationFrame(()=>{const c=overlay.querySelector('#cca-sig-canvas');if(c)initCCASigPad(c);});
 }
 async function handleCCAuthFileSelect(input, lastName){
   const file=input.files[0];
@@ -10724,6 +10818,142 @@ async function handleCCAuthFileSelect(input, lastName){
 }
 async function handleCCAuthFileDropped(file, lastName, statusEl){
   await doUploadCCAuth(file, lastName, statusEl);
+}
+function ccauthSwitchTab(tab){
+  const onP=document.getElementById('ccauth-panel-online');
+  const upP=document.getElementById('ccauth-panel-upload');
+  const onB=document.getElementById('ccauth-tab-online');
+  const upB=document.getElementById('ccauth-tab-upload');
+  if(tab==='online'){
+    onP.style.display='';upP.style.display='none';
+    onB.style.cssText=onB.style.cssText.replace(/background:[^;]+/,'background:#1a4a7c');onB.style.color='#fff';
+    upB.style.cssText=upB.style.cssText.replace(/background:[^;]+/,'background:#f8fafc');upB.style.color='#64748b';
+  }else{
+    onP.style.display='none';upP.style.display='';
+    upB.style.cssText=upB.style.cssText.replace(/background:[^;]+/,'background:#1a4a7c');upB.style.color='#fff';
+    onB.style.cssText=onB.style.cssText.replace(/background:[^;]+/,'background:#f8fafc');onB.style.color='#64748b';
+  }
+}
+function initCCASigPad(canvas){
+  const rect=canvas.getBoundingClientRect();
+  canvas.width=Math.round(rect.width)||480;
+  canvas.height=Math.round(rect.height)||88;
+  const ctx=canvas.getContext('2d');
+  ctx.strokeStyle='#1a4a7c';ctx.lineWidth=2;ctx.lineCap='round';ctx.lineJoin='round';
+  let drawing=false;
+  const scaleX=()=>canvas.width/(canvas.offsetWidth||canvas.width);
+  const scaleY=()=>canvas.height/(canvas.offsetHeight||canvas.height);
+  canvas.addEventListener('mousedown',e=>{drawing=true;ctx.beginPath();ctx.moveTo(e.offsetX*scaleX(),e.offsetY*scaleY());});
+  canvas.addEventListener('mousemove',e=>{if(!drawing)return;ctx.lineTo(e.offsetX*scaleX(),e.offsetY*scaleY());ctx.stroke();});
+  canvas.addEventListener('mouseup',()=>drawing=false);
+  canvas.addEventListener('mouseleave',()=>drawing=false);
+  canvas.addEventListener('touchstart',e=>{e.preventDefault();drawing=true;const t=e.touches[0];const r=canvas.getBoundingClientRect();ctx.beginPath();ctx.moveTo((t.clientX-r.left)*scaleX(),(t.clientY-r.top)*scaleY());},{passive:false});
+  canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!drawing)return;const t=e.touches[0];const r=canvas.getBoundingClientRect();ctx.lineTo((t.clientX-r.left)*scaleX(),(t.clientY-r.top)*scaleY());ctx.stroke();},{passive:false});
+  canvas.addEventListener('touchend',()=>drawing=false);
+}
+function clearCCASig(){
+  const c=document.getElementById('cca-sig-canvas');
+  if(c){const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);}
+}
+function isCanvasBlank(canvas){
+  const d=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+  for(let i=3;i<d.length;i+=4){if(d[i]>0)return false;}
+  return true;
+}
+async function loadJsPDF(){
+  if(window.jspdf?.jsPDF)return window.jspdf.jsPDF;
+  return new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.onload=()=>{if(window.jspdf?.jsPDF)resolve(window.jspdf.jsPDF);else reject(new Error('jsPDF not found'));};
+    s.onerror=()=>reject(new Error('Failed to load jsPDF'));
+    document.head.appendChild(s);
+  });
+}
+async function saveCCAuthOnlineForm(lastName, btn){
+  const statusEl=document.getElementById('ccauth-online-status');
+  const cardName=(document.getElementById('cca-name')?.value||'').trim();
+  const cardType=document.querySelector('input[name="cca-cardtype"]:checked')?.value||'';
+  const cardNum=(document.getElementById('cca-cardnum')?.value||'').trim();
+  const cardExp=(document.getElementById('cca-exp')?.value||'').trim();
+  const cardCvv=(document.getElementById('cca-cvv')?.value||'').trim();
+  const street=(document.getElementById('cca-street')?.value||'').trim();
+  const city=(document.getElementById('cca-city')?.value||'').trim();
+  const state=(document.getElementById('cca-state')?.value||'').trim();
+  const zip=(document.getElementById('cca-zip')?.value||'').trim();
+  const insurance=document.querySelector('input[name="cca-insurance"]:checked')?.value||'';
+  const printed=(document.getElementById('cca-printed')?.value||'').trim();
+  const dateStr=document.getElementById('cca-date')?.value||new Date().toLocaleDateString('en-US');
+  const canvas=document.getElementById('cca-sig-canvas');
+  const sigBlank=canvas?isCanvasBlank(canvas):true;
+  const missing=[];
+  if(!cardName)missing.push('Name on card');
+  if(!cardType)missing.push('Card type');
+  if(cardNum.replace(/\s/g,'').length<15)missing.push('Card number');
+  if(!cardExp)missing.push('Expiration');
+  if(!cardCvv)missing.push('CVV');
+  if(!street)missing.push('Street address');
+  if(!city)missing.push('City');
+  if(!state)missing.push('State');
+  if(!zip)missing.push('ZIP');
+  if(!insurance)missing.push('Travel insurance selection');
+  if(!printed)missing.push('Printed name');
+  if(sigBlank)missing.push('Signature');
+  if(missing.length){if(statusEl){statusEl.textContent='⚠️ Missing: '+missing.join(', ');statusEl.style.color='#dc2626';}return;}
+  if(btn){btn.disabled=true;btn.textContent='Generating PDF…';}
+  if(statusEl){statusEl.textContent='Generating PDF…';statusEl.style.color='#64748b';}
+  try{
+    const JsPDF=await loadJsPDF();
+    const doc=new JsPDF({orientation:'portrait',unit:'mm',format:'letter'});
+    const pw=215.9;const ml=16;const mr=16;const tw=pw-ml-mr;
+    let y=10;
+    // Header bar
+    doc.setFillColor(15,39,68);doc.rect(0,0,pw,20,'F');
+    doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(12);
+    doc.text('COMMONWEALTH CRUISE 2027',ml,9);
+    doc.setFontSize(8.5);doc.setFont('helvetica','normal');
+    doc.text('Credit Card Authorization Form — Submitted '+dateStr,ml,15);
+    y=26;
+    // Section + field helpers
+    const sec=(t)=>{doc.setFillColor(240,249,255);doc.roundedRect(ml,y-4,tw,7,1,1,'F');doc.setTextColor(15,39,68);doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.text(t,ml+2,y);y+=7;doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(30,41,59);};
+    const fld=(lbl,val,x,fw)=>{doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,116,139);doc.text(lbl,x,y);doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(15,23,42);doc.text(val||'—',x,y+5);doc.setDrawColor(203,213,225);doc.line(x,y+6,x+fw,y+6);};
+    sec('CARDHOLDER INFORMATION');
+    fld('Full Name on Card',cardName,ml,tw);y+=13;
+    fld('Card Type',cardType,ml,60);fld('Card Number',cardNum,ml+65,tw-65);y+=13;
+    fld('Expiration Date',cardExp,ml,38);fld('CVV',cardCvv,ml+43,20);y+=14;
+    sec('BILLING ADDRESS');
+    fld('Street Address',street,ml,tw);y+=13;
+    fld('City',city,ml,72);fld('State',state,ml+77,24);fld('ZIP',zip,ml+106,tw-106);y+=14;
+    sec('AUTHORIZATION');
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(12,74,110);
+    const authT=`I authorize GlowJetters / Commonwealth Cruise 2027 to charge the credit card listed above for my cabin reservation per the payment schedule. The initial charge of $100.00 per person reserves the cabin. This card will ONLY be used for payments up to the full deposit amount per the schedule. A personal payment link will be sent for all remaining balance.`;
+    const authLines=doc.splitTextToSize(authT,tw);
+    doc.text(authLines,ml,y);y+=authLines.length*4+4;
+    const insColor=insurance==='accept'?[22,101,52]:[185,28,28];
+    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(...insColor);
+    doc.text('TRAVEL INSURANCE: '+(insurance==='accept'?'☑ ACCEPTED':'☒ DECLINED'),ml,y);y+=10;
+    sec('SIGNATURE');
+    if(canvas&&!sigBlank){
+      const sigData=canvas.toDataURL('image/png');
+      doc.addImage(sigData,'PNG',ml,y,85,22);
+    }
+    doc.setDrawColor(15,39,68);doc.line(ml+90,y+22,pw-mr,y+22);
+    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(100,116,139);doc.text('Cardholder Signature',ml+90,y+26);
+    y+=30;
+    fld('Printed Name',printed,ml,110);fld('Date',dateStr,ml+115,tw-115);y+=12;
+    // Footer
+    doc.setFillColor(248,250,252);doc.rect(0,270,pw,9.4,'F');
+    doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.setTextColor(148,163,184);
+    doc.text('GlowJetters / Commonwealth Cruise 2027 — CC Authorization — Electronically submitted via traveler portal',pw/2,275.5,{align:'center'});
+    const pdfBlob=doc.output('blob');
+    const file=new File([pdfBlob],`${lastName}_CC_authorization.pdf`,{type:'application/pdf'});
+    if(btn){btn.textContent='Uploading…';}
+    await doUploadCCAuth(file,lastName,statusEl);
+  }catch(err){
+    console.error('CC Auth error:',err);
+    if(statusEl){statusEl.textContent='⚠️ Error: '+err.message;statusEl.style.color='#dc2626';}
+  }
+  if(btn){btn.disabled=false;btn.textContent='💾 Save & Submit Authorization';}
 }
 async function doUploadCCAuth(file, lastName, statusEl){
   if(!gUser)return;
