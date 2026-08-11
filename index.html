@@ -1608,6 +1608,7 @@ const PORTAL_URL        = 'https://atypicaltek.github.io/Commonwealth-Cruise/';
 const WIX_PAYMENT_URL   = ''; // ← paste your Wix payment page URL here
 const LOGO_GIF_URL      = 'https://atypicaltek.github.io/Commonwealth-Cruise/glowjetters-logo.gif';
 const CC_AUTH_FORM_URL  = 'https://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf'; // ← CC Authorization PDF (deploy to GitHub Pages alongside index.html)
+const CC_AUTH_BUCKET    = 'cc-auth-forms'; // Supabase Storage bucket (private) for CC Auth PDFs
 // ── Deck Plan PDF URL ──────────────────────────────────────
 // Upload carnival-freedom-deck-plan-pdf.pdf to GitHub Pages next to index.html,
 // then set this URL. When set, the iframe loads directly from URL (most reliable).
@@ -10629,7 +10630,6 @@ function downloadDeckPlan(){
 }
 
 // ── CC AUTH FORM UPLOAD ───────────────────────────────────────
-const CC_AUTH_BUCKET='cc-auth-forms';
 async function uploadCCAuthFile(file, userId, lastName){
   const ext=file.name.split('.').pop().toLowerCase();
   const storedFilename=`${lastName}_CC_authorization.${ext}`;
