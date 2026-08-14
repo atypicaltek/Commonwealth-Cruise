@@ -1130,13 +1130,23 @@
       </div>
       <div class="form-group" style="margin-bottom:16px;">
         <label>Number of Travelers in Cabin *</label>
-        <select id="reg-num-guests" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.9rem;">
+        <select id="reg-num-guests" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.9rem;" onchange="onRegNumGuestsChange(this)">
           <option value="">— Select number of travelers —</option>
           <option value="1">1 Traveler (Solo)</option>
           <option value="2">2 Travelers</option>
           <option value="3">3 Travelers</option>
           <option value="4">4 Travelers</option>
         </select>
+      </div>
+      <!-- Solo occupancy notice — shown/hidden by onRegNumGuestsChange -->
+      <div id="reg-solo-notice" style="display:none;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+        <div style="font-weight:800;color:#991b1b;font-size:.93rem;margin-bottom:8px;">⚠️ Single-Occupancy Pricing Notice</div>
+        <p style="font-size:.84rem;color:#7f1d1d;line-height:1.6;margin:0 0 10px;">Solo travelers booking one cabin are charged at the <strong>double-occupancy rate</strong>. This means your deposit and all payments are calculated as if <strong>2 people</strong> are in the cabin, regardless of single occupancy.</p>
+        <p style="font-size:.84rem;color:#7f1d1d;line-height:1.6;margin:0 0 12px;">Your <strong>initial deposit will be $200.00</strong> (2 × $100/person deposit rate). All subsequent payments will also reflect the double-occupancy pricing schedule.</p>
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:.84rem;color:#7f1d1d;font-weight:600;">
+          <input type="checkbox" id="reg-solo-confirm" style="margin-top:2px;width:16px;height:16px;flex-shrink:0;">
+          <span>I understand and acknowledge that as a solo traveler I will be charged the double-occupancy rate, including a $200.00 initial deposit.</span>
+        </label>
       </div>
       <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px 13px;margin-bottom:16px;font-size:.82rem;color:#92400e;line-height:1.55;">
         ℹ️ After logging in you'll be asked to enter each traveler's name, date of birth, and other details required for cruise check-in.
@@ -2623,6 +2633,19 @@ function regGoStep(n){
   document.getElementById('reg-progress-bar').style.width=(pcts[n]||0)+'%';
 }
 
+function onRegNumGuestsChange(sel){
+  const notice=document.getElementById('reg-solo-notice');
+  const chk=document.getElementById('reg-solo-confirm');
+  if(!notice)return;
+  if(sel.value==='1'){
+    notice.style.display='block';
+    if(chk)chk.checked=false; // reset confirmation on every solo selection
+  } else {
+    notice.style.display='none';
+    if(chk)chk.checked=false;
+  }
+}
+
 function regStep1Next(){
   const alertEl=document.getElementById('reg-alert');
   const firstName=document.getElementById('reg-firstname').value.trim();
@@ -2667,6 +2690,11 @@ async function completeRegistration(){
   if(pin!==pinConfirm)return showErr('PINs do not match — please re-enter.');
   if(!cabinType)return showErr('Please select a cabin type.');
   if(!numGuests)return showErr('Please select the number of travelers.');
+  // Solo occupancy: must acknowledge double-rate before account is created
+  if(numGuests===1){
+    const soloConfirm=document.getElementById('reg-solo-confirm');
+    if(!soloConfirm?.checked)return showErr('Please read and check the single-occupancy pricing acknowledgment before creating your account.');
+  }
 
   const fullName=[firstName,lastName].filter(Boolean).join(' ');
   btn.disabled=true;busy.style.display='block';alertEl.style.display='none';
@@ -3166,19 +3194,19 @@ async function loadAndRoute(user){
 let gCabinMinPrices={}; // {cabinType: minPrice_per_person when available}
 
 // Loads live inventory into the registration wizard cabin-type dropdown.
-// Called when the wizard opens so new registrants see real availability and prices.
+// Uses get_public_cabin_availability() RPC (SECURITY DEFINER) so unauthenticated
+// users see real booked counts — direct cabin_assignments reads return empty due to RLS.
 async function loadRegInventory(){
   try{
-    const[{data:invData},{data:asgData},{data:tierData}]=await Promise.all([
-      sb.from('cabin_inventory').select('*'),
-      sb.from('cabin_assignments').select('cabin_type'),
+    const[{data:availData},{data:tierData}]=await Promise.all([
+      sb.rpc('get_public_cabin_availability'),
       sb.from('cabin_price_tiers').select('*').order('price_per_person',{ascending:true})
     ]);
     const sel=document.getElementById('reg-cabin-type');
-    if(!sel||!invData||!invData.length)return;
-    // Compute actual booked counts
-    const booked={};
-    (asgData||[]).forEach(a=>{booked[a.cabin_type]=(booked[a.cabin_type]||0)+1;});
+    if(!sel)return;
+    // Convert availability rows to a map
+    const availMap={};
+    (availData||[]).forEach(r=>{availMap[r.cabin_type]=r;});
     // Compute min price per type from available tiers
     const minPrice={};
     (tierData||[]).forEach(t=>{
@@ -3191,9 +3219,9 @@ async function loadRegInventory(){
     ['Interior','Ocean View','Balcony'].forEach(type=>{
       const opt=sel.querySelector(`option[value="${type}"]`);
       if(!opt)return;
-      const row=invData.find(r=>r.cabin_type===type);
-      if(!row){opt.textContent=type;return;}
-      const avail=Math.max(0,row.total_cabins-(booked[type]||0));
+      const row=availMap[type];
+      if(!row){opt.textContent=type+' Cabin';return;}
+      const avail=row.available_cabins;
       const priceStr=minPrice[type]?` — From $${minPrice[type].toLocaleString()}/person`:'';
       if(avail<=0){
         opt.textContent=`${type} Cabin${priceStr} — SOLD OUT`;
