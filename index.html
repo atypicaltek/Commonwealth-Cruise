@@ -2694,7 +2694,7 @@ async function completeRegistration(){
       return;
     }
 
-    // Store cabin preferences so they can be saved to DB on first login
+    // Store cabin preferences so they can be saved to DB on first login (picked up by loadAndRoute)
     if(cabinType&&numGuests){
       sessionStorage.setItem('pendingCabinType',cabinType);
       sessionStorage.setItem('pendingNumGuests',String(numGuests));
@@ -2702,21 +2702,35 @@ async function completeRegistration(){
     // SMS alert to admin
     const _fullName=[document.getElementById('reg-firstname')?.value?.trim(),document.getElementById('reg-lastname')?.value?.trim()].filter(Boolean).join(' ');
     sendAdminSms(`New CruisePortal account: ${_fullName||'Unknown'} (${gRegEmail}) — ${cabinType||'cabin TBD'} x${numGuests||'?'}`);
-    // Close wizard and route back to login with pre-filled email
-    document.getElementById('reg-wizard-modal').classList.remove('open');
-    const emailInput=document.getElementById('login-email');
-    if(emailInput)emailInput.value=gRegEmail;
-    const loginAlert=document.getElementById('login-alert');
-    if(loginAlert){
-      loginAlert.className='alert alert-success';
-      loginAlert.innerHTML='🎉 Account created! Sign in below with your email and the <strong>PIN you just created</strong>.';
-      loginAlert.style.display='block';
+    // Auto-sign-in with the just-created PIN so user goes straight to dashboard
+    let{data:siData,error:siErr}=await sb.auth.signInWithPassword({email:gRegEmail,password:pin});
+    // Handle email-not-confirmed: auto-confirm and retry once
+    if(siErr&&((siErr.message||'').toLowerCase().includes('not confirmed')||(siErr.code||'')==='email_not_confirmed')){
+      try{await sb.rpc('confirm_user_email',{p_email:gRegEmail.toLowerCase()});}catch(e){}
+      const retry=await sb.auth.signInWithPassword({email:gRegEmail,password:pin});
+      siData=retry.data;siErr=retry.error;
     }
-    // Advance directly to PIN entry since account now exists
-    document.getElementById('login-email-display').textContent=gRegEmail;
-    document.getElementById('login-email-step').style.display='none';
-    document.getElementById('login-pin-step').style.display='block';
-    setTimeout(()=>{const lp=document.getElementById('lp0');if(lp)lp.focus();},100);
+    document.getElementById('reg-wizard-modal').classList.remove('open');
+    if(siData?.user){
+      // Signed in — go straight to dashboard; loadAndRoute will create cabin_assignments from sessionStorage
+      sessionStorage.setItem('fresh_login','1');
+      await loadAndRoute(siData.user);
+    } else {
+      // Fallback: show the PIN step so the user can try manually
+      btn.disabled=false;busy.style.display='none';
+      const emailInput=document.getElementById('login-email');
+      if(emailInput)emailInput.value=gRegEmail;
+      const loginAlert=document.getElementById('login-alert');
+      if(loginAlert){
+        loginAlert.className='alert alert-success';
+        loginAlert.innerHTML='🎉 Account created! Sign in below with your email and the <strong>PIN you just created</strong>.';
+        loginAlert.style.display='block';
+      }
+      document.getElementById('login-email-display').textContent=gRegEmail;
+      document.getElementById('login-email-step').style.display='none';
+      document.getElementById('login-pin-step').style.display='block';
+      setTimeout(()=>{const lp=document.getElementById('lp0');if(lp)lp.focus();},100);
+    }
   }catch(e){
     console.error('[reg] unexpected error',e);
     showErr('Registration error: '+errDetail(e));
