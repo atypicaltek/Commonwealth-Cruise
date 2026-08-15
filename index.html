@@ -353,7 +353,7 @@
         <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
           <button id="dash-cabin-photo-btn" onclick="openCabinPhotoModal()" style="display:none;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:7px;padding:6px 14px;font-size:.82rem;cursor:pointer;font-weight:600;">📷 Typical <span id="dash-cabin-photo-label"></span> Stateroom</button>
           <button id="dash-cabin-change-btn" onclick="openCabinChangeRequest()" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:7px;padding:6px 14px;font-size:.82rem;cursor:pointer;font-weight:600;">🔄 Change Cabin</button>
-          <button id="dash-cc-auth-btn" onclick="openTravelerCCAuthUpload()" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:7px;padding:6px 14px;font-size:.82rem;cursor:pointer;font-weight:600;">📄 CC Auth Form</button>
+          <button id="dash-cc-auth-btn" onclick="openTravelerCCAuthUpload()" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:7px;padding:6px 14px;font-size:.82rem;cursor:pointer;font-weight:600;">💳 Make A Payment</button>
         </div>
         <!-- Cost breakdown: shown only once admin has manually set cabin_cost -->
         <div id="dash-cabin-cost-breakdown" style="display:none;margin-top:12px;background:rgba(255,255,255,.12);border-radius:9px;padding:10px 14px;color:#fff;"></div>
@@ -1270,7 +1270,7 @@
 <!-- PROFILE SETUP MODAL (shown after first login if no cabin assignment exists) -->
 <div id="profile-setup-modal" class="modal-overlay">
   <div class="modal-box" style="max-width:520px;max-height:90vh;overflow-y:auto;position:relative;">
-    <button onclick="document.getElementById('profile-setup-modal').classList.remove('open')" style="position:absolute;top:10px;right:12px;background:none;border:none;font-size:1.4rem;color:#94a3b8;cursor:pointer;line-height:1;" title="Close">✕</button>
+    <!-- No close button: cabin type, guest count, and traveler info are required before dashboard access -->
     <div style="font-size:2rem;text-align:center;margin-bottom:8px;">🛳️</div>
     <h3 style="text-align:center;color:var(--primary);margin-bottom:6px;">Reserve Your Cabin</h3>
     <p style="font-size:.86rem;color:var(--muted);text-align:center;margin-bottom:16px;">Select your cabin type and the number of guests. Citizenship documentation is collected per traveler on your dashboard.</p>
@@ -2699,16 +2699,29 @@ async function completeRegistration(){
   const fullName=[firstName,lastName].filter(Boolean).join(' ');
   btn.disabled=true;busy.style.display='block';alertEl.style.display='none';
 
+  // Track whether wizard has already been closed so error routing works correctly
+  let wizardClosed=false;
+  const showLoginPageErr=(msg)=>{
+    // If wizard is still open, show error inside it; otherwise show on login page
+    if(!wizardClosed){showErr(msg);return;}
+    btn.disabled=false;busy.style.display='none';
+    const la=document.getElementById('login-alert');
+    if(la){la.className='alert alert-danger';la.innerHTML=msg;la.style.display='block';la.scrollIntoView({behavior:'smooth',block:'center'});}
+  };
+
   try{
-    // Creates auth account + profile only. Cabin selection and traveler details
-    // are completed from the dashboard after first login.
+    // Creates auth account + profile + cabin_assignments atomically inside SECURITY DEFINER RPC.
+    // Cabin type/guest count are passed directly so they are written server-side
+    // regardless of whether auto-sign-in succeeds — eliminates the RLS-blocked JS insert path.
     const{data:result,error:rpcErr}=await sb.rpc('complete_self_registration',{
       p_email:gRegEmail,
       p_full_name:fullName,
       p_first_name:firstName,
       p_last_name:lastName,
       p_suffix:suffix,
-      p_pin:pin
+      p_pin:pin,
+      p_cabin_type:cabinType||null,
+      p_num_guests:numGuests||null
     });
 
     if(rpcErr){
@@ -2722,14 +2735,10 @@ async function completeRegistration(){
       return;
     }
 
-    // Store cabin preferences so they can be saved to DB on first login (picked up by loadAndRoute)
-    if(cabinType&&numGuests){
-      sessionStorage.setItem('pendingCabinType',cabinType);
-      sessionStorage.setItem('pendingNumGuests',String(numGuests));
-    }
     // SMS alert to admin
     const _fullName=[document.getElementById('reg-firstname')?.value?.trim(),document.getElementById('reg-lastname')?.value?.trim()].filter(Boolean).join(' ');
     sendAdminSms(`New CruisePortal account: ${_fullName||'Unknown'} (${gRegEmail}) — ${cabinType||'cabin TBD'} x${numGuests||'?'}`);
+
     // Auto-sign-in with the just-created PIN so user goes straight to dashboard
     let{data:siData,error:siErr}=await sb.auth.signInWithPassword({email:gRegEmail,password:pin});
     // Handle email-not-confirmed: auto-confirm and retry once
@@ -2738,21 +2747,33 @@ async function completeRegistration(){
       const retry=await sb.auth.signInWithPassword({email:gRegEmail,password:pin});
       siData=retry.data;siErr=retry.error;
     }
+
     document.getElementById('reg-wizard-modal').classList.remove('open');
+    wizardClosed=true; // from here, errors must go to login page not hidden wizard
+
     if(siData?.user){
-      // Signed in — go straight to dashboard; loadAndRoute will create cabin_assignments from sessionStorage
+      // Signed in — go straight to dashboard
+      // Cabin was already saved by RPC; no sessionStorage insert needed
       sessionStorage.setItem('fresh_login','1');
-      await loadAndRoute(siData.user);
+      try{
+        await loadAndRoute(siData.user);
+      }catch(routeErr){
+        console.error('[reg] loadAndRoute error',routeErr);
+        // Wizard is closed — show error on the visible login page
+        showLoginPageErr('Your account was created successfully, but we hit an error loading your dashboard. Please sign in with your email and PIN.');
+      }
     } else {
-      // Fallback: show the PIN step so the user can try manually
+      // Auto-sign-in failed — show PIN step on the login page so user can sign in manually
+      // (cabin_assignments was already written by the RPC, so data is safe)
       btn.disabled=false;busy.style.display='none';
       const emailInput=document.getElementById('login-email');
       if(emailInput)emailInput.value=gRegEmail;
       const loginAlert=document.getElementById('login-alert');
       if(loginAlert){
         loginAlert.className='alert alert-success';
-        loginAlert.innerHTML='🎉 Account created! Sign in below with your email and the <strong>PIN you just created</strong>.';
+        loginAlert.innerHTML='🎉 Account created! Enter your <strong>PIN</strong> below to sign in.';
         loginAlert.style.display='block';
+        loginAlert.scrollIntoView({behavior:'smooth',block:'center'});
       }
       document.getElementById('login-email-display').textContent=gRegEmail;
       document.getElementById('login-email-step').style.display='none';
@@ -2761,7 +2782,7 @@ async function completeRegistration(){
     }
   }catch(e){
     console.error('[reg] unexpected error',e);
-    showErr('Registration error: '+errDetail(e));
+    showLoginPageErr('Registration error: '+errDetail(e));
   }
 }
 
@@ -3155,25 +3176,11 @@ async function loadAndRoute(user){
   const{data:prof}=await sb.from('profiles').select('*').eq('id',user.id).single();
   gProfile=prof;
 
-  // Apply pending cabin preference from registration wizard
-  if(!isAdminByEmail&&!prof?.is_admin){
-    const pendingCabinType=sessionStorage.getItem('pendingCabinType');
-    const pendingNumGuests=parseInt(sessionStorage.getItem('pendingNumGuests')||'0',10)||0;
-    if(pendingCabinType&&pendingNumGuests){
-      // Only create if no cabin assignment exists yet
-      const{data:existingCa}=await sb.from('cabin_assignments').select('id').eq('user_id',user.id).limit(1);
-      if(!existingCa||existingCa.length===0){
-        await sb.from('cabin_assignments').insert({
-          user_id:user.id,
-          cabin_type:pendingCabinType,
-          num_guests:pendingNumGuests,
-          deposit_status:'pending'
-        }).catch(e=>console.warn('[reg] cabin_assignments insert:',e.message));
-      }
-      sessionStorage.removeItem('pendingCabinType');
-      sessionStorage.removeItem('pendingNumGuests');
-    }
-  }
+  // Cabin preference is now written atomically inside complete_self_registration RPC
+  // (Statement 52) — no sessionStorage insert needed here.
+  // Clean up any stale sessionStorage keys from older code paths just in case.
+  sessionStorage.removeItem('pendingCabinType');
+  sessionStorage.removeItem('pendingNumGuests');
 
   if(isAdminByEmail||prof?.is_admin){showPage('admin');adminInit();}
   else{
@@ -4065,7 +4072,7 @@ if(dsBadge){
   loadInboxUnreadCount(); // async, non-blocking
   // Update CC Auth button label if form already submitted
   const ccAuthBtn=document.getElementById('dash-cc-auth-btn');
-  if(ccAuthBtn&&gProfile?.cc_auth_url){ccAuthBtn.textContent='✅ CC Auth Submitted';ccAuthBtn.style.background='rgba(34,197,94,.25)';ccAuthBtn.style.borderColor='rgba(34,197,94,.6)';}
+  if(ccAuthBtn&&gProfile?.cc_auth_url){ccAuthBtn.textContent='✅ Payment Authorization Submitted';ccAuthBtn.style.background='rgba(34,197,94,.25)';ccAuthBtn.style.borderColor='rgba(34,197,94,.6)';}
   await loadCabinTravelers();
   checkMissingInfoBanner(cabin, window.gCabinTravelers||[]);
   // Show admin-assigned cabin notification (once only) before other popups
@@ -10804,7 +10811,7 @@ async function openTravelerCCAuthUpload(){
   overlay.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;';
   overlay.innerHTML=`<div style="background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.3);width:100%;max-width:560px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;">
     <div style="background:#0f2744;color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
-      <div><div style="font-weight:800;font-size:1rem;">📄 CC Authorization Form</div><div style="font-size:.76rem;opacity:.75;margin-top:1px;">Complete online or upload a signed copy</div></div>
+      <div><div style="font-weight:800;font-size:1rem;">💳 Make A Payment — CC Authorization</div><div style="font-size:.76rem;opacity:.75;margin-top:1px;">Complete your payment authorization online</div></div>
       <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;opacity:.75;">✕</button>
     </div>
     <div style="overflow-y:auto;padding:18px;flex:1;">
@@ -10818,13 +10825,7 @@ async function openTravelerCCAuthUpload(){
         <div style="font-size:.75rem;color:#15803d;margin-top:7px;">Complete a new form below to replace it.</div>
       </div>`:''}
 
-      <!-- Tab toggle -->
-      <div style="display:flex;border:1.5px solid #c7d7f9;border-radius:9px;overflow:hidden;margin-bottom:16px;">
-        <button id="ccauth-tab-online" onclick="ccauthSwitchTab('online')" style="flex:1;padding:9px 0;font-size:.87rem;font-weight:700;border:none;cursor:pointer;background:#1a4a7c;color:#fff;">✏️ Complete Online</button>
-        <button id="ccauth-tab-upload" onclick="ccauthSwitchTab('upload')" style="flex:1;padding:9px 0;font-size:.87rem;font-weight:700;border:none;cursor:pointer;background:#f8fafc;color:#64748b;border-left:1.5px solid #c7d7f9;">📎 Upload Signed Form</button>
-      </div>
-
-      <!-- ── ONLINE FORM ── -->
+      <!-- ── ONLINE FORM (upload option removed — online completion only) ── -->
       <div id="ccauth-panel-online">
         <div style="font-size:.81rem;color:#475569;margin-bottom:13px;line-height:1.5;">Fill in your card details below. Your authorization will be saved securely to your traveler profile.</div>
 
@@ -10917,29 +10918,10 @@ async function openTravelerCCAuthUpload(){
         <button onclick="saveCCAuthOnlineForm('${lastName.replace(/'/g,"\\'")}',this)" style="width:100%;background:#1a4a7c;color:#fff;border:none;border-radius:9px;padding:11px;font-size:.92rem;font-weight:800;cursor:pointer;">💾 Save & Submit Authorization</button>
       </div>
 
-      <!-- ── UPLOAD TAB ── -->
-      <div id="ccauth-panel-upload" style="display:none;">
-        <a href="${CC_AUTH_FORM_URL}" target="_blank" style="display:inline-block;background:#f0f4ff;border:1.5px solid #c7d7f9;color:#1a4a7c;border-radius:8px;padding:8px 16px;font-size:.85rem;font-weight:700;text-decoration:none;margin-bottom:14px;">📥 Download Blank CC Auth Form</a>
-        <p style="font-size:.83rem;color:#475569;margin:0 0 12px;line-height:1.5;">Complete, sign, and scan the CC Authorization form, then upload it here. Your last name will be automatically prepended to the filename.</p>
-        <div style="border:2px dashed #c7d7f9;border-radius:10px;padding:20px;text-align:center;margin-bottom:14px;" id="ccauth-drop-zone">
-          <div style="font-size:2rem;margin-bottom:8px;">📎</div>
-          <div style="font-size:.87rem;color:#475569;margin-bottom:10px;">Drag & drop your completed form here, or</div>
-          <input type="file" id="ccauth-file-input" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" onchange="handleCCAuthFileSelect(this,'${lastName}')">
-          <button onclick="document.getElementById('ccauth-file-input').click()" style="background:#1a4a7c;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:.88rem;font-weight:700;cursor:pointer;">Choose File</button>
-        </div>
-        <div id="ccauth-status" style="font-size:.85rem;text-align:center;min-height:20px;"></div>
-      </div>
     </div>
   </div>`;
   overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
   document.body.appendChild(overlay);
-  // Drop zone events
-  const dropZone=overlay.querySelector('#ccauth-drop-zone');
-  if(dropZone){
-    dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.style.background='#eff6ff';});
-    dropZone.addEventListener('dragleave',()=>{dropZone.style.background='';});
-    dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.style.background='';const f=e.dataTransfer.files[0];if(f)handleCCAuthFileDropped(f,lastName,overlay.querySelector('#ccauth-status'));});
-  }
   // Init signature pad after DOM paint
   requestAnimationFrame(()=>{const c=overlay.querySelector('#cca-sig-canvas');if(c)initCCASigPad(c);});
 }
@@ -10952,21 +10934,7 @@ async function handleCCAuthFileSelect(input, lastName){
 async function handleCCAuthFileDropped(file, lastName, statusEl){
   await doUploadCCAuth(file, lastName, statusEl);
 }
-function ccauthSwitchTab(tab){
-  const onP=document.getElementById('ccauth-panel-online');
-  const upP=document.getElementById('ccauth-panel-upload');
-  const onB=document.getElementById('ccauth-tab-online');
-  const upB=document.getElementById('ccauth-tab-upload');
-  if(tab==='online'){
-    onP.style.display='';upP.style.display='none';
-    onB.style.cssText=onB.style.cssText.replace(/background:[^;]+/,'background:#1a4a7c');onB.style.color='#fff';
-    upB.style.cssText=upB.style.cssText.replace(/background:[^;]+/,'background:#f8fafc');upB.style.color='#64748b';
-  }else{
-    onP.style.display='none';upP.style.display='';
-    upB.style.cssText=upB.style.cssText.replace(/background:[^;]+/,'background:#1a4a7c');upB.style.color='#fff';
-    onB.style.cssText=onB.style.cssText.replace(/background:[^;]+/,'background:#f8fafc');onB.style.color='#64748b';
-  }
-}
+// ccauthSwitchTab removed — upload option no longer available; online form only
 function initCCASigPad(canvas){
   const rect=canvas.getBoundingClientRect();
   canvas.width=Math.round(rect.width)||480;
@@ -11128,7 +11096,7 @@ async function doUploadCCAuth(file, lastName, statusEl){
   if(statusEl){statusEl.innerHTML='✅ <strong>Form uploaded successfully!</strong><br><span style="font-size:.78rem;color:#166534;">Saved as: '+filename+'</span>';statusEl.style.color='#166534';}
   // Update dashboard button
   const btn=document.getElementById('dash-cc-auth-btn');
-  if(btn){btn.textContent='✅ CC Auth Submitted';btn.style.background='rgba(34,197,94,.25)';btn.style.borderColor='rgba(34,197,94,.6)';}
+  if(btn){btn.textContent='✅ Payment Authorization Submitted';btn.style.background='rgba(34,197,94,.25)';btn.style.borderColor='rgba(34,197,94,.6)';}
   setTimeout(()=>{const ov=document.querySelector('[style*="cc-auth"]');if(!ov)loadDashboard();},2000);
 }
 
