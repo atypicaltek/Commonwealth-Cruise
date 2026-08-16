@@ -6123,7 +6123,8 @@ async function loadTravelers(){
         '<option value="send_welcome">&#x1F4E7; Send Welcome Email</option>'+
         '<option value="send_temp_pin">&#x1F511; Send New Temp PIN / Reset</option>'+
         (ca?.high_occupancy_pending?'<option value="clear_high_occ">&#x2705; Clear High Occ. Flag</option>':'')+
-        '<option value="cancel">&#x1F6AB; Cancel Reservation</option>'+
+        '<option value="cancel_travel">&#x1F6AB; Cancel Travel (Keep Profile)</option>'+
+        '<option value="cancel">&#x1F4E7; Cancel Reservation + Send Email</option>'+
         '<option value="delete">&#x1F5D1; Delete Account</option>'+
       '</optgroup>'+
     '</select>';
@@ -6160,29 +6161,77 @@ async function loadTravelers(){
 
   const thead='<thead><tr><th>Traveler</th><th>Cabin</th><th>Res. / Link</th><th class="col-r">Paid</th><th class="col-r">Balance</th><th>Progress</th><th>Actions</th></tr></thead>';
 
-  // Group travelers into three sections
+  // Group travelers into three active sections + one cancelled section
   const byName=(a,b)=>(a.name||'').localeCompare(b.name||'');
+  const cancelled=profiles.filter(p=>p.status==='cancelled').sort(byName);
   const grpNoPay=active.filter(p=>!(payMap[p.id]?.paid>0)&&!cabinMap[p.id]?.cabin_number).sort(byName);
   const grpHasPay=active.filter(p=>(payMap[p.id]?.paid>0)&&!cabinMap[p.id]?.cabin_number).sort(byName);
   const grpAssigned=active.filter(p=>!!cabinMap[p.id]?.cabin_number).sort(byName);
 
-  function buildTravelerGroup(label,icon,borderColor,bgColor,travelers,secId){
+  function buildTravelerGroup(label,icon,borderColor,bgColor,travelers,secId,startCollapsed){
     if(travelers.length===0)return'';
     const rows=travelers.map(makeRow).join('');
+    const collStyle=startCollapsed?'display:none':'';
+    const chev=startCollapsed?'▶':'▼';
     return`<div style="margin-bottom:14px;border:1.5px solid ${borderColor};border-radius:10px;overflow:hidden;">
       <div style="background:${bgColor};padding:10px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;" onclick="toggleTravelerSection('${secId}')">
         <span style="font-weight:800;font-size:.88rem;color:${borderColor};">${icon} ${label} <span style="font-weight:600;font-size:.8rem;opacity:.75;">(${travelers.length})</span></span>
-        <span id="trav-sec-chev-${secId}" style="font-size:.8rem;color:${borderColor};">▼</span>
+        <span id="trav-sec-chev-${secId}" style="font-size:.8rem;color:${borderColor};">${chev}</span>
       </div>
-      <div id="trav-sec-${secId}"><div class="table-wrap"><table>${thead}<tbody>${rows}</tbody></table></div></div>
+      <div id="trav-sec-${secId}" style="${collStyle}"><div class="table-wrap"><table>${thead}<tbody>${rows}</tbody></table></div></div>
     </div>`;
   }
 
-  el.innerHTML=
-    buildTravelerGroup('No Payment Made','🔴 ','#dc2626','#fff5f5',grpNoPay,'nopay')+
-    buildTravelerGroup('Payment in Progress','🟡 ','#d97706','#fffbeb',grpHasPay,'haspay')+
-    buildTravelerGroup('Cabin Assigned','🟢 ','#16a34a','#f0fdf4',grpAssigned,'assigned')||
-    '<div class="empty"><div class="ei">👥</div><p>No travelers yet.</p></div>';
+  // Cancelled traveler rows — limited action menu (restore or delete)
+  function makeCancelledRow(p){
+    const ca=cabinMap[p.id]||null;
+    const pData=payMap[p.id]||{due:0,paid:0};
+    const paid=pData.paid;
+    const cabinStr=ca?(ca.cabin_type+(ca.cabin_number?' #'+ca.cabin_number:'')):'—';
+    window.gTravelerData[p.id]={userId:p.id,name:p.name||'',email:p.email||'',
+      cabinType:ca?.cabin_type||'',cabinNumber:ca?.cabin_number||'',
+      citizenshipType:'',paid,numGuests:ca?.num_guests||1,
+      cabinCost:ca?.cabin_cost||'',resNum:ca?.guest_reservation_number||'',
+      payLink:ca?.payment_link||'',gratPaid:false,
+      backupCabinType:'',highOccPending:false,
+      cabinChangePending:false,requestedCabinType:'',
+      ccAuthUrl:p.cc_auth_url||'',ccAuthFilename:p.cc_auth_filename||''};
+    const cancelledActions='<select class="action-sel" onchange="handleTravelerAction(this,\''+p.id+'\')">'+
+      '<option value="">&#x26A1; Actions...</option>'+
+      '<option value="view_profile">&#x1F440; View Profile</option>'+
+      '<option value="manage_travelers">&#x1F465; View Travelers</option>'+
+      '<option value="restore_traveler">&#x21A9;&#xFE0F; Restore to Active</option>'+
+      '<option value="delete">&#x1F5D1; Delete Account</option>'+
+      '</select>';
+    return'<tr style="opacity:.7;background:#fdf2f2;">'+
+      '<td><span style="font-weight:700;">'+(p.name||'—')+'</span><br><small style="color:#6b7280;">'+(p.email||'')+'</small><br><span class="badge badge-danger" style="font-size:.72rem;margin-top:2px;">🚫 Cancelled / Not Going</span></td>'+
+      '<td style="color:#9ca3af;">'+(cabinStr||'—')+'</td>'+
+      '<td style="color:#9ca3af;">—</td>'+
+      '<td class="col-r" style="color:#9ca3af;">'+(paid>0?fmt(paid):'—')+'</td>'+
+      '<td class="col-r" style="color:#9ca3af;">—</td>'+
+      '<td style="color:#9ca3af;">—</td>'+
+      '<td>'+cancelledActions+'</td>'+
+      '</tr>';
+  }
+
+  el.innerHTML=(
+    buildTravelerGroup('No Payment Made','🔴 ','#dc2626','#fff5f5',grpNoPay,'nopay',false)+
+    buildTravelerGroup('Payment in Progress','🟡 ','#d97706','#fffbeb',grpHasPay,'haspay',false)+
+    buildTravelerGroup('Cabin Assigned','🟢 ','#16a34a','#f0fdf4',grpAssigned,'assigned',false)
+  )||'<div class="empty"><div class="ei">👥</div><p>No travelers yet.</p></div>';
+
+  // Cancelled section always at bottom, collapsed by default
+  if(cancelled.length>0){
+    const cancelledRows=cancelled.map(makeCancelledRow).join('');
+    const cancelledTheadRow='<thead><tr><th>Traveler</th><th>Cabin</th><th>Res. / Link</th><th class="col-r">Paid</th><th class="col-r">Balance</th><th>Progress</th><th>Actions</th></tr></thead>';
+    el.innerHTML+='<div style="margin-top:6px;border:1.5px solid #9ca3af;border-radius:10px;overflow:hidden;">'+
+      '<div style="background:#f3f4f6;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;" onclick="toggleTravelerSection(\'cancelled\')">'+
+        '<span style="font-weight:800;font-size:.88rem;color:#6b7280;">🚫 Cancelled / Not Going <span style="font-weight:600;font-size:.8rem;opacity:.75;">('+cancelled.length+')</span></span>'+
+        '<span id="trav-sec-chev-cancelled" style="font-size:.8rem;color:#6b7280;">▶</span>'+
+      '</div>'+
+      '<div id="trav-sec-cancelled" style="display:none;"><div class="table-wrap"><table>'+cancelledTheadRow+'<tbody>'+cancelledRows+'</tbody></table></div></div>'+
+    '</div>';
+  }
 }
 
 function toggleTravelerSection(secId){
@@ -6192,6 +6241,22 @@ function toggleTravelerSection(secId){
   const open=body.style.display!=='none';
   body.style.display=open?'none':'';
   if(chev)chev.textContent=open?'▶':'▼';
+}
+
+// Mark a traveler as cancelled/not going (no email sent, cabin stays, profile kept in DB)
+async function markTravelerNotGoing(userId,name){
+  if(!confirm(`Mark ${name} as "Not Going / Cancelled"?\n\nThis will:\n• Flag their profile as cancelled in the database\n• Move them to the Cancelled section at the bottom of the Travelers tab\n• Keep all their profile data and payment history intact\n• NOT send any emails and NOT return their cabin to inventory\n\nYou can restore them to active status at any time.`))return;
+  const{error}=await sb.from('profiles').update({status:'cancelled'}).eq('id',userId);
+  if(error){alert('Error: '+error.message);return;}
+  loadTravelers();
+}
+
+// Restore a cancelled traveler back to active status
+async function restoreTraveler(userId,name){
+  if(!confirm(`Restore ${name} to active status?\n\nThis will remove the "Cancelled" flag and move them back into the active traveler sections.`))return;
+  const{error}=await sb.from('profiles').update({status:null}).eq('id',userId);
+  if(error){alert('Error restoring traveler: '+error.message);return;}
+  loadTravelers();
 }
 
 
@@ -8425,6 +8490,7 @@ Thank you,
 Your Commonwealth Cruise Team
 This email was sent by the ${TRIP_NAME} portal.`
     }),
+    useCustomSend:true,
     customSend:()=>{
       const name=(document.getElementById('eg-to-name')||{}).value?.trim();
       const email=(document.getElementById('eg-to-email')||{}).value?.trim();
@@ -8454,7 +8520,7 @@ This email was sent by the ${TRIP_NAME} portal.`
 
 Thank you for your reservation on the ${TRIP_NAME}! We are looking forward to an amazing journey together.
 
-ACTION REQUIRED: COMPLETE CABIN TYPE, CABIN TRAVELER INFORMATION and GUEST COUNT
+⚠️ ACTION REQUIRED: COMPLETE CABIN TYPE, CABIN TRAVELER INFORMATION AND GUEST COUNT
 
 To complete the processing of your hold, we need you to select a cabin type and complete the traveler information for each guest who will be traveling in your cabin.
 
@@ -8462,11 +8528,11 @@ Please log in to the Commonwealth Cruise Travel Portal and complete the followin
 
 Commonwealth Cruise Travel Portal
 
-- Full legal name (as it appears on travel documents)
-- Date of birth
-- Gender
-- Citizenship type and country of citizenship
-- Phone number
+* Full legal name (as it appears on travel documents)
+* Date of birth
+* Gender
+* Citizenship type and country of citizenship
+* Phone number
 
 This information is required for all cabin occupants before your hold can be fully processed. Incomplete records may delay your booking confirmation.
 
@@ -8474,7 +8540,8 @@ DEPOSIT REQUIRED — ROOM HOLD IS PENDING
 
 An initial deposit of $100.00 per person in your cabin is required to maintain the hold status.
 
-NOTE: If you are a solo traveler, the minimum initial deposit is $200.00. Carnival Cruise Line does not have dedicated single or solo staterooms. If you travel alone, you must book a standard double-occupancy room and pay a single supplement, which equals 100% of the a second occupant's fare minus port fees and taxes.
+📌 NOTE — SOLO TRAVELERS:
+If you are a solo traveler, the minimum initial deposit is $200.00. Carnival Cruise Line does not have dedicated single or solo staterooms. If you travel alone, you must book a standard double-occupancy room and pay a single supplement, which equals 100% of a second occupant's fare minus port fees and taxes.
 
 Until your initial deposit payment has been received, your room hold is pending.
 
@@ -8482,19 +8549,15 @@ A full deposit of $250.00 per person in your cabin is required to confirm an ASS
 
 Once your cabin is reserved, a personalized payment link will be provided to make the remainder of your payments.
 
-To submit your deposit, please complete the CC Authorization Form and return it to your trip organizer. Or if you prefer, reply requesting a call from one of our team members to receive your credit card information by phone for payment. A receipt will be provided for all payments.
-
-https://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf
+To submit your deposit, please select the "Make Payment" option and complete the CC Authorization Form. A receipt will be provided for all payments.
 
 Please complete this at your earliest convenience. If you have any questions, reply to this email and we will be happy to assist.
 
 Thank you,
-Your Commonwealth Cruise Team`
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
     }),
-    customSend:()=>sendTravelerInfoReminderEmail(
-      (document.getElementById('eg-to-email')||{}).value?.trim(),
-      (document.getElementById('eg-to-name')||{}).value?.trim()
-    )
+    // No customSend: sendGeneratedEmail() reads the edited textarea body and sends it
   },
   {
     id:'deposit_required',label:'Deposit Payment Required',icon:'💳',
@@ -8534,7 +8597,7 @@ Thank you,
 Your Commonwealth Cruise Team
 This email was sent by the ${TRIP_NAME} portal.`
     }),
-    customSend:()=>sendDepositRequiredEmail()
+    // No customSend: sendGeneratedEmail() reads the edited textarea body and sends it
   },
   {
     id:'suite_deposit_pending',label:'Suite Deposit Pending',icon:'🛳️',
@@ -8610,6 +8673,7 @@ Thank you,
 Your Commonwealth Cruise Team
 This email was sent by the ${TRIP_NAME} portal.`
     }),
+    useCustomSend:true,
     customSend:()=>sendSuiteDepositEmail()
   }
 ];
@@ -8752,7 +8816,6 @@ async function sendDepositRequiredEmail(){
   if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
   const subject=`${TRIP_NAME} — Deposit Payment Required`;
   const htmlBody=buildEmailHtml(toName,`
-    <p style="line-height:1.85;">Hello ${toName},</p>
     <p style="line-height:1.85;">Thank you for your reservation on the <strong>${TRIP_NAME}</strong>! We are looking forward to an amazing journey together.</p>
     <p style="line-height:1.85;">We have received your request to hold a cabin on our upcoming Bermuda cruise.</p>
     <div style="background:#fef2f2;border:2px solid #dc2626;border-radius:10px;padding:14px 18px;margin:18px 0;text-align:center;">
@@ -8814,7 +8877,6 @@ This email was sent by the ${TRIP_NAME} portal.`;
 // ── TRAVELER INFO REMINDER EMAIL (used by Email Gen tab + Missing Info tab) ─────
 function buildTravelerInfoReminderHtml(recipientName){
   return `
-    <p style="line-height:1.85;">Hello <strong>${recipientName}</strong>,</p>
     <p style="line-height:1.85;">Thank you for your reservation on the <strong>${TRIP_NAME}</strong>! We are looking forward to an amazing journey together.</p>
     <div style="background:#fff3cd;border:2px solid #ffc107;border-radius:10px;padding:14px 18px;margin:18px 0;text-align:center;">
       <strong style="font-size:1.02rem;color:#856404;display:block;">⚠️ ACTION REQUIRED: COMPLETE CABIN TYPE, CABIN TRAVELER INFORMATION AND GUEST COUNT</strong>
@@ -8843,11 +8905,7 @@ function buildTravelerInfoReminderHtml(recipientName){
     <p style="line-height:1.85;">Until your initial deposit payment has been received, your room hold is pending.</p>
     <p style="line-height:1.85;">A full deposit of <strong style="text-decoration:underline;">$250.00 per person</strong> in your cabin is required to confirm an <strong style="text-decoration:underline;">ASSIGNED cabin and finalize your reservation</strong>, unless traveling solo, then the full deposit is <strong>$500.00</strong>.</p>
     <p style="line-height:1.85;">Once your cabin is reserved, a personalized payment link will be provided to make the remainder of your payments.</p>
-    <p style="line-height:1.85;">To submit your deposit, please complete the CC Authorization Form and return it to your trip organizer. Or if you prefer, reply requesting a call from one of our team members to receive your credit card information by phone for payment. A receipt will be provided for all payments.</p>
-    <div style="text-align:center;margin:16px 0;">
-      <a href="${CC_AUTH_FORM_URL}" target="_blank" style="display:inline-block;background:#14532d;color:#fff;font-weight:800;font-size:.95rem;padding:11px 26px;border-radius:9px;text-decoration:none;">📄 CC Authorization Form</a>
-      <p style="font-size:.78rem;color:#64748b;margin-top:6px;">${CC_AUTH_FORM_URL}</p>
-    </div>
+    <p style="line-height:1.85;">To submit your deposit, please select the "Make Payment" option and complete the CC Authorization Form. A receipt will be provided for all payments.</p>
     <p style="line-height:1.85;">Please complete this at your earliest convenience. If you have any questions, reply to this email and we will be happy to assist.</p>`;
 }
 async function sendTravelerInfoReminderEmail(toEmail, toName, statusElId){
@@ -9224,7 +9282,10 @@ function egShowAttachment(input){egSlotFileChange(input);}
 function egRemoveAttachment(){}
 
 async function egSendEmail(){
-  if(window.gCurrentEmailTemplate&&window.gCurrentEmailTemplate.customSend){
+  // CC Auth and Suite Deposit use customSend for their special form fields.
+  // All other templates (including traveler_info_reminder and deposit_required) use
+  // sendGeneratedEmail() so admin edits to the body textarea are sent as-is.
+  if(window.gCurrentEmailTemplate?.useCustomSend&&window.gCurrentEmailTemplate.customSend){
     window.gCurrentEmailTemplate.customSend();
   } else {
     sendGeneratedEmail();
@@ -9310,6 +9371,9 @@ async function sendGeneratedEmail(){
   const subject=(document.getElementById('eg-subject')||{}).value?.trim();
   let body=(document.getElementById('eg-body')||{}).value?.trim();
   body=(body||'').replace('[Traveler Name]',toName||'Traveler');
+  // Strip any leading "Hello ..." greeting line — buildEmailHtml already prepends "Hello [name],"
+  // so stripping here prevents a duplicate greeting in the sent HTML email.
+  body=body.replace(/^Hello\s+[^\n]+\n+/i,'').trimStart();
   const statusEl=document.getElementById('eg-send-status');
   if(!toEmail||!subject||!body){
     if(statusEl){statusEl.textContent='⚠️ Fill in To, Subject, and Body.';statusEl.style.color='#d97706';}
@@ -10128,7 +10192,9 @@ function handleTravelerAction(sel,userId){
         });
     }
   }
+  else if(v==='cancel_travel'){markTravelerNotGoing(d.userId,d.name);}
   else if(v==='cancel'){cancelTraveler(d.userId,d.name,d.email,d.cabinType,d.cabinNumber,d.citizenshipType,d.paid);}
+  else if(v==='restore_traveler'){restoreTraveler(d.userId,d.name);}
   else if(v==='delete'){deleteTraveler(d.userId,d.name);}
 }
 
