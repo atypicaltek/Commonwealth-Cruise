@@ -3194,6 +3194,8 @@ async function loadAndRoute(user){
   sessionStorage.removeItem('pendingCabinType');
   sessionStorage.removeItem('pendingNumGuests');
 
+  // Start suite reminder poller for all authenticated users
+  startSuiteReminderPoller();
   if(isAdminByEmail||prof?.is_admin){showPage('admin');adminInit();}
   else{
     showPage('dashboard');
@@ -7457,6 +7459,83 @@ async function saveSuiteCancelDate(reqId){
   if(error){alert('Error saving: '+error.message);return;}
   document.getElementById('suite-cancel-modal')?.remove();
   loadSuiteRequests();
+}
+
+// ── SUITE DEPOSIT REMINDER POLLER ──────────────────────────────────────────────
+// Runs every 5 minutes while a user is authenticated. Checks for confirmed suite
+// requests whose cancel_at deadline is approaching and sends reminder emails at
+// 24h, 12h, and 1h before expiration. Uses atomic DB update (claim-before-send)
+// to prevent duplicate emails if multiple sessions are active simultaneously.
+// Emails bypass the hold queue so they are always delivered on time.
+
+let gSuiteReminderTimer=null;
+
+function startSuiteReminderPoller(){
+  if(gSuiteReminderTimer)clearInterval(gSuiteReminderTimer);
+  checkSuiteReminders(); // immediate check on login
+  gSuiteReminderTimer=setInterval(checkSuiteReminders,5*60*1000); // every 5 minutes
+}
+
+async function checkSuiteReminders(){
+  if(!gUser)return;
+  try{
+    const now=new Date();
+    // Admin sees all confirmed suite requests; traveler sees only their own
+    let q=sb.from('suite_requests')
+      .select('id,user_id,requestor_name,requestor_email,cancel_at,reminder_24h_sent,reminder_12h_sent,reminder_1h_sent')
+      .eq('status','confirmed')
+      .not('cancel_at','is',null);
+    if(!gIsAdmin)q=q.eq('user_id',gUser.id);
+    const{data:requests}=await q;
+    if(!requests?.length)return;
+    for(const r of requests){
+      const cancelAt=new Date(r.cancel_at);
+      if(cancelAt<=now)continue; // already expired, skip
+      const hoursLeft=(cancelAt-now)/(1000*60*60);
+      // Check each window in order; atomic claim prevents duplicates
+      if(!r.reminder_24h_sent&&hoursLeft<=24) await sendSuiteDepositReminder(r,'24 hours','reminder_24h_sent');
+      if(!r.reminder_12h_sent&&hoursLeft<=12) await sendSuiteDepositReminder(r,'12 hours','reminder_12h_sent');
+      if(!r.reminder_1h_sent &&hoursLeft<=1)  await sendSuiteDepositReminder(r,'1 hour','reminder_1h_sent');
+    }
+  }catch(e){console.warn('[Suite reminders]',e);}
+}
+
+async function sendSuiteDepositReminder(r,timeLabel,flagField){
+  // Atomic claim: update only if this reminder hasn't been sent yet.
+  // If another session already sent it, the update returns 0 rows and we bail.
+  const{data:claimed}=await sb.from('suite_requests')
+    .update({[flagField]:true})
+    .eq('id',r.id)
+    .eq(flagField,false)
+    .select('id');
+  if(!claimed?.length)return; // already claimed by another session
+
+  const name=r.requestor_name||'Traveler';
+  const email=r.requestor_email;
+  if(!email)return;
+  const cancelAt=new Date(r.cancel_at);
+  const cancelStr=cancelAt.toLocaleString('en-US',{month:'long',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+  const subject=`⚠️ REMINDER: Suite Deposit Due in ${timeLabel} — ${TRIP_NAME}`;
+
+  const htmlBody=buildEmailHtml(name,`
+    <div style="background:#fef2f2;border:2px solid #dc2626;border-radius:10px;padding:14px 18px;margin:0 0 18px;text-align:center;">
+      <strong style="font-size:1.08rem;color:#dc2626;display:block;">⚠️ SUITE DEPOSIT REMINDER — ${timeLabel.toUpperCase()} REMAINING</strong>
+      <p style="margin:6px 0 0;color:#7f1d1d;font-size:.9rem;">Your suite reservation will <strong>cancel automatically</strong> at <strong>${cancelStr}</strong> if payment is not received.</p>
+    </div>
+    <p>Your suite for the <strong>Commonwealth Cruise 2027</strong> has been confirmed and is currently on hold pending your deposit payment.</p>
+    <p>A full deposit of <strong style="color:#dc2626;">$250.00 per person in cabin</strong> is required to maintain your suite reservation.</p>
+    <p>To submit your deposit, please select the <strong>"Make Payment"</strong> option in your traveler portal and complete the CC Authorization Form.</p>
+    <div style="text-align:center;margin:18px 0;">
+      <a href="${PORTAL_URL}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.95rem;padding:12px 28px;border-radius:9px;text-decoration:none;">🛳️ Log In to Make Payment →</a>
+    </div>
+    <p style="color:#64748b;font-size:.84rem;font-style:italic;">If you have already submitted your deposit payment, please disregard this message. Thank you!</p>
+  `);
+
+  const plain=`Hello ${name},\n\n⚠️ REMINDER: Your suite deposit for the ${TRIP_NAME} is due in ${timeLabel}.\n\nYour suite reservation will cancel automatically at ${cancelStr} if payment is not received.\n\nA full deposit of $250.00 per person in cabin is required.\n\nTo submit your deposit, log in to your traveler portal:\n${PORTAL_URL}\n\nIf you have already submitted your payment, please disregard this message.\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the ${TRIP_NAME} portal.`;
+
+  // bypassHold=true — reminders must never be held in queue
+  await sendEmail(email,name,subject,plain,htmlBody,false,true);
+  console.log(`[Suite reminders] ${timeLabel} reminder sent to ${email} for request ${r.id}`);
 }
 
 async function confirmSuite(reqId,userId,backupCabin,name,email){
