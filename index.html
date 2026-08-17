@@ -687,10 +687,19 @@
       <div class="card">
         <div class="card-header"><span class="card-title">Add Payment Milestone</span></div>
         <div id="milestone-alert" class="alert"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;">
           <div class="form-group"><label>Label</label><input type="text" id="ms-label" placeholder="e.g. Deposit"></div>
           <div class="form-group"><label>Minimum Amount Due ($)</label><input type="number" id="ms-amount" placeholder="0.00" min="0" step="0.01"></div>
           <div class="form-group"><label>Due Date</label><input type="date" id="ms-date"></div>
+          <div class="form-group"><label>Cabin Type <em style="font-weight:400;color:var(--muted)">(optional)</em></label>
+            <select id="ms-cabin-type" onchange="onMsCabinTypeChange()" style="width:100%;padding:7px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.9rem;">
+              <option value="">All Cabin Types</option>
+              <option value="Interior">Interior</option>
+              <option value="Ocean View">Ocean View</option>
+              <option value="Balcony">Balcony</option>
+              <option value="Suite">Suite</option>
+            </select>
+          </div>
         </div>
         <button class="btn btn-primary btn-sm" onclick="addMilestone()">+ Add Milestone</button>
       </div>
@@ -2188,18 +2197,21 @@ function emailSuiteConfirmed(name,email,cabinNumber){
   const subject=`${TRIP_NAME} — Suite Confirmed! 🎉`;
   const table=buildPayTable([
     {label:'Cabin Type',value:'Suite'},
-    ...(cabinNumber?[{label:'Cabin Number',value:cabinNumber}]:[]),
+    ...(cabinNumber?[{label:'Suite Cabin Number',value:cabinNumber}]:[{label:'Suite Cabin Number',value:'To be assigned — a separate email will follow'}]),
   ]);
   const html=buildEmailHtml(name,
-    `<p>Great news! Your suite request for the <strong>${TRIP_NAME}</strong> has been confirmed! 🎉</p>
+    `<p>Great news! Your suite request for the <strong>Commonwealth Cruise 2027</strong> has been confirmed! 🎉</p>
      ${table}
+     ${!cabinNumber?'':''}
      <p>Your backup cabin reservation has been released.</p>
-     <p>Please continue making payments on your regular payment schedule.</p>
+     <div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:9px;padding:13px 16px;margin:16px 0;">
+       <strong style="color:#dc2626;">⚠️ DEPOSIT REQUIRED WITHIN 48 HOURS</strong>
+       <p style="margin:6px 0 0;font-size:.88rem;color:#7f1d1d;">Suite reservations require a full deposit of <strong>$250.00 per person in cabin</strong>. If the deposit is not received within 48 hours, the reservation will cancel automatically.</p>
+     </div>
+     <p>A separate payment link has been sent to you to submit your deposit payment.</p>
      <p>We look forward to sailing with you!</p>`
   );
-  const plain=`Hello ${name},\n\nGreat news! Your suite request for the ${TRIP_NAME} has been confirmed!\n\n${cabinNumber?`Your Suite Cabin Number: ${cabinNumber}\n`:''}\nYour backup cabin reservation has been released.\n\nPlease continue making payments on your regular payment schedule.\n\nLog into your account to view your full payment schedule:\nhttps://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal)\n\nWe look forward to sailing with you!\n\nThank you,
-Your Commonwealth Cruise Team
-This email was sent by the ${TRIP_NAME} portal.`;
+  const plain=`Hello ${name},\n\nGreat news! Your suite request for the Commonwealth Cruise 2027 has been confirmed! 🎉\n\nYour Suite Cabin Number: ${cabinNumber||'(If not yet assigned, your cabin number will be sent by a separate email.)'}\n\nYour backup cabin reservation has been released.\n\nSuite reservations require a full deposit of $250.00 per person in cabin. If the deposit is not received within 48 hours, the reservation will cancel automatically.\n\nA separate payment link has been sent to you to submit your deposit payment.\n\nLog into your account to view your full payment schedule:\nhttps://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal)\n\nWe look forward to sailing with you!\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the Commonwealth Cruise 2027 portal.`;
   sendEmail(email,name,subject,plain,html);
 }
 
@@ -6367,14 +6379,25 @@ async function deleteTraveler(userId,name){
 }
 
 // ── SCHEDULE ─────────────────────────────────────────────────
+function onMsCabinTypeChange(){
+  const ct=document.getElementById('ms-cabin-type').value;
+  const amtEl=document.getElementById('ms-amount');
+  // Suite deposit is $250/person — pre-fill as a hint
+  if(ct==='Suite'&&!amtEl.value){amtEl.value='250.00';amtEl.title='Suite: $250.00 per person deposit required';}
+  else if(ct!=='Suite'){amtEl.title='';}
+}
 async function addMilestone(){
   const label=document.getElementById('ms-label').value.trim();
   const amount=parseFloat(document.getElementById('ms-amount').value)||null;
   const date=document.getElementById('ms-date').value;
+  const cabinType=document.getElementById('ms-cabin-type')?.value||null;
   if(!label){flash('milestone-alert','Please enter a milestone label.');return;}
-  const{error}=await sb.from('payment_milestones').insert({label,minimum_amount:amount,due_date:date||null});
+  const row={label,minimum_amount:amount,due_date:date||null};
+  if(cabinType)row.cabin_type=cabinType;
+  const{error}=await sb.from('payment_milestones').insert(row);
   if(error){flash('milestone-alert','Error: '+error.message);return;}
   document.getElementById('ms-label').value='';document.getElementById('ms-amount').value='';document.getElementById('ms-date').value='';
+  if(document.getElementById('ms-cabin-type'))document.getElementById('ms-cabin-type').value='';
   flash('milestone-alert','✅ Milestone added!','success');
   loadAdminMilestones();loadPaymentFormSelects();
 }
@@ -6382,8 +6405,11 @@ async function loadAdminMilestones(){
   const{data}=await sb.from('payment_milestones').select('*').order('due_date',{ascending:true});
   const el=document.getElementById('admin-milestones');
   if(!data||data.length===0){el.innerHTML='<div class="empty"><div class="ei">📅</div><p>No milestones yet. Add them above or run the SQL file.</p></div>';return;}
-  const rows=data.map(m=>`<tr><td><strong>${m.label}</strong></td><td class="col-r">${m.minimum_amount!=null?fmt(m.minimum_amount):'—'}</td><td>${fmtDate(m.due_date)}</td><td><button class="btn-danger" onclick="deleteMilestone('${m.id}')">Delete</button></td></tr>`);
-  el.innerHTML=`<table><thead><tr><th>Label</th><th class="col-r">Min. Amount</th><th>Due Date</th><th>Action</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  const rows=data.map(m=>{
+    const ctBadge=m.cabin_type?`<span class="badge badge-purple" style="font-size:.7rem;">${m.cabin_type}</span>`:'<span style="color:var(--muted);font-size:.78rem;">All</span>';
+    return`<tr><td><strong>${m.label}</strong></td><td class="col-r">${m.minimum_amount!=null?fmt(m.minimum_amount):'—'}</td><td>${fmtDate(m.due_date)}</td><td>${ctBadge}</td><td><button class="btn-danger" onclick="deleteMilestone('${m.id}')">Delete</button></td></tr>`;
+  });
+  el.innerHTML=`<table><thead><tr><th>Label</th><th class="col-r">Min. Amount</th><th>Due Date</th><th>Cabin Type</th><th>Action</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 async function deleteMilestone(id){
   if(!confirm('Delete this milestone and all associated payment records?'))return;
@@ -7376,6 +7402,15 @@ async function loadSuiteRequests(){
     const isPending=r.status==='pending';
     const isConfirmed=r.status==='confirmed';
     const badge=isPending?'<span class="badge badge-warn">Pending</span>':isConfirmed?'<span class="badge badge-success">Confirmed ✓</span>':'<span class="badge badge-danger">Declined</span>';
+    // Auto-cancel column
+    let cancelCell='—';
+    if(r.cancel_at){
+      const cd=new Date(r.cancel_at);
+      const isOverdue=cd<new Date();
+      cancelCell=`<span style="color:${isOverdue?'#dc2626':'#b45309'};font-weight:600;font-size:.82rem;">${cd.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})}</span>${isOverdue?' <span style="color:#dc2626;font-size:.72rem;font-weight:700;">EXPIRED</span>':''}`;
+    } else if(isConfirmed){
+      cancelCell=`<button class="btn-sm" style="font-size:.75rem;padding:3px 8px;background:#fef9c3;border:1px solid #fbbf24;border-radius:5px;cursor:pointer;" onclick="setSuiteCancelDate('${r.id}')">+ Set Date</button>`;
+    }
     const actions=isPending?`
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn-warn" onclick="confirmSuite('${r.id}','${r.user_id}','${r.backup_cabin_type}','${r.requestor_name}','${r.requestor_email}')">✓ Confirm Suite</button>
@@ -7387,10 +7422,41 @@ async function loadSuiteRequests(){
       <td><span class="badge badge-purple">${r.backup_cabin_type}</span></td>
       <td>${badge}</td>
       <td>${new Date(r.requested_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td>
+      <td>${cancelCell}</td>
       <td>${actions}</td>
     </tr>`;
   });
-  el.innerHTML=`<table><thead><tr><th>Requestor</th><th>Phone</th><th>Backup Cabin</th><th>Status</th><th>Requested</th><th>Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  el.innerHTML=`<table><thead><tr><th>Requestor</th><th>Phone</th><th>Backup Cabin</th><th>Status</th><th>Requested</th><th>Auto-Cancel Date/Time</th><th>Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+}
+
+async function setSuiteCancelDate(reqId){
+  // Build a small inline modal to pick date + time
+  const existing=document.getElementById('suite-cancel-modal');if(existing)existing.remove();
+  const now=new Date();now.setHours(now.getHours()+48);
+  const defaultDate=now.toISOString().slice(0,16);
+  const modal=document.createElement('div');
+  modal.id='suite-cancel-modal';
+  modal.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML=`<div style="background:#fff;border-radius:12px;padding:24px;max-width:380px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.2);">
+    <div style="font-weight:700;font-size:1rem;margin-bottom:12px;">⏰ Set Auto-Cancel Date/Time</div>
+    <p style="font-size:.84rem;color:#475569;margin-bottom:14px;">Set the date and time after which this suite reservation should be cancelled if payment is not received.</p>
+    <input type="datetime-local" id="suite-cancel-dt" value="${defaultDate}" style="width:100%;padding:8px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.9rem;box-sizing:border-box;margin-bottom:14px;">
+    <div style="display:flex;gap:10px;">
+      <button onclick="saveSuiteCancelDate('${reqId}')" style="flex:1;padding:9px;background:#1a4a7c;color:#fff;border:none;border-radius:7px;font-weight:700;cursor:pointer;">Save</button>
+      <button onclick="document.getElementById('suite-cancel-modal').remove()" style="flex:1;padding:9px;background:#f1f5f9;color:#374151;border:none;border-radius:7px;font-weight:700;cursor:pointer;">Cancel</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+}
+
+async function saveSuiteCancelDate(reqId){
+  const dtVal=document.getElementById('suite-cancel-dt')?.value;
+  if(!dtVal){alert('Please select a date and time.');return;}
+  const iso=new Date(dtVal).toISOString();
+  const{error}=await sb.from('suite_requests').update({cancel_at:iso}).eq('id',reqId);
+  if(error){alert('Error saving: '+error.message);return;}
+  document.getElementById('suite-cancel-modal')?.remove();
+  loadSuiteRequests();
 }
 
 async function confirmSuite(reqId,userId,backupCabin,name,email){
@@ -7408,8 +7474,9 @@ async function confirmSuite(reqId,userId,backupCabin,name,email){
   await sb.rpc('decrement_cabin',{cabin:'Suite'});
   // 3. Update cabin assignment to Suite
   await sb.from('cabin_assignments').update({cabin_type:'Suite',suite_pending:false,cabin_number:cabinNum.trim()||null}).eq('user_id',userId);
-  // 4. Mark suite request confirmed
-  await sb.from('suite_requests').update({status:'confirmed',confirmed_at:new Date().toISOString()}).eq('id',reqId);
+  // 4. Mark suite request confirmed + auto-set cancel_at 48 hours from now
+  const cancelAt=new Date();cancelAt.setHours(cancelAt.getHours()+48);
+  await sb.from('suite_requests').update({status:'confirmed',confirmed_at:new Date().toISOString(),cancel_at:cancelAt.toISOString()}).eq('id',reqId);
   // 5. Send confirmation email — admin can skip
   if(confirm(`📧 Send suite confirmation email to ${name} at ${email}?\n\nClick OK to send, or Cancel to skip.`)){
     emailSuiteConfirmed(name,email,cabinNum.trim()||null);
@@ -8321,14 +8388,16 @@ This email was sent by the ${TRIP_NAME} portal.`
       toName:'',
       body:`Hello [Traveler Name],
 
-Great news! Your suite request for the ${TRIP_NAME} has been confirmed! 🎉
+Great news! Your suite request for the Commonwealth Cruise 2027 has been confirmed! 🎉
 
 Your Suite Cabin Number: [Cabin Number]
 (If not yet assigned, your cabin number will be sent by a separate email.)
 
 Your backup cabin reservation has been released.
 
-Please continue making payments on your regular payment schedule.
+Suite reservations require a full deposit of $250.00 per person in cabin. If the deposit is not received within 48 hours, the reservation will cancel automatically.
+
+A separate payment link has been sent to you to submit your deposit payment.
 
 Log into your account to view your full payment schedule:
 https://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal)
@@ -8337,7 +8406,7 @@ We look forward to sailing with you!
 
 Thank you,
 Your Commonwealth Cruise Team
-This email was sent by the ${TRIP_NAME} portal.`
+This email was sent by the Commonwealth Cruise 2027 portal.`
     })
   },
   {
@@ -11160,6 +11229,8 @@ async function doUploadCCAuth(file, lastName, statusEl){
   if(saveErr){if(statusEl){statusEl.textContent='⚠️ Saved to storage but failed to link to profile: '+saveErr.message;statusEl.style.color='#dc2626';}return;}
   gProfile.cc_auth_url=path;gProfile.cc_auth_filename=filename;
   if(statusEl){statusEl.innerHTML='✅ <strong>Form uploaded successfully!</strong><br><span style="font-size:.78rem;color:#166534;">Saved as: '+filename+'</span>';statusEl.style.color='#166534';}
+  // SMS alert to admin
+  sendAdminSms(`CC Authorization submitted by ${gProfile?.name||'Traveler'}. Log in to review: ${PORTAL_URL}`);
   // Update dashboard button
   const btn=document.getElementById('dash-cc-auth-btn');
   if(btn){btn.textContent='✅ Payment Authorization Submitted';btn.style.background='rgba(34,197,94,.25)';btn.style.borderColor='rgba(34,197,94,.6)';}
