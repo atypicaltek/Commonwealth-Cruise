@@ -11011,6 +11011,39 @@ async function downloadCCAuthForm(storagePath, filename, btn){
   if(btn){btn.disabled=false;btn.textContent='⬇️ Download';}
 }
 
+async function adminRemoveCCAuth(userId, storagePath, btn){
+  const traveler=gTravelerData?.find(t=>t.id===userId);
+  const displayName=traveler?.name||'this traveler';
+  if(!confirm(`Remove CC Auth form for ${displayName}?\n\nThis cannot be undone. Only remove after the initial deposit has been paid and the authorization is no longer needed.`))return;
+  if(btn){btn.disabled=true;btn.textContent='Removing…';}
+  try{
+    // 1. Delete file from storage
+    const{error:storageErr}=await sb.storage.from(CC_AUTH_BUCKET).remove([storagePath]);
+    if(storageErr)console.warn('Storage remove warning (may already be deleted):',storageErr.message);
+    // 2. Clear fields on profile
+    const{error:profileErr}=await sb.from('profiles').update({cc_auth_url:null,cc_auth_filename:null}).eq('id',userId);
+    if(profileErr)throw profileErr;
+    // 3. Update local cache (admin side)
+    if(traveler){traveler.cc_auth_url=null;traveler.cc_auth_filename=null;}
+    // Also clear gProfile if admin removed their own form (edge case) or if traveler is same session
+    if(gProfile&&gProfile.id===userId){
+      gProfile.cc_auth_url=null;gProfile.cc_auth_filename=null;
+      const ccBtn=document.getElementById('dash-cc-auth-btn');
+      if(ccBtn){ccBtn.textContent='💳 Make A Payment';ccBtn.style.background='rgba(255,255,255,.18)';ccBtn.style.borderColor='rgba(255,255,255,.45)';}
+    }
+    // 4. Close modal overlay
+    const overlay=btn?.closest('[style*="position:fixed"]');
+    if(overlay)overlay.remove();
+    // 5. Reload traveler list so the ✓ badge is removed from the dropdown
+    await loadTravelers();
+    alert(`CC Auth form for ${displayName} has been removed.`);
+  }catch(e){
+    console.error('adminRemoveCCAuth error:',e);
+    alert('Error removing CC Auth form: '+(e.message||e));
+    if(btn){btn.disabled=false;btn.textContent='🗑️ Remove';}
+  }
+}
+
 // Traveler: complete CC Auth form online or upload signed copy
 async function openTravelerCCAuthUpload(){
   if(!gUser||!gProfile)return;
@@ -11019,6 +11052,17 @@ async function openTravelerCCAuthUpload(){
   const{data:prof}=await sb.from('profiles').select('cc_auth_url,cc_auth_filename').eq('id',gUser.id).single();
   const existing=prof?.cc_auth_url;
   const existingFile=prof?.cc_auth_filename||'';
+  // Sync button state with live DB data (in case admin removed the form since page loaded)
+  const ccBtn=document.getElementById('dash-cc-auth-btn');
+  if(ccBtn){
+    if(existing){
+      ccBtn.textContent='✅ Payment Authorization Submitted';
+      ccBtn.style.background='rgba(34,197,94,.25)';ccBtn.style.borderColor='rgba(34,197,94,.6)';
+    } else {
+      ccBtn.textContent='💳 Make A Payment';
+      ccBtn.style.background='rgba(255,255,255,.18)';ccBtn.style.borderColor='rgba(255,255,255,.45)';
+    }
+  }
   const cabinType=window.gDashCabinData?.cabin_type||'';
   const today=new Date().toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'numeric'});
   const overlay=document.createElement('div');
@@ -11332,10 +11376,12 @@ async function openAdminCCAuthModal(userId, name, ccAuthUrl, ccAuthFilename){
       ${ccAuthUrl?`<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:9px;padding:14px 16px;margin-bottom:16px;">
         <div style="font-weight:700;color:#166534;font-size:.92rem;margin-bottom:4px;">✅ CC Auth Form On File</div>
         <div style="font-size:.82rem;color:#166534;margin-bottom:10px;">${ccAuthFilename||'CC Authorization'}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
           <button onclick="viewCCAuthForm('${ccAuthUrl}',this)" style="background:#166534;color:#fff;border:none;border-radius:7px;padding:7px 18px;font-size:.83rem;font-weight:700;cursor:pointer;">🔍 View Form</button>
           <button onclick="downloadCCAuthForm('${ccAuthUrl}','${(ccAuthFilename||'CC_authorization.pdf').replace(/'/g,"\\'")}',this)" style="background:#1a4a7c;color:#fff;border:none;border-radius:7px;padding:7px 18px;font-size:.83rem;font-weight:700;cursor:pointer;">⬇️ Download</button>
+          <button onclick="adminRemoveCCAuth('${userId}','${ccAuthUrl}',this)" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;border-radius:7px;padding:7px 18px;font-size:.83rem;font-weight:700;cursor:pointer;">🗑️ Remove</button>
         </div>
+        <div style="font-size:.75rem;color:#64748b;margin-top:8px;">Remove the form once the initial deposit is paid and the authorization is no longer needed.</div>
       </div>`:`<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:9px;padding:12px 16px;margin-bottom:16px;font-size:.85rem;color:#991b1b;font-weight:600;">⚠️ No CC Auth form on file for this traveler.</div>`}
       <div style="border-top:1.5px solid #e2e8f0;padding-top:16px;">
         <div style="font-weight:700;color:#0f2744;font-size:.88rem;margin-bottom:8px;">📤 Manually Upload Form</div>
