@@ -8840,7 +8840,7 @@ This email was sent by the ${TRIP_NAME} portal.`
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
           <div>
             <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Cabin Type</label>
-            <input id="eg-dep-cabin-type" type="text" placeholder="e.g. Balcony" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+            <input id="eg-dep-cabin-type" type="text" placeholder="e.g. Balcony" oninput="initialDepositRecalc()" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
           </div>
           <div>
             <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Persons in Cabin</label>
@@ -8848,7 +8848,7 @@ This email was sent by the ${TRIP_NAME} portal.`
           </div>
           <div>
             <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Deposit Per Person ($)</label>
-            <input id="eg-dep-per-person" type="number" min="0" step="0.01" value="250.00" oninput="initialDepositRecalc()" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+            <input id="eg-dep-per-person" type="number" min="0" step="0.01" value="100.00" oninput="this.dataset.adminOverride='1';initialDepositRecalc()" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;" title="Auto-set by cabin type. Edit to override.">
           </div>
         </div>
         <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.9rem;">
@@ -8860,9 +8860,7 @@ This email was sent by the ${TRIP_NAME} portal.`
           <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Payment Steps Video URL <span style="font-weight:400;text-transform:none;color:#94a3b8;">(YouTube, Google Drive, or direct link)</span></label>
           <input id="eg-dep-video-url" type="url" value="https://atypicaltek.github.io/Commonwealth-Cruise/Make%20a%20Payment%20.mp4" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
         </div>`,
-      body:`[Preview only — final email is built from the fields above]
-
-Hello [Traveler Name],
+      body:`Hello [Traveler Name],
 
 Thank you for your reservation on the ${TRIP_NAME}! We are excited to have you sailing with us.
 
@@ -8871,17 +8869,15 @@ YOUR INITIAL DEPOSIT IS NOW DUE
 To secure your cabin hold, your deposit must be received at your earliest convenience.
 
 DEPOSIT SUMMARY:
-• Cabin Type: [Cabin Type]
-• Persons in Cabin: [N]
-• Deposit Per Person: $250.00
-• TOTAL DEPOSIT DUE: $[Total]
+• Cabin Type: [CABIN_TYPE]
+• Persons in Cabin: [NUM_GUESTS]
+• Deposit Per Person: $[DEPOSIT_PER_PERSON]
+• TOTAL DEPOSIT DUE: $[TOTAL_DEPOSIT]
 
 HOW TO SUBMIT YOUR DEPOSIT:
-1. Log in to the Commonwealth Cruise Travel Portal
+1. Log in to the Commonwealth Cruise Travel Portal: https://atypicaltek.github.io/Commonwealth-Cruise/
 2. Select the "Make A Payment" button on your dashboard
 3. Complete the CC Authorization Form to authorize your deposit
-
-[Watch the payment steps tutorial video — embedded above]
 
 ⚠️ Your cabin hold is pending until the deposit is received. Failure to submit in a timely manner may result in the loss of your cabin assignment.
 
@@ -8938,10 +8934,19 @@ This email was sent by the ${TRIP_NAME} portal.`
 ];
 
 function initialDepositRecalc(){
-  const n=parseFloat(document.getElementById('eg-dep-num-guests')?.value||2);
-  const p=parseFloat(document.getElementById('eg-dep-per-person')?.value||250);
+  const cabinType=(document.getElementById('eg-dep-cabin-type')?.value||'').trim().toLowerCase();
+  const n=parseInt(document.getElementById('eg-dep-num-guests')?.value||2);
+  const isSuite=cabinType==='suite';
+  const isSolo=n===1;
+  // Auto-set deposit per person based on cabin type (admin can still override)
+  const autoRate=isSuite?250:100;
+  const perPersonEl=document.getElementById('eg-dep-per-person');
+  if(perPersonEl&&!perPersonEl.dataset.adminOverride)perPersonEl.value=autoRate.toFixed(2);
+  const p=parseFloat(perPersonEl?.value||autoRate);
+  // Solo travelers pay 2× the per-person rate (double-occupancy rule)
+  const total=isSolo?p*2:p*(isNaN(n)?1:n);
   const t=document.getElementById('eg-dep-total');
-  if(t)t.textContent='$'+((isNaN(n)?0:n)*(isNaN(p)?0:p)).toFixed(2);
+  if(t)t.textContent='$'+total.toFixed(2);
 }
 
 async function initialDepositAutoFill(){
@@ -8983,9 +8988,21 @@ async function sendInitialDepositEmail(){
   const toName=(document.getElementById('eg-to-name')||{}).value?.trim()||toEmail;
   const cabinType=(document.getElementById('eg-dep-cabin-type')||{}).value?.trim()||'your cabin type';
   const numGuests=parseInt((document.getElementById('eg-dep-num-guests')||{}).value||'1');
-  const depositPerPerson=parseFloat((document.getElementById('eg-dep-per-person')||{}).value||'250');
-  const totalDeposit=(numGuests*depositPerPerson).toFixed(2);
+  const isSuite=cabinType.toLowerCase()==='suite';
+  const isSolo=numGuests===1;
+  const autoRate=isSuite?250:100;
+  const depositPerPerson=parseFloat((document.getElementById('eg-dep-per-person')||{}).value||autoRate);
+  // Solo travelers pay 2× the per-person rate (double-occupancy rule)
+  const totalDeposit=(isSolo?depositPerPerson*2:depositPerPerson*numGuests).toFixed(2);
   const videoUrl=(document.getElementById('eg-dep-video-url')||{}).value?.trim();
+  // Read admin-edited body and substitute tokens with calculated values
+  const rawBody=(document.getElementById('eg-body')||{}).value||'';
+  const plainBody=rawBody
+    .replace(/\[CABIN_TYPE\]/g,cabinType)
+    .replace(/\[NUM_GUESTS\]/g,String(numGuests))
+    .replace(/\[DEPOSIT_PER_PERSON\]/g,depositPerPerson.toFixed(2))
+    .replace(/\[TOTAL_DEPOSIT\]/g,totalDeposit)
+    .replace(/\[Traveler Name\]/g,toName);
   const statusEl=document.getElementById('eg-send-status');
   if(!toEmail){
     if(statusEl){statusEl.textContent='⚠️ Traveler email is required.';statusEl.style.color='#d97706';}
@@ -9027,71 +9044,41 @@ async function sendInitialDepositEmail(){
         </div>`;
     }
   }
-  const htmlBody=buildEmailHtml(toName,`
-    <p>Thank you for your reservation on the <strong>${TRIP_NAME}</strong>! We are excited to have you sailing with us.</p>
-    <div style="background:#fef9c3;border:1.5px solid #fbbf24;border-radius:10px;padding:14px 18px;margin:18px 0;text-align:center;">
-      <strong style="font-size:1.05rem;color:#92400e;">💰 Your Initial Deposit is Now Due</strong>
-      <p style="margin:6px 0 0;color:#78350f;font-size:.88rem;">To secure your cabin hold, your deposit must be received at your earliest convenience.</p>
-    </div>
-    <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:16px 18px;margin:18px 0;">
-      <strong style="display:block;font-size:.95rem;color:#0f2744;margin-bottom:12px;">📋 Deposit Summary</strong>
-      <table style="width:100%;border-collapse:collapse;font-size:.9rem;">
-        <tr style="border-bottom:1px solid #e2e8f0;">
-          <td style="padding:8px 6px;color:#374151;">Cabin Type</td>
-          <td style="padding:8px 6px;text-align:right;font-weight:600;">${cabinType}</td>
-        </tr>
-        <tr style="border-bottom:1px solid #e2e8f0;">
-          <td style="padding:8px 6px;color:#374151;">Persons in Cabin</td>
-          <td style="padding:8px 6px;text-align:right;font-weight:600;">${numGuests}</td>
-        </tr>
-        <tr style="border-bottom:1px solid #e2e8f0;">
-          <td style="padding:8px 6px;color:#374151;">Deposit Per Person</td>
-          <td style="padding:8px 6px;text-align:right;font-weight:600;">$${depositPerPerson.toFixed(2)}</td>
-        </tr>
-        <tr style="background:#dbeafe;">
-          <td style="padding:10px 6px;font-weight:800;color:#0f2744;font-size:1rem;">TOTAL DEPOSIT DUE</td>
-          <td style="padding:10px 6px;text-align:right;font-weight:800;color:#dc2626;font-size:1.05rem;">$${totalDeposit}</td>
-        </tr>
-      </table>
-    </div>
-    <p style="font-weight:700;color:#0f2744;">How to Submit Your Deposit:</p>
-    <ol style="line-height:2;padding-left:20px;">
-      <li>Log in to the <a href="${PORTAL_URL}" style="color:#1a4a7c;font-weight:700;">Commonwealth Cruise Travel Portal</a></li>
-      <li>Select the <strong>"Make A Payment"</strong> button on your dashboard</li>
-      <li>Complete the CC Authorization Form to authorize your deposit</li>
-    </ol>
-    ${videoHtml}
-    <div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:12px 16px;font-weight:700;color:#991b1b;margin:18px 0;">
-      ⚠️ Your cabin hold is pending until the deposit is received. Failure to submit in a timely manner may result in the loss of your cabin assignment.
-    </div>
-    <p>Questions? Reply to this email or contact us at <a href="mailto:${ADMIN_EMAIL}" style="color:#1a4a7c;">${ADMIN_EMAIL}</a>.</p>`
-  );
-  const plain=`Hello ${toName},
-
-Thank you for your reservation on the ${TRIP_NAME}! We are excited to have you sailing with us.
-
-YOUR INITIAL DEPOSIT IS NOW DUE
-
-To secure your cabin hold, your deposit must be received at your earliest convenience.
-
-DEPOSIT SUMMARY:
-  Cabin Type: ${cabinType}
-  Persons in Cabin: ${numGuests}
-  Deposit Per Person: $${depositPerPerson.toFixed(2)}
-  TOTAL DEPOSIT DUE: $${totalDeposit}
-
-HOW TO SUBMIT YOUR DEPOSIT:
-1. Log in to the Commonwealth Cruise Travel Portal: ${PORTAL_URL}
-2. Select the "Make A Payment" button on your dashboard
-3. Complete the CC Authorization Form${videoUrl?'\n\nWatch the payment steps tutorial here: '+videoUrl:''}
-
-⚠️ Your cabin hold is pending until the deposit is received. Failure to submit in a timely manner may result in the loss of your cabin assignment.
-
-Questions? Reply to this email or contact us at ${ADMIN_EMAIL}.
-
-Thank you,
-Your Commonwealth Cruise Team
-This email was sent by the ${TRIP_NAME} portal.`;
+  // Convert admin-edited plain text body to HTML paragraphs
+  const bodyParas=plainBody.split(/\n{2,}/).map(para=>{
+    const t=para.trim();
+    if(!t)return'';
+    // Styled deposit summary block
+    if(t.includes('DEPOSIT SUMMARY')||t.includes('TOTAL DEPOSIT DUE')){
+      return `<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:16px 18px;margin:18px 0;">
+        <strong style="display:block;font-size:.95rem;color:#0f2744;margin-bottom:12px;">📋 Deposit Summary</strong>
+        <table style="width:100%;border-collapse:collapse;font-size:.9rem;">
+          <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;color:#374151;">Cabin Type</td><td style="padding:8px 6px;text-align:right;font-weight:600;">${cabinType}</td></tr>
+          <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;color:#374151;">Persons in Cabin</td><td style="padding:8px 6px;text-align:right;font-weight:600;">${numGuests}${isSolo?' (Solo — double-occupancy rate applies)':''}</td></tr>
+          <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;color:#374151;">Deposit Per Person</td><td style="padding:8px 6px;text-align:right;font-weight:600;">$${depositPerPerson.toFixed(2)}</td></tr>
+          <tr style="background:#dbeafe;"><td style="padding:10px 6px;font-weight:800;color:#0f2744;font-size:1rem;">TOTAL DEPOSIT DUE</td><td style="padding:10px 6px;text-align:right;font-weight:800;color:#dc2626;font-size:1.05rem;">$${totalDeposit}</td></tr>
+        </table>
+      </div>`;
+    }
+    // Warning paragraph
+    if(t.startsWith('⚠️')){return`<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:12px 16px;font-weight:700;color:#991b1b;margin:18px 0;">${t}</div>`;}
+    // Numbered list
+    if(/^\d+\./.test(t)){
+      const items=t.split('\n').filter(l=>l.trim());
+      return`<ol style="line-height:2;padding-left:20px;">${items.map(l=>`<li>${l.replace(/^\d+\.\s*/,'').replace(PORTAL_URL,`<a href="${PORTAL_URL}" style="color:#1a4a7c;font-weight:700;">${PORTAL_URL}</a>`)}</li>`).join('')}</ol>`;
+    }
+    // Bullet list
+    if(t.startsWith('•')){
+      const items=t.split('\n').filter(l=>l.trim());
+      return`<ul style="line-height:2;padding-left:20px;">${items.map(l=>`<li>${l.replace(/^•\s*/,'')}</li>`).join('')}</ul>`;
+    }
+    // Section heading
+    if(t===t.toUpperCase()&&t.length>4&&!/[a-z]/.test(t)){return`<p style="font-weight:700;color:#0f2744;">${t}</p>`;}
+    // Regular paragraph — linkify portal URL and admin email
+    return`<p style="line-height:1.85;">${t.replace(/https?:\/\/\S+/g,u=>`<a href="${u}" style="color:#1a4a7c;">${u}</a>`)}</p>`;
+  }).join('');
+  const htmlBody=buildEmailHtml(toName,bodyParas+videoHtml);
+  const plain=plainBody+(videoUrl?'\n\nWatch payment steps tutorial: '+videoUrl:'');
   try{
     await sendEmail(toEmail,toName,subject,plain,htmlBody,false,false);
     if(statusEl){statusEl.textContent='✅ Initial Deposit Due email sent!';statusEl.style.color='#16a34a';setTimeout(()=>{if(statusEl)statusEl.textContent='';},6000);}
