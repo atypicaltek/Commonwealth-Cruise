@@ -11298,12 +11298,19 @@ function downloadDeckPlan(){
 // ── CC AUTH FORM UPLOAD ───────────────────────────────────────
 async function uploadCCAuthFile(file, userId, lastName){
   const ext=file.name.split('.').pop().toLowerCase();
-  const storedFilename=`${lastName}_CC_authorization.${ext}`;
+  const today=new Date().toISOString().slice(0,10); // YYYY-MM-DD
+  // List existing CC auth files to determine increment number
+  const{data:existingFiles}=await sb.storage.from(CC_AUTH_BUCKET).list(userId);
+  const ccFiles=(existingFiles||[]).filter(f=>f.name.toLowerCase().includes('cc_authorization'));
+  const count=ccFiles.length; // 0=first, 1=second (_2), etc.
+  const numSuffix=count===0?'':('_'+(count+1));
+  const storedFilename=`${lastName}_CC_authorization${numSuffix}_${today}.${ext}`;
   const storagePath=`${userId}/${storedFilename}`;
-  let{error:upErr}=await sb.storage.from(CC_AUTH_BUCKET).upload(storagePath,file,{upsert:true,contentType:file.type});
+  // Upload as new file — never upsert (never overwrite previous authorizations)
+  let{error:upErr}=await sb.storage.from(CC_AUTH_BUCKET).upload(storagePath,file,{contentType:file.type});
   if(upErr&&(upErr.message?.includes('not found')||upErr.message?.includes('does not exist'))){
     await sb.storage.createBucket(CC_AUTH_BUCKET,{public:false});
-    const{error:r2}=await sb.storage.from(CC_AUTH_BUCKET).upload(storagePath,file,{upsert:true,contentType:file.type});
+    const{error:r2}=await sb.storage.from(CC_AUTH_BUCKET).upload(storagePath,file,{contentType:file.type});
     if(r2)return{path:null,error:r2.message,filename:null};
   } else if(upErr){return{path:null,error:upErr.message,filename:null};}
   return{path:storagePath,error:null,filename:storedFilename};
@@ -11396,15 +11403,8 @@ async function openTravelerCCAuthUpload(){
       <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;opacity:.75;">✕</button>
     </div>
     <div style="overflow-y:auto;padding:18px;flex:1;">
-      ${existing?`<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:9px;padding:12px 16px;margin-bottom:14px;">
-        <div style="font-weight:700;color:#166534;margin-bottom:3px;">✅ Form Already On File</div>
-        <div style="font-size:.82rem;color:#166534;">${existingFile}</div>
-        <div style="display:flex;gap:8px;margin-top:9px;">
-          <button onclick="viewCCAuthForm('${existing}',this)" style="background:#166534;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:.81rem;font-weight:700;cursor:pointer;">🔍 View</button>
-          <button onclick="downloadCCAuthForm('${existing}','${existingFile.replace(/'/g,"\\'")}',this)" style="background:#1a4a7c;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:.81rem;font-weight:700;cursor:pointer;">⬇️ Download</button>
-        </div>
-        <div style="font-size:.75rem;color:#15803d;margin-top:7px;">Complete a new form below to replace it.</div>
-      </div>`:''}
+      <!-- All submitted CC auth forms loaded from storage -->
+      <div id="trav-ccauth-filelist" style="margin-bottom:14px;"><div style="color:#64748b;font-size:.82rem;">⏳ Loading your submitted forms…</div></div>
 
       <!-- ── ONLINE FORM (upload option removed — online completion only) ── -->
       <div id="ccauth-panel-online">
@@ -11505,6 +11505,32 @@ async function openTravelerCCAuthUpload(){
   document.body.appendChild(overlay);
   // Init signature pad after DOM paint
   requestAnimationFrame(()=>{const c=overlay.querySelector('#cca-sig-canvas');if(c)initCCASigPad(c);});
+  // Async load all submitted CC auth forms from storage
+  loadTravelerCCAuthForms();
+}
+async function loadTravelerCCAuthForms(){
+  const listEl=document.getElementById('trav-ccauth-filelist');
+  if(!listEl||!gUser)return;
+  const{data:storageFiles,error}=await sb.storage.from(CC_AUTH_BUCKET).list(gUser.id);
+  if(error){listEl.innerHTML='';return;}
+  const ccFiles=(storageFiles||[]).filter(f=>f.name.toLowerCase().includes('cc_authorization')).sort((a,b)=>a.name.localeCompare(b.name));
+  if(ccFiles.length===0){listEl.innerHTML='';return;}
+  listEl.innerHTML=`<div style="margin-bottom:14px;">
+    <div style="font-weight:700;color:#166534;font-size:.85rem;margin-bottom:7px;">✅ Your Submitted Authorization${ccFiles.length>1?'s':''}</div>
+    ${ccFiles.map((f,i)=>{
+      const fPath=`${gUser.id}/${f.name}`;
+      const ep=fPath.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const en=f.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      return `<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:9px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:7px;">
+        <span style="font-size:.79rem;color:#166534;word-break:break-all;">${f.name}</span>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button onclick="viewCCAuthForm('${ep}',this)" style="background:#166534;color:#fff;border:none;border-radius:7px;padding:5px 11px;font-size:.78rem;font-weight:700;cursor:pointer;">🔍 View</button>
+          <button onclick="downloadCCAuthForm('${ep}','${en}',this)" style="background:#1a4a7c;color:#fff;border:none;border-radius:7px;padding:5px 11px;font-size:.78rem;font-weight:700;cursor:pointer;">⬇️ Download</button>
+        </div>
+      </div>`;
+    }).join('')}
+    <div style="font-size:.75rem;color:#15803d;margin-top:5px;">To submit another authorization, complete the form below.</div>
+  </div>`;
 }
 async function handleCCAuthFileSelect(input, lastName){
   const file=input.files[0];
@@ -11683,32 +11709,23 @@ async function doUploadCCAuth(file, lastName, statusEl){
   setTimeout(()=>{const ov=document.querySelector('[style*="cc-auth"]');if(!ov)loadDashboard();},2000);
 }
 
-// Admin: view or manually upload a traveler's CC Auth form
+// Admin: view/download/remove all CC Auth forms for a traveler
 async function openAdminCCAuthModal(userId, name, ccAuthUrl, ccAuthFilename){
-  // Derive last name from name
   const nameParts=(name||'').trim().split(/\s+/);
   const lastName=nameParts[nameParts.length-1]||'Traveler';
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:16px;';
-  overlay.innerHTML=`<div style="background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.3);width:100%;max-width:540px;padding:0;overflow:hidden;">
-    <div style="background:#0f2744;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">
-      <div><div style="font-weight:800;font-size:1rem;">📋 Completed CC Auth — ${name}</div><div style="font-size:.76rem;opacity:.75;">View, download, or upload the traveler's CC Authorization form</div></div>
+  overlay.innerHTML=`<div style="background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.3);width:100%;max-width:560px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;">
+    <div style="background:#0f2744;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+      <div><div style="font-weight:800;font-size:1rem;">📋 CC Auth Forms — ${name}</div><div style="font-size:.76rem;opacity:.75;">All submitted CC Authorization forms for this traveler</div></div>
       <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;opacity:.75;">✕</button>
     </div>
-    <div style="padding:20px;">
-      ${ccAuthUrl?`<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:9px;padding:14px 16px;margin-bottom:16px;">
-        <div style="font-weight:700;color:#166534;font-size:.92rem;margin-bottom:4px;">✅ CC Auth Form On File</div>
-        <div style="font-size:.82rem;color:#166534;margin-bottom:10px;">${ccAuthFilename||'CC Authorization'}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-          <button onclick="viewCCAuthForm('${ccAuthUrl}',this)" style="background:#166534;color:#fff;border:none;border-radius:7px;padding:7px 18px;font-size:.83rem;font-weight:700;cursor:pointer;">🔍 View Form</button>
-          <button onclick="downloadCCAuthForm('${ccAuthUrl}','${(ccAuthFilename||'CC_authorization.pdf').replace(/'/g,"\\'")}',this)" style="background:#1a4a7c;color:#fff;border:none;border-radius:7px;padding:7px 18px;font-size:.83rem;font-weight:700;cursor:pointer;">⬇️ Download</button>
-          <button onclick="adminRemoveCCAuth('${userId}','${ccAuthUrl}',this)" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;border-radius:7px;padding:7px 18px;font-size:.83rem;font-weight:700;cursor:pointer;">🗑️ Remove</button>
-        </div>
-        <div style="font-size:.75rem;color:#64748b;margin-top:8px;">Remove the form once the initial deposit is paid and the authorization is no longer needed.</div>
-      </div>`:`<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:9px;padding:12px 16px;margin-bottom:16px;font-size:.85rem;color:#991b1b;font-weight:600;">⚠️ No CC Auth form on file for this traveler.</div>`}
+    <div style="overflow-y:auto;padding:20px;flex:1;">
+      <div id="admin-ccauth-filelist-${userId}" style="margin-bottom:16px;"><div style="color:#64748b;font-size:.85rem;">⏳ Loading files…</div></div>
       <div style="border-top:1.5px solid #e2e8f0;padding-top:16px;">
-        <div style="font-weight:700;color:#0f2744;font-size:.88rem;margin-bottom:8px;">📤 Manually Upload Form</div>
-        <div style="font-size:.82rem;color:#64748b;margin-bottom:10px;">Last name prefix: <strong>${lastName}</strong> — file will be saved as <em>${lastName}_CC_authorization.[ext]</em></div>
+        <div style="font-weight:700;color:#0f2744;font-size:.88rem;margin-bottom:4px;">📤 Upload Additional Form</div>
+        <div style="font-size:.81rem;color:#64748b;margin-bottom:8px;">Saved as <em>${lastName}_CC_authorization[_N]_[date].[ext]</em>. Existing files are never overwritten.</div>
+        <div style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:8px;padding:8px 12px;font-size:.75rem;color:#92400e;margin-bottom:10px;">🔒 Bucket is private — card data in uploaded files is not accessible without an authenticated signed link (1-hr expiry).</div>
         <input type="file" id="admin-ccauth-input-${userId}" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" onchange="adminHandleCCAuthUpload(this,'${userId}','${lastName}')">
         <button onclick="document.getElementById('admin-ccauth-input-${userId}').click()" style="background:#1a4a7c;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:.87rem;font-weight:700;cursor:pointer;">📎 Choose File to Upload</button>
         <div id="admin-ccauth-status-${userId}" style="font-size:.84rem;margin-top:10px;min-height:18px;"></div>
@@ -11717,6 +11734,71 @@ async function openAdminCCAuthModal(userId, name, ccAuthUrl, ccAuthFilename){
   </div>`;
   overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
   document.body.appendChild(overlay);
+  await adminRefreshCCAuthFileList(userId, name);
+}
+
+// Load all CC auth files from storage and render them in the admin modal
+async function adminRefreshCCAuthFileList(userId, name){
+  const listEl=document.getElementById('admin-ccauth-filelist-'+userId);
+  if(!listEl)return;
+  const{data:storageFiles,error}=await sb.storage.from(CC_AUTH_BUCKET).list(userId);
+  if(error){listEl.innerHTML=`<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:9px;padding:12px 16px;font-size:.84rem;color:#991b1b;">⚠️ Error loading files: ${error.message}</div>`;return;}
+  const ccFiles=(storageFiles||[]).filter(f=>f.name.toLowerCase().includes('cc_authorization')).sort((a,b)=>a.name.localeCompare(b.name));
+  if(ccFiles.length===0){
+    listEl.innerHTML=`<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:9px;padding:12px 16px;font-size:.85rem;color:#991b1b;font-weight:600;">⚠️ No CC Auth forms on file for this traveler.</div>`;
+    return;
+  }
+  listEl.innerHTML=ccFiles.map((f,i)=>{
+    const fPath=`${userId}/${f.name}`;
+    const ep=fPath.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const en=f.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const label=ccFiles.length>1?`Form #${i+1}`:'Form on File';
+    return `<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:9px;padding:11px 14px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:700;color:#166534;font-size:.84rem;">✅ ${label}</div>
+          <div style="font-size:.78rem;color:#166534;word-break:break-all;margin-top:2px;">${f.name}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
+          <button onclick="viewCCAuthForm('${ep}',this)" style="background:#166534;color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:.79rem;font-weight:700;cursor:pointer;">🔍 View</button>
+          <button onclick="downloadCCAuthForm('${ep}','${en}',this)" style="background:#1a4a7c;color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:.79rem;font-weight:700;cursor:pointer;">⬇️ Download</button>
+          <button onclick="adminRemoveSingleCCAuth('${userId}','${ep}','${en}',this)" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;border-radius:7px;padding:5px 12px;font-size:.79rem;font-weight:700;cursor:pointer;">🗑️ Remove</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Remove a single CC auth file and update profile to point to the most recent remaining file
+async function adminRemoveSingleCCAuth(userId, storagePath, filename, btn){
+  const traveler=gTravelerData?.find(t=>t.id===userId);
+  const displayName=traveler?.name||'this traveler';
+  if(!confirm(`Remove "${filename}" for ${displayName}?\n\nThis cannot be undone.`))return;
+  if(btn){btn.disabled=true;btn.textContent='Removing…';}
+  try{
+    const{error:storageErr}=await sb.storage.from(CC_AUTH_BUCKET).remove([storagePath]);
+    if(storageErr)console.warn('Storage remove warning:',storageErr.message);
+    // Determine most recent remaining file to keep profile cc_auth_url current
+    const{data:remaining}=await sb.storage.from(CC_AUTH_BUCKET).list(userId);
+    const ccRemaining=(remaining||[]).filter(f=>f.name.toLowerCase().includes('cc_authorization')).sort((a,b)=>b.name.localeCompare(a.name));
+    const latestPath=ccRemaining.length>0?`${userId}/${ccRemaining[0].name}`:null;
+    const latestName=ccRemaining.length>0?ccRemaining[0].name:null;
+    const{error:profileErr}=await sb.from('profiles').update({cc_auth_url:latestPath,cc_auth_filename:latestName}).eq('id',userId);
+    if(profileErr)console.warn('Profile update warning:',profileErr.message);
+    // Update local cache
+    if(traveler){traveler.cc_auth_url=latestPath;traveler.cc_auth_filename=latestName;}
+    if(gProfile&&gProfile.id===userId){
+      gProfile.cc_auth_url=latestPath;gProfile.cc_auth_filename=latestName;
+      if(!latestPath){const ccBtn=document.getElementById('dash-cc-auth-btn');if(ccBtn){ccBtn.textContent='💳 Make A Payment';ccBtn.style.background='rgba(255,255,255,.18)';ccBtn.style.borderColor='rgba(255,255,255,.45)';}}
+    }
+    // Refresh file list in modal (re-render without the removed file)
+    await adminRefreshCCAuthFileList(userId, displayName);
+    // If all forms gone, reload traveler list so ✓ badge drops
+    if(ccRemaining.length===0)await loadTravelers();
+  }catch(e){
+    alert('Error removing form: '+(e.message||e));
+    if(btn){btn.disabled=false;btn.textContent='🗑️ Remove';}
+  }
 }
 async function adminDownloadCCAuth(url, filename, btn){
   if(btn){btn.textContent='Downloading…';btn.disabled=true;}
@@ -11738,9 +11820,9 @@ async function adminHandleCCAuthUpload(input, userId, lastName){
   if(error){if(statusEl){statusEl.textContent='⚠️ '+error;statusEl.style.color='#dc2626';}return;}
   const{error:saveErr}=await sb.from('profiles').update({cc_auth_url:path,cc_auth_filename:filename}).eq('id',userId);
   if(saveErr){if(statusEl){statusEl.textContent='⚠️ Uploaded but failed to link: '+saveErr.message;statusEl.style.color='#dc2626';}return;}
-  if(statusEl){statusEl.innerHTML='✅ <strong>Uploaded & linked to traveler profile.</strong><br><span style="font-size:.77rem;color:#166534;">'+filename+'</span>';statusEl.style.color='#166534';}
-  // Update gTravelerData cache
-  if(window.gTravelerData?.[userId]){window.gTravelerData[userId].ccAuthUrl=path;window.gTravelerData[userId].ccAuthFilename=filename;}
+  if(statusEl){statusEl.innerHTML='✅ <strong>Uploaded!</strong> <span style="font-size:.77rem;color:#166534;">'+filename+'</span>';statusEl.style.color='#166534';}
+  // Refresh file list so new file appears immediately
+  await adminRefreshCCAuthFileList(userId, lastName);
   setTimeout(()=>loadTravelers(),1500);
 }
 
