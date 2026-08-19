@@ -8823,8 +8823,321 @@ This email was sent by the ${TRIP_NAME} portal.`
     }),
     useCustomSend:true,
     customSend:()=>sendSuiteDepositEmail()
+  },
+  {
+    id:'initial_deposit_due',label:'Initial Deposit Due',icon:'💰',
+    toMode:'traveler',
+    buildPreview:()=>({
+      subject:`${TRIP_NAME} — Your Initial Deposit is Due`,
+      toLabel:'Traveler email',
+      toPlaceholder:'traveler@email.com',
+      toName:'',
+      extraFields:`
+        <div style="margin-bottom:10px;">
+          <button type="button" onclick="initialDepositAutoFill()" style="background:#e0f2fe;color:#0c4a6e;border:1.5px solid #bae6fd;border-radius:7px;padding:6px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">🔍 Auto-fill from Profile</button>
+          <span style="font-size:.75rem;color:#94a3b8;margin-left:8px;">Enter traveler email first, then click to auto-fill.</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Cabin Type</label>
+            <input id="eg-dep-cabin-type" type="text" placeholder="e.g. Balcony" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;" readonly>
+          </div>
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Persons in Cabin</label>
+            <input id="eg-dep-num-guests" type="number" min="1" max="6" value="2" oninput="initialDepositRecalc()" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Deposit Per Person ($)</label>
+            <input id="eg-dep-per-person" type="number" min="0" step="0.01" value="250.00" oninput="initialDepositRecalc()" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+          </div>
+        </div>
+        <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.9rem;">
+          <strong style="color:#374151;">Total Deposit Due:</strong>
+          <strong id="eg-dep-total" style="color:#166534;font-size:1.05rem;margin-left:8px;">$500.00</strong>
+          <span style="font-size:.75rem;color:#64748b;margin-left:6px;">(auto-calculated)</span>
+        </div>
+        <div style="margin-bottom:4px;">
+          <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Payment Steps Video URL <span style="font-weight:400;text-transform:none;color:#94a3b8;">(YouTube, Google Drive, or direct link)</span></label>
+          <input id="eg-dep-video-url" type="url" placeholder="https://youtu.be/..." style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+        </div>`,
+      body:`[Preview only — final email is built from the fields above]
+
+Hello [Traveler Name],
+
+Thank you for your reservation on the ${TRIP_NAME}! We are excited to have you sailing with us.
+
+YOUR INITIAL DEPOSIT IS NOW DUE
+
+To secure your cabin hold, your deposit must be received at your earliest convenience.
+
+DEPOSIT SUMMARY:
+• Cabin Type: [Cabin Type]
+• Persons in Cabin: [N]
+• Deposit Per Person: $250.00
+• TOTAL DEPOSIT DUE: $[Total]
+
+HOW TO SUBMIT YOUR DEPOSIT:
+1. Log in to the Commonwealth Cruise Travel Portal
+2. Select the "Make A Payment" button on your dashboard
+3. Complete the CC Authorization Form to authorize your deposit
+
+[Watch the payment steps tutorial video — embedded above]
+
+⚠️ Your cabin hold is pending until the deposit is received. Failure to submit in a timely manner may result in the loss of your cabin assignment.
+
+Questions? Reply to this email or contact us at ${ADMIN_EMAIL}.
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
+    }),
+    useCustomSend:true,
+    customSend:()=>sendInitialDepositEmail()
+  },
+  {
+    id:'cabin_hold_deposit_steps',label:'Cabin Hold — Deposit Steps',icon:'🏠',
+    toMode:'traveler',
+    buildPreview:()=>({
+      subject:`Cabin Hold –Steps to Make Your Deposit Payment/Due no later than September 1, 2026`,
+      toLabel:'Traveler email',
+      toPlaceholder:'traveler@email.com',
+      toName:'',
+      extraFields:`
+        <div style="margin-bottom:10px;">
+          <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Sender Name / Team Name</label>
+          <input id="eg-hold-sender-name" type="text" placeholder="e.g. GlowJetters Travel Team" value="GlowJetters Travel Team" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+        </div>
+        <div style="margin-bottom:4px;">
+          <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Contact Information</label>
+          <input id="eg-hold-contact-info" type="text" placeholder="e.g. glowjetters@gmail.com | (757) 270-8789" value="glowjetters@gmail.com" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+        </div>`,
+      body:`Dear [Traveler Name],
+
+Thank you again, for choosing to travel with us! We're excited to have you join us and want to help ensure you receive your preferred cabin selection.
+
+At this time, we have not yet received a deposit in connection with your cabin hold request. Please note that cabin selections are confirmed on a first-come, first-served basis upon receipt of the required deposit. To help secure your first-choice cabin type, we ask that your deposit be submitted as soon as possible. However, it must be submitted no later than September 1, 2026.
+
+We've attached a short video that walks you through the steps to complete your payment directly through your guest portal.
+
+[Video: Steps to Make Your Deposit Payment]
+https://atypicaltek.github.io/Commonwealth-Cruise/Make%20a%20Payment%20.mp4
+
+Once your payment is received, a receipt will be provided for your records.
+
+If you have any questions or need assistance completing your payment, please don't hesitate to reach out. We're happy to help and want to make the process as easy as possible.
+
+Thank you again for choosing to travel with us. We look forward to helping you secure the cabin that best suits your preferences!
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
+    }),
+    useCustomSend:true,
+    customSend:()=>sendCabinHoldDepositStepsEmail()
   }
 ];
+
+function initialDepositRecalc(){
+  const n=parseFloat(document.getElementById('eg-dep-num-guests')?.value||2);
+  const p=parseFloat(document.getElementById('eg-dep-per-person')?.value||250);
+  const t=document.getElementById('eg-dep-total');
+  if(t)t.textContent='$'+((isNaN(n)?0:n)*(isNaN(p)?0:p)).toFixed(2);
+}
+
+async function initialDepositAutoFill(){
+  const email=(document.getElementById('eg-to-email')||{}).value?.trim();
+  if(!email){alert('Enter the traveler email first.');return;}
+  try{
+    const{data,error}=await sb.rpc('admin_get_all_cabin_assignments');
+    if(error)throw error;
+    const t=(data||[]).find(r=>(r.email||r.user_email||'').toLowerCase()===email.toLowerCase());
+    if(!t){alert('No traveler found for: '+email+'\nFill in fields manually.');return;}
+    const nameEl=document.getElementById('eg-to-name');
+    if(nameEl&&(t.full_name||t.name))nameEl.value=t.full_name||t.name||'';
+    const cabinTypeEl=document.getElementById('eg-dep-cabin-type');
+    if(cabinTypeEl)cabinTypeEl.value=t.cabin_type||'';
+    const numGuestsEl=document.getElementById('eg-dep-num-guests');
+    if(numGuestsEl&&t.num_guests)numGuestsEl.value=t.num_guests;
+    initialDepositRecalc();
+  }catch(e){alert('Auto-fill failed: '+e.message+'\nPlease fill in fields manually.');}
+}
+
+async function sendInitialDepositEmail(){
+  const toEmail=(document.getElementById('eg-to-email')||{}).value?.trim();
+  const toName=(document.getElementById('eg-to-name')||{}).value?.trim()||toEmail;
+  const cabinType=(document.getElementById('eg-dep-cabin-type')||{}).value?.trim()||'your cabin type';
+  const numGuests=parseInt((document.getElementById('eg-dep-num-guests')||{}).value||'1');
+  const depositPerPerson=parseFloat((document.getElementById('eg-dep-per-person')||{}).value||'250');
+  const totalDeposit=(numGuests*depositPerPerson).toFixed(2);
+  const videoUrl=(document.getElementById('eg-dep-video-url')||{}).value?.trim();
+  const statusEl=document.getElementById('eg-send-status');
+  if(!toEmail){
+    if(statusEl){statusEl.textContent='⚠️ Traveler email is required.';statusEl.style.color='#d97706';}
+    return;
+  }
+  if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
+  const subject=`${TRIP_NAME} — Your Initial Deposit is Due`;
+  // Build video section for HTML email
+  let videoHtml='';
+  if(videoUrl){
+    const ytMatch=videoUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);
+    if(ytMatch){
+      const videoId=ytMatch[1];
+      const thumbUrl=`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+      videoHtml=`
+        <div style="margin:22px 0;text-align:center;">
+          <p style="font-weight:700;color:#0f2744;font-size:.95rem;margin:0 0 10px;">🎬 Watch: How to Submit Your Payment</p>
+          <a href="${videoUrl}" target="_blank" style="display:inline-block;position:relative;text-decoration:none;max-width:480px;width:100%;">
+            <img src="${thumbUrl}" alt="Payment Steps Video" style="width:100%;max-width:480px;border-radius:10px;display:block;border:2px solid #e2e8f0;">
+            <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.65);border-radius:50%;width:64px;height:64px;display:inline-flex;align-items:center;justify-content:center;">
+              <span style="width:0;height:0;border-style:solid;border-width:13px 0 13px 26px;border-color:transparent transparent transparent #fff;margin-left:5px;display:inline-block;"></span>
+            </span>
+          </a>
+          <p style="font-size:.78rem;color:#64748b;margin:8px 0 0;"><a href="${videoUrl}" target="_blank" style="color:#1a4a7c;">${videoUrl}</a></p>
+        </div>`;
+    } else {
+      videoHtml=`
+        <div style="margin:22px 0;text-align:center;">
+          <p style="font-weight:700;color:#0f2744;font-size:.95rem;margin:0 0 10px;">🎬 Watch: How to Submit Your Payment</p>
+          <a href="${videoUrl}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.95rem;padding:13px 30px;border-radius:10px;text-decoration:none;">▶️ Watch Payment Tutorial</a>
+          <p style="font-size:.78rem;color:#64748b;margin-top:8px;"><a href="${videoUrl}" target="_blank" style="color:#1a4a7c;">${videoUrl}</a></p>
+        </div>`;
+    }
+  }
+  const htmlBody=buildEmailHtml(toName,`
+    <p>Thank you for your reservation on the <strong>${TRIP_NAME}</strong>! We are excited to have you sailing with us.</p>
+    <div style="background:#fef9c3;border:1.5px solid #fbbf24;border-radius:10px;padding:14px 18px;margin:18px 0;text-align:center;">
+      <strong style="font-size:1.05rem;color:#92400e;">💰 Your Initial Deposit is Now Due</strong>
+      <p style="margin:6px 0 0;color:#78350f;font-size:.88rem;">To secure your cabin hold, your deposit must be received at your earliest convenience.</p>
+    </div>
+    <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:16px 18px;margin:18px 0;">
+      <strong style="display:block;font-size:.95rem;color:#0f2744;margin-bottom:12px;">📋 Deposit Summary</strong>
+      <table style="width:100%;border-collapse:collapse;font-size:.9rem;">
+        <tr style="border-bottom:1px solid #e2e8f0;">
+          <td style="padding:8px 6px;color:#374151;">Cabin Type</td>
+          <td style="padding:8px 6px;text-align:right;font-weight:600;">${cabinType}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #e2e8f0;">
+          <td style="padding:8px 6px;color:#374151;">Persons in Cabin</td>
+          <td style="padding:8px 6px;text-align:right;font-weight:600;">${numGuests}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #e2e8f0;">
+          <td style="padding:8px 6px;color:#374151;">Deposit Per Person</td>
+          <td style="padding:8px 6px;text-align:right;font-weight:600;">$${depositPerPerson.toFixed(2)}</td>
+        </tr>
+        <tr style="background:#dbeafe;">
+          <td style="padding:10px 6px;font-weight:800;color:#0f2744;font-size:1rem;">TOTAL DEPOSIT DUE</td>
+          <td style="padding:10px 6px;text-align:right;font-weight:800;color:#dc2626;font-size:1.05rem;">$${totalDeposit}</td>
+        </tr>
+      </table>
+    </div>
+    <p style="font-weight:700;color:#0f2744;">How to Submit Your Deposit:</p>
+    <ol style="line-height:2;padding-left:20px;">
+      <li>Log in to the <a href="${PORTAL_URL}" style="color:#1a4a7c;font-weight:700;">Commonwealth Cruise Travel Portal</a></li>
+      <li>Select the <strong>"Make A Payment"</strong> button on your dashboard</li>
+      <li>Complete the CC Authorization Form to authorize your deposit</li>
+    </ol>
+    ${videoHtml}
+    <div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:12px 16px;font-weight:700;color:#991b1b;margin:18px 0;">
+      ⚠️ Your cabin hold is pending until the deposit is received. Failure to submit in a timely manner may result in the loss of your cabin assignment.
+    </div>
+    <p>Questions? Reply to this email or contact us at <a href="mailto:${ADMIN_EMAIL}" style="color:#1a4a7c;">${ADMIN_EMAIL}</a>.</p>`
+  );
+  const plain=`Hello ${toName},
+
+Thank you for your reservation on the ${TRIP_NAME}! We are excited to have you sailing with us.
+
+YOUR INITIAL DEPOSIT IS NOW DUE
+
+To secure your cabin hold, your deposit must be received at your earliest convenience.
+
+DEPOSIT SUMMARY:
+  Cabin Type: ${cabinType}
+  Persons in Cabin: ${numGuests}
+  Deposit Per Person: $${depositPerPerson.toFixed(2)}
+  TOTAL DEPOSIT DUE: $${totalDeposit}
+
+HOW TO SUBMIT YOUR DEPOSIT:
+1. Log in to the Commonwealth Cruise Travel Portal: ${PORTAL_URL}
+2. Select the "Make A Payment" button on your dashboard
+3. Complete the CC Authorization Form${videoUrl?'\n\nWatch the payment steps tutorial here: '+videoUrl:''}
+
+⚠️ Your cabin hold is pending until the deposit is received. Failure to submit in a timely manner may result in the loss of your cabin assignment.
+
+Questions? Reply to this email or contact us at ${ADMIN_EMAIL}.
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`;
+  try{
+    await sendEmail(toEmail,toName,subject,plain,htmlBody,false,false);
+    if(statusEl){statusEl.textContent='✅ Initial Deposit Due email sent!';statusEl.style.color='#16a34a';setTimeout(()=>{if(statusEl)statusEl.textContent='';},6000);}
+  }catch(e){
+    if(statusEl){statusEl.textContent='⚠️ Error: '+(e.message||e);statusEl.style.color='#dc2626';}
+  }
+}
+
+async function sendCabinHoldDepositStepsEmail(){
+  const toEmail=(document.getElementById('eg-to-email')||{}).value?.trim();
+  const toName=(document.getElementById('eg-to-name')||{}).value?.trim()||'Traveler';
+  const senderName=(document.getElementById('eg-hold-sender-name')||{}).value?.trim()||'GlowJetters Travel Team';
+  const contactInfo=(document.getElementById('eg-hold-contact-info')||{}).value?.trim()||ADMIN_EMAIL;
+  const statusEl=document.getElementById('eg-send-status');
+  if(!toEmail){
+    if(statusEl){statusEl.textContent='⚠️ Traveler email is required.';statusEl.style.color='#d97706';}
+    return;
+  }
+  if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
+  const subject=`Cabin Hold –Steps to Make Your Deposit Payment/Due no later than September 1, 2026`;
+  const VIDEO_URL='https://atypicaltek.github.io/Commonwealth-Cruise/Make%20a%20Payment%20.mp4';
+  const videoHtml=`
+    <div style="margin:22px 0;text-align:center;">
+      <p style="font-weight:700;color:#0f2744;font-size:.95rem;margin:0 0 12px;">🎬 Watch: Steps to Make Your Deposit Payment</p>
+      <!--[if !mso]><!-->
+      <video width="480" controls muted playsinline style="max-width:100%;border-radius:10px;border:2px solid #e2e8f0;display:block;margin:0 auto;">
+        <source src="${VIDEO_URL}" type="video/mp4">
+        <a href="${VIDEO_URL}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.95rem;padding:13px 30px;border-radius:10px;text-decoration:none;">▶️ Watch Payment Tutorial</a>
+      </video>
+      <!--<![endif]-->
+      <p style="font-size:.78rem;color:#64748b;margin:10px 0 0;">Can't see the video? <a href="${VIDEO_URL}" target="_blank" style="color:#1a4a7c;font-weight:600;">Click here to watch</a></p>
+    </div>`;
+  const htmlBody=buildEmailHtml(toName,`
+    <p>Thank you again, for choosing to travel with us! We're excited to have you join us and want to help ensure you receive your preferred cabin selection.</p>
+    <p>At this time, we have not yet received a deposit in connection with your cabin hold request. Please note that cabin selections are confirmed on a first-come, first-served basis upon receipt of the required deposit. To help secure your first-choice cabin type, we ask that your deposit be submitted as soon as possible. However, it must be submitted no later than <strong style="color:#dc2626;">September 1, 2026</strong>.</p>
+    <p>We've attached a short video that walks you through the steps to complete your payment directly through your guest portal.</p>
+    ${videoHtml}
+    <p>Once your payment is received, a receipt will be provided for your records.</p>
+    <p>If you have any questions or need assistance completing your payment, please don't hesitate to reach out. We're happy to help and want to make the process as easy as possible.</p>
+    <p>Thank you again for choosing to travel with us. We look forward to helping you secure the cabin that best suits your preferences!</p>
+    <p style="margin-top:24px;"><strong>Thank you,</strong><br>${senderName}<br><span style="color:#64748b;">${contactInfo}</span><br><span style="font-size:.78rem;color:#94a3b8;">This email was sent by the ${TRIP_NAME} portal.</span></p>`
+  );
+  const plain=`Dear ${toName},
+
+Thank you again, for choosing to travel with us! We're excited to have you join us and want to help ensure you receive your preferred cabin selection.
+
+At this time, we have not yet received a deposit in connection with your cabin hold request. Please note that cabin selections are confirmed on a first-come, first-served basis upon receipt of the required deposit. To help secure your first-choice cabin type, we ask that your deposit be submitted as soon as possible. However, it must be submitted no later than September 1, 2026.
+
+We've attached a short video that walks you through the steps to complete your payment directly through your guest portal.
+
+▶️ Watch here: ${VIDEO_URL}
+
+Once your payment is received, a receipt will be provided for your records.
+
+If you have any questions or need assistance completing your payment, please don't hesitate to reach out. We're happy to help and want to make the process as easy as possible.
+
+Thank you again for choosing to travel with us. We look forward to helping you secure the cabin that best suits your preferences!
+
+Thank you,
+${senderName}
+${contactInfo}
+This email was sent by the ${TRIP_NAME} portal.`;
+  try{
+    await sendEmail(toEmail,toName,subject,plain,htmlBody,false,false);
+    if(statusEl){statusEl.textContent='✅ Cabin Hold email sent!';statusEl.style.color='#16a34a';setTimeout(()=>{if(statusEl)statusEl.textContent='';},6000);}
+  }catch(e){
+    if(statusEl){statusEl.textContent='⚠️ Error: '+(e.message||e);statusEl.style.color='#dc2626';}
+  }
+}
 
 async function suiteDepositAutoFill(){
   const email=(document.getElementById('eg-to-email')||{}).value?.trim();
