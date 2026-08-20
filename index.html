@@ -3269,15 +3269,8 @@ async function loadInventoryForSetup(){
     const booked=actualBooked[r.cabin_type]||0;
     gInventory[r.cabin_type]={...r,available_cabins:Math.max(0,r.total_cabins-booked)};
   });
-  // Compute minimum available price per cabin type from tier data
+  // gCabinMinPrices intentionally not shown to travelers (stale tier data not reliable)
   gCabinMinPrices={};
-  (tierData||[]).forEach(t=>{
-    if(t.available_cabins>0){
-      if(!gCabinMinPrices[t.cabin_type]||t.price_per_person<gCabinMinPrices[t.cabin_type]){
-        gCabinMinPrices[t.cabin_type]=parseFloat(t.price_per_person);
-      }
-    }
-  });
   updatePsetupCabinAvail();
 }
 
@@ -3288,13 +3281,11 @@ function updatePsetupCabinAvail(){
     const opt=sel.querySelector(`option[value="${t}"]`);
     if(!opt)return;
     const inv=gInventory[t];
-    if(!inv){opt.textContent=t+' Cabin';return;}
+    if(!inv){opt.textContent=t+' Cabin';opt.disabled=false;return;}
     const avail=inv.available_cabins;
-    const minPrice=gCabinMinPrices[t];
-    const priceStr=minPrice?` — From $${minPrice.toLocaleString()}/person`:'';
     if(avail<=0){opt.textContent=`${t} Cabin — SOLD OUT`;opt.disabled=true;}
-    else if(avail<=5){opt.textContent=`${t} Cabin${priceStr} (${avail} remaining — Almost Full!)`;}
-    else{opt.textContent=`${t} Cabin${priceStr} (${avail} remaining)`;}
+    else if(avail<=5){opt.textContent=`${t} Cabin (${avail} remaining — Almost Full!)`;opt.disabled=false;}
+    else{opt.textContent=`${t} Cabin (${avail} remaining)`;opt.disabled=false;}
   });
   // Suite — no availability count or standard pricing
   const suiteOpt=sel.querySelector('option[value="Suite"]');
@@ -7524,14 +7515,11 @@ async function adminAssignTierFromModal(userId, cabinType, oldPricePP, numGuests
     const ng=parseInt(numGuests)||1;
     const effGuests=ng===1?2:ng;
     const newCost=newPrice*effGuests;
-    console.log('[adminAssignTierFromModal] calling admin_set_price_tier',{userId,newPrice,newCost});
+    console.log('[adminAssignTierFromModal] calling admin_set_price_tier',{userId,newPrice});
     const{data:rowsUpdated,error}=await sb.rpc('admin_set_price_tier',{p_user_id:userId,p_price_per_person:newPrice});
     console.log('[adminAssignTierFromModal] result',{rowsUpdated,error});
-    if(error)throw new Error(error.message||JSON.stringify(error));
+    if(error)throw new Error(error.message||JSON.stringify(error)+'\n\nMake sure Statement 64 in urgent-fixes.sql has been run in Supabase.');
     if(rowsUpdated===0)throw new Error('No cabin record found for this traveler (0 rows updated). The cabin_assignments row may be missing — check Supabase.');
-    // Also update cabin_cost so the Cost column reflects the tier immediately
-    const{error:costErr}=await sb.rpc('admin_set_cabin_cost_v2',{p_user_id:userId,p_val:newCost});
-    if(costErr)console.warn('[adminAssignTierFromModal] cabin_cost update failed:',costErr.message);
     if(btn){btn.textContent='✅ Saved!';btn.style.background='#dcfce7';btn.style.color='#166534';btn.style.borderColor='#86efac';}
     setTimeout(()=>{
       const m=document.getElementById('atm-modal');if(m)m.remove();
@@ -7581,14 +7569,11 @@ async function adminAssignPriceTier(userId, cabinType, oldPricePP, rawNewPrice, 
     // Use SECURITY DEFINER RPC — direct table update is blocked by RLS for admin on other users' rows.
     // No tier counter adjustment here: admin assignment is an override (enables overbooking);
     // the inventory view derives counts from actual cabin_assignments.price_per_person data.
-    console.log('[adminAssignPriceTier] calling admin_set_price_tier',{userId,newPrice,newCost});
+    console.log('[adminAssignPriceTier] calling admin_set_price_tier',{userId,newPrice});
     const{data:rowsUpdated,error}=await sb.rpc('admin_set_price_tier',{p_user_id:userId,p_price_per_person:newPrice});
     console.log('[adminAssignPriceTier] result',{rowsUpdated,error});
-    if(error)throw new Error(error.message||JSON.stringify(error));
+    if(error)throw new Error(error.message||JSON.stringify(error)+'\n\nMake sure Statement 64 in urgent-fixes.sql has been run in Supabase.');
     if(rowsUpdated===0)throw new Error('No cabin record found for this traveler (0 rows updated). The cabin_assignments row may be missing — check Supabase.');
-    // Also update cabin_cost so Cost column reflects the tier immediately
-    const{error:costErr}=await sb.rpc('admin_set_cabin_cost_v2',{p_user_id:userId,p_val:newCost});
-    if(costErr)console.warn('[adminAssignPriceTier] cabin_cost update failed:',costErr.message);
     if(btn){btn.textContent='✅ Saved!';btn.style.background='#dcfce7';btn.style.color='#166534';btn.style.borderColor='#86efac';}
     // Reload inventory cards + traveler list to reflect updated tier counts
     setTimeout(()=>{loadInventoryTab();loadTravelers();},900);
@@ -7596,7 +7581,7 @@ async function adminAssignPriceTier(userId, cabinType, oldPricePP, rawNewPrice, 
     setTimeout(()=>showInventoryDetail(cabinType),950);
   }catch(e){
     console.error('[adminAssignPriceTier] error',e);
-    alert('Error assigning price tier: '+(e.message||e)+'\n\nMake sure Statement 59 in urgent-fixes.sql has been re-run in Supabase (the signature changed — re-run even if previously run).');
+    alert('Error assigning price tier: '+(e.message||e)+'\n\nMake sure Statement 64 in urgent-fixes.sql has been run in Supabase.');
     if(btn){btn.disabled=false;btn.textContent='Assign';}
   }
 }
