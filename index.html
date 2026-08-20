@@ -7374,12 +7374,15 @@ async function showInventoryDetail(cabinType){
         }).join('');
         const selId=`tier-sel-${uid}`;
         const btnId=`tier-btn-${uid}`;
+        const customInputId=`tier-custom-${uid}`;
         return`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
           <span style="font-size:.8rem;font-weight:700;color:#1a4a7c;">💲 Price Tier:</span>
-          <select id="${selId}" style="border:1.5px solid #dbe4ee;border-radius:7px;padding:4px 8px;font-size:.82rem;color:#1a4a7c;font-weight:700;">
+          <select id="${selId}" onchange="adminTierSelChange('${selId}','${customInputId}')" style="border:1.5px solid #dbe4ee;border-radius:7px;padding:4px 8px;font-size:.82rem;color:#1a4a7c;font-weight:700;">
             <option value="">— Select tier —</option>
             ${opts}
+            <option value="__custom__">✏️ Enter custom price…</option>
           </select>
+          <input id="${customInputId}" type="number" min="0" step="0.01" placeholder="$/person" style="display:none;width:110px;border:1.5px solid #dbe4ee;border-radius:7px;padding:4px 8px;font-size:.82rem;color:#1a4a7c;font-weight:700;">
           <button id="${btnId}" onclick="adminAssignPriceTier('${uid}','${cabinType}',${curPP||0},document.getElementById('${selId}').value,${ng},this)" style="background:#1a4a7c;color:#fff;border:none;border-radius:7px;padding:5px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">Assign</button>
           ${!curPP?'<span style="font-size:.76rem;color:#d68910;font-weight:700;">⚠️ No tier assigned</span>':''}
         </div>`;
@@ -7392,36 +7395,50 @@ async function showInventoryDetail(cabinType){
 }
 
 // ── PRICE TIER ASSIGNMENT FROM INVENTORY ──────────────────────
-async function adminAssignPriceTier(userId, cabinType, oldPricePP, newPricePP, numGuests, btn){
-  if(!newPricePP||parseFloat(newPricePP)===0){alert('Please select a price tier.');return;}
+// Show/hide custom price input when admin picks "Enter custom price..." from tier dropdown
+function adminTierSelChange(selId, inputId){
+  const sel=document.getElementById(selId);
+  const inp=document.getElementById(inputId);
+  if(!sel||!inp)return;
+  const isCustom=sel.value==='__custom__';
+  inp.style.display=isCustom?'inline-block':'none';
+  if(isCustom)setTimeout(()=>inp.focus(),50);
+}
+
+async function adminAssignPriceTier(userId, cabinType, oldPricePP, rawNewPrice, numGuests, btn){
+  // rawNewPrice may be '__custom__' — in that case read the sibling custom input
+  let newPricePP=rawNewPrice;
+  if(rawNewPrice==='__custom__'){
+    const customInp=document.getElementById('tier-custom-'+userId);
+    newPricePP=customInp?customInp.value.trim():'';
+  }
+  if(!newPricePP||parseFloat(newPricePP)===0||newPricePP==='__custom__'){
+    alert('Please select a price tier or enter a custom price.');return;
+  }
   const newPrice=parseFloat(newPricePP);
+  if(isNaN(newPrice)||newPrice<0){alert('Invalid price.');return;}
   const oldPrice=oldPricePP?parseFloat(oldPricePP):0;
   if(oldPrice&&Math.round(oldPrice*100)===Math.round(newPrice*100)){
-    alert('That tier is already assigned to this traveler.');return;
+    alert('That price is already assigned to this traveler.');return;
   }
-  if(!confirm(`Assign ${fmt(newPrice)}/person to this traveler?\n\nThis will update their cabin cost.`))return;
+  if(!confirm(`Assign ${fmt(newPrice)}/person to this traveler?\n\nCabin cost will be updated accordingly.`))return;
   if(btn){btn.disabled=true;btn.textContent='Saving…';}
   try{
     const ng=parseInt(numGuests)||1;
     const effGuests=ng===1?2:ng; // single occupancy pays double-occupancy rate
     const newCost=newPrice*effGuests;
-    // Adjust tier inventory counters
-    if(oldPrice&&cabinType!=='Suite'){
-      await sb.rpc('increment_cabin_tier',{p_cabin_type:cabinType,p_price:oldPrice.toString()});
-    }
-    if(cabinType!=='Suite'){
-      await sb.rpc('decrement_cabin_tier',{p_cabin_type:cabinType,p_price:newPrice.toString()});
-    }
-    // Save to cabin_assignments
-    const{error}=await sb.from('cabin_assignments').update({price_per_person:newPrice,cabin_cost:newCost}).eq('user_id',userId);
+    // Use SECURITY DEFINER RPC — direct table update is blocked by RLS for admin on other users' rows.
+    // No tier counter adjustment here: admin assignment is an override (enables overbooking);
+    // the inventory view derives counts from actual cabin_assignments.price_per_person data.
+    const{error}=await sb.rpc('admin_set_price_tier',{p_user_id:userId,p_price_per_person:newPrice,p_cabin_cost:newCost});
     if(error)throw new Error(error.message);
     if(btn){btn.textContent='✅ Saved!';btn.style.background='#dcfce7';btn.style.color='#166534';btn.style.borderColor='#86efac';}
-    // Reload inventory cards + traveler list in background to reflect updated tier counts
+    // Reload inventory cards + traveler list to reflect updated tier counts
     setTimeout(()=>{loadInventoryTab();loadTravelers();},900);
     // Refresh the detail modal so the new tier is pre-selected and cost shows correctly
     setTimeout(()=>showInventoryDetail(cabinType),950);
   }catch(e){
-    alert('Error assigning tier: '+(e.message||e));
+    alert('Error assigning price tier: '+(e.message||e)+'\n\nMake sure Statement 59 in urgent-fixes.sql has been run in Supabase.');
     if(btn){btn.disabled=false;btn.textContent='Assign';}
   }
 }
