@@ -12660,28 +12660,20 @@ async function openAdminCCAuthModal(userId, name, ccAuthUrl, ccAuthFilename){
 async function adminRefreshCCAuthFileList(userId, name){
   const listEl=document.getElementById('admin-ccauth-filelist-'+userId);
   if(!listEl)return;
-  // Fetch files + check if any payment recorded (in parallel)
-  const[{data:storageFiles,error},{count:payCount}]=await Promise.all([
-    sb.storage.from(CC_AUTH_BUCKET).list(userId),
-    sb.from('user_payments').select('id',{count:'exact',head:true}).eq('user_id',userId)
-  ]);
+  // Fetch files from storage
+  const{data:storageFiles,error}=await sb.storage.from(CC_AUTH_BUCKET).list(userId);
   if(error){listEl.innerHTML=`<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:9px;padding:12px 16px;font-size:.84rem;color:#991b1b;">⚠️ Error loading files: ${error.message}</div>`;return;}
   const ccFiles=(storageFiles||[]).filter(f=>f.name.toLowerCase().includes('cc_authorization')).sort((a,b)=>a.name.localeCompare(b.name));
   if(ccFiles.length===0){
     listEl.innerHTML=`<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:9px;padding:12px 16px;font-size:.85rem;color:#991b1b;font-weight:600;">⚠️ No CC Auth forms on file for this traveler.</div>`;
     return;
   }
-  // Only allow removal after at least one payment has been recorded
-  const canRemove=(payCount||0)>0;
-  const removeNotice=canRemove?'':`<div style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:7px;padding:7px 11px;font-size:.75rem;color:#78350f;margin-bottom:10px;">ℹ️ CC Auth forms can only be removed after at least one payment has been recorded for this traveler.</div>`;
-  listEl.innerHTML=removeNotice+ccFiles.map((f,i)=>{
+  listEl.innerHTML=ccFiles.map((f,i)=>{
     const fPath=`${userId}/${f.name}`;
     const ep=fPath.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     const en=f.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     const label=ccFiles.length>1?`Form #${i+1}`:'Form on File';
-    const removeBtn=canRemove
-      ?`<button onclick="adminRemoveSingleCCAuth('${userId}','${ep}','${en}',this)" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;border-radius:7px;padding:5px 12px;font-size:.79rem;font-weight:700;cursor:pointer;">🗑️ Remove</button>`
-      :`<button disabled title="Record a payment first before removing CC Auth" style="background:#f1f5f9;color:#94a3b8;border:1.5px solid #e2e8f0;border-radius:7px;padding:5px 12px;font-size:.79rem;font-weight:700;cursor:not-allowed;">🗑️ Remove</button>`;
+    const removeBtn=`<button onclick="adminRemoveSingleCCAuth('${userId}','${ep}','${en}',this)" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;border-radius:7px;padding:5px 12px;font-size:.79rem;font-weight:700;cursor:pointer;">🗑️ Remove</button>`;
     return `<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:9px;padding:11px 14px;margin-bottom:8px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
         <div>
