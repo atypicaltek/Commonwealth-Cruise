@@ -7473,15 +7473,19 @@ async function adminAssignTierFromModal(userId, cabinType, oldPricePP, numGuests
     const ng=parseInt(numGuests)||1;
     const effGuests=ng===1?2:ng;
     const newCost=newPrice*effGuests;
-    const{error}=await sb.rpc('admin_set_price_tier',{p_user_id:userId,p_price_per_person:newPrice,p_cabin_cost:newCost});
-    if(error)throw new Error(error.message);
+    console.log('[adminAssignTierFromModal] calling admin_set_price_tier',{userId,newPrice,newCost});
+    const{data:rowsUpdated,error}=await sb.rpc('admin_set_price_tier',{p_user_id:userId,p_price_per_person:newPrice,p_cabin_cost:newCost});
+    console.log('[adminAssignTierFromModal] result',{rowsUpdated,error});
+    if(error)throw new Error(error.message||JSON.stringify(error));
+    if(rowsUpdated===0)throw new Error('No cabin record found for this traveler (0 rows updated). The cabin_assignments row may be missing — check Supabase.');
     if(btn){btn.textContent='✅ Saved!';btn.style.background='#dcfce7';btn.style.color='#166534';btn.style.borderColor='#86efac';}
     setTimeout(()=>{
       const m=document.getElementById('atm-modal');if(m)m.remove();
       loadTravelers();
     },900);
   }catch(e){
-    alert('Error assigning price tier: '+(e.message||e)+'\n\nMake sure Statement 59 in urgent-fixes.sql has been run in Supabase.');
+    console.error('[adminAssignTierFromModal] error',e);
+    alert('Error assigning price tier: '+(e.message||e)+'\n\nMake sure Statement 59 in urgent-fixes.sql has been run in Supabase (re-run it even if you ran it before — the signature changed to return a row count).');
     if(btn){btn.disabled=false;btn.textContent='Assign Tier';}
   }
 }
@@ -7523,15 +7527,19 @@ async function adminAssignPriceTier(userId, cabinType, oldPricePP, rawNewPrice, 
     // Use SECURITY DEFINER RPC — direct table update is blocked by RLS for admin on other users' rows.
     // No tier counter adjustment here: admin assignment is an override (enables overbooking);
     // the inventory view derives counts from actual cabin_assignments.price_per_person data.
-    const{error}=await sb.rpc('admin_set_price_tier',{p_user_id:userId,p_price_per_person:newPrice,p_cabin_cost:newCost});
-    if(error)throw new Error(error.message);
+    console.log('[adminAssignPriceTier] calling admin_set_price_tier',{userId,newPrice,newCost});
+    const{data:rowsUpdated,error}=await sb.rpc('admin_set_price_tier',{p_user_id:userId,p_price_per_person:newPrice,p_cabin_cost:newCost});
+    console.log('[adminAssignPriceTier] result',{rowsUpdated,error});
+    if(error)throw new Error(error.message||JSON.stringify(error));
+    if(rowsUpdated===0)throw new Error('No cabin record found for this traveler (0 rows updated). The cabin_assignments row may be missing — check Supabase.');
     if(btn){btn.textContent='✅ Saved!';btn.style.background='#dcfce7';btn.style.color='#166534';btn.style.borderColor='#86efac';}
     // Reload inventory cards + traveler list to reflect updated tier counts
     setTimeout(()=>{loadInventoryTab();loadTravelers();},900);
     // Refresh the detail modal so the new tier is pre-selected and cost shows correctly
     setTimeout(()=>showInventoryDetail(cabinType),950);
   }catch(e){
-    alert('Error assigning price tier: '+(e.message||e)+'\n\nMake sure Statement 59 in urgent-fixes.sql has been run in Supabase.');
+    console.error('[adminAssignPriceTier] error',e);
+    alert('Error assigning price tier: '+(e.message||e)+'\n\nMake sure Statement 59 in urgent-fixes.sql has been re-run in Supabase (the signature changed — re-run even if previously run).');
     if(btn){btn.disabled=false;btn.textContent='Assign';}
   }
 }
@@ -7669,7 +7677,7 @@ async function checkSuiteReminders(){
       .select('id,user_id,requestor_name,requestor_email,cancel_at,reminder_24h_sent,reminder_12h_sent,reminder_1h_sent')
       .eq('status','confirmed')
       .not('cancel_at','is',null);
-    if(!gIsAdmin)q=q.eq('user_id',gUser.id);
+    if(!gProfile?.is_admin)q=q.eq('user_id',gUser.id);
     const{data:requests}=await q;
     if(!requests?.length)return;
     for(const r of requests){
@@ -10143,7 +10151,6 @@ async function egSendEmail(){
   }
 }
 
-async 
 async function showAdminNoteModal(userId, userName){
   const existing = document.getElementById('admin-note-modal');
   if(existing) existing.remove();
