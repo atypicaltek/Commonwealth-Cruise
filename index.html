@@ -6276,7 +6276,7 @@ async function loadTravelers(){
     return'<tr>'+
       '<td><a href="#" onclick="openManageTravelers(\''+p.id+'\',\''+safeN+'\','+( ca?.num_guests||1)+');return false;" style="font-weight:800;color:var(--primary);text-decoration:none;">'+(p.name||'<em style="color:var(--muted)">No name</em>')+'</a> '+docB+suiteB+noCabinB+needsCCLB+'<br><small style="color:var(--muted)">'+(p.email||'')+'</small></td>'+
       '<td><span class="badge badge-purple">'+cabinStr+'</span>'+
-        (ca?.price_per_person?'<br><span style="font-size:.74rem;color:#1a4a7c;font-weight:700;">💲'+fmt(parseFloat(ca.price_per_person))+'/pp</span>':'<br><span style="font-size:.72rem;color:#d68910;">⚠️ No price tier</span>')+
+        (()=>{const _uid=p.id;const _ng=ca?.num_guests||1;const _effG=_ng===1?2:_ng;const _pp=ca?.price_per_person?parseFloat(ca.price_per_person):null;const _cc=ca?.cabin_cost?parseFloat(ca.cabin_cost):null;const _tot=_pp?fmt(_pp*_effG):'';const _totColor=(_pp&&_cc&&Math.abs(_pp*_effG-_cc)<0.01)?'#166534':'#1a4a7c';return`<br><div style="margin-top:3px;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:.74rem;font-weight:700;color:#1a4a7c;"><input type="checkbox" id="tv-chk-${_uid}" ${_pp?'checked':''} onchange="toggleInlineTierInput('${_uid}')"><span>${_pp?'✅ Price Verified':'Price Verified'}</span></label><div id="tv-form-${_uid}" style="display:${_pp?'flex':'none'};align-items:center;gap:3px;flex-wrap:wrap;margin-top:3px;"><input type="number" id="tv-pp-${_uid}" value="${_pp||''}" placeholder="$/pp" step="0.01" min="0" style="width:72px;padding:2px 5px;font-size:.74rem;border:1.5px solid #cbd5e1;border-radius:4px;color:#1a4a7c;font-weight:700;" oninput="updateInlineTierTotal('${_uid}',${_effG},${_cc||0})"><span id="tv-tot-${_uid}" style="font-size:.71rem;color:${_totColor};font-weight:700;">${_tot?'= '+_tot:''}</span><button onclick="saveInlineTier('${_uid}',${_effG})" style="background:#1a4a7c;color:#fff;border:none;border-radius:4px;padding:2px 7px;font-size:.72rem;font-weight:700;cursor:pointer;">Save</button></div></div>`})()+''+
         (ca?.backup_cabin_type&&!ca?.suite_pending&&!ca?.cabin_number?'<br><span style="font-size:.74rem;color:var(--muted);">🔄 Backup: '+ca.backup_cabin_type+'</span>':'')+
         (ca?.high_occupancy_pending?'<br><span class="badge badge-warn" style="font-size:.72rem;">⚠️ High Occ. Pending</span>':'')+
         (ca?.cabin_change_pending&&ca?.requested_cabin_type?'<br><span class="badge badge-warn" style="font-size:.72rem;">🔄 Change Req: '+ca.requested_cabin_type+'</span>':'')+
@@ -7345,7 +7345,7 @@ async function loadInventoryTab(){
       const availLabel=isSoldOut?'<span style="color:#c0392b;font-weight:800;">SOLD OUT</span>'
         :isLow?`<span style="color:#d68910;font-weight:800;">${tierAvail} left!</span>`
         :`<span style="color:#16a34a;font-weight:700;">${tierAvail} remaining</span>`;
-      return`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #e8eef5;font-size:.8rem;">
+      return`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #e8eef5;font-size:.8rem;cursor:pointer;" onclick="event.stopPropagation();showInventoryDetail('${r.cabin_type}',${parseFloat(t.price_per_person)})" title="Click to see travelers at this price">
         <div style="flex:0 0 auto;font-weight:800;color:#1a4a7c;min-width:80px;">${fmt(parseFloat(t.price_per_person))}<span style="font-size:.7rem;color:#94a3b8;font-weight:400;">/pp</span></div>
         <div style="flex:1;min-width:0;">
           <div style="background:#e2e8f0;border-radius:3px;height:5px;overflow:hidden;"><div style="background:${barFill};width:${tierPct}%;height:100%;transition:width .3s;"></div></div>
@@ -7366,14 +7366,14 @@ async function loadInventoryTab(){
     }
     const customRows=Object.entries(customPriceMap).sort(([a],[b])=>parseFloat(a)-parseFloat(b)).map(([ppKey,cnt])=>{
       const pp=parseFloat(ppKey)/100;
-      return`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #e8eef5;font-size:.8rem;background:#f0fdf4;">
+      return`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #e8eef5;font-size:.8rem;background:#f0fdf4;cursor:pointer;" onclick="event.stopPropagation();showInventoryDetail('${r.cabin_type}',${pp})" title="Click to see travelers at this price">
         <div style="flex:0 0 auto;font-weight:800;color:#166534;min-width:80px;">${fmt(pp)}<span style="font-size:.7rem;color:#94a3b8;font-weight:400;">/pp</span> <span style="font-size:.68rem;color:#166534;background:#dcfce7;border-radius:3px;padding:0 4px;">custom</span></div>
         <div style="flex:1;font-size:.76rem;color:#15803d;font-weight:600;">${cnt} booking${cnt!==1?'s':''}</div>
       </div>`;
     }).join('');
     // Add an "unpriced" row if some reservations have no price tier assigned
     const unpricedCount=isSuite?0:(unpricedPerType[r.cabin_type]||0);
-    const unpricedRow=unpricedCount>0?`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #e8eef5;font-size:.8rem;background:#fffbeb;">
+    const unpricedRow=unpricedCount>0?`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #e8eef5;font-size:.8rem;background:#fffbeb;cursor:pointer;" onclick="event.stopPropagation();showInventoryDetail('${r.cabin_type}',0)" title="Click to see travelers with no price tier">
       <div style="flex:0 0 auto;font-weight:700;color:#d68910;min-width:80px;">⚠️ No Tier</div>
       <div style="flex:1;font-size:.76rem;color:#92400e;font-style:italic;">Price not yet assigned</div>
       <div style="flex:0 0 auto;font-size:.76rem;font-weight:800;color:#d68910;">${unpricedCount} reservation${unpricedCount>1?'s':''}</div>
@@ -7446,7 +7446,8 @@ function sortInvTable(col){
   renderInvAssignmentsTable();
 }
 
-async function showInventoryDetail(cabinType){
+async function showInventoryDetail(cabinType,filterPP){
+  // filterPP: undefined = all bookings; number > 0 = only that price/pp; 0 = unpriced only
   // Open modal immediately with spinner so user sees the click registered
   document.getElementById('inv-detail-title').textContent=`${cabinType} — Loading…`;
   document.getElementById('inv-detail-content').innerHTML='<div class="loading"><div class="spinner"></div></div>';
@@ -7460,8 +7461,16 @@ async function showInventoryDetail(cabinType){
     document.getElementById('inv-detail-content').innerHTML=`<p style="color:var(--danger);padding:12px;">Error loading bookings: ${caErr.message}<br><small>Make sure you've run the latest new-columns.sql in Supabase.</small></p>`;
     return;
   }
-  const bookings=caRows||[];
-  document.getElementById('inv-detail-title').textContent=`${cabinType} Cabin — ${bookings.length} Booked`;
+  // Apply price tier filter if provided — match on price_per_person (not cabin_cost,
+  // which varies for parties of 3-5 sharing a cabin at the same per-person rate)
+  let bookings=(caRows||[]);
+  if(filterPP===0){
+    bookings=bookings.filter(b=>!b.price_per_person||parseFloat(b.price_per_person)===0);
+  }else if(filterPP!=null&&filterPP>0){
+    bookings=bookings.filter(b=>b.price_per_person&&Math.abs(parseFloat(b.price_per_person)-filterPP)<0.01);
+  }
+  const filterLabel=filterPP===0?' — No Tier':filterPP>0?` — ${fmt(filterPP)}/pp`:'';
+  document.getElementById('inv-detail-title').textContent=`${cabinType} Cabin${filterLabel} — ${bookings.length} Booked`;
 
   if(bookings.length===0){
     document.getElementById('inv-detail-content').innerHTML='<div class="empty"><div class="ei">🛏️</div><p>No travelers booked in this cabin type yet.</p></div>';
@@ -7701,6 +7710,53 @@ async function adminAssignPriceTier(userId, cabinType, oldPricePP, rawNewPrice, 
     console.error('[adminAssignPriceTier] error',e);
     alert('Error assigning price tier: '+(e.message||e)+'\n\nMake sure Statement 64 in urgent-fixes.sql has been run in Supabase.');
     if(btn){btn.disabled=false;btn.textContent='Assign';}
+  }
+}
+
+// ── INLINE TIER (Travelers tab) ───────────────────────────────
+function toggleInlineTierInput(userId){
+  const chk=document.getElementById('tv-chk-'+userId);
+  const form=document.getElementById('tv-form-'+userId);
+  const lbl=chk?.parentElement?.querySelector('span');
+  if(!form)return;
+  if(chk?.checked){
+    form.style.display='flex';
+    if(lbl)lbl.textContent='Price Verified';
+  }else{
+    form.style.display='none';
+    if(lbl)lbl.textContent='Price Verified';
+  }
+}
+function updateInlineTierTotal(userId,effGuests,cabinCost){
+  const inp=document.getElementById('tv-pp-'+userId);
+  const totEl=document.getElementById('tv-tot-'+userId);
+  if(!inp||!totEl)return;
+  const pp=parseFloat(inp.value);
+  if(!isNaN(pp)&&pp>0){
+    const total=pp*effGuests;
+    const match=cabinCost>0&&Math.abs(total-cabinCost)<0.01;
+    totEl.textContent='= '+fmt(total)+(match?' ✓':'');
+    totEl.style.color=match?'#166534':'#1a4a7c';
+  }else{
+    totEl.textContent='';
+  }
+}
+async function saveInlineTier(userId,effGuests){
+  const inp=document.getElementById('tv-pp-'+userId);
+  const btn=inp?.parentElement?.querySelector('button');
+  const pp=parseFloat(inp?.value);
+  if(isNaN(pp)||pp<=0){alert('Enter a valid price per person.');return;}
+  if(btn){btn.textContent='Saving…';btn.disabled=true;}
+  try{
+    const{data:rowsUpdated,error}=await sb.rpc('admin_set_price_tier',{p_user_id:userId,p_price_per_person:pp});
+    if(error)throw new Error(error.message||JSON.stringify(error)+'\n\nMake sure Statement 65 in urgent-fixes.sql has been run in Supabase.');
+    if(rowsUpdated==null||rowsUpdated===0)throw new Error('No cabin record found (0 rows updated). Run Statement 65 in urgent-fixes.sql.');
+    if(btn){btn.textContent='✅ Saved!';btn.style.background='#dcfce7';btn.style.color='#166534';}
+    setTimeout(()=>loadTravelers(),800);
+  }catch(e){
+    console.error('[saveInlineTier]',e);
+    alert('Error saving tier: '+(e.message||e));
+    if(btn){btn.disabled=false;btn.textContent='Save';}
   }
 }
 
