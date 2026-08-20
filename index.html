@@ -5595,34 +5595,96 @@ async function loadCabinChanges(){
 }
 
 async function adminApproveCabinChange(userId,name,email,currentType,requestedType){
-  if(!confirm('Approve cabin change for '+name+'?\n\nChange: '+currentType+' → '+requestedType+'\n\nInventory will be updated automatically.'))return;
+  // Fetch tiers for the new cabin type so admin can pick the price
+  let tiers=[];
+  if(requestedType&&requestedType!=='Suite'){
+    const{data}=await sb.from('cabin_price_tiers').select('*').eq('cabin_type',requestedType).order('price_per_person');
+    tiers=data||[];
+  }
+  // Build tier options
+  const tierOpts=tiers.map(t=>`<option value="${parseFloat(t.price_per_person)}">${fmt(parseFloat(t.price_per_person))}/pp</option>`).join('');
+  const tierSection=requestedType==='Suite'?'<p style="color:var(--muted);font-size:.85rem;">Suite pricing — set cost separately via the Cost action after approving.</p>'
+    :tiers.length===0?'<p style="color:#d68910;font-size:.84rem;font-weight:700;">⚠️ No price tiers found for '+requestedType+'. Set price manually after approving.</p>'
+    :`<div style="margin-bottom:12px;">
+      <label style="font-size:.84rem;font-weight:700;color:var(--text);display:block;margin-bottom:5px;">Price Tier for ${requestedType}:</label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <select id="ccr-tier-sel" style="border:1.5px solid #dbe4ee;border-radius:7px;padding:6px 10px;font-size:.84rem;color:#1a4a7c;font-weight:700;min-width:180px;">
+          <option value="">— Select tier —</option>
+          ${tierOpts}
+          <option value="__custom__">✏️ Enter custom price…</option>
+        </select>
+        <input id="ccr-tier-custom" type="number" min="0" step="0.01" placeholder="$/person" style="display:none;width:120px;border:1.5px solid #dbe4ee;border-radius:7px;padding:6px 10px;font-size:.84rem;color:#1a4a7c;font-weight:700;">
+      </div>
+    </div>`;
+  const existing=document.getElementById('ccr-approve-modal');if(existing)existing.remove();
+  const modal=document.createElement('div');
+  modal.id='ccr-approve-modal';modal.className='modal open';
+  modal.innerHTML=`<div class="modal-box" style="max-width:460px;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <h2 style="margin:0;font-size:1rem;">✅ Approve Cabin Change — ${name}</h2>
+      <button class="btn-close" onclick="document.getElementById('ccr-approve-modal').remove()">✕</button>
+    </div>
+    <div style="padding:18px;">
+      <div style="margin-bottom:14px;font-size:.85rem;">
+        <strong>${currentType}</strong> <span style="color:var(--muted);">→</span> <strong style="color:#1a4a7c;">${requestedType}</strong>
+      </div>
+      ${tierSection}
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+        <button onclick="document.getElementById('ccr-approve-modal').remove()" style="background:var(--border);color:var(--text);border:none;border-radius:8px;padding:8px 18px;font-size:.85rem;font-weight:700;cursor:pointer;">Cancel</button>
+        <button id="ccr-approve-btn" onclick="adminExecuteCabinChangeApproval('${userId}','${name}','${email}','${currentType}','${requestedType}')" style="background:#1a4a7c;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:.85rem;font-weight:700;cursor:pointer;">Approve &amp; Update</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  // Wire up custom price toggle
+  const sel=document.getElementById('ccr-tier-sel');
+  if(sel)sel.addEventListener('change',()=>{
+    const inp=document.getElementById('ccr-tier-custom');
+    if(inp){inp.style.display=sel.value==='__custom__'?'inline-block':'none';if(sel.value==='__custom__')setTimeout(()=>inp.focus(),50);}
+  });
+}
+
+async function adminExecuteCabinChangeApproval(userId,name,email,currentType,requestedType){
+  const btn=document.getElementById('ccr-approve-btn');
+  if(btn){btn.disabled=true;btn.textContent='Saving…';}
   try{
-    // Get current price_per_person before changing so we can restore the right tier
-    const{data:curCa}=await sb.from('cabin_assignments').select('price_per_person').eq('user_id',userId).single();
+    // Determine selected tier price
+    let selectedPrice=null;
+    const sel=document.getElementById('ccr-tier-sel');
+    if(sel&&requestedType!=='Suite'){
+      let rawVal=sel.value;
+      if(rawVal==='__custom__'){
+        const inp=document.getElementById('ccr-tier-custom');
+        rawVal=inp?inp.value.trim():'';
+      }
+      if(rawVal&&parseFloat(rawVal)>0)selectedPrice=parseFloat(rawVal);
+    }
+    // Get current price so tier slot can be restored
+    const{data:curCa}=await sb.from('cabin_assignments').select('price_per_person,num_guests').eq('user_id',userId).single();
     const oldPrice=curCa?.price_per_person||null;
+    const ng=curCa?.num_guests||1;
+    const effGuests=ng===1?2:ng;
     // Update cabin type
     const{error:upErr}=await sb.rpc('admin_set_cabin_type',{p_user_id:userId,p_val:requestedType});
     if(upErr)throw new Error(upErr.message);
     // Update main inventory: restore old slot, claim new
     if(currentType&&currentType!=='Suite')await sb.rpc('increment_cabin',{cabin:currentType});
     if(requestedType&&requestedType!=='Suite')await sb.rpc('decrement_cabin',{cabin:requestedType});
-    // Update price tier inventory + auto-assign new price
-    if(currentType&&currentType!=='Suite')await sb.rpc('increment_cabin_tier',{p_cabin_type:currentType,p_price:oldPrice});
-    if(requestedType&&requestedType!=='Suite'){
-      const{data:newTierPrice}=await sb.rpc('decrement_cabin_tier',{p_cabin_type:requestedType});
-      if(newTierPrice){
-        const{data:curGuests}=await sb.from('cabin_assignments').select('num_guests').eq('user_id',userId).single();
-        const ng=curGuests?.num_guests||1;
-        const effGuests=ng===1?2:ng; // single occ pays full cabin at double rate
-        await sb.from('cabin_assignments').update({price_per_person:parseFloat(newTierPrice),cabin_cost:parseFloat(newTierPrice)*effGuests}).eq('user_id',userId);
-      }
+    // Restore old tier slot
+    if(currentType&&currentType!=='Suite'&&oldPrice)await sb.rpc('increment_cabin_tier',{p_cabin_type:currentType,p_price:oldPrice});
+    // Apply new price tier using atomic RPC (sets both price_per_person and cabin_cost)
+    if(selectedPrice){
+      await sb.rpc('admin_set_price_tier',{p_user_id:userId,p_price_per_person:selectedPrice});
+    } else if(requestedType!=='Suite'){
+      // No tier selected — clear price so admin can assign later
+      await sb.from('cabin_assignments').update({price_per_person:null,cabin_cost:null}).eq('user_id',userId);
     }
-    // Clear pending flags and backup cabin (change is confirmed, backup no longer relevant)
+    // Clear pending flags
     await sb.from('cabin_assignments').update({cabin_change_pending:false,requested_cabin_type:null,backup_cabin_type:null}).eq('user_id',userId);
-    // Update admin row to show processed state (green, no reload needed)
+    // Update admin row
     const ccrRow=document.getElementById('ccr-row-'+userId);
-    if(ccrRow){const td=ccrRow.querySelector('td:last-child');if(td)td.innerHTML='<span style="background:#dcfce7;color:#166534;border:1.5px solid #86efac;border-radius:7px;padding:5px 12px;font-weight:700;font-size:.82rem;">✅ Processed → '+requestedType+'</span>';}
-    // Email traveler — approved
+    if(ccrRow){const td=ccrRow.querySelector('td:last-child');if(td)td.innerHTML='<span style="background:#dcfce7;color:#166534;border:1.5px solid #86efac;border-radius:7px;padding:5px 12px;font-weight:700;font-size:.82rem;">✅ Processed → '+requestedType+(selectedPrice?' @ '+fmt(selectedPrice)+'/pp':'')+'</span>';}
+    document.getElementById('ccr-approve-modal')?.remove();
     const approvedHtml=buildEmailHtml(name,
       '<p>Dear '+name+',</p>'+
       '<p>Great news! Your cabin type change request has been <strong style="color:#16a34a;">approved</strong>.</p>'+
@@ -5630,13 +5692,16 @@ async function adminApproveCabinChange(userId,name,email,currentType,requestedTy
         {label:'Previous Cabin Type',value:currentType},
         {label:'New Cabin Type',value:requestedType,color:'green'},
       ])+
-      '<p>Your payment schedule has been updated to reflect your new cabin type. Please log in to the portal to review your updated details.</p>'
+      '<p>Please log in to the portal to review your updated details.</p>'
     );
-    const approvedPlain='Dear '+name+',\n\nYour cabin type change request has been approved.\n\nPrevious: '+currentType+'\nNew: '+requestedType+'\n\nPlease log in to review your updated payment schedule.\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the '+TRIP_NAME+' portal.';
+    const approvedPlain='Dear '+name+',\n\nYour cabin type change request has been approved.\n\nPrevious: '+currentType+'\nNew: '+requestedType+'\n\nPlease log in to review your updated details.\n\nThank you,\nYour Commonwealth Cruise Team';
     sendEmail(email,name,TRIP_NAME+' — Cabin Change Approved',approvedPlain,approvedHtml);
     alert('Cabin change approved for '+name+'. Inventory updated. Confirmation email sent.');
     await Promise.all([loadTravelers(),loadInventoryTab(),loadCabinChanges()]);
-  }catch(e){alert('Error approving change: '+e.message);}
+  }catch(e){
+    alert('Error approving change: '+e.message);
+    if(btn){btn.disabled=false;btn.textContent='Approve & Update';}
+  }
 }
 async function adminDeclineCabinChange(userId,name,email,currentType,requestedType){
   if(!confirm('Decline cabin change request for '+name+'?\n\n'+requestedType+' will remain unchanged (they keep '+currentType+').'))return;
@@ -6121,7 +6186,7 @@ async function loadTravelers(){
         '<option value="cabin_photo">&#x1F4F7; Upload Cabin Photo</option>'+
         (ca?.cabin_change_pending&&ca?.requested_cabin_type?'<option value="approve_cabin_change">&#x2705; Approve Change → '+ca.requested_cabin_type+'</option>':'')+
         (ca?.cabin_change_pending&&ca?.requested_cabin_type?'<option value="decline_cabin_change">&#x274C; Decline Change Request</option>':'')+
-        '<option value="select_tier">&#x1F4B2; Assign Price Tier'+(ca?.price_per_person?' ✓':'')+'</option>'+
+        '<option value="select_tier">&#x1F4B2; Assign Price Tier'+(ca?.price_per_person?' ✓ ('+fmt(parseFloat(ca.price_per_person))+'/pp)':'')+'</option>'+
         '<option value="reset_cost">&#x1F504; Reset Cost to Blank</option>'+
         '<option value="cost">&#x1F4B0; Cost'+costChk+'</option>'+
         '<option value="res_num">&#x1F4CB; Res. #'+resChk+'</option>'+
@@ -7599,10 +7664,11 @@ async function adminAssignPriceTier(userId, cabinType, oldPricePP, rawNewPrice, 
     if(error)throw new Error(error.message||JSON.stringify(error)+'\n\nMake sure Statement 64 in urgent-fixes.sql has been run in Supabase.');
     if(rowsUpdated===0)throw new Error('No cabin record found for this traveler (0 rows updated). The cabin_assignments row may be missing — check Supabase.');
     if(btn){btn.textContent='✅ Saved!';btn.style.background='#dcfce7';btn.style.color='#166534';btn.style.borderColor='#86efac';}
-    // Reload inventory cards + traveler list to reflect updated tier counts
-    setTimeout(()=>{loadInventoryTab();loadTravelers();},900);
-    // Refresh the detail modal so the new tier is pre-selected and cost shows correctly
-    setTimeout(()=>showInventoryDetail(cabinType),950);
+    // Reload inventory + traveler list, then re-render detail so tier shows correctly
+    setTimeout(async()=>{
+      await Promise.all([loadInventoryTab(),loadTravelers()]);
+      showInventoryDetail(cabinType);
+    },700);
   }catch(e){
     console.error('[adminAssignPriceTier] error',e);
     alert('Error assigning price tier: '+(e.message||e)+'\n\nMake sure Statement 64 in urgent-fixes.sql has been run in Supabase.');
