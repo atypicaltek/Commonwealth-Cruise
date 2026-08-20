@@ -5714,7 +5714,6 @@ async function adminExecuteCabinChangeApproval(userId,name,email,currentType,req
     if(ccrRow){const td=ccrRow.querySelector('td:last-child');if(td)td.innerHTML='<span style="background:#dcfce7;color:#166534;border:1.5px solid #86efac;border-radius:7px;padding:5px 12px;font-weight:700;font-size:.82rem;">✅ Processed → '+requestedType+(selectedPrice?' @ '+fmt(selectedPrice)+'/pp':'')+'</span>';}
     document.getElementById('ccr-approve-modal')?.remove();
     const approvedHtml=buildEmailHtml(name,
-      '<p>Dear '+name+',</p>'+
       '<p>Great news! Your cabin type change request has been <strong style="color:#16a34a;">approved</strong>.</p>'+
       buildPayTable([
         {label:'Previous Cabin Type',value:currentType},
@@ -5722,7 +5721,7 @@ async function adminExecuteCabinChangeApproval(userId,name,email,currentType,req
       ])+
       '<p>Please log in to the portal to review your updated details.</p>'
     );
-    const approvedPlain='Dear '+name+',\n\nYour cabin type change request has been approved.\n\nPrevious: '+currentType+'\nNew: '+requestedType+'\n\nPlease log in to review your updated details.\n\nThank you,\nYour Commonwealth Cruise Team';
+    const approvedPlain='Hello '+name+',\n\nGreat news! Your cabin type change request has been approved.\n\nPrevious: '+currentType+'\nNew: '+requestedType+'\n\nPlease log in to review your updated details.';
     sendEmail(email,name,TRIP_NAME+' — Cabin Change Approved',approvedPlain,approvedHtml);
     alert('Cabin change approved for '+name+'. Inventory updated. Confirmation email sent.');
     await Promise.all([loadTravelers(),loadInventoryTab(),loadCabinChanges()]);
@@ -5740,7 +5739,6 @@ async function adminDeclineCabinChange(userId,name,email,currentType,requestedTy
     if(ccrRow){const td=ccrRow.querySelector('td:last-child');if(td)td.innerHTML='<span style="background:#dcfce7;color:#166534;border:1.5px solid #86efac;border-radius:7px;padding:5px 12px;font-weight:700;font-size:.82rem;">✅ 1st Req Confirmed</span>';}
     // Email traveler — declined
     const declinedHtml=buildEmailHtml(name,
-      '<p>Dear '+name+',</p>'+
       '<p>We have reviewed your cabin type change request. Unfortunately, we are unable to process the requested change at this time.</p>'+
       buildPayTable([
         {label:'Current Cabin Type',value:currentType},
@@ -5749,7 +5747,7 @@ async function adminDeclineCabinChange(userId,name,email,currentType,requestedTy
       ])+
       '<p>Your current cabin reservation remains active. If you have questions, please contact the trip organizer at <a href="mailto:'+ADMIN_EMAIL+'" style="color:#1a3a5c;">'+ADMIN_EMAIL+'</a>.</p>'
     );
-    const declinedPlain='Dear '+name+',\n\nYour cabin change request from '+currentType+' to '+requestedType+' could not be approved at this time.\n\nYour current cabin reservation remains active.\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the '+TRIP_NAME+' portal.';
+    const declinedPlain='Hello '+name+',\n\nYour cabin change request from '+currentType+' to '+requestedType+' could not be approved at this time.\n\nYour current cabin reservation remains active.';
     sendEmail(email,name,TRIP_NAME+' — Cabin Change Request Update',declinedPlain,declinedHtml);
     alert('Request declined. '+name+' will keep their '+currentType+' cabin. Decline email sent.');
     await Promise.all([loadTravelers(),loadCabinChanges()]);
@@ -7637,8 +7635,8 @@ async function adminAssignTierFromModal(userId, cabinType, oldPricePP, numGuests
     console.log('[adminAssignTierFromModal] calling admin_set_price_tier',{userId,newPrice});
     const{data:rowsUpdated,error}=await sb.rpc('admin_set_price_tier',{p_user_id:userId,p_price_per_person:newPrice});
     console.log('[adminAssignTierFromModal] result',{rowsUpdated,error});
-    if(error)throw new Error(error.message||JSON.stringify(error)+'\n\nMake sure Statement 64 in urgent-fixes.sql has been run in Supabase.');
-    if(rowsUpdated===0)throw new Error('No cabin record found for this traveler (0 rows updated). The cabin_assignments row may be missing — check Supabase.');
+    if(error)throw new Error(error.message||JSON.stringify(error)+'\n\nMake sure Statement 65 in urgent-fixes.sql has been run in Supabase.');
+    if(rowsUpdated==null||rowsUpdated===0)throw new Error('No cabin record found for this traveler (0 rows updated). The cabin_assignments row may be missing — check Supabase.');
     if(btn){btn.textContent='✅ Saved!';btn.style.background='#dcfce7';btn.style.color='#166534';btn.style.borderColor='#86efac';}
     setTimeout(()=>{
       const m=document.getElementById('atm-modal');if(m)m.remove();
@@ -7691,8 +7689,8 @@ async function adminAssignPriceTier(userId, cabinType, oldPricePP, rawNewPrice, 
     console.log('[adminAssignPriceTier] calling admin_set_price_tier',{userId,newPrice});
     const{data:rowsUpdated,error}=await sb.rpc('admin_set_price_tier',{p_user_id:userId,p_price_per_person:newPrice});
     console.log('[adminAssignPriceTier] result',{rowsUpdated,error});
-    if(error)throw new Error(error.message||JSON.stringify(error)+'\n\nMake sure Statement 64 in urgent-fixes.sql has been run in Supabase.');
-    if(rowsUpdated===0)throw new Error('No cabin record found for this traveler (0 rows updated). The cabin_assignments row may be missing — check Supabase.');
+    if(error)throw new Error(error.message||JSON.stringify(error)+'\n\nMake sure Statement 65 in urgent-fixes.sql has been run in Supabase.');
+    if(rowsUpdated==null||rowsUpdated===0)throw new Error('No cabin record found for this traveler (0 rows updated). The cabin_assignments row may be missing — check Supabase.');
     if(btn){btn.textContent='✅ Saved!';btn.style.background='#dcfce7';btn.style.color='#166534';btn.style.borderColor='#86efac';}
     // Reload inventory + traveler list, then re-render detail so tier shows correctly
     setTimeout(async()=>{
@@ -8695,9 +8693,12 @@ Please review Carnival's minor travel policy and contact the account holder.`
       toLabel:'Traveler email',
       toPlaceholder:'traveler@email.com',
       toName:'',
-      body:`Hello [Owner Name],
-
-All cabin traveler information has been entered. Please review the details below.
+      extraFields:`
+        <div style="margin-bottom:10px;">
+          <button type="button" onclick="travelersCompleteAutoFill()" style="background:#e0f2fe;color:#0c4a6e;border:1.5px solid #bae6fd;border-radius:7px;padding:6px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">🔍 Auto-fill Travelers from Profile</button>
+          <span style="font-size:.75rem;color:#94a3b8;margin-left:8px;">Enter traveler email first, then click to populate body with their cabin traveler list.</span>
+        </div>`,
+      body:`All cabin traveler information has been entered. Please review the details below.
 
 CABIN TRAVELERS:
 [Traveler Name] — [DOB] — [Gender] — [Citizenship]
@@ -8712,11 +8713,7 @@ https://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal)
 
 ⚠️ Each traveler is personally responsible for their required documents. Traveling without proper documentation will result in denial of boarding with no refund.
 
-Age Policy Reminder: Guests are required to be 21 years of age (on embarkation day) to travel on their own. Guest ages will be verified at embarkation. Guests not conforming to this policy will result in denied boarding and no compensation will be provided.
-
-Thank you,
-Your Commonwealth Cruise Team
-This email was sent by the ${TRIP_NAME} portal.`
+Age Policy Reminder: Guests are required to be 21 years of age (on embarkation day) to travel on their own. Guest ages will be verified at embarkation. Guests not conforming to this policy will result in denied boarding and no compensation will be provided.`
     })
   },
   {
@@ -8785,9 +8782,7 @@ Your Commonwealth Cruise Team`
       toLabel:'Traveler email',
       toPlaceholder:'traveler@email.com',
       toName:'',
-      body:`Hello [Traveler Name],
-
-Thank you for signing up for the ${TRIP_NAME}!
+      body:`Thank you for signing up for the ${TRIP_NAME}!
 
 Your suite request has been received and is pending confirmation.
 
@@ -8804,11 +8799,7 @@ Your Contact Information on File:
 • Phone: [Phone]
 • Backup Cabin: [Backup Cabin]
 
-Sign in at https://atypicaltek.github.io/Commonwealth-Cruise/ to enter your cabin traveler details and review the payment schedule.
-
-Thank you,
-Your Commonwealth Cruise Team
-This email was sent by the ${TRIP_NAME} portal.`
+Sign in at https://atypicaltek.github.io/Commonwealth-Cruise/ to enter your cabin traveler details and review the payment schedule.`
     })
   },
   {
@@ -8819,9 +8810,7 @@ This email was sent by the ${TRIP_NAME} portal.`
       toLabel:'Traveler email',
       toPlaceholder:'traveler@email.com',
       toName:'',
-      body:`Hello [Traveler Name],
-
-Great news! Your suite request for the Commonwealth Cruise 2027 has been confirmed! 🎉
+      body:`Great news! Your suite request for the Commonwealth Cruise 2027 has been confirmed! 🎉
 
 Your Suite Cabin Number: [Cabin Number]
 (If not yet assigned, your cabin number will be sent by a separate email.)
@@ -8835,11 +8824,7 @@ A separate payment link has been sent to you to submit your deposit payment.
 Log into your account to view your full payment schedule:
 https://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal)
 
-We look forward to sailing with you!
-
-Thank you,
-Your Commonwealth Cruise Team
-This email was sent by the Commonwealth Cruise 2027 portal.`
+We look forward to sailing with you!`
     })
   },
   {
@@ -8850,9 +8835,7 @@ This email was sent by the Commonwealth Cruise 2027 portal.`
       toLabel:'Traveler email',
       toPlaceholder:'traveler@email.com',
       toName:'',
-      body:`Hello [Traveler Name],
-
-Thank you for your patience regarding your suite request for the ${TRIP_NAME}.
+      body:`Thank you for your patience regarding your suite request for the ${TRIP_NAME}.
 
 Unfortunately, suites are not available at this time. Your reservation has been confirmed in a [Backup Cabin] cabin.
 
@@ -8866,11 +8849,7 @@ https://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal)
 
 If you have any questions, please contact us at ${ADMIN_EMAIL}.
 
-We look forward to sailing with you!
-
-Thank you,
-Your Commonwealth Cruise Team
-This email was sent by the ${TRIP_NAME} portal.`
+We look forward to sailing with you!`
     })
   },
   {
@@ -9421,6 +9400,42 @@ async function initialDepositAutoFill(){
     if(numGuestsEl&&numGuests)numGuestsEl.value=numGuests;
     initialDepositRecalc();
   }catch(e){alert('Auto-fill failed: '+e.message+'\nPlease fill in fields manually.');}
+}
+
+async function travelersCompleteAutoFill(){
+  const email=(document.getElementById('eg-to-email')||{}).value?.trim();
+  if(!email){alert('Enter the traveler email first.');return;}
+  try{
+    // Look up profile
+    const{data:prof}=await sb.from('profiles').select('id,name').ilike('email',email).limit(1).single();
+    if(!prof){alert('No profile found for: '+email+'\nFill in body manually.');return;}
+    // Fill name
+    const nameEl=document.getElementById('eg-to-name');
+    if(nameEl&&prof.name)nameEl.value=prof.name;
+    // Look up cabin travelers
+    const{data:ct}=await sb.from('cabin_travelers').select('first_name,middle_name,last_name,name_suffix,date_of_birth,gender,country_of_citizenship').eq('user_id',prof.id).order('id');
+    const today=new Date();
+    const travelerLines=(ct||[]).map(t=>{
+      const name=[t.first_name,t.middle_name,t.last_name,t.name_suffix].filter(Boolean).join(' ')||'—';
+      let age='';
+      if(t.date_of_birth){
+        const dob=new Date(t.date_of_birth);
+        age=' (Age '+(Math.floor((today-dob)/(365.25*24*3600*1000)))+')';
+        const dobStr=dob.toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'numeric'});
+        return `• ${name}${age} — DOB: ${dobStr} — ${t.gender||'—'} — ${t.country_of_citizenship||'—'}`;
+      }
+      return `• ${name} — DOB: N/A — ${t.gender||'—'} — ${t.country_of_citizenship||'—'}`;
+    });
+    if(!travelerLines.length){alert('No cabin travelers found for this profile.');return;}
+    // Replace placeholder in body
+    const bodyEl=document.getElementById('eg-body');
+    if(bodyEl){
+      bodyEl.value=bodyEl.value.replace(
+        /CABIN TRAVELERS:[\s\S]*?\(repeated for each traveler\)/,
+        'CABIN TRAVELERS:\n'+travelerLines.join('\n')
+      );
+    }
+  }catch(e){alert('Auto-fill failed: '+e.message+'\nPlease fill in the body manually.');}
 }
 
 async function sendInitialDepositEmail(){
@@ -12600,6 +12615,13 @@ async function doUploadCCAuth(file, lastName, statusEl){
   if(statusEl){statusEl.innerHTML='✅ <strong>Form uploaded successfully!</strong><br><span style="font-size:.78rem;color:#166534;">Saved as: '+filename+'</span>';statusEl.style.color='#166534';}
   // SMS alert to admin
   sendAdminSms(`CC Authorization submitted by ${gProfile?.name||'Traveler'}. Log in to review: ${PORTAL_URL}`);
+  // Email alert to admin (backup in case SMS gateway fails)
+  const _ccName=gProfile?.name||'Traveler';
+  const _ccEmail=gProfile?.email||'';
+  sendEmail(ADMIN_EMAIL,'Admin',`${TRIP_NAME} — CC Auth Submitted: ${_ccName}`,
+    `A CC authorization form has been submitted.\n\nTraveler: ${_ccName}\nEmail: ${_ccEmail}\n\nLog in to the admin portal to review:\n${PORTAL_URL}`,
+    buildEmailHtml('Admin',`<p>A CC authorization form has been submitted.</p><table style="width:100%;border-collapse:collapse;margin:12px 0;"><tr><td style="padding:7px 12px;font-weight:600;width:40%;border-bottom:1px solid #e2e8f0;">Traveler</td><td style="padding:7px 12px;border-bottom:1px solid #e2e8f0;">${_ccName}</td></tr><tr style="background:#f8fafc;"><td style="padding:7px 12px;font-weight:600;border-bottom:1px solid #e2e8f0;">Email</td><td style="padding:7px 12px;border-bottom:1px solid #e2e8f0;">${_ccEmail}</td></tr></table><p><a href="${PORTAL_URL}" style="display:inline-block;background:#1a4a7c;color:#fff;padding:9px 20px;border-radius:8px;text-decoration:none;font-weight:700;font-size:.88rem;">🛳️ Open Admin Portal →</a></p>`)
+  );
   // Update dashboard button
   const btn=document.getElementById('dash-cc-auth-btn');
   if(btn){btn.textContent='✅ Payment Authorization Submitted';btn.style.background='rgba(34,197,94,.25)';btn.style.borderColor='rgba(34,197,94,.6)';}
