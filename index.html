@@ -7509,8 +7509,9 @@ async function showInventoryDetail(cabinType,filterPP){
         if(t.anniversary_date)occasions.push('💍 '+new Date(t.anniversary_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}));
         if(t.is_honeymoon)occasions.push('🥂 Honeymoon');
         const citLabel=(CT_LABELS[t.citizenship_type]||'')+' '+(t.country_of_citizenship||'');
+        const ppDisplay=b.price_per_person?`<span style="font-size:.76rem;color:#1a4a7c;font-weight:700;background:#e8f0fb;border-radius:4px;padding:1px 5px;margin-left:4px;">💲${fmt(parseFloat(b.price_per_person))}/pp</span>`:'';
         return`<tr>
-          <td><strong>${tName}</strong>${t.relationship?`<br><small style="color:var(--muted)">${t.relationship}</small>`:''}</td>
+          <td><strong>${tName}</strong>${ppDisplay}${t.relationship?`<br><small style="color:var(--muted)">${t.relationship}</small>`:''}</td>
           <td>${dob}</td>
           <td>${t.gender||'—'}</td>
           <td style="font-size:.82rem;">${citLabel.trim()||'—'}</td>
@@ -7749,13 +7750,26 @@ async function saveInlineTier(userId,effGuests){
   if(btn){btn.textContent='Saving…';btn.disabled=true;}
   try{
     const{data:rowsUpdated,error}=await sb.rpc('admin_set_price_tier',{p_user_id:userId,p_price_per_person:pp});
-    if(error)throw new Error(error.message||JSON.stringify(error)+'\n\nMake sure Statement 65 in urgent-fixes.sql has been run in Supabase.');
-    if(rowsUpdated==null||rowsUpdated===0)throw new Error('No cabin record found (0 rows updated). Run Statement 65 in urgent-fixes.sql.');
+    if(error){
+      const msg='⚠️ PRICE TIER SAVE FAILED\n\nError: '+(error.message||JSON.stringify(error))+'\n\n── ACTION REQUIRED ──\nRun Statement 65 in urgent-fixes.sql in your Supabase SQL Editor, then try again.\n\nStatement 65 creates the admin_set_price_tier function that allows this save.';
+      alert(msg);
+      if(btn){btn.disabled=false;btn.textContent='Save';}
+      // Uncheck the box since save failed
+      const chk=document.getElementById('tv-chk-'+userId);
+      if(chk)chk.checked=false;
+      toggleInlineTierInput(userId);
+      return;
+    }
+    if(rowsUpdated==null||rowsUpdated===0){
+      alert('⚠️ Save returned 0 rows updated.\n\nThis usually means:\n1. Statement 65 in urgent-fixes.sql has not been run yet, OR\n2. No cabin_assignments record exists for this traveler.\n\nPlease run Statement 65 in Supabase SQL Editor.');
+      if(btn){btn.disabled=false;btn.textContent='Save';}
+      return;
+    }
     if(btn){btn.textContent='✅ Saved!';btn.style.background='#dcfce7';btn.style.color='#166534';}
     setTimeout(()=>loadTravelers(),800);
   }catch(e){
     console.error('[saveInlineTier]',e);
-    alert('Error saving tier: '+(e.message||e));
+    alert('Error saving tier: '+(e.message||e)+'\n\nMake sure Statement 65 in urgent-fixes.sql has been run in Supabase.');
     if(btn){btn.disabled=false;btn.textContent='Save';}
   }
 }
