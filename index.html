@@ -908,8 +908,35 @@
 
     <!-- REPORTS -->
     <div id="tab-reports" class="tab-pane">
+      <!-- QUICK REPORTS -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-header"><span class="card-title">⚡ Quick Reports</span><span style="font-size:.8rem;color:var(--muted);">One-click pre-built reports</span></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+          <div class="form-group" style="margin-bottom:0;flex:1;min-width:220px;">
+            <label>Report Type</label>
+            <select id="quick-report-type">
+              <option value="">— Select a Quick Report —</option>
+              <option value="missing_info">⚠️ Missing Info</option>
+              <option value="price_tier">💲 Price Tier</option>
+              <option value="ccl_needed">🔗 CCL Entry Needed</option>
+              <option value="cabin_changes">🔄 Cabin Changes</option>
+              <option value="minor_requests">👶 Minor Requests</option>
+              <option value="high_occ">👥 High Occupancy Requests</option>
+              <option value="cc_auth">💳 CC Auth Completed</option>
+              <option value="payments">💵 Payments</option>
+              <option value="suite_requests">🛁 Suite Requests</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px;padding-bottom:1px;">
+            <button class="btn btn-primary btn-sm" onclick="runQuickReport(document.getElementById('quick-report-type').value)">⚡ Run Quick Report</button>
+            <button class="btn btn-ghost btn-sm" onclick="exportQuickReportCSV()">⬇️ Export CSV</button>
+          </div>
+        </div>
+        <div id="quick-rpt-status" style="font-size:.82rem;color:var(--muted);margin-top:6px;min-height:1.1em;"></div>
+      </div>
+      <!-- FILTER REPORT -->
       <div class="card">
-        <div class="card-header"><span class="card-title">📊 Reports</span><span style="font-size:.8rem;color:var(--muted);">Filter across all traveler data</span></div>
+        <div class="card-header"><span class="card-title">📊 Filter Report</span><span style="font-size:.8rem;color:var(--muted);">Filter across all traveler data</span></div>
         <div class="report-filter-grid">
           <div class="form-group" style="margin-bottom:0;"><label>Traveler Name</label><input type="text" id="rpt-name" placeholder="Search name…"></div>
           <div class="form-group" style="margin-bottom:0;"><label>Cabin Number</label><input type="text" id="rpt-cabin-num" placeholder="e.g. 8245"></div>
@@ -948,9 +975,10 @@
           <span id="rpt-count" style="font-size:.82rem;color:var(--muted);margin-left:6px;"></span>
         </div>
       </div>
+      <!-- SHARED RESULTS PANEL -->
       <div class="card">
-        <div class="card-header"><span class="card-title">Results</span></div>
-        <div id="rpt-results" class="table-wrap"><div class="empty"><div class="ei">📊</div><p>Set filters above and click Run Report.</p></div></div>
+        <div class="card-header"><span class="card-title" id="rpt-results-title">Results</span></div>
+        <div id="rpt-results" class="table-wrap"><div class="empty"><div class="ei">📊</div><p>Select a Quick Report above, or set filters and click Run Report.</p></div></div>
       </div>
     </div>
 
@@ -6097,6 +6125,8 @@ function switchTab(name,btn){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active');document.getElementById('tab-'+name).classList.add('active');
+  // Always reload travelers tab so price tier / cost always reflects latest DB state
+  if(name==='travelers')loadTravelers();
 }
 
 async function loadTravelers(){
@@ -11664,6 +11694,328 @@ function exportReportCSV(){
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download=`commonwealth-cruise-report-${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+
+// ── QUICK REPORTS ─────────────────────────────────────────────
+let gQuickReportData=[];
+let gQuickReportType='';
+
+async function runQuickReport(type){
+  if(!type){alert('Please select a report type from the dropdown.');return;}
+  const el=document.getElementById('rpt-results');
+  const titleEl=document.getElementById('rpt-results-title');
+  const statusEl=document.getElementById('quick-rpt-status');
+  el.innerHTML='<div class="loading"><div class="spinner"></div><p>Loading…</p></div>';
+  statusEl.textContent='';
+  gQuickReportData=[];
+  gQuickReportType=type;
+
+  const typeLabels={
+    missing_info:'⚠️ Missing Info',
+    price_tier:'💲 Price Tier',
+    ccl_needed:'🔗 CCL Entry Needed',
+    cabin_changes:'🔄 Cabin Changes',
+    minor_requests:'👶 Minor Requests',
+    high_occ:'👥 High Occupancy Requests',
+    cc_auth:'💳 CC Auth Completed',
+    payments:'💵 Payments',
+    suite_requests:'🛁 Suite Requests'
+  };
+  if(titleEl)titleEl.textContent=(typeLabels[type]||'Results')+' Report';
+
+  try{
+    if(type==='missing_info'){
+      // Travelers missing cabin type, guest count, or cabin travelers
+      const{data:profiles}=await sb.from('profiles').select('id,name,email,status,selected_cabin_type,num_guests').eq('is_admin',false);
+      const{data:cabinTravs}=await sb.from('cabin_travelers').select('user_id');
+      const travSet=new Set((cabinTravs||[]).map(x=>x.user_id));
+      const rows=[];
+      (profiles||[]).forEach(p=>{
+        const issues=[];
+        if(!p.selected_cabin_type)issues.push('No cabin type');
+        if(!p.num_guests)issues.push('No guest count');
+        if(!travSet.has(p.id))issues.push('No cabin travelers');
+        if(issues.length>0)rows.push({name:p.name||'—',email:p.email||'—',status:p.status||'active',issues:issues.join(', ')});
+      });
+      gQuickReportData=rows;
+      statusEl.textContent=`${rows.length} traveler${rows.length!==1?'s':''} with missing info`;
+      if(!rows.length){el.innerHTML='<div class="empty"><div class="ei">✅</div><p>All travelers have complete info.</p></div>';return;}
+      el.innerHTML=`<table>
+        <thead><tr><th>Traveler</th><th>Email</th><th>Status</th><th>Missing</th></tr></thead>
+        <tbody>${rows.map(r=>`<tr>
+          <td><strong>${r.name}</strong></td>
+          <td style="font-size:.82rem;">${r.email}</td>
+          <td><span class="badge ${r.status==='cancelled'?'badge-danger':'badge-success'}">${r.status}</span></td>
+          <td style="color:var(--danger);font-size:.82rem;">${r.issues}</td>
+        </tr>`).join('')}</tbody></table>`;
+
+    }else if(type==='price_tier'){
+      // All travelers + their assigned price tier
+      const{data:cas}=await sb.rpc('admin_get_all_cabin_assignments');
+      const{data:profiles}=await sb.from('profiles').select('id,name,email,status').eq('is_admin',false);
+      const caMap={};(cas||[]).forEach(c=>caMap[c.user_id]=c);
+      const rows=[];
+      (profiles||[]).forEach(p=>{
+        const ca=caMap[p.id];
+        rows.push({
+          name:p.name||'—',email:p.email||'—',status:p.status||'active',
+          cabinType:ca?.cabin_type||'—',
+          pricePP:ca?.price_per_person?fmt(parseFloat(ca.price_per_person))+'/pp':'⚠️ Not assigned',
+          hasTier:!!ca?.price_per_person
+        });
+      });
+      // Sort: no tier first
+      rows.sort((a,b)=>a.hasTier-b.hasTier);
+      gQuickReportData=rows;
+      const noTier=rows.filter(r=>!r.hasTier).length;
+      statusEl.textContent=`${rows.length} travelers — ${noTier} without tier`;
+      el.innerHTML=`<table>
+        <thead><tr><th>Traveler</th><th>Email</th><th>Cabin Type</th><th>Price Tier</th><th>Status</th></tr></thead>
+        <tbody>${rows.map(r=>`<tr>
+          <td><strong>${r.name}</strong></td>
+          <td style="font-size:.82rem;">${r.email}</td>
+          <td><span class="badge badge-purple">${r.cabinType}</span></td>
+          <td style="font-weight:700;color:${r.hasTier?'var(--success)':'var(--danger)'};">${r.pricePP}</td>
+          <td><span class="badge ${r.status==='cancelled'?'badge-danger':'badge-success'}">${r.status}</span></td>
+        </tr>`).join('')}</tbody></table>`;
+
+    }else if(type==='ccl_needed'){
+      // Travelers who have payments but no CCL payment link on their cabin
+      const{data:profiles}=await sb.from('profiles').select('id,name,email,status').eq('is_admin',false);
+      const{data:cas}=await sb.from('cabin_assignments').select('user_id,payment_link').eq('payment_link',null).is('payment_link',null);
+      // Get profiles who have paid something
+      const{data:pays}=await sb.from('user_payments').select('user_id,amount_paid').gt('amount_paid',0);
+      const paidUsers=new Set((pays||[]).map(x=>x.user_id));
+      const noCclUsers=new Set((cas||[]).map(x=>x.user_id));
+      const profMap={};(profiles||[]).forEach(p=>profMap[p.id]=p);
+      const rows=[];
+      paidUsers.forEach(uid=>{
+        if(noCclUsers.has(uid)&&profMap[uid]){
+          const p=profMap[uid];
+          rows.push({name:p.name||'—',email:p.email||'—',status:p.status||'active',note:'Has payments — no CCL link'});
+        }
+      });
+      // Also include travelers who never have a cabin assignment (no payment link possible)
+      (profiles||[]).forEach(p=>{
+        if(!noCclUsers.has(p.id)&&!paidUsers.has(p.id))return; // skip — not relevant
+      });
+      gQuickReportData=rows;
+      statusEl.textContent=`${rows.length} traveler${rows.length!==1?'s':''} need CCL entry`;
+      if(!rows.length){el.innerHTML='<div class="empty"><div class="ei">✅</div><p>All travelers with payments have a CCL link.</p></div>';return;}
+      el.innerHTML=`<table>
+        <thead><tr><th>Traveler</th><th>Email</th><th>Status</th><th>Note</th></tr></thead>
+        <tbody>${rows.map(r=>`<tr>
+          <td><strong>${r.name}</strong></td>
+          <td style="font-size:.82rem;">${r.email}</td>
+          <td><span class="badge ${r.status==='cancelled'?'badge-danger':'badge-success'}">${r.status}</span></td>
+          <td style="font-size:.82rem;color:var(--warn);">${r.note}</td>
+        </tr>`).join('')}</tbody></table>`;
+
+    }else if(type==='cabin_changes'){
+      // Pending cabin change requests
+      const{data:cas}=await sb.rpc('admin_get_all_cabin_assignments');
+      const{data:profiles}=await sb.from('profiles').select('id,name,email').eq('is_admin',false);
+      const profMap={};(profiles||[]).forEach(p=>profMap[p.id]=p);
+      const rows=[];
+      (cas||[]).filter(c=>c.cabin_change_pending).forEach(c=>{
+        const p=profMap[c.user_id]||{};
+        rows.push({
+          name:p.name||'—',email:p.email||'—',
+          currentType:c.cabin_type||'—',
+          requestedType:c.requested_cabin_type||'—',
+          cabinNum:c.cabin_number||'—'
+        });
+      });
+      gQuickReportData=rows;
+      statusEl.textContent=`${rows.length} pending cabin change${rows.length!==1?'s':''}`;
+      if(!rows.length){el.innerHTML='<div class="empty"><div class="ei">✅</div><p>No pending cabin change requests.</p></div>';return;}
+      el.innerHTML=`<table>
+        <thead><tr><th>Traveler</th><th>Email</th><th>Current Cabin</th><th>Cabin #</th><th>Requested Type</th></tr></thead>
+        <tbody>${rows.map(r=>`<tr>
+          <td><strong>${r.name}</strong></td>
+          <td style="font-size:.82rem;">${r.email}</td>
+          <td><span class="badge badge-purple">${r.currentType}</span></td>
+          <td style="font-size:.82rem;">${r.cabinNum}</td>
+          <td><span class="badge badge-warn">${r.requestedType}</span></td>
+        </tr>`).join('')}</tbody></table>`;
+
+    }else if(type==='minor_requests'){
+      // Travelers who have minors in their cabin traveler list
+      const{data:ct}=await sb.from('cabin_travelers').select('user_id,first_name,last_name,date_of_birth');
+      const{data:profiles}=await sb.from('profiles').select('id,name,email,status').eq('is_admin',false);
+      const profMap={};(profiles||[]).forEach(p=>profMap[p.id]=p);
+      const today=new Date();
+      const minorMap={};
+      (ct||[]).forEach(t=>{
+        if(!t.date_of_birth)return;
+        const dob=new Date(t.date_of_birth);
+        const age=Math.floor((today-dob)/(365.25*24*3600*1000));
+        if(age<18){
+          if(!minorMap[t.user_id])minorMap[t.user_id]=[];
+          minorMap[t.user_id].push(`${t.first_name||''} ${t.last_name||''} (age ${age})`);
+        }
+      });
+      const rows=[];
+      Object.keys(minorMap).forEach(uid=>{
+        const p=profMap[uid];
+        if(!p)return;
+        rows.push({name:p.name||'—',email:p.email||'—',status:p.status||'active',minors:minorMap[uid].join('; ')});
+      });
+      gQuickReportData=rows;
+      statusEl.textContent=`${rows.length} cabin${rows.length!==1?'s':''} with minors`;
+      if(!rows.length){el.innerHTML='<div class="empty"><div class="ei">✅</div><p>No minors found in cabin traveler records.</p></div>';return;}
+      el.innerHTML=`<table>
+        <thead><tr><th>Account Holder</th><th>Email</th><th>Status</th><th>Minor Traveler(s)</th></tr></thead>
+        <tbody>${rows.map(r=>`<tr>
+          <td><strong>${r.name}</strong></td>
+          <td style="font-size:.82rem;">${r.email}</td>
+          <td><span class="badge ${r.status==='cancelled'?'badge-danger':'badge-success'}">${r.status}</span></td>
+          <td style="font-size:.82rem;color:var(--warn);">${r.minors}</td>
+        </tr>`).join('')}</tbody></table>`;
+
+    }else if(type==='high_occ'){
+      // Pending high occupancy requests
+      const{data:cas}=await sb.rpc('admin_get_all_cabin_assignments');
+      const{data:profiles}=await sb.from('profiles').select('id,name,email').eq('is_admin',false);
+      const profMap={};(profiles||[]).forEach(p=>profMap[p.id]=p);
+      const rows=[];
+      (cas||[]).filter(c=>c.high_occupancy_pending).forEach(c=>{
+        const p=profMap[c.user_id]||{};
+        rows.push({
+          name:p.name||'—',email:p.email||'—',
+          cabinType:c.cabin_type||'—',
+          numGuests:c.num_guests||'—',
+          cabinNum:c.cabin_number||'—'
+        });
+      });
+      gQuickReportData=rows;
+      statusEl.textContent=`${rows.length} pending high-occupancy request${rows.length!==1?'s':''}`;
+      if(!rows.length){el.innerHTML='<div class="empty"><div class="ei">✅</div><p>No pending high occupancy requests.</p></div>';return;}
+      el.innerHTML=`<table>
+        <thead><tr><th>Traveler</th><th>Email</th><th>Cabin Type</th><th>Cabin #</th><th>Guests</th></tr></thead>
+        <tbody>${rows.map(r=>`<tr>
+          <td><strong>${r.name}</strong></td>
+          <td style="font-size:.82rem;">${r.email}</td>
+          <td><span class="badge badge-purple">${r.cabinType}</span></td>
+          <td style="font-size:.82rem;">${r.cabinNum}</td>
+          <td style="font-weight:700;color:var(--warn);">${r.numGuests}</td>
+        </tr>`).join('')}</tbody></table>`;
+
+    }else if(type==='cc_auth'){
+      // Travelers who have submitted CC auth (cc_auth_url not null in profiles)
+      const{data:profiles}=await sb.from('profiles').select('id,name,email,status,cc_auth_url').eq('is_admin',false).not('cc_auth_url','is',null);
+      const rows=(profiles||[]).map(p=>({
+        name:p.name||'—',email:p.email||'—',status:p.status||'active',
+        authUrl:p.cc_auth_url||''
+      }));
+      gQuickReportData=rows;
+      statusEl.textContent=`${rows.length} CC auth submission${rows.length!==1?'s':''}`;
+      if(!rows.length){el.innerHTML='<div class="empty"><div class="ei">📋</div><p>No CC auth submissions on file.</p></div>';return;}
+      el.innerHTML=`<table>
+        <thead><tr><th>Traveler</th><th>Email</th><th>Status</th><th>CC Auth</th></tr></thead>
+        <tbody>${rows.map(r=>`<tr>
+          <td><strong>${r.name}</strong></td>
+          <td style="font-size:.82rem;">${r.email}</td>
+          <td><span class="badge ${r.status==='cancelled'?'badge-danger':'badge-success'}">${r.status}</span></td>
+          <td>${r.authUrl?`<a href="${r.authUrl}" target="_blank" style="color:var(--secondary);font-size:.82rem;">View Form ↗</a>`:'—'}</td>
+        </tr>`).join('')}</tbody></table>`;
+
+    }else if(type==='payments'){
+      // Payment summary per traveler
+      const{data:profiles}=await sb.from('profiles').select('id,name,email,status').eq('is_admin',false);
+      const{data:pays}=await sb.from('user_payments').select('user_id,amount_due,amount_paid,label,payment_date');
+      const{data:cas}=await sb.rpc('admin_get_all_cabin_assignments');
+      const caMap={};(cas||[]).forEach(c=>caMap[c.user_id]=c);
+      const payMap={};
+      (pays||[]).forEach(pay=>{
+        if(!payMap[pay.user_id])payMap[pay.user_id]={due:0,paid:0,lastDate:null};
+        payMap[pay.user_id].due+=parseFloat(pay.amount_due||0);
+        payMap[pay.user_id].paid+=parseFloat(pay.amount_paid||0);
+        if(pay.payment_date&&(!payMap[pay.user_id].lastDate||pay.payment_date>payMap[pay.user_id].lastDate))
+          payMap[pay.user_id].lastDate=pay.payment_date;
+      });
+      const rows=[];
+      (profiles||[]).forEach(p=>{
+        const pm=payMap[p.id]||{due:0,paid:0,lastDate:null};
+        const ca=caMap[p.id];
+        const cabinCost=ca?.cabin_cost?parseFloat(ca.cabin_cost):null;
+        const balance=cabinCost?Math.max(0,cabinCost-pm.paid):Math.max(0,pm.due-pm.paid);
+        const pct=cabinCost&&cabinCost>0?Math.min(100,Math.round((pm.paid/cabinCost)*100)):0;
+        rows.push({
+          name:p.name||'—',email:p.email||'—',status:p.status||'active',
+          cabinType:ca?.cabin_type||'—',
+          cabinCost:cabinCost?fmt(cabinCost):'—',
+          totalPaid:fmt(pm.paid),
+          balance:fmt(balance),
+          pct,
+          lastDate:pm.lastDate?fmtDate(pm.lastDate):'—'
+        });
+      });
+      rows.sort((a,b)=>parseFloat(b.balance.replace(/[^0-9.]/g,''))-parseFloat(a.balance.replace(/[^0-9.]/g,'')));
+      gQuickReportData=rows;
+      statusEl.textContent=`${rows.length} travelers`;
+      el.innerHTML=`<table>
+        <thead><tr><th>Traveler</th><th>Cabin</th><th>Cabin Cost</th><th>Total Paid</th><th>Balance</th><th>Progress</th><th>Last Payment</th></tr></thead>
+        <tbody>${rows.map(r=>`<tr>
+          <td><strong>${r.name}</strong><br><small style="color:var(--muted)">${r.email}</small></td>
+          <td><span class="badge badge-purple">${r.cabinType}</span></td>
+          <td class="col-r">${r.cabinCost}</td>
+          <td class="col-r" style="color:var(--success);font-weight:700;">${r.totalPaid}</td>
+          <td class="col-r" style="color:var(--danger);">${r.balance}</td>
+          <td><div class="pbar-row"><div class="mpbar-track"><div class="mpbar-fill" style="width:${r.pct}%"></div></div><small>${r.pct}%</small></div></td>
+          <td style="font-size:.82rem;">${r.lastDate}</td>
+        </tr>`).join('')}</tbody></table>`;
+
+    }else if(type==='suite_requests'){
+      // Suite requests from suite_requests table
+      const{data:reqs}=await sb.from('suite_requests').select('*').order('created_at',{ascending:false});
+      const{data:profiles}=await sb.from('profiles').select('id,name,email').eq('is_admin',false);
+      const profMap={};(profiles||[]).forEach(p=>profMap[p.id]=p);
+      const rows=(reqs||[]).map(r=>{
+        const p=profMap[r.user_id]||{};
+        return{
+          name:p.name||'—',email:p.email||'—',
+          suiteType:r.suite_type||r.cabin_type||'Suite',
+          status:r.status||'pending',
+          notes:r.notes||'—',
+          date:r.created_at?fmtDate(r.created_at):'—'
+        };
+      });
+      gQuickReportData=rows;
+      statusEl.textContent=`${rows.length} suite request${rows.length!==1?'s':''}`;
+      if(!rows.length){el.innerHTML='<div class="empty"><div class="ei">🛁</div><p>No suite requests found.</p></div>';return;}
+      el.innerHTML=`<table>
+        <thead><tr><th>Traveler</th><th>Email</th><th>Suite Type</th><th>Status</th><th>Notes</th><th>Date</th></tr></thead>
+        <tbody>${rows.map(r=>`<tr>
+          <td><strong>${r.name}</strong></td>
+          <td style="font-size:.82rem;">${r.email}</td>
+          <td><span class="badge badge-purple">${r.suiteType}</span></td>
+          <td><span class="badge ${r.status==='approved'?'badge-success':r.status==='declined'?'badge-danger':'badge-warn'}">${r.status}</span></td>
+          <td style="font-size:.82rem;">${r.notes}</td>
+          <td style="font-size:.82rem;">${r.date}</td>
+        </tr>`).join('')}</tbody></table>`;
+    }
+  }catch(err){
+    console.error('Quick report error:',err);
+    el.innerHTML=`<div class="empty"><div class="ei">❌</div><p>Error loading report: ${err.message||'Unknown error'}</p></div>`;
+    statusEl.textContent='Report failed — see console for details.';
+  }
+}
+
+function exportQuickReportCSV(){
+  if(!gQuickReportData.length){alert('Run a Quick Report first.');return;}
+  if(!gQuickReportType){alert('No report type selected.');return;}
+  const rows=gQuickReportData;
+  const keys=Object.keys(rows[0]);
+  const csvRows=[keys.map(k=>`"${k}"`).join(',')];
+  rows.forEach(r=>{
+    csvRows.push(keys.map(k=>`"${String(r[k]??'').replace(/"/g,'""')}"`).join(','));
+  });
+  const blob=new Blob([csvRows.join('\n')],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`quick-report-${gQuickReportType}-${new Date().toISOString().split('T')[0]}.csv`;
   document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
 
