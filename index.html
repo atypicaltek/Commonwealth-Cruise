@@ -1722,11 +1722,6 @@ function buildEmailHtml(recipientName,bodyHtml){
   <div style="background:#fff;padding:30px;border-left:1px solid #cbd5e1;border-right:1px solid #cbd5e1;">
     <p style="margin-top:0;font-size:1rem;color:#1e293b;">Hello <strong>${recipientName}</strong>,</p>
     ${bodyHtml}
-    <!-- Login link block -->
-    <div style="margin:26px 0 4px;padding:16px 20px;background:linear-gradient(135deg,#eff6ff 0%,#e8f0fb 100%);border-left:4px solid #1a4a7c;border-radius:0 8px 8px 0;box-shadow:0 1px 4px rgba(26,74,124,.08);">
-      <p style="margin:0 0 5px;font-weight:700;color:#1a4a7c;font-size:.94rem;">📊 Log into your account to view your full payment schedule</p>
-      <a href="${appUrl}" style="display:inline-block;margin-top:4px;color:#1a4a7c;font-weight:700;font-size:.88rem;text-decoration:underline;">Commonwealth-Cruise-Portal →</a>
-    </div>
   </div>
   <!-- Footer card -->
   <div style="background:linear-gradient(135deg,#0f2744 0%,#1a3a5c 100%);border-radius:0 0 14px 14px;padding:18px 30px 20px;">
@@ -7163,9 +7158,14 @@ async function loadInventoryTab(){
   // cabin_price_tiers.available_cabins can be stale (e.g. backfilled bookings don't
   // decrement it), so we derive accuracy from real assignment rows.
   const bookedPerTier={};
+  const unpricedPerType={};
   (assignments||[]).forEach(a=>{
-    if(!a.price_per_person)return;
-    const key=`${a.cabin_type}__${Math.round(parseFloat(a.price_per_person)*100)}`;
+    const pp=a.price_per_person?parseFloat(a.price_per_person):0;
+    if(!a.price_per_person||pp===0){
+      unpricedPerType[a.cabin_type]=(unpricedPerType[a.cabin_type]||0)+1;
+      return;
+    }
+    const key=`${a.cabin_type}__${Math.round(pp*100)}`;
     bookedPerTier[key]=(bookedPerTier[key]||0)+1;
   });
 
@@ -7201,12 +7201,19 @@ async function loadInventoryTab(){
         <div style="flex:0 0 auto;color:#94a3b8;font-size:.68rem;min-width:34px;text-align:right;">${tierBooked}/${t.total_cabins}</div>
       </div>`;
     }).join('');
-    const tierTable=typeTiers.length
+    // Add an "unpriced" row if some reservations have no price tier assigned
+    const unpricedCount=isSuite?0:(unpricedPerType[r.cabin_type]||0);
+    const unpricedRow=unpricedCount>0?`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #e8eef5;font-size:.8rem;background:#fffbeb;">
+      <div style="flex:0 0 auto;font-weight:700;color:#d68910;min-width:80px;">⚠️ No Tier</div>
+      <div style="flex:1;font-size:.76rem;color:#92400e;font-style:italic;">Price not yet assigned</div>
+      <div style="flex:0 0 auto;font-size:.76rem;font-weight:800;color:#d68910;">${unpricedCount} reservation${unpricedCount>1?'s':''}</div>
+    </div>`:'';
+    const tierTable=(typeTiers.length||unpricedCount>0)&&!isSuite
       ?`<div style="margin-top:10px;text-align:left;border:1.5px solid #dbe4ee;border-radius:7px;overflow:hidden;background:#fff;">
           <div style="background:#1a4a7c;color:#fff;font-size:.67rem;font-weight:700;padding:4px 10px;letter-spacing:.4px;display:flex;justify-content:space-between;align-items:center;">
             <span>PRICE / AVAILABILITY</span><span style="opacity:.75;font-weight:400;">booked/total</span>
           </div>
-          ${tierRows}
+          ${tierRows}${unpricedRow}
         </div>`
       :(isSuite?'':`<div style="margin-top:8px;font-size:.75rem;color:var(--muted);font-style:italic;">No price tiers configured</div>`);
 
@@ -7342,7 +7349,8 @@ async function showInventoryDetail(cabinType){
       <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:.83rem;color:var(--muted);margin-bottom:10px;">
         <span>Cabin #: <strong style="color:var(--text);">${b.cabin_number||'Not assigned'}</strong></span>
         <span>Reserved: <strong style="color:var(--text);">${reservedDate}</strong></span>
-        ${b.cabin_cost?`<span>Cost: <strong style="color:var(--text);">${fmt(parseFloat(b.cabin_cost))}</strong></span>`:''}
+        ${b.price_per_person?`<span>Price/Person: <strong style="color:#1a4a7c;">${fmt(parseFloat(b.price_per_person))}</strong></span>`:'<span style="color:#d68910;font-weight:700;">⚠️ No price tier assigned</span>'}
+        ${b.cabin_cost?`<span>Total Cost: <strong style="color:var(--text);">${fmt(parseFloat(b.cabin_cost))}</strong></span>`:''}
         ${b.num_guests?`<span>Guests: <strong style="color:var(--text);">${b.num_guests}</strong></span>`:''}
         ${b.guest_reservation_number?`<span>Res. #: <strong style="color:var(--text);">${b.guest_reservation_number}</strong></span>`:''}
       </div>
@@ -11964,18 +11972,28 @@ async function openAdminCCAuthModal(userId, name, ccAuthUrl, ccAuthFilename){
 async function adminRefreshCCAuthFileList(userId, name){
   const listEl=document.getElementById('admin-ccauth-filelist-'+userId);
   if(!listEl)return;
-  const{data:storageFiles,error}=await sb.storage.from(CC_AUTH_BUCKET).list(userId);
+  // Fetch files + check if any payment recorded (in parallel)
+  const[{data:storageFiles,error},{count:payCount}]=await Promise.all([
+    sb.storage.from(CC_AUTH_BUCKET).list(userId),
+    sb.from('user_payments').select('id',{count:'exact',head:true}).eq('user_id',userId)
+  ]);
   if(error){listEl.innerHTML=`<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:9px;padding:12px 16px;font-size:.84rem;color:#991b1b;">⚠️ Error loading files: ${error.message}</div>`;return;}
   const ccFiles=(storageFiles||[]).filter(f=>f.name.toLowerCase().includes('cc_authorization')).sort((a,b)=>a.name.localeCompare(b.name));
   if(ccFiles.length===0){
     listEl.innerHTML=`<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:9px;padding:12px 16px;font-size:.85rem;color:#991b1b;font-weight:600;">⚠️ No CC Auth forms on file for this traveler.</div>`;
     return;
   }
-  listEl.innerHTML=ccFiles.map((f,i)=>{
+  // Only allow removal after at least one payment has been recorded
+  const canRemove=(payCount||0)>0;
+  const removeNotice=canRemove?'':`<div style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:7px;padding:7px 11px;font-size:.75rem;color:#78350f;margin-bottom:10px;">ℹ️ CC Auth forms can only be removed after at least one payment has been recorded for this traveler.</div>`;
+  listEl.innerHTML=removeNotice+ccFiles.map((f,i)=>{
     const fPath=`${userId}/${f.name}`;
     const ep=fPath.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     const en=f.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     const label=ccFiles.length>1?`Form #${i+1}`:'Form on File';
+    const removeBtn=canRemove
+      ?`<button onclick="adminRemoveSingleCCAuth('${userId}','${ep}','${en}',this)" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;border-radius:7px;padding:5px 12px;font-size:.79rem;font-weight:700;cursor:pointer;">🗑️ Remove</button>`
+      :`<button disabled title="Record a payment first before removing CC Auth" style="background:#f1f5f9;color:#94a3b8;border:1.5px solid #e2e8f0;border-radius:7px;padding:5px 12px;font-size:.79rem;font-weight:700;cursor:not-allowed;">🗑️ Remove</button>`;
     return `<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:9px;padding:11px 14px;margin-bottom:8px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
         <div>
@@ -11985,7 +12003,7 @@ async function adminRefreshCCAuthFileList(userId, name){
         <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
           <button onclick="viewCCAuthForm('${ep}',this)" style="background:#166534;color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:.79rem;font-weight:700;cursor:pointer;">🔍 View</button>
           <button onclick="downloadCCAuthForm('${ep}','${en}',this)" style="background:#1a4a7c;color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:.79rem;font-weight:700;cursor:pointer;">⬇️ Download</button>
-          <button onclick="adminRemoveSingleCCAuth('${userId}','${ep}','${en}',this)" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;border-radius:7px;padding:5px 12px;font-size:.79rem;font-weight:700;cursor:pointer;">🗑️ Remove</button>
+          ${removeBtn}
         </div>
       </div>
     </div>`;
@@ -12000,7 +12018,11 @@ async function adminRemoveSingleCCAuth(userId, storagePath, filename, btn){
   if(btn){btn.disabled=true;btn.textContent='Removing…';}
   try{
     const{error:storageErr}=await sb.storage.from(CC_AUTH_BUCKET).remove([storagePath]);
-    if(storageErr)console.warn('Storage remove warning:',storageErr.message);
+    if(storageErr){
+      alert('Failed to remove file from storage: '+storageErr.message+'\n\nIf this persists, make sure Statement 57 in urgent-fixes.sql has been run in Supabase to grant admin delete permissions on the cc-auth-forms bucket.');
+      if(btn){btn.disabled=false;btn.textContent='🗑️ Remove';}
+      return;
+    }
     // Determine most recent remaining file to keep profile cc_auth_url current
     const{data:remaining}=await sb.storage.from(CC_AUTH_BUCKET).list(userId);
     const ccRemaining=(remaining||[]).filter(f=>f.name.toLowerCase().includes('cc_authorization')).sort((a,b)=>b.name.localeCompare(a.name));
