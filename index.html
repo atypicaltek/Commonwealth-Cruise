@@ -1736,7 +1736,7 @@ function buildEmailHtml(recipientName,bodyHtml){
     <p style="margin:0 0 14px;color:#94b8d4;font-size:.83rem;line-height:1.5;">If you have any questions, please reply to this email or contact the trip organizer at <a href="mailto:${ADMIN_EMAIL}" style="color:#7ab8e8;font-weight:600;">${ADMIN_EMAIL}</a>.</p>
     <p style="margin:0;"><a href="https://atypicaltek.github.io/Commonwealth-Cruise/" style="display:inline-block;background:rgba(255,255,255,.15);color:#fff;font-weight:700;font-size:.85rem;padding:9px 20px;border-radius:8px;text-decoration:none;border:1px solid rgba(255,255,255,.3);">🛳️ Commonwealth-Cruise-Portal</a></p>
   </div>
-  ${LOGO_GIF_URL ? `<div style="text-align:center;padding:18px 0 0;"><img src="${LOGO_GIF_URL}" alt="GlowJetters Travel" width="260" style="border-radius:10px;max-width:100%;display:inline-block;"></div>` : ''}
+
 </div>
 <div id="deposit-pending-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);align-items:center;justify-content:center;padding:20px;">
   <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:480px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.18);">
@@ -6126,6 +6126,7 @@ async function loadTravelers(){
         '<option value="pay_link">&#x1F517; Pay Link'+plChk+'</option>'+
         '<option value="send_cc_auth">&#x1F4C4; Send CC Auth Form</option>'+
         '<option value="view_cc_auth">&#x1F4CB; Completed CC Auth'+(p.cc_auth_url?' &#x2713;':'')+'</option>'+
+        '<option value="send_initial_deposit">&#x1F4B0; Send Initial Deposit Due</option>'+
         '<option value="add_note">📝 Add Note</option>'+'<option value="mark_deposit_paid">💰 Mark Deposit Paid</option>'+'<option value="send_pay_link">&#x1F4E8; Send Payment Link</option>'+
         '<option value="gratuity">&#x1F91D; Gratuity'+gratChk+'</option>'+
       '</optgroup>'+
@@ -8862,11 +8863,14 @@ This email was sent by the ${TRIP_NAME} portal.`
         </div>`,
       body:`Hello [Traveler Name],
 
-Thank you for your reservation on the ${TRIP_NAME}! We are excited to have you sailing with us.
+Thank you again for choosing to travel with us on the Commonwealth Cruise 2027!
+We're excited to have you join us and want to help ensure you receive your preferred cabin selection.
 
-YOUR INITIAL DEPOSIT IS NOW DUE
+At this time, we have not yet received a deposit in connection with your cabin hold request.
 
-To secure your cabin hold, your deposit must be received at your earliest convenience.
+Please note that cabin selections are confirmed on a first-come, first-served basis upon receipt of the required deposit.
+
+To help secure your first-choice cabin type, we ask that your deposit be submitted as soon as possible. However, it must be submitted no later than September 1, 2026.
 
 DEPOSIT SUMMARY:
 • Cabin Type: [CABIN_TYPE]
@@ -8875,20 +8879,105 @@ DEPOSIT SUMMARY:
 • TOTAL DEPOSIT DUE: $[TOTAL_DEPOSIT]
 
 HOW TO SUBMIT YOUR DEPOSIT:
-1. Log in to the Commonwealth Cruise Travel Portal: https://atypicaltek.github.io/Commonwealth-Cruise/
+1. Log in to the Commonwealth Cruise Travel Portal
 2. Select the "Make A Payment" button on your dashboard
 3. Complete the CC Authorization Form to authorize your deposit
 
-⚠️ Your cabin hold is pending until the deposit is received. Failure to submit in a timely manner may result in the loss of your cabin assignment.
+[Watch the payment steps tutorial video — embedded above]
 
-Questions? Reply to this email or contact us at ${ADMIN_EMAIL}.
+⚠️ Your cabin hold is pending until the deposit is received.
+Failure to submit in a timely manner may result in the loss of your cabin type preference.
+Please submit your deposit at your earliest convenience.
 
-Thank you,
-Your Commonwealth Cruise Team
-This email was sent by the ${TRIP_NAME} portal.`
+Once your payment is received, a receipt will be provided for your records.
+
+If you have any questions or need assistance completing your payment, please don't hesitate to reach out.
+We're happy to help and want to make the process as easy as possible.
+
+Thank you again for choosing to travel with us.
+We look forward to helping you secure the cabin that best suits your preferences!
+
+Questions? Reply to this email or contact us at glowjetters@gmail.com`
     }),
     useCustomSend:true,
     customSend:()=>sendInitialDepositEmail()
+  },
+  {
+    id:'second_payment_due',label:'2nd Payment Due',icon:'💳',
+    toMode:'traveler',
+    buildPreview:()=>({
+      subject:`${TRIP_NAME} — Your 2nd Payment is Due`,
+      toLabel:'Traveler email',toPlaceholder:'traveler@email.com',toName:'',
+      extraFields:`
+        <div style="margin-bottom:10px;">
+          <button type="button" onclick="secondPaymentAutoFill()" style="background:#e0f2fe;color:#0c4a6e;border:1.5px solid #bae6fd;border-radius:7px;padding:6px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">🔍 Auto-fill from Profile</button>
+          <span style="font-size:.75rem;color:#94a3b8;margin-left:8px;">Enter traveler email first, then click to auto-fill. Per-person amount pulled from 2nd Payment milestone.</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Cabin Type</label>
+            <input id="eg-dep-cabin-type" type="text" placeholder="e.g. Balcony" oninput="secondPaymentRecalc()" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Persons in Cabin</label>
+            <input id="eg-dep-num-guests" type="number" min="1" max="6" value="2" oninput="secondPaymentRecalc()" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Amount Per Person ($)</label>
+            <input id="eg-dep-per-person" type="number" min="0" step="0.01" value="0.00" oninput="this.dataset.adminOverride='1';secondPaymentRecalc()" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;" title="Auto-set from 2nd Payment milestone. Edit to override.">
+          </div>
+        </div>
+        <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.9rem;">
+          <strong style="color:#374151;">Total 2nd Payment Due:</strong>
+          <strong id="eg-dep-total" style="color:#166534;font-size:1.05rem;margin-left:8px;">$0.00</strong>
+          <span style="font-size:.75rem;color:#64748b;margin-left:6px;">(auto-calculated)</span>
+        </div>
+        <div style="margin-bottom:4px;">
+          <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Payment Steps Video URL</label>
+          <input id="eg-dep-video-url" type="url" value="https://atypicaltek.github.io/Commonwealth-Cruise/Make%20a%20Payment%20.mp4" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+        </div>`,
+      body:`Hello [Traveler Name],
+
+Thank you again for choosing to travel with us on the Commonwealth Cruise 2027!
+We're excited to have you join us and want to help ensure you receive your preferred cabin selection.
+
+At this time, we have not yet received your 2nd payment in connection with your reservation.
+
+Please note that cabin assignments are confirmed on a first-come, first-served basis upon receipt of full payment.
+
+To help secure your preferred cabin, we ask that your payment be submitted as soon as possible. However, it must be submitted no later than October 15, 2026.
+
+PAYMENT SUMMARY:
+• Cabin Type: [CABIN_TYPE]
+• Persons in Cabin: [NUM_GUESTS]
+• Payment Per Person: $[DEPOSIT_PER_PERSON]
+• TOTAL 2ND PAYMENT DUE: $[TOTAL_DEPOSIT]
+
+HOW TO SUBMIT YOUR PAYMENT:
+1. Log in to the Commonwealth Cruise Travel Portal
+2. Select the "Make A Payment" button on your dashboard
+3. Complete the CC Authorization Form to authorize your payment
+
+[Watch the payment steps tutorial video — embedded above]
+
+Finalization of your reservation and specific cabin assignment will only occur after full deposit of $[TOTAL_DEPOSIT] is received.
+
+The final deposit is due by October 15, 2026, but may be paid at any time through your portal.
+
+Please submit your payment at your earliest convenience.
+
+Once your payment is received, a receipt will be provided for your records.
+
+If you have any questions or need assistance completing your payment, please don't hesitate to reach out.
+We're happy to help and want to make the process as easy as possible.
+
+Thank you again for choosing to travel with us.
+We look forward to helping you secure the cabin that best suits your preferences!
+
+Questions? Reply to this email or contact us at glowjetters@gmail.com`
+    }),
+    useCustomSend:true,
+    customSend:()=>send2ndPaymentEmail()
   },
   {
     id:'cabin_hold_deposit_steps',label:'Cabin Hold — Deposit Steps',icon:'🏠',
@@ -9077,13 +9166,123 @@ async function sendInitialDepositEmail(){
     // Regular paragraph — linkify portal URL and admin email
     return`<p style="line-height:1.85;">${t.replace(/https?:\/\/\S+/g,u=>`<a href="${u}" style="color:#1a4a7c;">${u}</a>`)}</p>`;
   }).join('');
-  const htmlBody=buildEmailHtml(toName,bodyParas+videoHtml);
+  const styledParas=styleEmailDates(bodyParas);
+  const htmlBody=buildEmailHtml(toName,styledParas+videoHtml);
   const plain=plainBody+(videoUrl?'\n\nWatch payment steps tutorial: '+videoUrl:'');
   try{
     await sendEmail(toEmail,toName,subject,plain,htmlBody,false,false);
     if(statusEl){statusEl.textContent='✅ Initial Deposit Due email sent!';statusEl.style.color='#16a34a';setTimeout(()=>{if(statusEl)statusEl.textContent='';},6000);}
   }catch(e){
     if(statusEl){statusEl.textContent='⚠️ Error: '+(e.message||e);statusEl.style.color='#dc2626';}
+  }
+}
+
+// Bold and red-color all Month D, YYYY dates in HTML email body
+function styleEmailDates(html){
+  return html.replace(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}/g,
+    '<strong style="color:#dc2626;font-weight:700;">$&</strong>');
+}
+
+// ── 2ND PAYMENT EMAIL ─────────────────────────────────────────
+function secondPaymentRecalc(){
+  const n=parseInt(document.getElementById('eg-dep-num-guests')?.value||2);
+  const isSolo=n===1;
+  const ppEl=document.getElementById('eg-dep-per-person');
+  const p=parseFloat(ppEl?.value||0);
+  const total=isSolo?p*2:p*(isNaN(n)?1:n);
+  const t=document.getElementById('eg-dep-total');
+  if(t)t.textContent='$'+total.toFixed(2);
+}
+async function secondPaymentAutoFill(){
+  const email=(document.getElementById('eg-to-email')||{}).value?.trim();
+  if(!email){alert('Enter the traveler email first.');return;}
+  try{
+    let name='',cabinType='',numGuests=null,perPerson=null;
+    const{data:rpcData}=await sb.rpc('admin_get_all_cabin_assignments');
+    const t=(rpcData||[]).find(r=>(r.email||r.user_email||'').toLowerCase()===email.toLowerCase());
+    if(t){name=t.full_name||t.name||'';cabinType=t.cabin_type||'';numGuests=t.num_guests||null;}
+    else{
+      const{data:prof}=await sb.from('profiles').select('id,name').ilike('email',email).limit(1).single();
+      if(prof){
+        name=prof.name||'';
+        const{data:ca}=await sb.from('cabin_assignments').select('cabin_type,num_guests').eq('user_id',prof.id).limit(1).single();
+        if(ca){cabinType=ca.cabin_type||'';numGuests=ca.num_guests||null;}
+      }
+    }
+    const{data:milestones}=await sb.from('payment_milestones').select('*').order('due_date');
+    const m2nd=(milestones||[]).find(m=>(m.label||'').toLowerCase().includes('2nd')||(m.label||'').toLowerCase().includes('second'));
+    if(m2nd&&m2nd.minimum_amount!=null)perPerson=parseFloat(m2nd.minimum_amount);
+    if(!name&&!cabinType){alert('No profile found for: '+email+'\nFill in fields manually.');return;}
+    const nameEl=document.getElementById('eg-to-name');if(nameEl&&name)nameEl.value=name;
+    const ctEl=document.getElementById('eg-dep-cabin-type');if(ctEl)ctEl.value=cabinType;
+    const ngEl=document.getElementById('eg-dep-num-guests');if(ngEl&&numGuests)ngEl.value=numGuests;
+    const ppEl=document.getElementById('eg-dep-per-person');
+    if(ppEl&&perPerson!=null){ppEl.value=perPerson.toFixed(2);delete ppEl.dataset.adminOverride;}
+    secondPaymentRecalc();
+  }catch(e){alert('Auto-fill failed: '+e.message+'\nPlease fill in fields manually.');}
+}
+async function send2ndPaymentEmail(){
+  const toEmail=(document.getElementById('eg-to-email')||{}).value?.trim();
+  const toName=(document.getElementById('eg-to-name')||{}).value?.trim()||toEmail;
+  const cabinType=(document.getElementById('eg-dep-cabin-type')||{}).value?.trim()||'your cabin type';
+  const numGuests=parseInt((document.getElementById('eg-dep-num-guests')||{}).value||'1');
+  const isSolo=numGuests===1;
+  const payPerPerson=parseFloat((document.getElementById('eg-dep-per-person')||{}).value||0);
+  const totalPay=(isSolo?payPerPerson*2:payPerPerson*numGuests).toFixed(2);
+  const videoUrl=(document.getElementById('eg-dep-video-url')||{}).value?.trim();
+  const statusEl=document.getElementById('eg-send-status');
+  if(!toEmail){if(statusEl){statusEl.textContent='Traveler email is required.';statusEl.style.color='#d97706';}return;}
+  if(statusEl){statusEl.textContent='Sending...';statusEl.style.color='#64748b';}
+  const subject=`${TRIP_NAME} -- Your 2nd Payment is Due`;
+  const rawBody=(document.getElementById('eg-body')||{}).value||'';
+  const plainBody=rawBody
+    .replace(/\[CABIN_TYPE\]/g,cabinType)
+    .replace(/\[NUM_GUESTS\]/g,String(numGuests))
+    .replace(/\[DEPOSIT_PER_PERSON\]/g,payPerPerson.toFixed(2))
+    .replace(/\[TOTAL_DEPOSIT\]/g,totalPay)
+    .replace(/\[Traveler Name\]/g,toName);
+  let videoHtml='';
+  if(videoUrl){
+    const ytMatch=videoUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);
+    if(ytMatch){
+      const vid=ytMatch[1];
+      videoHtml='<div style="margin:22px 0;text-align:center;"><p style="font-weight:700;color:#0f2744;font-size:.95rem;margin:0 0 10px;">Watch: How to Submit Your Payment</p>'
+        +'<a href="'+videoUrl+'" target="_blank" style="display:inline-block;position:relative;text-decoration:none;max-width:480px;width:100%;">'
+        +'<img src="https://img.youtube.com/vi/'+vid+'/maxresdefault.jpg" alt="Payment Steps Video" style="width:100%;max-width:480px;border-radius:10px;display:block;border:2px solid #e2e8f0;"></a></div>';
+    } else {
+      videoHtml='<div style="margin:22px 0;text-align:center;"><p style="font-weight:700;color:#0f2744;font-size:.95rem;margin:0 0 12px;">Watch: How to Submit Your Payment</p>'
+        +'<video width="480" controls muted playsinline style="max-width:100%;border-radius:10px;border:2px solid #e2e8f0;display:block;margin:0 auto;">'
+        +'<source src="'+videoUrl+'" type="video/mp4">'
+        +'<a href="'+videoUrl+'" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.95rem;padding:13px 30px;border-radius:10px;text-decoration:none;">Watch Payment Tutorial</a>'
+        +'</video><p style="font-size:.78rem;color:#64748b;margin:10px 0 0;">Can\'t see the video? <a href="'+videoUrl+'" target="_blank" style="color:#1a4a7c;font-weight:600;">Click here to watch</a></p></div>';
+    }
+  }
+  const bodyParas=plainBody.split(/\n{2,}/).map(para=>{
+    const t=para.trim();if(!t)return'';
+    if(t.includes('PAYMENT SUMMARY')||t.includes('TOTAL 2ND PAYMENT DUE')){
+      return '<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:16px 18px;margin:18px 0;">'
+        +'<strong style="display:block;font-size:.95rem;color:#0f2744;margin-bottom:12px;">Payment Summary</strong>'
+        +'<table style="width:100%;border-collapse:collapse;font-size:.9rem;">'
+        +'<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;color:#374151;">Cabin Type</td><td style="padding:8px 6px;text-align:right;font-weight:600;">'+cabinType+'</td></tr>'
+        +'<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;color:#374151;">Persons in Cabin</td><td style="padding:8px 6px;text-align:right;font-weight:600;">'+numGuests+(isSolo?' (Solo)':'')+'</td></tr>'
+        +'<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;color:#374151;">Payment Per Person</td><td style="padding:8px 6px;text-align:right;font-weight:600;">$'+payPerPerson.toFixed(2)+'</td></tr>'
+        +'<tr style="background:#dbeafe;"><td style="padding:10px 6px;font-weight:800;color:#0f2744;font-size:1rem;">TOTAL 2ND PAYMENT DUE</td><td style="padding:10px 6px;text-align:right;font-weight:800;color:#dc2626;font-size:1.05rem;">$'+totalPay+'</td></tr>'
+        +'</table></div>';
+    }
+    if(t.startsWith('⚠️')){return'<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:12px 16px;font-weight:700;color:#991b1b;margin:18px 0;">'+t+'</div>';}
+    if(/^\d+\./.test(t)){const items=t.split('\n').filter(l=>l.trim());return'<ol style="line-height:2;padding-left:20px;">'+items.map(l=>'<li>'+l.replace(/^\d+\.\s*/,'')+'</li>').join('')+'</ol>';}
+    if(t.startsWith('•')){const items=t.split('\n').filter(l=>l.trim());return'<ul style="line-height:2;padding-left:20px;">'+items.map(l=>'<li>'+l.replace(/^•\s*/,'')+'</li>').join('')+'</ul>';}
+    if(t===t.toUpperCase()&&t.length>4&&!/[a-z]/.test(t)){return'<p style="font-weight:700;color:#0f2744;">'+t+'</p>';}
+    return'<p style="line-height:1.85;">'+t.replace(/https?:\/\/\S+/g,function(u){return'<a href="'+u+'" style="color:#1a4a7c;">'+u+'</a>';})+'</p>';
+  }).join('');
+  const styledParas=styleEmailDates(bodyParas);
+  const htmlBody=buildEmailHtml(toName,styledParas+videoHtml);
+  const plain=plainBody+(videoUrl?'\n\nWatch payment steps tutorial: '+videoUrl:'');
+  try{
+    await sendEmail(toEmail,toName,subject,plain,htmlBody,false,false);
+    if(statusEl){statusEl.textContent='2nd Payment Due email sent!';statusEl.style.color='#16a34a';setTimeout(()=>{if(statusEl)statusEl.textContent='';},6000);}
+  }catch(e){
+    if(statusEl){statusEl.textContent='Error: '+(e.message||e);statusEl.style.color='#dc2626';}
   }
 }
 
@@ -10634,6 +10833,7 @@ function handleTravelerAction(sel,userId){
   else if(v==='pay_link')setPaymentLink(d.userId,d.name,d.payLink);
   else if(v==='send_cc_auth')sendCCAuthForm(d.name,d.email,d.cabinType,d.numGuests);
   else if(v==='view_cc_auth')openAdminCCAuthModal(d.userId,d.name,d.ccAuthUrl,d.ccAuthFilename);
+  else if(v==='send_initial_deposit')adminOpenInitialDepositEmail(d.name,d.email);
   else if(v==='add_note'){showAdminNoteModal(d.userId,d.name);sel.value='';}
   else if(v==='mark_deposit_paid'){adminMarkDepositPaid(d.userId);sel.value='';}
   else if(v==='send_pay_link')emailPaymentLinkToTraveler(d.name,d.email,d.payLink);
@@ -10667,6 +10867,26 @@ function handleTravelerAction(sel,userId){
   else if(v==='cancel'){cancelTraveler(d.userId,d.name,d.email,d.cabinType,d.cabinNumber,d.citizenshipType,d.paid);}
   else if(v==='restore_traveler'){restoreTraveler(d.userId,d.name);}
   else if(v==='delete'){deleteTraveler(d.userId,d.name);}
+}
+
+// Open Email Generation tab pre-loaded with the Initial Deposit Due template for a specific traveler
+function adminOpenInitialDepositEmail(name, email){
+  // Switch to Email Generation tab
+  const tabBtn=document.querySelector('.tb-emailgen');
+  if(tabBtn)tabBtn.click();else loadEmailGenTab();
+  const idx=EMAIL_TEMPLATES.findIndex(t=>t.id==='initial_deposit_due');
+  if(idx<0){alert('Initial Deposit Due template not found.');return;}
+  setTimeout(()=>{
+    selectEmailTemplate(idx);
+    setTimeout(()=>{
+      const nameEl=document.getElementById('eg-to-name');
+      const emailEl=document.getElementById('eg-to-email');
+      if(nameEl)nameEl.value=name||'';
+      if(emailEl)emailEl.value=email||'';
+      // Auto-fill cabin type, guest count, deposit from traveler's profile
+      if(email)initialDepositAutoFill();
+    },60);
+  },60);
 }
 
 async function openTravelerProfileView(userId,ownerName,ownerEmail){
