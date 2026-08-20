@@ -3801,11 +3801,10 @@ if(dsBadge){
     const cabinCostBreakdownEl=document.getElementById('dash-cabin-cost-breakdown');
     if(cabinCostBreakdownEl){
       const setCost=cabin.cabin_cost?parseFloat(cabin.cabin_cost):null;
-      const setPpp=cabin.price_per_person?parseFloat(cabin.price_per_person):null;
       const ng=cabin.num_guests||1;
       const isSingleOcc=(ng===1);
       const effectiveGuests=isSingleOcc?2:ng;
-      if(setCost&&setPpp){
+      if(setCost){
         const isSuiteCabin=(cabin.cabin_type==='Suite');
         const gratRate=isSuiteCabin?GRAT_RATE_SUITE:GRAT_RATE_STANDARD;
         const gratPP=gratRate*CRUISE_DAYS; // total gratuity per person
@@ -3815,8 +3814,7 @@ if(dsBadge){
         cabinCostBreakdownEl.innerHTML=
           '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;opacity:.7;margin-bottom:8px;">💰 Cost Summary</div>'+
           '<table style="width:100%;border-collapse:collapse;font-size:.83rem;">'+
-            '<tr><td style="padding:3px 0;opacity:.85;">Rate per Person</td><td style="text-align:right;font-weight:700;">'+(isSingleOcc?`${fmt(setPpp)} <span style="font-size:.74rem;opacity:.8;">(×2 single occ.)</span>`:fmt(setPpp))+'</td></tr>'+
-            '<tr><td style="padding:3px 0;opacity:.85;">'+(isSingleOcc?'Total Cabin Cost<br><span style="font-size:.73rem;opacity:.75;">1 traveler · double rate</span>':'Total Cabin Cost<br><span style="font-size:.73rem;opacity:.75;">('+ng+' guest'+(ng>1?'s':'')+')</span>')+'</td><td style="text-align:right;font-weight:800;font-size:.97rem;">'+fmt(setCost)+'</td></tr>'+
+            '<tr><td style="padding:3px 0;opacity:.85;">'+(isSingleOcc?'Total Cabin Cost<br><span style="font-size:.73rem;opacity:.75;">1 traveler · double-occupancy rate</span>':'Total Cabin Cost<br><span style="font-size:.73rem;opacity:.75;">('+ng+' guest'+(ng>1?'s':'')+')</span>')+'</td><td style="text-align:right;font-weight:800;font-size:.97rem;">'+fmt(setCost)+'</td></tr>'+
             '<tr><td colspan="2" style="padding:6px 0 3px;border-top:1px solid rgba(255,255,255,.25);font-size:.77rem;opacity:.8;">Gratuities: <strong>'+fmt(gratPP)+'/person</strong> — paid separately<br><span style="opacity:.7;">($'+gratRate+'/day × '+CRUISE_DAYS+' days per person)</span></td></tr>'+
           '</table>'+
           '<div style="margin-top:8px;border-top:1px solid rgba(255,255,255,.2);padding-top:8px;">'+
@@ -6050,13 +6048,22 @@ async function loadTravelers(){
     {data:profiles},
     {data:allCabins},
     {data:allPayments},
-    {data:allCabinTravelers}
+    {data:allCabinTravelers},
+    {data:emailLogs}
   ]=await Promise.all([
     sb.from('profiles').select('id,name,email,status,needs_doc_info,cc_auth_url,cc_auth_filename').neq('is_admin',true).order('name'),
     sb.rpc('admin_get_all_cabin_assignments'),
     sb.from('user_payments').select('user_id,amount_due,amount_paid'),
-    sb.rpc('admin_get_all_cabin_travelers')
+    sb.rpc('admin_get_all_cabin_travelers'),
+    sb.from('email_queue').select('to_email,subject,created_at,status').order('created_at',{ascending:false})
   ]);
+  // Build email map keyed by lowercased to_email
+  const emailMap={};
+  (emailLogs||[]).forEach(e=>{
+    const k=(e.to_email||'').toLowerCase();
+    if(!emailMap[k])emailMap[k]=[];
+    emailMap[k].push(e);
+  });
 
   const el=document.getElementById('admin-travelers');
   if(!profiles||profiles.length===0){el.innerHTML='<div class="empty"><div class="ei">&#x1F465;</div><p>No travelers yet.</p></div>';return;}
@@ -6157,6 +6164,25 @@ async function loadTravelers(){
         '</select></td>'+
       '</tr>';
     }).join('');
+    const tEmails=(emailMap[(p.email||'').toLowerCase()]||[]);
+    const eCount=tEmails.length;
+    const eHid='email-hist-'+p.id;
+    const emailCell=eCount===0
+      ?'<td style="font-size:.78rem;color:var(--muted);text-align:center;">—</td>'
+      :'<td><div style="position:relative;display:inline-block;">'+
+          '<button onclick="toggleEmailHistory(\''+eHid+'\')" style="background:#1a4a7c;color:#fff;border:none;border-radius:6px;padding:3px 9px;font-size:.76rem;font-weight:700;cursor:pointer;">📧 '+eCount+'</button>'+
+          '<div id="'+eHid+'" style="display:none;position:absolute;z-index:200;right:0;top:100%;min-width:300px;background:var(--card);border:1.5px solid var(--border);border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.22);padding:4px 0;max-height:240px;overflow-y:auto;">'+
+            tEmails.map(e=>{
+              const d=new Date(e.created_at);
+              const ds=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+              const subj=(e.subject||'(no subject)').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+              return'<div style="padding:7px 12px;border-bottom:1px solid var(--border);font-size:.78rem;">'+
+                '<div style="font-weight:700;color:var(--text);line-height:1.3;">'+subj+'</div>'+
+                '<div style="color:var(--muted);font-size:.72rem;margin-top:2px;">'+ds+' · '+(e.status||'sent')+'</div>'+
+              '</div>';
+            }).join('')+
+          '</div>'+
+        '</div></td>';
     return'<tr>'+
       '<td><a href="#" onclick="openManageTravelers(\''+p.id+'\',\''+safeN+'\','+( ca?.num_guests||1)+');return false;" style="font-weight:800;color:var(--primary);text-decoration:none;">'+(p.name||'<em style="color:var(--muted)">No name</em>')+'</a> '+docB+suiteB+noCabinB+needsCCLB+'<br><small style="color:var(--muted)">'+(p.email||'')+'</small></td>'+
       '<td><span class="badge badge-purple">'+cabinStr+'</span>'+
@@ -6169,11 +6195,12 @@ async function loadTravelers(){
       '<td class="col-r" style="color:var(--success)"><strong>'+fmt(paid)+'</strong></td>'+
       '<td class="col-r" style="color:'+(cabinCost?'var(--danger)':'var(--muted)')+'">'+((bal!=null)?fmt(bal):'—')+'</td>'+
       '<td><div class="pbar-row"><div class="mpbar-track"><div class="mpbar-fill" style="width:'+pct+'%"></div></div><small>'+pct+'%</small></div></td>'+
+      emailCell+
       '<td>'+actionSel+'</td>'+
     '</tr>'+occRows;
   }
 
-  const thead='<thead><tr><th>Traveler</th><th>Cabin</th><th>Res. / Link</th><th class="col-r">Paid</th><th class="col-r">Balance</th><th>Progress</th><th>Actions</th></tr></thead>';
+  const thead='<thead><tr><th>Traveler</th><th>Cabin</th><th>Res. / Link</th><th class="col-r">Paid</th><th class="col-r">Balance</th><th>Progress</th><th>Emails</th><th>Actions</th></tr></thead>';
 
   // Group travelers into three active sections + one cancelled section
   const byName=(a,b)=>(a.name||'').localeCompare(b.name||'');
@@ -6257,6 +6284,25 @@ function toggleTravelerSection(secId){
   if(chev)chev.textContent=open?'▶':'▼';
 }
 
+// Toggle email history dropdown in Travelers tab
+function toggleEmailHistory(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  const isOpen=el.style.display!=='none';
+  // Close all open dropdowns first
+  document.querySelectorAll('[id^="email-hist-"]').forEach(e=>{e.style.display='none';});
+  if(!isOpen)el.style.display='block';
+  // Close on next outside click
+  if(!isOpen){
+    setTimeout(()=>{
+      document.addEventListener('click',function closeEH(ev){
+        if(!el.contains(ev.target)){el.style.display='none';}
+        document.removeEventListener('click',closeEH);
+      },{once:true});
+    },10);
+  }
+}
+
 // Mark a traveler as cancelled/not going (no email sent, cabin stays, profile kept in DB)
 async function markTravelerNotGoing(userId,name){
   if(!confirm(`Mark ${name} as "Not Going / Cancelled"?\n\nThis will:\n• Flag their profile as cancelled in the database\n• Move them to the Cancelled section at the bottom of the Travelers tab\n• Keep all their profile data and payment history intact\n• NOT send any emails and NOT return their cabin to inventory\n\nYou can restore them to active status at any time.`))return;
@@ -6284,12 +6330,17 @@ async function assignCabinNumber(userId,name,cabinType,currentNum){
 
 async function setCabinCost(userId,name,currentCost){
   const currentDisplay=currentCost?fmt(parseFloat(currentCost)):'Not set';
-  const input=prompt(`Set total cabin cost for ${name}:\nCurrent: ${currentDisplay}\n\nEnter the full cabin cost (e.g. 2400 or 2400.50):`,currentCost||'');
-  if(input===null)return;
-  const parsed=parseFloat(input.replace(/[^0-9.]/g,''));
-  if(isNaN(parsed)||parsed<=0){alert('Please enter a valid dollar amount (e.g. 2400 or 2400.50).');return;}
-  const{error}=await sb.rpc('admin_set_cabin_cost_v2',{p_user_id:userId,p_val:parsed});
-  if(error){alert('Error saving cabin cost: '+error.message+'\n\nMake sure you have run the latest new-columns.sql in Supabase SQL Editor.');return;}
+  const input=prompt(`Set total cabin cost for ${name}:\nCurrent: ${currentDisplay}\n\nEnter the full cabin cost (e.g. 2400 or 2400.50).\nLeave blank and click OK to clear the cost.`,currentCost||'');
+  if(input===null)return; // cancelled
+  const trimmed=input.trim();
+  let newVal=null;
+  if(trimmed!==''){
+    const parsed=parseFloat(trimmed.replace(/[^0-9.]/g,''));
+    if(isNaN(parsed)||parsed<=0){alert('Please enter a valid dollar amount (e.g. 2400 or 2400.50), or leave blank to clear.');return;}
+    newVal=parsed;
+  }
+  const{error}=await sb.rpc('admin_set_cabin_cost_v2',{p_user_id:userId,p_val:newVal});
+  if(error){alert('Error saving cabin cost: '+error.message+'\n\nMake sure Statements 59–62 in urgent-fixes.sql have been run in Supabase.');return;}
   loadTravelers();
 }
 
@@ -7474,10 +7525,13 @@ async function adminAssignTierFromModal(userId, cabinType, oldPricePP, numGuests
     const effGuests=ng===1?2:ng;
     const newCost=newPrice*effGuests;
     console.log('[adminAssignTierFromModal] calling admin_set_price_tier',{userId,newPrice,newCost});
-    const{data:rowsUpdated,error}=await sb.rpc('admin_set_price_tier',{p_user_id:userId,p_price_per_person:newPrice,p_cabin_cost:newCost});
+    const{data:rowsUpdated,error}=await sb.rpc('admin_set_price_tier',{p_user_id:userId,p_price_per_person:newPrice});
     console.log('[adminAssignTierFromModal] result',{rowsUpdated,error});
     if(error)throw new Error(error.message||JSON.stringify(error));
     if(rowsUpdated===0)throw new Error('No cabin record found for this traveler (0 rows updated). The cabin_assignments row may be missing — check Supabase.');
+    // Also update cabin_cost so the Cost column reflects the tier immediately
+    const{error:costErr}=await sb.rpc('admin_set_cabin_cost_v2',{p_user_id:userId,p_val:newCost});
+    if(costErr)console.warn('[adminAssignTierFromModal] cabin_cost update failed:',costErr.message);
     if(btn){btn.textContent='✅ Saved!';btn.style.background='#dcfce7';btn.style.color='#166534';btn.style.borderColor='#86efac';}
     setTimeout(()=>{
       const m=document.getElementById('atm-modal');if(m)m.remove();
@@ -7498,7 +7552,7 @@ async function adminResetCabinCost(userId, name){
     alert('✅ Cost reset for '+name+'. You can now assign a new price tier.');
     loadTravelers();
   }catch(e){
-    alert('Error resetting cost: '+(e.message||e)+'\n\nMake sure Statement 60 in urgent-fixes.sql has been run in Supabase.');
+    alert('Error resetting cost: '+(e.message||e)+'\n\nMake sure Statement 63 in urgent-fixes.sql has been run in Supabase.');
   }
 }
 
@@ -7528,10 +7582,13 @@ async function adminAssignPriceTier(userId, cabinType, oldPricePP, rawNewPrice, 
     // No tier counter adjustment here: admin assignment is an override (enables overbooking);
     // the inventory view derives counts from actual cabin_assignments.price_per_person data.
     console.log('[adminAssignPriceTier] calling admin_set_price_tier',{userId,newPrice,newCost});
-    const{data:rowsUpdated,error}=await sb.rpc('admin_set_price_tier',{p_user_id:userId,p_price_per_person:newPrice,p_cabin_cost:newCost});
+    const{data:rowsUpdated,error}=await sb.rpc('admin_set_price_tier',{p_user_id:userId,p_price_per_person:newPrice});
     console.log('[adminAssignPriceTier] result',{rowsUpdated,error});
     if(error)throw new Error(error.message||JSON.stringify(error));
     if(rowsUpdated===0)throw new Error('No cabin record found for this traveler (0 rows updated). The cabin_assignments row may be missing — check Supabase.');
+    // Also update cabin_cost so Cost column reflects the tier immediately
+    const{error:costErr}=await sb.rpc('admin_set_cabin_cost_v2',{p_user_id:userId,p_val:newCost});
+    if(costErr)console.warn('[adminAssignPriceTier] cabin_cost update failed:',costErr.message);
     if(btn){btn.textContent='✅ Saved!';btn.style.background='#dcfce7';btn.style.color='#166534';btn.style.borderColor='#86efac';}
     // Reload inventory cards + traveler list to reflect updated tier counts
     setTimeout(()=>{loadInventoryTab();loadTravelers();},900);
