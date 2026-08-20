@@ -1652,7 +1652,7 @@ const FLYER_IMG_URL      = './cruise-flyer.jpg'; // update to full URL for email
 
 const{createClient}=supabase;
 const sb=createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
-let gUser=null,gProfile=null,gInventory={},gProfileSetupComplete=false,gInventoryAssignments=[],gReportData=[],gMilestoneWarningShown=false;
+let gUser=null,gProfile=null,gInventory={},gProfileSetupComplete=false,gInventoryAssignments=[],gInventoryTiersByType={},gReportData=[],gMilestoneWarningShown=false;
 let gMilestones=[],gPayments=[],gCabinCost=null,gDupConfirmed=false,gPendingSetup=null;
 let gEditingTravelerId=null,gEditingTravelerOld=null,gGratLinkOpened=false,gCitLinkOpened={};
 let gActiveTravelerSlot=-1,gWaitlistData=[];
@@ -6157,6 +6157,7 @@ async function loadTravelers(){
     return'<tr>'+
       '<td><a href="#" onclick="openManageTravelers(\''+p.id+'\',\''+safeN+'\','+( ca?.num_guests||1)+');return false;" style="font-weight:800;color:var(--primary);text-decoration:none;">'+(p.name||'<em style="color:var(--muted)">No name</em>')+'</a> '+docB+suiteB+noCabinB+needsCCLB+'<br><small style="color:var(--muted)">'+(p.email||'')+'</small></td>'+
       '<td><span class="badge badge-purple">'+cabinStr+'</span>'+
+        (ca?.price_per_person?'<br><span style="font-size:.74rem;color:#1a4a7c;font-weight:700;">💲'+fmt(parseFloat(ca.price_per_person))+'/pp</span>':'<br><span style="font-size:.72rem;color:#d68910;">⚠️ No price tier</span>')+
         (ca?.backup_cabin_type&&!ca?.suite_pending&&!ca?.cabin_number?'<br><span style="font-size:.74rem;color:var(--muted);">🔄 Backup: '+ca.backup_cabin_type+'</span>':'')+
         (ca?.high_occupancy_pending?'<br><span class="badge badge-warn" style="font-size:.72rem;">⚠️ High Occ. Pending</span>':'')+
         (ca?.cabin_change_pending&&ca?.requested_cabin_type?'<br><span class="badge badge-warn" style="font-size:.72rem;">🔄 Change Req: '+ca.requested_cabin_type+'</span>':'')+
@@ -7140,6 +7141,13 @@ async function loadInventoryTab(){
 
   gInventoryAssignments=assignments||[];
 
+  // Store tiers by type globally so showInventoryDetail can use them for the assign dropdown
+  gInventoryTiersByType={};
+  (tiers||[]).forEach(t=>{
+    if(!gInventoryTiersByType[t.cabin_type])gInventoryTiersByType[t.cabin_type]=[];
+    gInventoryTiersByType[t.cabin_type].push(t);
+  });
+
   // Derive reserved counts from actual cabin_assignments rows (source of truth)
   const actualReserved={};
   (assignments||[]).forEach(a=>{
@@ -7349,16 +7357,73 @@ async function showInventoryDetail(cabinType){
       <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:.83rem;color:var(--muted);margin-bottom:10px;">
         <span>Cabin #: <strong style="color:var(--text);">${b.cabin_number||'Not assigned'}</strong></span>
         <span>Reserved: <strong style="color:var(--text);">${reservedDate}</strong></span>
-        ${b.price_per_person?`<span>Price/Person: <strong style="color:#1a4a7c;">${fmt(parseFloat(b.price_per_person))}</strong></span>`:'<span style="color:#d68910;font-weight:700;">⚠️ No price tier assigned</span>'}
         ${b.cabin_cost?`<span>Total Cost: <strong style="color:var(--text);">${fmt(parseFloat(b.cabin_cost))}</strong></span>`:''}
         ${b.num_guests?`<span>Guests: <strong style="color:var(--text);">${b.num_guests}</strong></span>`:''}
         ${b.guest_reservation_number?`<span>Res. #: <strong style="color:var(--text);">${b.guest_reservation_number}</strong></span>`:''}
       </div>
+      ${(()=>{
+        const tiers=gInventoryTiersByType[cabinType]||[];
+        const curPP=b.price_per_person?parseFloat(b.price_per_person):0;
+        const uid=b.user_id;
+        const ng=b.num_guests||1;
+        if(tiers.length===0)return b.price_per_person?`<div style="font-size:.82rem;color:#1a4a7c;font-weight:700;margin-bottom:10px;">💲 Price/Person: ${fmt(curPP)}</div>`:'';
+        const opts=tiers.map(t=>{
+          const pp=parseFloat(t.price_per_person);
+          const sel=(curPP&&Math.round(curPP*100)===Math.round(pp*100))?'selected':'';
+          return`<option value="${pp}" ${sel}>${fmt(pp)}/pp</option>`;
+        }).join('');
+        const selId=`tier-sel-${uid}`;
+        const btnId=`tier-btn-${uid}`;
+        return`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+          <span style="font-size:.8rem;font-weight:700;color:#1a4a7c;">💲 Price Tier:</span>
+          <select id="${selId}" style="border:1.5px solid #dbe4ee;border-radius:7px;padding:4px 8px;font-size:.82rem;color:#1a4a7c;font-weight:700;">
+            <option value="">— Select tier —</option>
+            ${opts}
+          </select>
+          <button id="${btnId}" onclick="adminAssignPriceTier('${uid}','${cabinType}',${curPP||0},document.getElementById('${selId}').value,${ng},this)" style="background:#1a4a7c;color:#fff;border:none;border-radius:7px;padding:5px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">Assign</button>
+          ${!curPP?'<span style="font-size:.76rem;color:#d68910;font-weight:700;">⚠️ No tier assigned</span>':''}
+        </div>`;
+      })()}
       <div style="font-size:.8rem;font-weight:700;color:var(--primary);margin-bottom:6px;">Cabin Travelers (${travelers.length})</div>
       <div class="table-wrap" style="margin:0;"><table><thead><tr><th>Name</th><th>DOB</th><th>Gender</th><th>Citizenship</th><th>Contact / Special</th></tr></thead><tbody>${travelerRows}</tbody></table></div>
     </div>`;
   }).join('');
   document.getElementById('inv-detail-content').innerHTML=cards;
+}
+
+// ── PRICE TIER ASSIGNMENT FROM INVENTORY ──────────────────────
+async function adminAssignPriceTier(userId, cabinType, oldPricePP, newPricePP, numGuests, btn){
+  if(!newPricePP||parseFloat(newPricePP)===0){alert('Please select a price tier.');return;}
+  const newPrice=parseFloat(newPricePP);
+  const oldPrice=oldPricePP?parseFloat(oldPricePP):0;
+  if(oldPrice&&Math.round(oldPrice*100)===Math.round(newPrice*100)){
+    alert('That tier is already assigned to this traveler.');return;
+  }
+  if(!confirm(`Assign ${fmt(newPrice)}/person to this traveler?\n\nThis will update their cabin cost.`))return;
+  if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  try{
+    const ng=parseInt(numGuests)||1;
+    const effGuests=ng===1?2:ng; // single occupancy pays double-occupancy rate
+    const newCost=newPrice*effGuests;
+    // Adjust tier inventory counters
+    if(oldPrice&&cabinType!=='Suite'){
+      await sb.rpc('increment_cabin_tier',{p_cabin_type:cabinType,p_price:oldPrice.toString()});
+    }
+    if(cabinType!=='Suite'){
+      await sb.rpc('decrement_cabin_tier',{p_cabin_type:cabinType,p_price:newPrice.toString()});
+    }
+    // Save to cabin_assignments
+    const{error}=await sb.from('cabin_assignments').update({price_per_person:newPrice,cabin_cost:newCost}).eq('user_id',userId);
+    if(error)throw new Error(error.message);
+    if(btn){btn.textContent='✅ Saved!';btn.style.background='#dcfce7';btn.style.color='#166534';btn.style.borderColor='#86efac';}
+    // Reload inventory cards + traveler list in background to reflect updated tier counts
+    setTimeout(()=>{loadInventoryTab();loadTravelers();},900);
+    // Refresh the detail modal so the new tier is pre-selected and cost shows correctly
+    setTimeout(()=>showInventoryDetail(cabinType),950);
+  }catch(e){
+    alert('Error assigning tier: '+(e.message||e));
+    if(btn){btn.disabled=false;btn.textContent='Assign';}
+  }
 }
 
 // ── CANCELLATIONS ─────────────────────────────────────────────
@@ -8869,9 +8934,7 @@ This email was sent by the ${TRIP_NAME} portal.`
           <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Payment Steps Video URL <span style="font-weight:400;text-transform:none;color:#94a3b8;">(YouTube, Google Drive, or direct link)</span></label>
           <input id="eg-dep-video-url" type="url" value="https://atypicaltek.github.io/Commonwealth-Cruise/Make%20a%20Payment%20.mp4" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
         </div>`,
-      body:`Hello [Traveler Name],
-
-Thank you again for choosing to travel with us on the Commonwealth Cruise 2027!
+      body:`Thank you again for choosing to travel with us on the Commonwealth Cruise 2027!
 We're excited to have you join us and want to help ensure you receive your preferred cabin selection.
 
 At this time, we have not yet received a deposit in connection with your cabin hold request.
@@ -8887,9 +8950,9 @@ DEPOSIT SUMMARY:
 • TOTAL DEPOSIT DUE: $[TOTAL_DEPOSIT]
 
 HOW TO SUBMIT YOUR DEPOSIT:
-1. Log in to the Commonwealth Cruise Travel Portal
-2. Select the "Make A Payment" button on your dashboard
-3. Complete the CC Authorization Form to authorize your deposit
+• Log in to the Commonwealth Cruise Travel Portal
+• Select the "Make A Payment" button on your dashboard
+• Complete the CC Authorization Form to authorize your deposit
 
 [Watch the payment steps tutorial video — embedded above]
 
