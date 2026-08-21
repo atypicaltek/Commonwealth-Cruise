@@ -12838,7 +12838,8 @@ async function adminRemoveSingleCCAuth(userId, storagePath, filename, btn){
     const{error:profileErr}=await sb.from('profiles').update({cc_auth_url:latestPath,cc_auth_filename:latestName}).eq('id',userId);
     if(profileErr)console.warn('Profile update warning:',profileErr.message);
     // Update local cache
-    if(traveler){traveler.cc_auth_url=latestPath;traveler.cc_auth_filename=latestName;}
+    const travelerCache=window.gTravelerData?.[userId];
+    if(travelerCache){travelerCache.cc_auth_url=latestPath;travelerCache.cc_auth_filename=latestName;}
     if(gProfile&&gProfile.id===userId){
       gProfile.cc_auth_url=latestPath;gProfile.cc_auth_filename=latestName;
       if(!latestPath){const ccBtn=document.getElementById('dash-cc-auth-btn');if(ccBtn){ccBtn.textContent='💳 Make A Payment';ccBtn.style.background='rgba(255,255,255,.18)';ccBtn.style.borderColor='rgba(255,255,255,.45)';}}
