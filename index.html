@@ -2623,15 +2623,24 @@ async function checkEmailContinue(){
   alertEl.className='alert';alertEl.textContent='Checking…';alertEl.style.display='block';
   // Use SECURITY DEFINER RPC so RLS doesn't block the anon lookup
   let authExists=false;
-  try{const{data:ae}=await sb.rpc('check_auth_email_exists',{p_email:email});authExists=!!ae;}catch(_){}
+  let rpcFailed=false;
+  try{
+    const{data:ae,error:rpcErr}=await sb.rpc('check_auth_email_exists',{p_email:email});
+    if(rpcErr){console.warn('[checkEmailContinue] RPC error:',rpcErr.message);rpcFailed=true;}
+    else{authExists=!!ae;}
+  }catch(e){console.warn('[checkEmailContinue] RPC exception:',e);rpcFailed=true;}
   alertEl.style.display='none';
 
-  if(authExists){
-    // Existing account — show PIN entry step
+  if(authExists||rpcFailed){
+    // Existing account (or lookup failed — go to PIN anyway, auth will reject bad PIN)
     document.getElementById('login-email-display').textContent=email;
     document.getElementById('login-email-step').style.display='none';
     document.getElementById('login-pin-step').style.display='block';
     document.getElementById('lp0').focus();
+    if(rpcFailed){
+      const pa=document.getElementById('login-pin-alert');
+      if(pa){pa.className='alert alert-warn';pa.textContent='Note: email lookup failed — enter your PIN to continue.';pa.style.display='block';}
+    }
   } else {
     // No account found — open registration wizard
     gRegEmail=email;
