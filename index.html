@@ -6222,7 +6222,7 @@ async function loadTravelers(){
         '<option value="cabin_photo">&#x1F4F7; Upload Cabin Photo</option>'+
         (ca?.cabin_change_pending&&ca?.requested_cabin_type?'<option value="approve_cabin_change">&#x2705; Approve Change → '+ca.requested_cabin_type+'</option>':'')+
         (ca?.cabin_change_pending&&ca?.requested_cabin_type?'<option value="decline_cabin_change">&#x274C; Decline Change Request</option>':'')+
-        '<option value="update_guests">&#x1F465; Update Guest Count'+(ca?.num_guests?' ('+ca.num_guests+')')+'</option>'+
+        '<option value="update_guests">&#x1F465; Update Guest Count'+(ca?.num_guests?' ('+ca.num_guests+')':'')+'</option>'+
         '<option value="select_tier">&#x1F4B2; Assign Price Tier'+(ca?.price_per_person?' ✓ ('+fmt(parseFloat(ca.price_per_person))+'/pp)':'')+'</option>'+
         '<option value="reset_cost">&#x1F504; Reset Cost to Blank</option>'+
         '<option value="cost">&#x1F4B0; Cost'+costChk+'</option>'+
