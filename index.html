@@ -12742,7 +12742,7 @@ async function doUploadCCAuth(file, lastName, statusEl){
   gProfile.cc_auth_url=path;gProfile.cc_auth_filename=filename;
   if(statusEl){statusEl.innerHTML='✅ <strong>Form uploaded successfully!</strong><br><span style="font-size:.78rem;color:#166534;">Saved as: '+filename+'</span>';statusEl.style.color='#166534';}
   // SMS alert to admin
-  sendAdminSms(`CC Authorization submitted by ${gProfile?.name||'Traveler'}. Log in to review: ${PORTAL_URL}`);
+  sendAdminSms(`CC Auth Complete — ${gProfile?.name||'Traveler'}. Log in to review: ${PORTAL_URL}`);
   // Email alert to admin (backup in case SMS gateway fails)
   const _ccName=gProfile?.name||'Traveler';
   const _ccEmail=gProfile?.email||'';
@@ -12820,8 +12820,7 @@ async function adminRefreshCCAuthFileList(userId, name){
 
 // Remove a single CC auth file and update profile to point to the most recent remaining file
 async function adminRemoveSingleCCAuth(userId, storagePath, filename, btn){
-  const traveler=gTravelerData?.find(t=>t.id===userId);
-  const displayName=traveler?.name||'this traveler';
+  const displayName=window.gTravelerData?.[userId]?.name||'this traveler';
   if(!confirm(`Remove "${filename}" for ${displayName}?\n\nThis cannot be undone.`))return;
   if(btn){btn.disabled=true;btn.textContent='Removing…';}
   try{
