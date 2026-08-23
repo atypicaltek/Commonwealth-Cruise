@@ -605,24 +605,25 @@
             <div class="form-group" style="margin-bottom:0;"><label>Telephone</label><input type="text" id="ct-phone" placeholder="e.g. 555-867-5309" autocomplete="off"></div>
           </div>
 
-          <div class="section-hdr">Special Requests — Medical Needs <span style="font-weight:400;font-size:.72rem;color:var(--muted)">(select up to 4)</span></div>
-          <div id="ct-special-requests-count" style="font-size:.8rem;color:var(--muted);margin-bottom:8px;">0 of 4 selected</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;margin-bottom:14px;" id="ct-sr-grid">
-            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Wheelchair Assistance" onchange="onSrChange()"> Wheelchair Assistance</label>
-            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Cognitive Disabilities" onchange="onSrChange()"> Cognitive Disabilities</label>
-            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Concentrator" onchange="onSrChange()"> Concentrator</label>
-            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Scooter/Power Wheelchair" onchange="onSrChange()"> Scooter/Power Wheelchair</label>
-            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Autism" onchange="onSrChange()"> Autism</label>
-            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Diabetic" onchange="onSrChange()"> Diabetic</label>
-            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Blind/Low Vision" onchange="onSrChange()"> Blind/Low Vision</label>
-            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Deaf/Hard of Hearing" onchange="onSrChange()"> Deaf/Hard of Hearing</label>
-            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Allergies" onchange="onSrChange()"> Allergies</label>
-            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Pregnant Less Than 24 Full Weeks" onchange="onSrChange()"> Pregnant Less Than 24 Full Weeks</label>
-            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Sharps Container" onchange="onSrChange()"> Sharps Container</label>
-            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Dialysis" onchange="onSrChange()"> Dialysis</label>
-            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Manual Wheelchair" onchange="onSrChange()"> Manual Wheelchair</label>
-            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Pregnant More Than 24 Full Weeks" onchange="onSrChange()"> Pregnant More Than 24 Full Weeks</label>
-            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Oxygen (Tanks Only)" onchange="onSrChange()"> Oxygen (Tanks Only)</label>
+          <div class="section-hdr">Special Requests — Medical &amp; Accessibility Needs <span style="font-weight:400;font-size:.72rem;color:var(--muted)">(select all that apply — up to 6)</span></div>
+          <div id="ct-special-requests-count" style="font-size:.8rem;color:var(--muted);margin-bottom:8px;">0 of 6 selected</div>
+          <p style="font-size:.8rem;color:#b45309;background:#fffbeb;border:1px solid #f6c440;border-radius:7px;padding:8px 12px;margin-bottom:10px;">⚠️ Selecting a cabin accessibility need triggers a <strong>special request cabin notification email</strong> that bypasses the hold queue. A full deposit of <strong>$250.00 per person</strong> is required before these limited cabins are confirmed.</p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px;margin-bottom:14px;" id="ct-sr-grid">
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Full Accessible Cabin (Wheelchair/Power Scooter)" onchange="onSrChange()"> ♿ Full Accessible Cabin (Wheelchair/Power Scooter)</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Ambulatory Accessible Cabin" onchange="onSrChange()"> ♿ Ambulatory Accessible Cabin</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Deaf/Hard of Hearing" onchange="onSrChange()"> 🦻 Deaf / Hard of Hearing</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Allergies" onchange="onSrChange()"> 🌿 Allergies</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Blind/Low Vision" onchange="onSrChange()"> 👁 Blind / Low Vision</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Dialysis" onchange="onSrChange()"> 💉 Dialysis</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Service Animal" onchange="onSrChange()"> 🐕 Service Animal</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Oxygen/Concentrator/CPAP Machine" onchange="onSrChange()"> 😮‍💨 Oxygen Tank / Concentrator / CPAP Machine</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Wheelchair Assistance (Embarkation/Debarkation)" onchange="onSrChange()"> ♿ Wheelchair Assistance (Embarkation/Debarkation Only)</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Diabetic/Sharps/Medical Storage" onchange="onSrChange()"> 💊 Diabetic / Sharps Container / Medical Storage</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Sensory Needs" onchange="onSrChange()"> 🧠 Sensory Needs</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Cognitive/Invisible Disability - Adult" onchange="onSrChange()"> 🧠 Cognitive / Invisible Disability — Adult</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Cognitive/Invisible Disability - Child" onchange="onSrChange()"> 🧠 Cognitive / Invisible Disability — Child</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Pregnant Less Than 24 Full Weeks" onchange="onSrChange()"> 🤱 Pregnant Less Than 24 Full Weeks</label>
+            <label class="sr-option"><input type="checkbox" class="sr-cb" value="Pregnant More Than 24 Full Weeks" onchange="onSrChange()"> 🤱 Pregnant More Than 24 Full Weeks</label>
           </div>
 
           <div class="section-hdr">Special Occasions</div>
@@ -1164,7 +1165,15 @@
           <option value="Ocean View">Ocean View Cabin</option>
           <option value="Balcony">Balcony Cabin</option>
           <option value="Suite">Suite ⭐ — Request Only (Pricing Varies)</option>
+          <option value="Full Accessible">Full Accessible Cabin (Wheelchair/Power Scooter) ♿ — Request Only</option>
+          <option value="Ambulatory Accessible">Ambulatory Accessible Cabin ♿ — Request Only</option>
         </select>
+      </div>
+      <!-- Accessible notice — shown when accessible cabin type selected -->
+      <div id="reg-accessible-notice" style="display:none;background:#eff6ff;border:1.5px solid #93c5fd;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+        <div style="font-weight:800;color:#1e40af;font-size:.9rem;margin-bottom:6px;">♿ Accessible Cabin Request</div>
+        <p style="font-size:.83rem;color:#1e3a8a;margin:0 0 8px;line-height:1.5;">Accessible cabins are extremely limited and require a <strong>full deposit of $250.00 per person in cabin</strong> prior to confirming the reservation. These cabins are first-come, first-served and availability is subject to confirmation from Carnival Cruise Lines.</p>
+        <p style="font-size:.82rem;color:#1e3a8a;margin:0;line-height:1.5;">Your request will be placed on the waitlist. The trip organizer will verify availability and contact you before confirming. <strong>No inventory will be auto-assigned.</strong></p>
       </div>
       <!-- Suite backup — shown only when Suite selected -->
       <div id="reg-suite-backup" style="display:none;background:#fffbeb;border:1.5px solid #f6c440;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
@@ -2235,6 +2244,34 @@ function emailSuiteRequestReceived(profile,backupCabin,phone){
   sendEmail(ADMIN_EMAIL,'Admin',`${TRIP_NAME} — New Suite Request: ${profile.name}`,adminMsg,adminSuiteHtml);
 }
 
+function emailAccessibleRequestReceived(profile,cabinType,numGuests){
+  // Sent immediately to traveler (bypass hold) when accessible cabin is requested.
+  const subject=`${TRIP_NAME} — Accessible Cabin Request Received`;
+  const links=cabinType==='Ambulatory Accessible'
+    ?`<p><strong>Carnival Pre-Cruise Special Needs Form:</strong><br><a href="https://www.carnival.com/about-carnival/special-needs/pre-cruise-forms" style="color:#1a3a5c;">https://www.carnival.com/about-carnival/special-needs/pre-cruise-forms</a></p><p><strong>Mobility Devices Form:</strong><br><a href="https://www.carnival.com/request-forms/mobility-devices-form" style="color:#1a3a5c;">https://www.carnival.com/request-forms/mobility-devices-form</a></p>`
+    :`<p><strong>Carnival Pre-Cruise Special Needs Form:</strong><br><a href="https://www.carnival.com/about-carnival/special-needs/pre-cruise-forms" style="color:#1a3a5c;">https://www.carnival.com/about-carnival/special-needs/pre-cruise-forms</a></p><p><strong>Mobility Devices Form:</strong><br><a href="https://www.carnival.com/request-forms/mobility-devices-form" style="color:#1a3a5c;">https://www.carnival.com/request-forms/mobility-devices-form</a></p>`;
+  const html=buildEmailHtml(profile.name,
+    `<p>Dear ${profile.name},</p>
+     <p>Thank you for joining the <strong>${TRIP_NAME}</strong>! Your <strong>${cabinType} cabin request</strong> has been received and is pending confirmation.</p>
+     <div style="background:#fef3c7;border:1.5px solid #f6c440;border-radius:9px;padding:13px 16px;margin:16px 0;">
+       <strong style="color:#78460a;">⚠️ Full Deposit Required Before Confirmation</strong>
+       <p style="margin:6px 0 0;font-size:.88rem;color:#78460a;">As these types of rooms are extremely limited, Carnival Cruise Lines requires a <strong>full deposit of $250.00 per person in cabin</strong> prior to confirming the reservation. These cabins are first-come, first-served basis and may not be available.</p>
+     </div>`+
+     buildPayTable([
+       {label:'Cabin Type Requested',value:cabinType},
+       {label:'Number of Guests',value:numGuests||'—'},
+       {label:'Deposit Required',value:`$${(numGuests||1)*250}.00 ($250.00 × ${numGuests||1} person${numGuests>1?'s':''})`},
+     ])+
+    `<p style="font-size:.9rem;font-weight:700;color:#1a4f7a;margin-top:20px;border-top:2px solid #e2e8f0;padding-top:14px;">📋 Required Carnival Forms</p>
+     <p style="font-size:.86rem;">Please complete the following form(s) with Carnival prior to your cruise:</p>
+     ${links}
+     <p style="font-size:.86rem;margin-top:16px;">Your request has been added to the waitlist. The trip organizer will contact you once availability has been verified with Carnival Cruise Lines.</p>
+     <p>Questions? Reply to this email or contact us at glowjetters@gmail.com</p>`
+  );
+  const plain=`Dear ${profile.name},\n\nYour ${cabinType} cabin request for the ${TRIP_NAME} has been received.\n\n⚠️ Full Deposit Required Before Confirmation\nAs these types of rooms are extremely limited, Carnival Cruise Lines requires a full deposit of $250.00 per person in cabin prior to confirming the reservation. These cabins are first-come, first-served and may not be available.\n\nCabin Type: ${cabinType}\nGuests: ${numGuests||'—'}\nDeposit Required: $${(numGuests||1)*250}.00\n\nPlease complete the required Carnival forms:\n• https://www.carnival.com/about-carnival/special-needs/pre-cruise-forms\n• https://www.carnival.com/request-forms/mobility-devices-form\n\nYour request is on the waitlist. The trip organizer will contact you once availability is confirmed.\n\nQuestions? glowjetters@gmail.com\n\n${TRIP_NAME} Team`;
+  sendEmail(profile.email,profile.name,subject,plain,html,false,true); // bypassHold=true
+}
+
 function emailSuiteConfirmed(name,email,cabinNumber){
   const subject=`${TRIP_NAME} — Suite Confirmed! 🎉`;
   const table=buildPayTable([
@@ -2538,6 +2575,12 @@ async function runMinorAndCompleteChecks(ownerId,travelers,ownerName,ownerEmail)
     showMinorPolicyPopup(issues);
   }
   await emailTravelerInfoComplete(travelers,ownerName,ownerEmail,issues.length>0?issues:null);
+  // Auto-send special request emails if any travelers have special_requests (bypass hold)
+  const allSR=[...new Set(travelers.flatMap(t=>Array.isArray(t.special_requests)?t.special_requests:[]).filter(Boolean))];
+  if(allSR.length>0){
+    const numGuests=travelers[0]?.num_guests||travelers.length;
+    emailSpecialRequestsAutoSend({name:ownerName,email:ownerEmail},allSR,numGuests);
+  }
 }
 
 let gReminderTravelers=[];
@@ -2697,8 +2740,12 @@ function regGoStep(n){
 
 function onRegCabinTypeChange(){
   const val=(document.getElementById('reg-cabin-type')?.value||'');
+  const ACCESSIBLE_TYPES=['Full Accessible','Ambulatory Accessible'];
+  const isAccessible=ACCESSIBLE_TYPES.includes(val);
   const suiteDiv=document.getElementById('reg-suite-backup');
+  const accessDiv=document.getElementById('reg-accessible-notice');
   if(suiteDiv)suiteDiv.style.display=(val==='Suite')?'block':'none';
+  if(accessDiv)accessDiv.style.display=isAccessible?'block':'none';
   // Reset suite fields when switching away
   if(val!=='Suite'){
     const ph=document.getElementById('reg-suite-phone');if(ph)ph.value='';
@@ -2820,6 +2867,11 @@ async function completeRegistration(){
     // SMS alert to admin
     const _fullName=[document.getElementById('reg-firstname')?.value?.trim(),document.getElementById('reg-lastname')?.value?.trim()].filter(Boolean).join(' ');
     sendAdminSms(`New CruisePortal account: ${_fullName||'Unknown'} (${gRegEmail}) — ${cabinType||'cabin TBD'} x${numGuests||'?'}`);
+
+    // Accessible cabin: email traveler + admin (bypass hold)
+    if(['Full Accessible','Ambulatory Accessible'].includes(cabinType)){
+      emailAccessibleRequestReceived({name:_fullName,email:gRegEmail},cabinType,numGuests);
+    }
 
     // Auto-sign-in with the just-created PIN so user goes straight to dashboard
     let{data:siData,error:siErr}=await sb.auth.signInWithPassword({email:gRegEmail,password:pin});
@@ -3440,12 +3492,14 @@ async function doProfileSetup(){
   clearFlash('psetup-alert');
   const cabinType=document.getElementById('psetup-cabin-type').value;
   const isSuite=cabinType==='Suite';
+  const _ACCESSIBLE_CABIN_TYPES_PSETUP=['Full Accessible','Ambulatory Accessible'];
+  const isAccessiblePsetup=_ACCESSIBLE_CABIN_TYPES_PSETUP.includes(cabinType);
   const backupCabin=isSuite?document.getElementById('psetup-backup-cabin').value:'';
   const suitePhone=isSuite?document.getElementById('psetup-suite-phone').value.trim():'';
   const numGuests=parseInt(document.getElementById('psetup-num-guests')?.value||'0')||null;
 
-  const backupPref=!isSuite?(document.getElementById('psetup-backup-pref')?.value||''):'';
-  const isHighOcc=numGuests>3;
+  const backupPref=(!isSuite&&!isAccessiblePsetup)?(document.getElementById('psetup-backup-pref')?.value||''):'';
+  const isHighOcc=numGuests>3&&!isAccessiblePsetup;
   const highOccAck=isHighOcc?document.getElementById('psetup-high-occ-ack')?.checked:true;
   if(!cabinType)return flash('psetup-alert','Please select a cabin type.');
   if(!numGuests)return flash('psetup-alert','Please select the number of people in your cabin.');
@@ -3469,6 +3523,8 @@ async function doProfileSetup(){
   }
 
   const checkCabin=isSuite?backupCabin:cabinType;
+  // Accessible cabin types always go to waitlist — skip sold-out check
+  if(!isAccessiblePsetup){
   // Use actual cabin_assignments count as source of truth (available_cabins counter can drift)
   const[{data:invRow},{count:actualBooked}]=await Promise.all([
     sb.from('cabin_inventory').select('total_cabins').eq('cabin_type',checkCabin).single(),
@@ -3502,6 +3558,7 @@ async function doProfileSetup(){
     loadDashboard();
     return;
   }
+  } // end if(!isAccessiblePsetup) sold-out check
 
   flash('psetup-alert','Saving your profile…','info');
 
@@ -3532,7 +3589,36 @@ async function doProfileSetup(){
   const name=gProfile?.name||gUser?.user_metadata?.full_name||gUser?.user_metadata?.name||'Traveler';
   const email=gProfile?.email||gUser.email;
 
-  if(isSuite){
+  const ACCESSIBLE_CABIN_TYPES=['Full Accessible','Ambulatory Accessible'];
+  const isAccessible=ACCESSIBLE_CABIN_TYPES.includes(cabinType);
+
+  if(isAccessible){
+    // ── ACCESSIBLE CABIN: waitlist only — no inventory decrement, no price tier ──
+    const{error:caErr}=await sb.from('cabin_assignments').upsert(
+      {user_id:gUser.id,cabin_type:cabinType,num_guests:numGuests,accessible_pending:true},
+      {onConflict:'user_id'}
+    );
+    if(caErr){flash('psetup-alert','Reservation error: '+caErr.message+'. Please try again or contact the trip organizer.');return;}
+    // Add to cabin waitlist so admin can process manually
+    const{error:wlErr}=await sb.rpc('insert_waitlist_entry',{
+      user_id:gUser.id,name,email,cabin_type:cabinType,num_guests:numGuests,backup_cabin_type:null
+    });
+    if(wlErr)console.warn('Accessible waitlist insert (non-fatal):',wlErr.message);
+    // Email traveler about accessible request
+    emailAccessibleRequestReceived({name,email},cabinType,numGuests);
+    // Alert admin
+    const accAdminHtml=buildEmailHtml('Admin',
+      `<p><strong>A traveler has submitted an accessible cabin request.</strong></p>`+
+      buildPayTable([
+        {label:'Name',value:name},{label:'Email',value:email},
+        {label:'Cabin Type',value:cabinType},{label:'Guests',value:String(numGuests||'—')}
+      ])+
+      `<p style="color:#1e40af;font-weight:700;">This request has been added to the waitlist. Please verify availability with Carnival before confirming.</p>`
+    );
+    sendEmail(ADMIN_EMAIL,'Admin',`${TRIP_NAME} — Accessible Cabin Request: ${name}`,
+      `Accessible cabin request from ${name} (${email})\nType: ${cabinType}\nGuests: ${numGuests||'—'}\n\nAdded to waitlist. Verify availability before confirming.`,
+      accAdminHtml);
+  } else if(isSuite){
     const{error:caErr}=await sb.from('cabin_assignments').upsert({user_id:gUser.id,cabin_type:backupCabin,suite_pending:true,num_guests:numGuests,backup_cabin_type:backupCabin},{onConflict:'user_id'});
     if(caErr){flash('psetup-alert','Reservation error: '+caErr.message+'. Please try again or contact the trip organizer.');return;}
     await sb.rpc('decrement_cabin',{cabin:backupCabin});
@@ -4302,11 +4388,12 @@ function onSrChange(){
   const cbs=document.querySelectorAll('.sr-cb');
   const checked=[...cbs].filter(c=>c.checked);
   const count=checked.length;
-  document.getElementById('ct-special-requests-count').textContent=`${count} of 4 selected`;
+  const MAX_SR=6;
+  document.getElementById('ct-special-requests-count').textContent=`${count} of ${MAX_SR} selected`;
   cbs.forEach(cb=>{
     const label=cb.closest('label');
     if(cb.checked){label.classList.add('checked');label.classList.remove('disabled');}
-    else if(count>=4){label.classList.add('disabled');label.classList.remove('checked');}
+    else if(count>=MAX_SR){label.classList.add('disabled');label.classList.remove('checked');}
     else{label.classList.remove('disabled','checked');}
   });
 }
@@ -4318,7 +4405,7 @@ function toggleSoDate(wrapperId,checkbox){
 function resetTravelerForm(){
   CT_TEXT_IDS.forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.querySelectorAll('.sr-cb').forEach(cb=>{cb.checked=false;cb.closest('label').classList.remove('checked','disabled');});
-  document.getElementById('ct-special-requests-count').textContent='0 of 4 selected';
+  document.getElementById('ct-special-requests-count').textContent='0 of 6 selected';
   ['ct-bday-ck','ct-anniv-ck','ct-honeymoon'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   document.getElementById('ct-bday-date').style.display='none';
   document.getElementById('ct-anniv-date').style.display='none';
@@ -4424,7 +4511,7 @@ function clearAddTravelerForm(){
     const lbl=document.getElementById(id+'-lbl');
     if(lbl)lbl.style.opacity='.5';
   });
-  document.getElementById('ct-special-requests-count').textContent='0 of 4 selected';
+  document.getElementById('ct-special-requests-count').textContent='0 of 6 selected';
 }
 
 async function addCabinTraveler(){
@@ -9581,6 +9668,85 @@ This email was sent by the ${TRIP_NAME} portal.`
     }),
     useCustomSend:true,
     customSend:()=>sendCabinHoldDepositStepsEmail()
+  },
+  {
+    id:'special_request_cabin',label:'Special Request Cabin',icon:'♿',
+    toMode:'traveler',
+    buildPreview:()=>({
+      subject:`${TRIP_NAME} — Special Request Cabin — Full Deposit Required`,
+      toLabel:'Traveler email',
+      toPlaceholder:'traveler@email.com',
+      toName:'',
+      extraFields:`
+        <div style="margin-bottom:10px;">
+          <button type="button" onclick="specialRequestAutoFill()" style="background:#e0f2fe;color:#0c4a6e;border:1.5px solid #bae6fd;border-radius:7px;padding:6px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">🔍 Auto-fill from Profile</button>
+          <span style="font-size:.75rem;color:#94a3b8;margin-left:8px;">Enter traveler email first, then click to auto-fill.</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Special Need Type</label>
+            <select id="eg-sr-need-type" onchange="specialRequestNeedTypeChange()" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+              <option value="">— Select Need Type —</option>
+              <option value="High Occupancy (3+ Guests)">High Occupancy (3+ Guests)</option>
+              <option value="Suite">Suite</option>
+              <option value="Full Accessible Cabin (Wheelchair/Power Scooter)">Full Accessible Cabin (Wheelchair/Power Scooter) ♿</option>
+              <option value="Ambulatory Accessible Cabin">Ambulatory Accessible Cabin ♿</option>
+              <option value="Deaf/Hard of Hearing">Deaf/Hard of Hearing</option>
+              <option value="Allergies">Allergies</option>
+              <option value="Blind/Low Vision">Blind/Low Vision</option>
+              <option value="Dialysis">Dialysis</option>
+              <option value="Service Animal">Service Animal</option>
+              <option value="Oxygen/Concentrator/CPAP Machine">Oxygen/Concentrator/CPAP Machine</option>
+              <option value="Wheelchair Assistance (Embarkation/Debarkation)">Wheelchair Assistance (Embarkation/Debarkation)</option>
+              <option value="Diabetic/Sharps/Medical Storage">Diabetic/Sharps/Medical Storage</option>
+              <option value="Sensory Needs">Sensory Needs</option>
+              <option value="Cognitive/Invisible Disability - Adult">Cognitive/Invisible Disability - Adult</option>
+              <option value="Cognitive/Invisible Disability - Child">Cognitive/Invisible Disability - Child</option>
+              <option value="Pregnant Less Than 24 Full Weeks">Pregnant Less Than 24 Full Weeks</option>
+              <option value="Pregnant More Than 24 Full Weeks">Pregnant More Than 24 Full Weeks</option>
+              <option value="Other">Other (specify below)</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Persons in Cabin</label>
+            <input id="eg-sr-num-guests" type="number" min="1" max="6" value="2" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+          </div>
+        </div>
+        <div id="eg-sr-other-wrap" style="display:none;margin-bottom:12px;">
+          <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Specify Other Need</label>
+          <input id="eg-sr-other-text" type="text" placeholder="Describe the special need" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+        </div>
+        <div id="eg-sr-link-preview" style="display:none;background:#eff6ff;border:1.5px solid #93c5fd;border-radius:8px;padding:10px 14px;font-size:.8rem;color:#1e3a8a;margin-bottom:10px;">
+        </div>
+        <div style="background:#fef9c3;border:1.5px solid #fde047;border-radius:8px;padding:8px 14px;font-size:.78rem;color:#713f12;margin-bottom:4px;">
+          ⚡ This email bypasses the hold queue and sends immediately.
+        </div>`,
+      body:`Dear [Traveler Name],
+
+Thank you for your interest in the ${TRIP_NAME}!
+
+Your special request for a [NEED TYPE] has been noted. As these types of rooms are extremely limited, Carnival Cruise Lines requires a full deposit of $250.00 per person in cabin prior to confirming the reservation. These cabins are first-come, first-serve basis and may not be available.
+
+RESERVATION DETAILS:
+• Special Request Type: [NEED TYPE]
+• Persons in Cabin: [NUM GUESTS]
+• Full Deposit Required: $[TOTAL DEPOSIT] ($250.00 × [NUM GUESTS] person(s))
+
+Please log in to the Commonwealth Cruise Travel Portal to submit your deposit:
+https://atypicaltek.github.io/Commonwealth-Cruise/
+
+[Carnival form link(s) will be included here based on selected need type]
+
+Once the deposit is received and availability is confirmed by Carnival Cruise Lines, your reservation will be finalized and you will receive a confirmation email.
+
+Questions? Reply to this email or contact us at glowjetters@gmail.com
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
+    }),
+    useCustomSend:true,
+    customSend:()=>sendSpecialRequestEmail()
   }
 ];
 
@@ -10072,6 +10238,162 @@ This email was sent by the ${TRIP_NAME} portal.`;
     else{statusEl.textContent='✅ Suite deposit email sent!';statusEl.style.color='#16a34a';}
   }
 }
+
+// ── Special Request Cabin helpers ────────────────────────────────────────────
+
+function getSpecialRequestCarnivalLinks(needType){
+  const MAP={
+    'Full Accessible Cabin (Wheelchair/Power Scooter)':[
+      {label:'Pre-Cruise Special Needs Form',url:'https://www.carnival.com/about-carnival/special-needs/pre-cruise-forms'},
+      {label:'Mobility Devices Form',url:'https://www.carnival.com/request-forms/mobility-devices-form'}
+    ],
+    'Ambulatory Accessible Cabin':[
+      {label:'Pre-Cruise Special Needs Form',url:'https://www.carnival.com/about-carnival/special-needs/pre-cruise-forms'},
+      {label:'Mobility Devices Form',url:'https://www.carnival.com/request-forms/mobility-devices-form'}
+    ],
+    'Deaf/Hard of Hearing':[{label:'Hearing Assistance Form',url:'https://www.carnival.com/request-forms/hearing'}],
+    'Allergies':[{label:'Allergies Form',url:'https://www.carnival.com/request-forms/allergies'}],
+    'Blind/Low Vision':[{label:'Blind or Low Vision Form',url:'https://www.carnival.com/request-forms/blind-or-low-vision'}],
+    'Dialysis':[{label:'Dialysis Form',url:'https://www.carnival.com/request-forms/dialysis'}],
+    'Service Animal':[{label:'Service Animals Form',url:'https://www.carnival.com/request-forms/Service-Animals'}],
+    'Oxygen/Concentrator/CPAP Machine':[{label:'Oxygen/CPAP Form',url:'https://www.carnival.com/request-forms/oxygen'}],
+    'Wheelchair Assistance (Embarkation/Debarkation)':[{label:'Wheelchair Assistance Form',url:'https://www.carnival.com/request-forms/wheelchair-assistance'}],
+    'Diabetic/Sharps/Medical Storage':[{label:'Diabetic/Sharps/Medical Storage Form',url:'https://www.carnival.com/request-forms/diabetes-sharps-medicine-storage-and-medical-care-form'}],
+    'Cognitive/Invisible Disability - Adult':[{label:'Other Disabilities (Adult) Form',url:'https://www.carnival.com/request-forms/other-disabilities-adult'}],
+    'Cognitive/Invisible Disability - Child':[{label:'Other Disabilities (Child) Form',url:'https://www.carnival.com/request-forms/other-disabilities-child'}],
+  };
+  return MAP[needType]||null;
+}
+
+function specialRequestNeedTypeChange(){
+  const val=(document.getElementById('eg-sr-need-type')?.value||'');
+  const otherWrap=document.getElementById('eg-sr-other-wrap');
+  if(otherWrap)otherWrap.style.display=(val==='Other')?'block':'none';
+  const links=getSpecialRequestCarnivalLinks(val);
+  const preview=document.getElementById('eg-sr-link-preview');
+  if(preview){
+    if(links){
+      preview.style.display='block';
+      preview.innerHTML='<strong>Carnival form(s) that will be included:</strong><br>'+
+        links.map(l=>`• <a href="${l.url}" target="_blank" style="color:#1a3a5c;">${l.label}</a>`).join('<br>');
+    }else{
+      preview.style.display='none';
+    }
+  }
+}
+
+async function specialRequestAutoFill(){
+  const email=(document.getElementById('eg-to-email')||{}).value?.trim();
+  if(!email){alert('Enter the traveler email first.');return;}
+  try{
+    let name='',cabinType='',numGuests=null;
+    const{data:rpcData}=await sb.rpc('admin_get_all_cabin_assignments');
+    const t=(rpcData||[]).find(r=>(r.email||r.user_email||'').toLowerCase()===email.toLowerCase());
+    if(t){name=t.full_name||t.name||'';cabinType=t.cabin_type||'';numGuests=t.num_guests||null;}
+    else{
+      const{data:prof}=await sb.from('profiles').select('id,name').ilike('email',email).limit(1).single();
+      if(prof){
+        name=prof.name||'';
+        const{data:ca}=await sb.from('cabin_assignments').select('cabin_type,num_guests').eq('user_id',prof.id).limit(1).single();
+        if(ca){cabinType=ca.cabin_type||'';numGuests=ca.num_guests||null;}
+      }
+    }
+    if(!name&&!cabinType&&!numGuests){alert('No profile found for: '+email+'\nFill in fields manually.');return;}
+    const nameEl=document.getElementById('eg-to-name');
+    if(nameEl&&name)nameEl.value=name;
+    const gEl=document.getElementById('eg-sr-num-guests');
+    if(gEl&&numGuests)gEl.value=numGuests;
+    const needSel=document.getElementById('eg-sr-need-type');
+    if(needSel&&cabinType){
+      const MAP={'Full Accessible':'Full Accessible Cabin (Wheelchair/Power Scooter)','Ambulatory Accessible':'Ambulatory Accessible Cabin','Suite':'Suite'};
+      const mapped=MAP[cabinType];
+      if(mapped&&needSel.querySelector(`option[value="${mapped}"]`)){needSel.value=mapped;specialRequestNeedTypeChange();}
+    }
+  }catch(err){alert('Auto-fill error: '+err.message);}
+}
+
+async function sendSpecialRequestEmail(){
+  const toEmail=(document.getElementById('eg-to-email')||{}).value?.trim();
+  const toName=(document.getElementById('eg-to-name')||{}).value?.trim()||toEmail;
+  const needType=(document.getElementById('eg-sr-need-type')?.value||'').trim();
+  const otherText=(document.getElementById('eg-sr-other-text')?.value||'').trim();
+  const displayType=needType==='Other'?(otherText||'Other'):needType;
+  const numGuests=parseInt(document.getElementById('eg-sr-num-guests')?.value||2)||2;
+  const statusEl=document.getElementById('eg-send-status');
+  if(!toEmail){if(statusEl){statusEl.textContent='⚠️ Traveler email is required.';statusEl.style.color='#d97706';}return;}
+  if(!needType){if(statusEl){statusEl.textContent='⚠️ Please select a Special Need Type.';statusEl.style.color='#d97706';}return;}
+  if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
+  const totalDeposit=numGuests*250;
+  const links=getSpecialRequestCarnivalLinks(needType);
+  const linksHtml=links
+    ?`<p style="font-size:.9rem;font-weight:700;color:#1a4f7a;margin-top:20px;border-top:2px solid #e2e8f0;padding-top:14px;">📋 Required Carnival Forms</p>
+       <p style="font-size:.86rem;">Please complete the following Carnival form(s) prior to your cruise:</p>`+
+       links.map(l=>`<p><a href="${l.url}" target="_blank" style="color:#1a3a5c;">${l.label}</a><br><span style="font-size:.8rem;color:#64748b;">${l.url}</span></p>`).join('')
+    :'';
+  const linksPlain=links?'\n\nCARNIVAL REQUIRED FORM(S):\n'+links.map(l=>`• ${l.label}: ${l.url}`).join('\n'):'';
+  const subject=`${TRIP_NAME} — Special Request: ${displayType} — Full Deposit Required`;
+  const htmlBody=buildEmailHtml(toName,
+    `<p>Dear ${toName},</p>
+     <p>Thank you for your interest in the <strong>${TRIP_NAME}</strong>! Your special request for a <strong>${displayType}</strong> has been noted.</p>
+     <div style="background:#fef3c7;border:1.5px solid #f6c440;border-radius:9px;padding:13px 16px;margin:16px 0;">
+       <strong style="color:#78460a;">⚠️ Full Deposit Required Before Confirmation</strong>
+       <p style="margin:6px 0 0;font-size:.88rem;color:#78460a;">As these types of rooms are extremely limited, Carnival Cruise Lines requires a <strong>full deposit of $250.00 per person in cabin</strong> prior to confirming the reservation. These cabins are first-come, first-serve basis and may not be available.</p>
+     </div>`+
+     buildPayTable([
+       {label:'Special Request Type',value:displayType},
+       {label:'Persons in Cabin',value:numGuests},
+       {label:'Full Deposit Required',value:`$${totalDeposit}.00 ($250.00 \xd7 ${numGuests} person${numGuests>1?'s':''})`},
+     ])+
+    `<p>Please log in to the Commonwealth Cruise Travel Portal to submit your deposit:</p>
+     <div style="text-align:center;margin:16px 0;">
+       <a href="${PORTAL_URL}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.95rem;padding:13px 30px;border-radius:10px;text-decoration:none;">💳 Submit Deposit</a>
+     </div>
+     ${linksHtml}
+     <p style="font-size:.86rem;margin-top:16px;">Once the deposit is received and availability is confirmed by Carnival Cruise Lines, your reservation will be finalized and you will receive a confirmation email.</p>
+     <p>Questions? Reply to this email or contact us at glowjetters@gmail.com</p>`
+  );
+  const plain=`Dear ${toName},\n\nThank you for your interest in the ${TRIP_NAME}! Your special request for a ${displayType} has been noted.\n\n⚠️ FULL DEPOSIT REQUIRED BEFORE CONFIRMATION\nAs these types of rooms are extremely limited, Carnival Cruise Lines requires a full deposit of $250.00 per person in cabin prior to confirming the reservation. These cabins are first-come, first-serve basis and may not be available.\n\nSpecial Request Type: ${displayType}\nPersons in Cabin: ${numGuests}\nFull Deposit Required: $${totalDeposit}.00 ($250.00 x ${numGuests} person${numGuests>1?'s':''})\n\nPlease log in to the portal to submit your deposit:\n${PORTAL_URL}${linksPlain}\n\nOnce the deposit is received and availability is confirmed by Carnival Cruise Lines, your reservation will be finalized and you will receive a confirmation email.\n\nQuestions? glowjetters@gmail.com\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the ${TRIP_NAME} portal.`;
+  const result=await sendEmail(toEmail,toName,subject,plain,htmlBody,false,true); // bypassHold=true
+  if(statusEl){
+    if(result?.fallback){statusEl.textContent='📧 Email client opened.';statusEl.style.color='#d97706';}
+    else{statusEl.textContent='✅ Special request email sent!';statusEl.style.color='#16a34a';}
+  }
+}
+
+function emailSpecialRequestsAutoSend(profile,srList,numGuests){
+  // Called from runMinorAndCompleteChecks when travelers have special_requests. Bypasses hold.
+  srList.forEach(needType=>{
+    const links=getSpecialRequestCarnivalLinks(needType);
+    const n=parseInt(numGuests)||1;
+    const totalDeposit=n*250;
+    const linksHtml=links
+      ?`<p style="font-size:.9rem;font-weight:700;color:#1a4f7a;margin-top:20px;border-top:2px solid #e2e8f0;padding-top:14px;">📋 Required Carnival Forms</p>`+
+         links.map(l=>`<p><a href="${l.url}" target="_blank" style="color:#1a3a5c;">${l.label}</a><br><span style="font-size:.8rem;color:#64748b;">${l.url}</span></p>`).join('')
+      :'';
+    const linksPlain=links?'\n\nCARNIVAL REQUIRED FORM(S):\n'+links.map(l=>`• ${l.label}: ${l.url}`).join('\n'):'';
+    const subject=`${TRIP_NAME} — Special Request: ${needType} — Full Deposit Required`;
+    const html=buildEmailHtml(profile.name,
+      `<p>Dear ${profile.name},</p>
+       <p>Your cabin traveler information has been submitted for the <strong>${TRIP_NAME}</strong>. We noticed a special request for: <strong>${needType}</strong>.</p>
+       <div style="background:#fef3c7;border:1.5px solid #f6c440;border-radius:9px;padding:13px 16px;margin:16px 0;">
+         <strong style="color:#78460a;">⚠️ Full Deposit Required Before Confirmation</strong>
+         <p style="margin:6px 0 0;font-size:.88rem;color:#78460a;">As these types of rooms are extremely limited, Carnival Cruise Lines requires a <strong>full deposit of $250.00 per person in cabin</strong> prior to confirming the reservation. These cabins are first-come, first-serve basis and may not be available.</p>
+       </div>`+
+       buildPayTable([
+         {label:'Special Request Type',value:needType},
+         {label:'Persons in Cabin',value:n},
+         {label:'Full Deposit Required',value:`$${totalDeposit}.00 ($250.00 \xd7 ${n} person${n>1?'s':''})`},
+       ])+
+      `${linksHtml}
+       <p style="font-size:.86rem;margin-top:16px;">Once the deposit is received and availability is confirmed, your reservation will be finalized and you will receive a confirmation email.</p>
+       <p>Questions? Reply to this email or contact us at glowjetters@gmail.com</p>`
+    );
+    const plain=`Dear ${profile.name},\n\nYour cabin traveler information has been submitted for the ${TRIP_NAME}. We noticed a special request for: ${needType}.\n\n⚠️ Full Deposit Required Before Confirmation\nAs these types of rooms are extremely limited, Carnival Cruise Lines requires a full deposit of $250.00 per person in cabin prior to confirming the reservation. These cabins are first-come, first-serve basis and may not be available.\n\nSpecial Request: ${needType}\nPersons in Cabin: ${n}\nDeposit Required: $${totalDeposit}.00${linksPlain}\n\nQuestions? glowjetters@gmail.com\n\n${TRIP_NAME} Team`;
+    sendEmail(profile.email,profile.name,subject,plain,html,false,true); // bypassHold=true
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 async function sendDepositRequiredEmail(){
   const toEmail=(document.getElementById('eg-to-email')||{}).value?.trim();
