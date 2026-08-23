@@ -925,6 +925,7 @@
               <option value="cc_auth">💳 CC Auth Completed</option>
               <option value="payments">💵 Payments</option>
               <option value="suite_requests">🛁 Suite Requests</option>
+              <option value="cabin_type">🏠 Cabin Type</option>
             </select>
           </div>
           <div style="display:flex;gap:8px;padding-bottom:1px;">
@@ -1157,13 +1158,31 @@
       <div style="font-weight:700;color:var(--primary);font-size:.93rem;margin-bottom:10px;padding-bottom:5px;border-bottom:2px solid #e2e8f0;">🛳️ Cabin Preferences</div>
       <div class="form-group" style="margin-bottom:14px;">
         <label>Cabin Type *</label>
-        <select id="reg-cabin-type" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.9rem;">
+        <select id="reg-cabin-type" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.9rem;" onchange="onRegCabinTypeChange()">
           <option value="">— Select cabin type —</option>
           <option value="Interior">Interior Cabin</option>
           <option value="Ocean View">Ocean View Cabin</option>
           <option value="Balcony">Balcony Cabin</option>
           <option value="Suite">Suite ⭐ — Request Only (Pricing Varies)</option>
         </select>
+      </div>
+      <!-- Suite backup — shown only when Suite selected -->
+      <div id="reg-suite-backup" style="display:none;background:#fffbeb;border:1.5px solid #f6c440;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+        <div style="font-weight:800;color:#78460a;font-size:.9rem;margin-bottom:6px;">⭐ Suite Request Details</div>
+        <p style="font-size:.83rem;color:#78460a;margin:0 0 12px;line-height:1.5;">Suite requests are subject to availability. A backup cabin will be held for you while your request is reviewed. You will be notified by email once a decision is made.</p>
+        <div class="form-group" style="margin-bottom:10px;">
+          <label>Contact Phone Number *</label>
+          <input type="text" id="reg-suite-phone" placeholder="e.g. 555-867-5309" autocomplete="off" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.9rem;box-sizing:border-box;">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Backup Cabin Type *</label>
+          <select id="reg-backup-cabin" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.9rem;">
+            <option value="">— Select backup cabin —</option>
+            <option value="Balcony">Balcony Cabin</option>
+            <option value="Ocean View">Ocean View Cabin</option>
+            <option value="Interior">Interior Cabin</option>
+          </select>
+        </div>
       </div>
       <div class="form-group" style="margin-bottom:16px;">
         <label>Number of Travelers in Cabin *</label>
@@ -2676,6 +2695,16 @@ function regGoStep(n){
   document.getElementById('reg-progress-bar').style.width=(pcts[n]||0)+'%';
 }
 
+function onRegCabinTypeChange(){
+  const val=(document.getElementById('reg-cabin-type')?.value||'');
+  const suiteDiv=document.getElementById('reg-suite-backup');
+  if(suiteDiv)suiteDiv.style.display=(val==='Suite')?'block':'none';
+  // Reset suite fields when switching away
+  if(val!=='Suite'){
+    const ph=document.getElementById('reg-suite-phone');if(ph)ph.value='';
+    const bc=document.getElementById('reg-backup-cabin');if(bc)bc.value='';
+  }
+}
 function onRegNumGuestsChange(sel){
   const notice=document.getElementById('reg-solo-notice');
   const chk=document.getElementById('reg-solo-confirm');
@@ -2714,6 +2743,9 @@ async function completeRegistration(){
   const pinConfirm=(document.getElementById('reg-pin-confirm').value||'').trim();
   const cabinType=(document.getElementById('reg-cabin-type')?.value||'').trim();
   const numGuests=parseInt(document.getElementById('reg-num-guests')?.value||'0',10)||0;
+  const isSuiteReq=(cabinType==='Suite');
+  const suitePhone=(document.getElementById('reg-suite-phone')?.value||'').trim();
+  const backupCabin=(document.getElementById('reg-backup-cabin')?.value||'').trim();
 
   function showErr(msg){alertEl.className='alert alert-error';alertEl.textContent=msg;alertEl.style.display='block';btn.disabled=false;busy.style.display='none';}
   function errDetail(e){
@@ -2737,6 +2769,11 @@ async function completeRegistration(){
   if(numGuests===1){
     const soloConfirm=document.getElementById('reg-solo-confirm');
     if(!soloConfirm?.checked)return showErr('Please read and check the single-occupancy pricing acknowledgment before creating your account.');
+  }
+  // Suite request: must supply phone and backup cabin
+  if(isSuiteReq){
+    if(!suitePhone)return showErr('Please enter a contact phone number for your suite request.');
+    if(!backupCabin)return showErr('Please select a backup cabin type in case your suite request cannot be fulfilled.');
   }
 
   const fullName=[firstName,lastName].filter(Boolean).join(' ');
@@ -2764,7 +2801,9 @@ async function completeRegistration(){
       p_suffix:suffix,
       p_pin:pin,
       p_cabin_type:cabinType||null,
-      p_num_guests:numGuests||null
+      p_num_guests:numGuests||null,
+      p_backup_cabin_type:isSuiteReq?(backupCabin||null):null,
+      p_phone:isSuiteReq?(suitePhone||null):null
     });
 
     if(rpcErr){
@@ -5823,10 +5862,11 @@ async function loadWaitlist(){
     html+=`<div class="section-hdr" style="margin-top:16px;">🛳️ ${cabinType} Waitlist — ${entries.length} entr${entries.length===1?'y':'ies'}</div>`;
     html+='<div class="table-wrap"><table><thead><tr>'+
       `<th style="width:28px;"><input type="checkbox" id="wl-all-${safeKey}" onchange="toggleWaitlistGroup(this,'${cabinType}')" title="Select all ${cabinType}"></th>`+
-      '<th>Name</th><th>Email</th><th>Phone</th><th style="text-align:center;">Guests</th><th>Backup Pref.</th><th>Date Joined</th><th>Status</th>'+
+      '<th>Name</th><th>Email</th><th>Phone</th><th style="text-align:center;">Guests</th><th>Backup Pref.</th><th>Date Joined</th><th>Status</th><th>Action</th>'+
       '</tr></thead><tbody>';
     entries.forEach(w=>{
       const dt=new Date(w.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      const safeName=(w.name||'—').replace(/'/g,"\\'");
       html+=`<tr>`+
         `<td><input type="checkbox" class="wl-cb" data-id="${w.id}" data-cabin="${cabinType}" onchange="updateWaitlistNotifyBtn()" ${w.notified?'disabled title="Already notified"':''}></td>`+
         `<td><a href="#" onclick="viewWaitlistTraveler('${w.id}');return false;" style="font-weight:700;color:var(--primary);text-decoration:none;">${w.name||'—'}</a></td>`+
@@ -5836,6 +5876,7 @@ async function loadWaitlist(){
         `<td style="font-size:.83rem;">${w.backup_cabin_type||'—'}</td>`+
         `<td style="font-size:.83rem;">${dt}</td>`+
         `<td>${w.notified?'<span class="badge badge-success">Notified</span>':'<span class="badge badge-gray">Waiting</span>'}${w.profile_status==='cancelled'?' <span class="badge badge-danger" style="font-size:.7rem;margin-left:4px;">Re-Request (was cancelled)</span>':''}</td>`+
+        `<td><button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;color:#dc2626;border-color:#fca5a5;" onclick="adminRemoveFromWaitlist('${w.id}','${safeName}')">✕ Remove</button></td>`+
       '</tr>';
     });
     html+='</tbody></table></div>';
@@ -5917,6 +5958,107 @@ async function notifyWaitlistSelected(){
   loadWaitlist();
 }
 
+// ── TABLE SORT HELPER ─────────────────────────────────────────
+// Adds click-to-sort on all <th> elements in a table.
+// Detects numeric columns automatically; toggles asc/desc; shows ▲/▼ indicator.
+function makeTableSortable(table){
+  if(!table)return;
+  const ths=table.querySelectorAll('thead th');
+  let sortCol=-1,sortAsc=true;
+  const arrowOf=(i)=>sortCol===i?(sortAsc?' ▲':' ▼'):'';
+  const refreshHeaders=()=>ths.forEach((th,i)=>{
+    const base=th.dataset.sortBase||(th.dataset.sortBase=th.textContent.replace(/[▲▼]/g,'').trim());
+    th.textContent=base+arrowOf(i);
+  });
+  ths.forEach((th,colIdx)=>{
+    th.style.cursor='pointer';th.style.userSelect='none';
+    th.addEventListener('click',()=>{
+      if(sortCol===colIdx)sortAsc=!sortAsc;else{sortCol=colIdx;sortAsc=true;}
+      const tbody=table.querySelector('tbody');
+      if(!tbody)return;
+      const rows=[...tbody.querySelectorAll('tr')];
+      rows.sort((a,b)=>{
+        const ta=(a.cells[colIdx]?.textContent||'').trim();
+        const tb=(b.cells[colIdx]?.textContent||'').trim();
+        const na=parseFloat(ta.replace(/[$,]/g,'')),nb=parseFloat(tb.replace(/[$,]/g,''));
+        const isNum=!isNaN(na)&&!isNaN(nb);
+        let cmp=isNum?(na-nb):ta.localeCompare(tb,undefined,{sensitivity:'base'});
+        return sortAsc?cmp:-cmp;
+      });
+      rows.forEach(r=>tbody.appendChild(r));
+      refreshHeaders();
+    });
+  });
+  refreshHeaders();
+}
+
+// ── WAITLIST REMOVE ───────────────────────────────────────────
+// Removes a traveler from the waitlist ONLY — no inventory changes.
+// Admin must manually update inventory after processing waitlist entries.
+async function adminRemoveFromWaitlist(id,name){
+  if(!confirm(`Remove ${name} from the waitlist?\n\nThis will only remove them from the waitlist.\nNo inventory or cabin assignment changes will be made.\n\nProcess any cabin or inventory updates manually after removing.`))return;
+  const{error}=await sb.rpc('admin_remove_waitlist_entry',{p_id:id});
+  if(error){
+    // Fallback: try direct delete (works if admin RLS allows it)
+    const{error:e2}=await sb.from('cabin_waitlist').delete().eq('id',id);
+    if(e2){alert('Error removing from waitlist: '+error.message+'\n\nRun Statement 70 in Supabase SQL Editor to enable this function.');return;}
+  }
+  loadWaitlist();
+}
+
+// ── DEPOSIT DEADLINE AUTO-WAITLIST ───────────────────────────
+// After 9/1/26 11:59 PM, any traveler with no deposit payment is
+// automatically added to the waitlist. NO other changes are made
+// (no cabin_assignments updates, no inventory changes, no profile changes).
+// Admin processes these from the Waitlist tab manually.
+let gDepositDeadlineChecked=false;
+async function checkDepositDeadline(){
+  if(gDepositDeadlineChecked)return;
+  gDepositDeadlineChecked=true;
+  const DEADLINE=new Date('2026-09-01T23:59:59-04:00'); // Eastern time
+  if(new Date()<DEADLINE)return; // not yet past deadline
+  try{
+    const[{data:cas},{data:pays},{data:profiles},{data:existingWl}]=await Promise.all([
+      sb.rpc('admin_get_all_cabin_assignments'),
+      sb.from('user_payments').select('user_id,amount_paid').gt('amount_paid',0),
+      sb.from('profiles').select('id,name,email,status').neq('is_admin',true),
+      sb.rpc('admin_get_waitlist')
+    ]);
+    const paidSet=new Set((pays||[]).map(p=>p.user_id));
+    const profMap={};(profiles||[]).forEach(p=>{profMap[p.id]=p;});
+    const alreadyOnWl=new Set((existingWl||[]).map(w=>w.user_id));
+    let movedCount=0;
+    for(const ca of (cas||[])){
+      const prof=profMap[ca.user_id];
+      if(!prof||prof.status==='cancelled')continue;
+      if(ca.deposit_status==='confirmed')continue; // deposit already confirmed
+      if(paidSet.has(ca.user_id))continue;         // has made at least one payment
+      if(alreadyOnWl.has(ca.user_id))continue;     // already on waitlist
+      try{
+        await sb.rpc('insert_waitlist_entry',{
+          user_id:ca.user_id,
+          name:prof.name||'',
+          email:prof.email||'',
+          cabin_type:ca.cabin_type||'Interior',
+          num_guests:ca.num_guests||null,
+          backup_cabin_type:ca.backup_cabin_type||null
+        });
+        movedCount++;
+      }catch(e){console.warn('Deposit deadline waitlist insert for '+prof.name+':',e.message);}
+    }
+    if(movedCount>0){
+      const banner=document.createElement('div');
+      banner.style.cssText='position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:9999;background:#fef3c7;border:1.5px solid #f59e0b;border-radius:10px;padding:14px 20px;max-width:540px;font-size:.87rem;color:#78350f;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.18);text-align:center;';
+      banner.innerHTML=`<button onclick="this.parentElement.remove()" style="float:right;background:none;border:none;cursor:pointer;font-size:1.1rem;color:#78350f;margin-left:10px;">✕</button>`+
+        `⏰ <strong>Deposit Deadline Passed (9/1/26):</strong> ${movedCount} traveler${movedCount!==1?'s':''} with no deposit have been added to the waitlist.<br>`+
+        `<small style="font-weight:400;">No other changes were made. Review and process from the <strong>Waitlist</strong> tab.</small>`;
+      document.body.appendChild(banner);
+      setTimeout(()=>banner.remove(),20000);
+      loadWaitlist(); // refresh waitlist tab if open
+    }
+  }catch(e){console.warn('Deposit deadline check error (non-fatal):',e.message);}
+}
+
 // ── ADMIN ────────────────────────────────────────────────────
 async function adminInit(){
   // Load email hold state immediately on login so the variable is correct
@@ -5925,6 +6067,8 @@ async function adminInit(){
   updateEmailHoldUI();
   await Promise.all([loadTravelers(),loadAdminMilestones(),loadPaymentFormSelects(),loadAdminPayments(),loadInventoryTab(),loadCancellationsTab(),loadDocRequests(),loadSuiteRequests(),loadReportMilestones(),loadCabinChanges()]);
   showAdminPendingPopup();
+  // Check deposit deadline — runs silently, only adds to waitlist, no other DB changes
+  checkDepositDeadline();
 }
 
 async function showAdminPendingPopup(){
@@ -7997,17 +8141,26 @@ async function confirmSuite(reqId,userId,backupCabin,name,email){
 }
 
 async function declineSuite(reqId,userId,backupCabin,name,email){
-  if(!confirm(`Decline suite request for ${name}?\n\nTheir ${backupCabin} backup cabin will remain confirmed.`))return;
+  if(!confirm(`Decline suite request for ${name}?\n\nTheir ${backupCabin} backup cabin will remain confirmed. They will be added to the Suite waitlist.`))return;
   // Mark suite_pending false — they keep backup cabin
   await sb.from('cabin_assignments').update({suite_pending:false}).eq('user_id',userId);
   // Mark request declined
   await sb.from('suite_requests').update({status:'declined'}).eq('id',reqId);
+  // Auto-add to suite waitlist so admin can track and reassign when a suite opens up
+  try{
+    await sb.rpc('insert_waitlist_entry',{
+      user_id:userId,name,email,
+      cabin_type:'Suite',
+      num_guests:null,
+      backup_cabin_type:backupCabin
+    });
+  }catch(wlErr){console.warn('Suite waitlist insert (non-fatal):',wlErr.message);}
   // Send decline email — admin can skip
   if(confirm(`📧 Send suite decline notification to ${name} at ${email}?\n\nClick OK to send, or Cancel to skip.`)){
     emailSuiteDeclined(name,email,backupCabin);
   }
-  alert(`Suite request declined. ${name}'s ${backupCabin} cabin remains confirmed.`);
-  await Promise.all([loadSuiteRequests(),loadTravelers()]);
+  alert(`Suite request declined. ${name}'s ${backupCabin} cabin remains confirmed.\n\nThey have been added to the Suite waitlist — process from the Waitlist tab when a suite becomes available.`);
+  await Promise.all([loadSuiteRequests(),loadTravelers(),loadWaitlist()]);
 }
 
 // ── DOC REQUESTS ──────────────────────────────────────────────
@@ -8430,9 +8583,9 @@ async function loadHighOccTab(){
   if(compEl)compEl.innerHTML='';
 
   const[{data:allCabins,error:cabErr},{data:allProfiles},{data:allTravelers}]=await Promise.all([
-    sb.from('cabin_assignments').select('*'),  // fetch all; filter by high_occupancy_pending flag below (num_guests may not reflect actual travelers)
+    sb.rpc('admin_get_all_cabin_assignments'),  // SECURITY DEFINER — bypasses RLS so all rows are returned
     sb.from('profiles').select('id,name,email,phone,status').neq('is_admin',true).order('name'),
-    sb.from('cabin_travelers').select('*').order('created_at',{ascending:true})
+    sb.rpc('admin_get_all_cabin_travelers')
   ]);
 
   if(cabErr){
@@ -12067,7 +12220,7 @@ async function runQuickReport(type){
     }else if(type==='payments'){
       // Payment summary per traveler
       const{data:profiles}=await sb.from('profiles').select('id,name,email,status').eq('is_admin',false);
-      const{data:pays}=await sb.from('user_payments').select('user_id,amount_due,amount_paid,label,payment_date');
+      const{data:pays}=await sb.from('user_payments').select('user_id,amount_due,amount_paid,label,paid_at');
       const{data:cas}=await sb.rpc('admin_get_all_cabin_assignments');
       const caMap={};(cas||[]).forEach(c=>caMap[c.user_id]=c);
       const payMap={};
@@ -12075,8 +12228,8 @@ async function runQuickReport(type){
         if(!payMap[pay.user_id])payMap[pay.user_id]={due:0,paid:0,lastDate:null};
         payMap[pay.user_id].due+=parseFloat(pay.amount_due||0);
         payMap[pay.user_id].paid+=parseFloat(pay.amount_paid||0);
-        if(pay.payment_date&&(!payMap[pay.user_id].lastDate||pay.payment_date>payMap[pay.user_id].lastDate))
-          payMap[pay.user_id].lastDate=pay.payment_date;
+        if(pay.paid_at&&(!payMap[pay.user_id].lastDate||pay.paid_at>payMap[pay.user_id].lastDate))
+          payMap[pay.user_id].lastDate=pay.paid_at;
       });
       const rows=[];
       (profiles||[]).forEach(p=>{
@@ -12138,11 +12291,53 @@ async function runQuickReport(type){
           <td style="font-size:.82rem;">${r.notes}</td>
           <td style="font-size:.82rem;">${r.date}</td>
         </tr>`).join('')}</tbody></table>`;
+
+    }else if(type==='cabin_type'){
+      // Traveler roster grouped by cabin type
+      const{data:cas}=await sb.rpc('admin_get_all_cabin_assignments');
+      const{data:profiles}=await sb.from('profiles').select('id,name,email,status').eq('is_admin',false);
+      const{data:pays}=await sb.from('user_payments').select('user_id,amount_paid');
+      const profMap={};(profiles||[]).forEach(p=>profMap[p.id]=p);
+      const payTotals={};(pays||[]).forEach(p=>{payTotals[p.user_id]=(payTotals[p.user_id]||0)+parseFloat(p.amount_paid||0);});
+      const rows=[];
+      (cas||[]).forEach(ca=>{
+        const prof=profMap[ca.user_id];
+        if(!prof||prof.status==='cancelled')return;
+        const totalPaid=payTotals[ca.user_id]||0;
+        rows.push({
+          name:prof.name||'—',email:prof.email||'—',status:prof.status||'active',
+          cabinType:ca.cabin_type||'—',cabinNum:ca.cabin_number||'—',
+          resNum:ca.guest_reservation_number||'—',numGuests:ca.num_guests||'—',
+          pricePP:ca.price_per_person?fmt(parseFloat(ca.price_per_person)):'—',
+          totalPaid:fmt(totalPaid),hasPaid:totalPaid>0
+        });
+      });
+      const cabinOrder=['Interior','Ocean View','Balcony','Suite'];
+      rows.sort((a,b)=>{const ia=cabinOrder.indexOf(a.cabinType),ib=cabinOrder.indexOf(b.cabinType);return((ia<0?99:ia)-(ib<0?99:ib))||a.name.localeCompare(b.name);});
+      gQuickReportData=rows;
+      const types=[...new Set(rows.map(r=>r.cabinType))];
+      statusEl.textContent=`${rows.length} traveler${rows.length!==1?'s':''} across ${types.length} cabin type${types.length!==1?'s':''}`;
+      if(!rows.length){el.innerHTML='<div class="empty"><div class="ei">🏠</div><p>No cabin assignments found.</p></div>';return;}
+      el.innerHTML=`<table>
+        <thead><tr><th>Traveler</th><th>Cabin Type</th><th>Cabin #</th><th>Res. #</th><th>Guests</th><th>Price/pp</th><th>Total Paid</th><th>Status</th></tr></thead>
+        <tbody>${rows.map(r=>`<tr>
+          <td><strong>${r.name}</strong><br><small style="color:var(--muted)">${r.email}</small></td>
+          <td><span class="badge badge-purple">${r.cabinType}</span></td>
+          <td style="font-size:.82rem;">${r.cabinNum}</td>
+          <td style="font-size:.82rem;">${r.resNum}</td>
+          <td style="text-align:center;">${r.numGuests}</td>
+          <td style="font-weight:700;">${r.pricePP}</td>
+          <td class="col-r" style="color:${r.hasPaid?'var(--success)':'var(--muted)'};font-weight:700;">${r.totalPaid}</td>
+          <td><span class="badge ${r.status==='cancelled'?'badge-danger':'badge-success'}">${r.status}</span></td>
+        </tr>`).join('')}</tbody></table>`;
     }
   }catch(err){
     console.error('Quick report error:',err);
     el.innerHTML=`<div class="empty"><div class="ei">❌</div><p>Error loading report: ${err.message||'Unknown error'}</p></div>`;
     statusEl.textContent='Report failed — see console for details.';
+  }finally{
+    // Make the report table sortable by column header click
+    try{makeTableSortable(el.querySelector('table'));}catch(_){}
   }
 }
 
@@ -13436,6 +13631,7 @@ async function loadEmailQueueTab(){
         <div style="margin-bottom:10px;font-size:.85rem;color:var(--muted);">${held.length} email${held.length===1?'':'s'} on hold</div>
         <table><thead><tr><th>Time</th><th>Subject</th><th>To</th><th>Status</th><th>Action</th></tr></thead>
         <tbody>${rows.join('')}</tbody></table>`;
+      try{makeTableSortable(heldEl.querySelector('table'));}catch(_){}
     }
   }
 
@@ -13453,6 +13649,7 @@ async function loadEmailQueueTab(){
     <div style="margin-bottom:12px;font-size:.85rem;color:var(--muted);">${pending.length} pending · ${sent.length} sent · ${nonHeld.length} total</div>
     <table><thead><tr><th>Time</th><th>Subject</th><th>To</th><th>Status</th><th>Action</th></tr></thead>
     <tbody>${rows.join('')}</tbody></table>`;
+  try{makeTableSortable(el.querySelector('table'));}catch(_){}
 }
 
 async function resendQueuedEmail(id,btn){
