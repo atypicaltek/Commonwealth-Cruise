@@ -8869,23 +8869,82 @@ This email was sent by the ${TRIP_NAME} portal.`
       toLabel:'Traveler email',
       toPlaceholder:'traveler@email.com',
       toName:'',
-      body:`Hello [Traveler Name],
+      extraFields:`
+        <div style="margin-bottom:10px;">
+          <button type="button" onclick="paymentConfirmationAutoFill()" style="background:#e0f2fe;color:#0c4a6e;border:1.5px solid #bae6fd;border-radius:7px;padding:6px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">🔍 Auto-fill from Profile</button>
+          <span style="font-size:.75rem;color:#94a3b8;margin-left:8px;">Enter traveler email first, then click to auto-fill.</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Milestone / Payment Label</label>
+            <select id="eg-pc-milestone" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+              <option value="Initial Deposit">Initial Deposit</option>
+              <option value="2nd Payment">2nd Payment</option>
+              <option value="3rd Payment">3rd Payment</option>
+              <option value="Final Payment">Final Payment</option>
+              <option value="Partial Payment">Partial Payment</option>
+              <option value="Deposit Payment">Deposit Payment</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Amount Paid (This Payment $)</label>
+            <input id="eg-pc-amount" type="number" min="0" step="0.01" placeholder="0.00" oninput="paymentConfirmationRecalc()" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Cabin Type</label>
+            <input id="eg-pc-cabin-type" type="text" placeholder="e.g. Balcony" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Persons in Cabin</label>
+            <input id="eg-pc-num-guests" type="number" min="1" max="6" placeholder="2" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Deposit Per Person ($)</label>
+            <input id="eg-pc-per-person" type="number" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Total Paid to Date ($)</label>
+            <input id="eg-pc-total-paid" type="number" min="0" step="0.01" placeholder="0.00" oninput="paymentConfirmationRecalc()" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;" title="Auto-filled from DB. Edit to override.">
+          </div>
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Total Cabin Cost ($)</label>
+            <input id="eg-pc-cabin-cost" type="number" min="0" step="0.01" placeholder="0.00" oninput="paymentConfirmationRecalc()" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;" title="Auto-filled from DB. Edit to override.">
+          </div>
+        </div>
+        <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:10px 14px;margin-bottom:4px;font-size:.9rem;">
+          <strong style="color:#374151;">Remaining Balance:</strong>
+          <strong id="eg-pc-remaining-display" style="color:#166534;font-size:1.05rem;margin-left:8px;">—</strong>
+          <span style="font-size:.75rem;color:#64748b;margin-left:6px;">(cabin cost minus total paid)</span>
+        </div>`,
+      body:`Dear [Traveler Name],
 
-We've recorded your payment for the ${TRIP_NAME}.
+Thank you for your payment toward the ${TRIP_NAME}! We have successfully recorded your payment.
 
-Payment Details:
-• Payment: [Milestone Label]
-• Amount Paid: $[Amount]
-• Total Paid to Date: $[Total Paid]
-• Remaining Balance: $[Remaining]
+PAYMENT DETAILS:
+• Payment Type: [MILESTONE]
+• Cabin Type: [CABIN_TYPE]
+• Persons in Cabin: [NUM_GUESTS]
+• Deposit Per Person: $[PER_PERSON]
+• Amount Paid (This Payment): $[AMOUNT]
+• Total Paid to Date: $[TOTAL_PAID]
+• Remaining Balance: $[REMAINING]
 
-Thank you for your payment! Log into your portal to view your full payment schedule:
+Please log in to the Commonwealth Cruise Travel Portal to view your full payment schedule:
 https://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal)
+
+Thank you for your payment! We look forward to sailing with you.
 
 Thank you,
 Your Commonwealth Cruise Team
 This email was sent by the ${TRIP_NAME} portal.`
-    })
+    }),
+    useCustomSend:true,
+    customSend:()=>sendPaymentConfirmationEmail()
   },
   {
     id:'deposit_complete',label:'Deposit Complete',icon:'✅',
@@ -9764,6 +9823,115 @@ function initialDepositRecalc(){
   const total=isSolo?p*2:p*(isNaN(n)?1:n);
   const t=document.getElementById('eg-dep-total');
   if(t)t.textContent='$'+total.toFixed(2);
+}
+
+function paymentConfirmationRecalc(){
+  const totalPaid=parseFloat(document.getElementById('eg-pc-total-paid')?.value||0)||0;
+  const cabinCost=parseFloat(document.getElementById('eg-pc-cabin-cost')?.value||0)||0;
+  const rem=document.getElementById('eg-pc-remaining-display');
+  if(rem){
+    if(cabinCost>0){
+      const remaining=Math.max(0,cabinCost-totalPaid);
+      rem.textContent='$'+remaining.toFixed(2);
+      rem.style.color=remaining===0?'#16a34a':'#166534';
+    }else{
+      rem.textContent='—';
+    }
+  }
+}
+
+async function paymentConfirmationAutoFill(){
+  const email=(document.getElementById('eg-to-email')||{}).value?.trim();
+  if(!email){alert('Enter the traveler email first.');return;}
+  try{
+    let name='',cabinType='',numGuests=null,perPerson=null,cabinCost=null,userId=null;
+    // Try RPC first
+    const{data:rpcData}=await sb.rpc('admin_get_all_cabin_assignments');
+    const t=(rpcData||[]).find(r=>(r.email||r.user_email||'').toLowerCase()===email.toLowerCase());
+    if(t){
+      name=t.full_name||t.name||'';
+      cabinType=t.cabin_type||'';
+      numGuests=t.num_guests||null;
+      perPerson=t.price_per_person||null;
+      cabinCost=t.cabin_cost||null;
+      userId=t.user_id||null;
+    } else {
+      // Fallback: direct query
+      const{data:prof}=await sb.from('profiles').select('id,name').ilike('email',email).limit(1).single();
+      if(prof){
+        name=prof.name||'';userId=prof.id;
+        const{data:ca}=await sb.from('cabin_assignments').select('cabin_type,num_guests,price_per_person,cabin_cost').eq('user_id',prof.id).limit(1).single();
+        if(ca){cabinType=ca.cabin_type||'';numGuests=ca.num_guests||null;perPerson=ca.price_per_person||null;cabinCost=ca.cabin_cost||null;}
+      }
+    }
+    if(!name&&!cabinType){alert('No profile found for: '+email+'\nFill in fields manually.');return;}
+    // Fill name
+    const nameEl=document.getElementById('eg-to-name');
+    if(nameEl&&name)nameEl.value=name;
+    // Fill cabin fields
+    const ctEl=document.getElementById('eg-pc-cabin-type');if(ctEl&&cabinType)ctEl.value=cabinType;
+    const ngEl=document.getElementById('eg-pc-num-guests');if(ngEl&&numGuests)ngEl.value=numGuests;
+    const ppEl=document.getElementById('eg-pc-per-person');if(ppEl&&perPerson)ppEl.value=parseFloat(perPerson).toFixed(2);
+    const ccEl=document.getElementById('eg-pc-cabin-cost');if(ccEl&&cabinCost)ccEl.value=parseFloat(cabinCost).toFixed(2);
+    // Fetch total paid from user_payments
+    if(userId){
+      const{data:payments}=await sb.from('user_payments').select('amount_paid,is_refunded').eq('user_id',userId);
+      if(payments){
+        const totalPaid=payments.filter(p=>!p.is_refunded).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+        const tpEl=document.getElementById('eg-pc-total-paid');if(tpEl)tpEl.value=totalPaid.toFixed(2);
+        // Pre-fill "Amount Paid (This Payment)" from the most recent non-zero payment
+        const sorted=[...payments].filter(p=>!p.is_refunded&&parseFloat(p.amount_paid||0)>0).sort((a,b)=>parseFloat(b.amount_paid)-parseFloat(a.amount_paid));
+        const amtEl=document.getElementById('eg-pc-amount');
+        if(amtEl&&sorted.length)amtEl.value=parseFloat(sorted[0].amount_paid).toFixed(2);
+      }
+    }
+    paymentConfirmationRecalc();
+  }catch(err){alert('Auto-fill error: '+err.message);}
+}
+
+async function sendPaymentConfirmationEmail(){
+  const toEmail=(document.getElementById('eg-to-email')||{}).value?.trim();
+  const toName=(document.getElementById('eg-to-name')||{}).value?.trim()||toEmail;
+  const milestone=(document.getElementById('eg-pc-milestone')?.value||'Payment').trim();
+  const amount=parseFloat(document.getElementById('eg-pc-amount')?.value||0)||0;
+  const cabinType=(document.getElementById('eg-pc-cabin-type')?.value||'').trim()||'—';
+  const numGuests=document.getElementById('eg-pc-num-guests')?.value||'—';
+  const perPerson=parseFloat(document.getElementById('eg-pc-per-person')?.value||0)||0;
+  const totalPaid=parseFloat(document.getElementById('eg-pc-total-paid')?.value||0)||0;
+  const cabinCost=parseFloat(document.getElementById('eg-pc-cabin-cost')?.value||0)||0;
+  const remaining=cabinCost>0?Math.max(0,cabinCost-totalPaid):null;
+  const statusEl=document.getElementById('eg-send-status');
+  if(!toEmail){if(statusEl){statusEl.textContent='⚠️ Traveler email is required.';statusEl.style.color='#d97706';}return;}
+  if(amount<=0){if(statusEl){statusEl.textContent='⚠️ Please enter the amount paid.';statusEl.style.color='#d97706';}return;}
+  if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
+  const subject=`${TRIP_NAME} — Payment Confirmed: ${milestone}`;
+  const remainingStr=remaining!==null?`$${remaining.toFixed(2)}`:'See portal';
+  const htmlBody=buildEmailHtml(toName,
+    `<p>Dear ${toName},</p>
+     <p>Thank you for your payment toward the <strong>${TRIP_NAME}</strong>! We have successfully recorded your payment.</p>`+
+     buildPayTable([
+       {label:'Payment Type',value:milestone},
+       {label:'Cabin Type',value:cabinType},
+       {label:'Persons in Cabin',value:numGuests},
+       ...(perPerson>0?[{label:'Deposit Per Person',value:`$${perPerson.toFixed(2)}`}]:[]),
+       {label:'Amount Paid (This Payment)',value:`$${amount.toFixed(2)}`},
+       {label:'Total Paid to Date',value:`$${totalPaid.toFixed(2)}`},
+       {label:'Remaining Balance',value:remainingStr},
+     ])+
+    `<p>Please log in to the Commonwealth Cruise Travel Portal to view your full payment schedule:</p>
+     <div style="text-align:center;margin:16px 0;">
+       <a href="${PORTAL_URL}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.95rem;padding:13px 30px;border-radius:10px;text-decoration:none;">🛳️ View Payment Schedule</a>
+     </div>
+     <p>Thank you for your payment! We look forward to sailing with you.</p>`
+  );
+  const plain=`Dear ${toName},\n\nThank you for your payment toward the ${TRIP_NAME}! We have successfully recorded your payment.\n\nPAYMENT DETAILS:\n• Payment Type: ${milestone}\n• Cabin Type: ${cabinType}\n• Persons in Cabin: ${numGuests}\n${perPerson>0?`• Deposit Per Person: $${perPerson.toFixed(2)}\n`:''}\• Amount Paid (This Payment): $${amount.toFixed(2)}\n• Total Paid to Date: $${totalPaid.toFixed(2)}\n• Remaining Balance: ${remainingStr}\n\nPlease log in to the Commonwealth Cruise Travel Portal to view your full payment schedule:\n${PORTAL_URL}\n\nThank you for your payment! We look forward to sailing with you.\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the ${TRIP_NAME} portal.`;
+  const result=await sendEmail(toEmail,toName,subject,plain,htmlBody);
+  if(statusEl){
+    if(result?.holdFailed){statusEl.textContent='⚠️ Hold save failed.';statusEl.style.color='#dc2626';}
+    else if(result?.held){statusEl.textContent='📋 Queued in hold — check Email Queue tab.';statusEl.style.color='#d97706';}
+    else if(result?.fallback){statusEl.textContent='📧 Email client opened.';statusEl.style.color='#d97706';}
+    else{statusEl.textContent='✅ Payment confirmation sent!';statusEl.style.color='#16a34a';}
+  }
 }
 
 async function initialDepositAutoFill(){
