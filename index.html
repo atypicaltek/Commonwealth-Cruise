@@ -6641,10 +6641,16 @@ async function loadMissingInfoTab(){
       if(p.missingCabinType)issues.push('No cabin type');
       if(p.missingGuestCount)issues.push('No guest count');
       if(p.missingTravelerInfo)issues.push(`Travelers: ${p.occupants}/${p.expectedGuests} added`);
+      // Clean labels for email subject/heading
+      const missingLabels=[];
+      if(p.missingCabinType)missingLabels.push('Cabin Type Selection');
+      if(p.missingGuestCount)missingLabels.push('Guest Count');
+      if(p.missingTravelerInfo)missingLabels.push('Cabin Traveler Information');
       const issueHtml=issues.map(i=>`<span style="display:inline-block;background:#fef2f2;border:1px solid #fca5a5;border-radius:4px;padding:1px 7px;font-size:.75rem;color:#991b1b;margin:1px 2px;">${i}</span>`).join('');
       const safeId=p.id.replace(/'/g,"\\'");
       const safeName=(p.name||'').replace(/'/g,"\\'");
       const safeEmail=(p.email||'').replace(/'/g,"\\'");
+      const missingData=JSON.stringify(missingLabels).replace(/"/g,'&quot;');
       const numSlots=p.expectedGuests||1;
       const rowId='mi-row-'+idx;
       let lastEmailedTxt='Not yet emailed';
@@ -6654,7 +6660,7 @@ async function loadMissingInfoTab(){
         lastEmailedTxt='Last: '+d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
         lastEmailedColor='#16a34a';
       }
-      return`<tr id="${rowId}" style="border-bottom:1px solid #f1f5f9;">
+      return`<tr id="${rowId}" data-missing="${missingData}" style="border-bottom:1px solid #f1f5f9;">
         <td style="padding:10px 12px;font-weight:600;color:#0f2744;font-size:.88rem;">${p.name||'—'}</td>
         <td style="padding:10px 12px;font-size:.83rem;color:#475569;">${p.email||''}</td>
         <td style="padding:10px 12px;">${issueHtml}</td>
@@ -9705,17 +9711,22 @@ This email was sent by the ${TRIP_NAME} portal.`
     id:'traveler_info_reminder',label:'Complete Cabin Traveler Information',icon:'\U0001f4cb',
     toMode:'traveler',
     buildPreview:()=>({
-      subject:`${TRIP_NAME} — Action Required: Complete Cabin Traveler Information`,
+      subject:`${TRIP_NAME} — Action Required: Update Missing Information`,
       toLabel:'Traveler email',
       toPlaceholder:'traveler@email.com',
       toName:'',
+      extraFields:`
+        <div style="margin-bottom:10px;">
+          <button type="button" onclick="travelerInfoAutoFill()" style="background:#e0f2fe;color:#0c4a6e;border:1.5px solid #bae6fd;border-radius:7px;padding:6px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">🔍 Load Missing Info from Profile</button>
+          <span id="tir-autofill-status" style="font-size:.75rem;color:#94a3b8;margin-left:8px;"></span>
+        </div>`,
       body:`Hello [Traveler Name],
 
 Thank you for your reservation on the ${TRIP_NAME}! We are looking forward to an amazing journey together.
 
-⚠️ ACTION REQUIRED: COMPLETE CABIN TYPE, CABIN TRAVELER INFORMATION AND GUEST COUNT
+⚠️ ACTION REQUIRED: UPDATE [MISSING INFO]
 
-To complete the processing of your hold, we need you to select a cabin type and complete the traveler information for each guest who will be traveling in your cabin.
+To complete the processing of your hold, we need you to update all missing information.
 
 Please log in to the Commonwealth Cruise Travel Portal and complete the following for each guest:
 
@@ -11135,13 +11146,17 @@ This email was sent by the ${TRIP_NAME} portal.`;
 }
 
 // ── TRAVELER INFO REMINDER EMAIL (used by Email Gen tab + Missing Info tab) ─────
-function buildTravelerInfoReminderHtml(recipientName){
+function buildTravelerInfoReminderHtml(recipientName, missingItems){
+  const hasItems=Array.isArray(missingItems)&&missingItems.length>0;
+  const headline=hasItems
+    ?'UPDATE '+missingItems.map(s=>s.toUpperCase()).join(', ')
+    :'UPDATE ALL MISSING INFORMATION';
   return `
     <p style="line-height:1.85;">Thank you for your reservation on the <strong>${TRIP_NAME}</strong>! We are looking forward to an amazing journey together.</p>
     <div style="background:#fff3cd;border:2px solid #ffc107;border-radius:10px;padding:14px 18px;margin:18px 0;text-align:center;">
-      <strong style="font-size:1.02rem;color:#856404;display:block;">⚠️ ACTION REQUIRED: COMPLETE CABIN TYPE, CABIN TRAVELER INFORMATION AND GUEST COUNT</strong>
+      <strong style="font-size:1.02rem;color:#856404;display:block;">⚠️ ACTION REQUIRED: ${headline}</strong>
     </div>
-    <p style="line-height:1.85;">To complete the processing of your hold, we need you to select a cabin type and complete the traveler information for each guest who will be traveling in your cabin.</p>
+    <p style="line-height:1.85;">To complete the processing of your hold, we need you to update all missing information.</p>
     <p style="line-height:1.85;font-weight:700;color:#0f2744;">Please log in to the Commonwealth Cruise Travel Portal and complete the following for each guest:</p>
     <div style="text-align:center;margin:16px 0;">
       <a href="${PORTAL_URL}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.95rem;padding:11px 26px;border-radius:9px;text-decoration:none;">🛳️ Commonwealth Cruise Travel Portal →</a>
@@ -11168,22 +11183,63 @@ function buildTravelerInfoReminderHtml(recipientName){
     <p style="line-height:1.85;">To submit your deposit, please select the "Make Payment" option and complete the CC Authorization Form. A receipt will be provided for all payments.</p>
     <p style="line-height:1.85;">Please complete this at your earliest convenience. If you have any questions, reply to this email and we will be happy to assist.</p>`;
 }
-async function sendTravelerInfoReminderEmail(toEmail, toName, statusElId){
+async function travelerInfoAutoFill(){
+  const email=(document.getElementById('eg-to-email')||{}).value?.trim().toLowerCase();
+  const st=document.getElementById('tir-autofill-status');
+  if(!email){if(st){st.textContent='Enter traveler email first.';st.style.color='#d97706';}return;}
+  if(st){st.textContent='Looking up…';st.style.color='#64748b';}
+  try{
+    // Fetch profile
+    const{data:prof,error:pErr}=await sb.from('profiles').select('id,name').ilike('email',email).limit(1).single();
+    if(pErr||!prof)throw new Error('No profile found for that email.');
+    // Fetch cabin_assignment
+    const{data:ca}=await sb.from('cabin_assignments').select('cabin_type,num_guests').eq('user_id',prof.id).maybeSingle();
+    // Fetch cabin_travelers count
+    const{count:occCount}=await sb.from('cabin_travelers').select('id',{count:'exact',head:true}).eq('account_owner_id',prof.id);
+    // Determine what's missing
+    const items=[];
+    if(!ca||!ca.cabin_type)items.push('Cabin Type Selection');
+    if(!ca||!ca.num_guests)items.push('Guest Count');
+    if(ca?.num_guests&&(occCount||0)<ca.num_guests)items.push('Cabin Traveler Information');
+    const label=items.length>0?items.join(', '):'Missing Information';
+    // Update name field
+    const nameEl=document.getElementById('eg-to-name');
+    if(nameEl&&!nameEl.value)nameEl.value=prof.name||'';
+    // Update subject
+    const subjEl=document.getElementById('eg-subject');
+    if(subjEl)subjEl.value=`${TRIP_NAME} — Action Required: Update ${label}`;
+    // Update textarea body — replace [MISSING INFO] placeholder
+    const bodyEl=document.getElementById('eg-body');
+    if(bodyEl){
+      bodyEl.value=bodyEl.value
+        .replace(/\[MISSING INFO\]/g,label.toUpperCase())
+        .replace(/\[Traveler Name\]/gi,prof.name||'Traveler');
+    }
+    if(st){st.textContent=items.length>0?`✅ Missing: ${label}`:'✅ No missing items found.';st.style.color=items.length>0?'#d97706':'#16a34a';}
+  }catch(e){
+    if(st){st.textContent='⚠️ '+(e.message||'Lookup failed');st.style.color='#dc2626';}
+  }
+}
+
+async function sendTravelerInfoReminderEmail(toEmail, toName, statusElId, missingItems){
   if(!toEmail){
     const s=document.getElementById(statusElId||'eg-send-status');
     if(s){s.textContent='⚠️ Traveler email is required.';s.style.color='#d97706';}
     return;
   }
   const name=toName||toEmail;
-  const subject=`${TRIP_NAME} — Action Required: Complete Cabin Traveler Information`;
-  const htmlBody=buildEmailHtml(name,buildTravelerInfoReminderHtml(name));
+  const hasItems=Array.isArray(missingItems)&&missingItems.length>0;
+  const missingLabel=hasItems?missingItems.join(', '):'Missing Information';
+  const subject=`${TRIP_NAME} — Action Required: Update ${missingLabel}`;
+  const htmlBody=buildEmailHtml(name,buildTravelerInfoReminderHtml(name,missingItems));
+  const headline=hasItems?'UPDATE '+missingItems.map(s=>s.toUpperCase()).join(', '):'UPDATE ALL MISSING INFORMATION';
   const plain=`Hello ${name},
 
 Thank you for your reservation on the ${TRIP_NAME}! We are looking forward to an amazing journey together.
 
-ACTION REQUIRED: COMPLETE CABIN TYPE, CABIN TRAVELER INFORMATION AND GUEST COUNT
+ACTION REQUIRED: ${headline}
 
-To complete the processing of your hold, we need you to select a cabin type and complete the traveler information for each guest who will be traveling in your cabin.
+To complete the processing of your hold, we need you to update all missing information.
 
 Please log in to the Commonwealth Cruise Travel Portal:
 ${PORTAL_URL}
@@ -11419,7 +11475,9 @@ async function logManualEmailSent(email, name, rowEl){
 async function sendMissingInfoEmailAndRefresh(email, name, rowEl){
   const statusEl=rowEl?.querySelector('.mi-send-status');
   if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
-  const result=await sendTravelerInfoReminderEmail(email,name,null);
+  let missingItems=[];
+  try{missingItems=JSON.parse(rowEl?.dataset?.missing||'[]');}catch(e){}
+  const result=await sendTravelerInfoReminderEmail(email,name,null,missingItems);
   if(statusEl){
     if(result?.ok||result?.held){
       statusEl.textContent=result?.held?'📋 Held':'✅ Sent!';
