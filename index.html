@@ -2251,8 +2251,7 @@ function emailAccessibleRequestReceived(profile,cabinType,numGuests){
     ?`<p><strong>Carnival Pre-Cruise Special Needs Form:</strong><br><a href="https://www.carnival.com/about-carnival/special-needs/pre-cruise-forms" style="color:#1a3a5c;">https://www.carnival.com/about-carnival/special-needs/pre-cruise-forms</a></p><p><strong>Mobility Devices Form:</strong><br><a href="https://www.carnival.com/request-forms/mobility-devices-form" style="color:#1a3a5c;">https://www.carnival.com/request-forms/mobility-devices-form</a></p>`
     :`<p><strong>Carnival Pre-Cruise Special Needs Form:</strong><br><a href="https://www.carnival.com/about-carnival/special-needs/pre-cruise-forms" style="color:#1a3a5c;">https://www.carnival.com/about-carnival/special-needs/pre-cruise-forms</a></p><p><strong>Mobility Devices Form:</strong><br><a href="https://www.carnival.com/request-forms/mobility-devices-form" style="color:#1a3a5c;">https://www.carnival.com/request-forms/mobility-devices-form</a></p>`;
   const html=buildEmailHtml(profile.name,
-    `<p>Dear ${profile.name},</p>
-     <p>Thank you for joining the <strong>${TRIP_NAME}</strong>! Your <strong>${cabinType} cabin request</strong> has been received and is pending confirmation.</p>
+    `<p>Thank you for joining the <strong>${TRIP_NAME}</strong>! Your <strong>${cabinType} cabin request</strong> has been received and is pending confirmation.</p>
      <div style="background:#fef3c7;border:1.5px solid #f6c440;border-radius:9px;padding:13px 16px;margin:16px 0;">
        <strong style="color:#78460a;">⚠️ Full Deposit Required Before Confirmation</strong>
        <p style="margin:6px 0 0;font-size:.88rem;color:#78460a;">As these types of rooms are extremely limited, Carnival Cruise Lines requires a <strong>full deposit of $250.00 per person in cabin</strong> prior to confirming the reservation. These cabins are first-come, first-served basis and may not be available.</p>
@@ -2339,8 +2338,7 @@ function emailCancellationToTraveler(travelerName,travelerEmail,cabinType,cabinN
   const subject=`${TRIP_NAME} — Reservation Cancellation`;
   const cancelDate=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
   const html=buildEmailHtml(travelerName,
-    `<p>Dear ${travelerName},</p>
-     <p>This email confirms that your reservation for the <strong>${TRIP_NAME}</strong> has been cancelled.</p>
+    `<p>This email confirms that your reservation for the <strong>${TRIP_NAME}</strong> has been cancelled.</p>
      <p><strong>Cancellation Details:</strong></p>
      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
        <tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;width:40%;">Name</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${travelerName}</td></tr>
@@ -2533,7 +2531,6 @@ async function emailTravelerInfoComplete(travelers,ownerName,ownerEmail,minorIss
 
   const subject=TRIP_NAME+' — Cabin Traveler Information Complete — Please Verify';
   const html=buildEmailHtml(ownerName,
-    '<p>Dear '+ownerName+',</p>'+
     '<p>All cabin traveler information has been entered. Please review the details below and verify that everything is correct.</p>'+
     travelerTable+
     minorSection+
@@ -5692,7 +5689,6 @@ async function submitCabinChangeRequest(){
     sendEmail(ADMIN_EMAIL,'Admin',TRIP_NAME+' — Cabin Change Request: '+ownerName,adminPlain,adminHtml);
     // Confirmation email to traveler
     const travelerHtml=buildEmailHtml(ownerName,
-      '<p>Dear '+ownerName+',</p>'+
       '<p>Your cabin type change request has been received and is pending review by the Commonwealth Cruise Team.</p>'+
       buildPayTable([
         {label:'Current Cabin Type',value:currentType},
@@ -9907,8 +9903,7 @@ async function sendPaymentConfirmationEmail(){
   const subject=`${TRIP_NAME} — Payment Confirmed: ${milestone}`;
   const remainingStr=remaining!==null?`$${remaining.toFixed(2)}`:'See portal';
   const htmlBody=buildEmailHtml(toName,
-    `<p>Dear ${toName},</p>
-     <p>Thank you for your payment toward the <strong>${TRIP_NAME}</strong>! We have successfully recorded your payment.</p>`+
+    `<p>Thank you for your payment toward the <strong>${TRIP_NAME}</strong>! We have successfully recorded your payment.</p>`+
      buildPayTable([
        {label:'Payment Type',value:milestone},
        {label:'Cabin Type',value:cabinType},
@@ -10501,8 +10496,7 @@ async function sendSpecialRequestEmail(){
   const linksPlain=links?'\n\nCARNIVAL REQUIRED FORM(S):\n'+links.map(l=>`• ${l.label}: ${l.url}`).join('\n'):'';
   const subject=`${TRIP_NAME} — Special Request: ${displayType} — Full Deposit Required`;
   const htmlBody=buildEmailHtml(toName,
-    `<p>Dear ${toName},</p>
-     <p>Thank you for your interest in the <strong>${TRIP_NAME}</strong>! Your special request for a <strong>${displayType}</strong> has been noted.</p>
+    `<p>Thank you for your interest in the <strong>${TRIP_NAME}</strong>! Your special request for a <strong>${displayType}</strong> has been noted.</p>
      <div style="background:#fef3c7;border:1.5px solid #f6c440;border-radius:9px;padding:13px 16px;margin:16px 0;">
        <strong style="color:#78460a;">⚠️ Full Deposit Required Before Confirmation</strong>
        <p style="margin:6px 0 0;font-size:.88rem;color:#78460a;">As these types of rooms are extremely limited, Carnival Cruise Lines requires a <strong>full deposit of $250.00 per person in cabin</strong> prior to confirming the reservation. These cabins are first-come, first-serve basis and may not be available.</p>
@@ -10541,8 +10535,7 @@ function emailSpecialRequestsAutoSend(profile,srList,numGuests){
     const linksPlain=links?'\n\nCARNIVAL REQUIRED FORM(S):\n'+links.map(l=>`• ${l.label}: ${l.url}`).join('\n'):'';
     const subject=`${TRIP_NAME} — Special Request: ${needType} — Full Deposit Required`;
     const html=buildEmailHtml(profile.name,
-      `<p>Dear ${profile.name},</p>
-       <p>Your cabin traveler information has been submitted for the <strong>${TRIP_NAME}</strong>. We noticed a special request for: <strong>${needType}</strong>.</p>
+      `<p>Your cabin traveler information has been submitted for the <strong>${TRIP_NAME}</strong>. We noticed a special request for: <strong>${needType}</strong>.</p>
        <div style="background:#fef3c7;border:1.5px solid #f6c440;border-radius:9px;padding:13px 16px;margin:16px 0;">
          <strong style="color:#78460a;">⚠️ Full Deposit Required Before Confirmation</strong>
          <p style="margin:6px 0 0;font-size:.88rem;color:#78460a;">As these types of rooms are extremely limited, Carnival Cruise Lines requires a <strong>full deposit of $250.00 per person in cabin</strong> prior to confirming the reservation. These cabins are first-come, first-serve basis and may not be available.</p>
@@ -11130,7 +11123,7 @@ async function sendGeneratedEmail(){
   body=(body||'').replace('[Traveler Name]',toName||'Traveler');
   // Strip any leading "Hello ..." greeting line — buildEmailHtml already prepends "Hello [name],"
   // so stripping here prevents a duplicate greeting in the sent HTML email.
-  body=body.replace(/^Hello\s+[^\n]+\n+/i,'').trimStart();
+  body=body.replace(/^(Hello|Dear)\s+[^\n]+,?\n+/i,'').trimStart();
   const statusEl=document.getElementById('eg-send-status');
   if(!toEmail||!subject||!body){
     if(statusEl){statusEl.textContent='⚠️ Fill in To, Subject, and Body.';statusEl.style.color='#d97706';}
