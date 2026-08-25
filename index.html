@@ -800,7 +800,10 @@
       <div class="card">
         <div class="card-header">
           <span class="card-title">⏳ Cabin Waitlist</span>
-          <button id="btn-notify-waitlist" class="btn btn-primary btn-sm" onclick="notifyWaitlistSelected()" style="display:none;">📧 Notify Selected</button>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-ghost btn-sm" onclick="adminOpenAddWaitlistModal()" style="font-size:.8rem;">➕ Add to Waitlist</button>
+            <button id="btn-notify-waitlist" class="btn btn-primary btn-sm" onclick="notifyWaitlistSelected()" style="display:none;">📧 Notify Selected</button>
+          </div>
         </div>
         <p style="font-size:.86rem;color:var(--muted);margin-bottom:12px;">Travelers who requested a sold-out cabin type. Select and notify them when a spot becomes available.</p>
         <div id="admin-waitlist" class="table-wrap"><div class="empty"><div class="ei">⏳</div><p>Click the Waitlist tab to load.</p></div></div>
@@ -1018,6 +1021,76 @@
       <button onclick="document.getElementById('waitlist-detail-modal').classList.remove('open')" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px;">×</button>
     </div>
     <div id="waitlist-detail-content"></div>
+  </div>
+</div>
+
+<!-- ADMIN ADD TO WAITLIST MODAL -->
+<div id="admin-add-waitlist-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box" style="max-width:500px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 style="color:var(--primary);font-size:1rem;margin:0;">➕ Add Traveler to Waitlist</h3>
+      <button onclick="document.getElementById('admin-add-waitlist-modal').classList.remove('open')" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px;">×</button>
+    </div>
+    <div style="margin-bottom:10px;">
+      <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Traveler Email</label>
+      <div style="display:flex;gap:8px;">
+        <input id="awl-email" type="email" placeholder="traveler@email.com" style="flex:1;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;">
+        <button type="button" onclick="adminWaitlistAutoFill()" style="background:#e0f2fe;color:#0c4a6e;border:1.5px solid #bae6fd;border-radius:7px;padding:6px 12px;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap;">🔍 Look Up</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+      <div>
+        <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Name</label>
+        <input id="awl-name" type="text" placeholder="Full name" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Phone</label>
+        <input id="awl-phone" type="tel" placeholder="(optional)" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+      <div>
+        <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Cabin Type Requested</label>
+        <select id="awl-cabin-type" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+          <option value="">— Select —</option>
+          <optgroup label="Standard">
+            <option value="Balcony">Balcony</option>
+            <option value="Ocean View">Ocean View</option>
+            <option value="Interior">Interior</option>
+          </optgroup>
+          <optgroup label="Specialty">
+            <option value="Suite">Suite</option>
+            <option value="Full Accessible Cabin (Wheelchair/Power Scooter)">Full Accessible ♿</option>
+            <option value="Ambulatory Accessible Cabin">Ambulatory Accessible ♿</option>
+          </optgroup>
+          <optgroup label="Price Tiers">
+            <option value="Balcony — Tier 1 ($1,649/pp)">Balcony — Tier 1 ($1,649/pp)</option>
+            <option value="Balcony — Tier 2 ($1,749/pp)">Balcony — Tier 2 ($1,749/pp)</option>
+            <option value="Ocean View — Tier 1 ($1,499/pp)">Ocean View — Tier 1 ($1,499/pp)</option>
+            <option value="Ocean View — Tier 2 ($1,599/pp)">Ocean View — Tier 2 ($1,599/pp)</option>
+            <option value="Interior — Tier 1 ($1,349/pp)">Interior — Tier 1 ($1,349/pp)</option>
+            <option value="Interior — Tier 2 ($1,449/pp)">Interior — Tier 2 ($1,449/pp)</option>
+          </optgroup>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Persons in Cabin</label>
+        <input id="awl-num-guests" type="number" min="1" max="8" value="2" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+      </div>
+    </div>
+    <div style="margin-bottom:10px;">
+      <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Backup / 2nd Choice Cabin (optional)</label>
+      <input id="awl-backup" type="text" placeholder="e.g. Ocean View" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Notes (optional)</label>
+      <textarea id="awl-notes" rows="2" placeholder="Any relevant notes about the request…" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;resize:vertical;"></textarea>
+    </div>
+    <div id="awl-status" style="min-height:20px;font-size:.83rem;margin-bottom:8px;"></div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="document.getElementById('admin-add-waitlist-modal').classList.remove('open')" style="flex:1;padding:10px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;cursor:pointer;font-size:.88rem;color:#374151;">Cancel</button>
+      <button onclick="adminSubmitAddWaitlist()" style="flex:2;padding:10px;border:none;border-radius:8px;background:#1a4a7c;color:#fff;font-weight:700;cursor:pointer;font-size:.88rem;">✅ Add to Waitlist</button>
+    </div>
   </div>
 </div>
 
@@ -2572,12 +2645,7 @@ async function runMinorAndCompleteChecks(ownerId,travelers,ownerName,ownerEmail)
     showMinorPolicyPopup(issues);
   }
   await emailTravelerInfoComplete(travelers,ownerName,ownerEmail,issues.length>0?issues:null);
-  // Auto-send special request emails if any travelers have special_requests (bypass hold)
-  const allSR=[...new Set(travelers.flatMap(t=>Array.isArray(t.special_requests)?t.special_requests:[]).filter(Boolean))];
-  if(allSR.length>0){
-    const numGuests=travelers[0]?.num_guests||travelers.length;
-    emailSpecialRequestsAutoSend({name:ownerName,email:ownerEmail},allSR,numGuests);
-  }
+  // Special request emails are NOT auto-sent. Admin reviews and sends from the Email Generation tab.
 }
 
 let gReminderTravelers=[];
@@ -6087,6 +6155,57 @@ async function adminRemoveFromWaitlist(id,name){
     if(e2){alert('Error removing from waitlist: '+error.message+'\n\nRun Statement 70 in Supabase SQL Editor to enable this function.');return;}
   }
   loadWaitlist();
+}
+
+// ── ADMIN ADD TO WAITLIST ────────────────────────────────────
+function adminOpenAddWaitlistModal(){
+  ['awl-email','awl-name','awl-phone','awl-backup','awl-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const ct=document.getElementById('awl-cabin-type');if(ct)ct.value='';
+  const ng=document.getElementById('awl-num-guests');if(ng)ng.value='2';
+  const st=document.getElementById('awl-status');if(st){st.textContent='';st.style.color='';}
+  document.getElementById('admin-add-waitlist-modal').classList.add('open');
+}
+
+async function adminWaitlistAutoFill(){
+  const email=(document.getElementById('awl-email')?.value||'').trim().toLowerCase();
+  if(!email){alert('Enter a traveler email first.');return;}
+  const st=document.getElementById('awl-status');
+  if(st){st.textContent='Looking up…';st.style.color='#64748b';}
+  const{data,error}=await sb.from('profiles').select('full_name,phone').eq('email',email).maybeSingle();
+  if(error||!data){if(st){st.textContent='No profile found for that email.';st.style.color='#d97706';}return;}
+  if(data.full_name){const n=document.getElementById('awl-name');if(n)n.value=data.full_name;}
+  if(data.phone){const p=document.getElementById('awl-phone');if(p)p.value=data.phone;}
+  if(st){st.textContent='✓ Profile loaded.';st.style.color='#16a34a';}
+}
+
+async function adminSubmitAddWaitlist(){
+  const email=(document.getElementById('awl-email')?.value||'').trim();
+  const name=(document.getElementById('awl-name')?.value||'').trim();
+  const phone=(document.getElementById('awl-phone')?.value||'').trim();
+  const cabinType=(document.getElementById('awl-cabin-type')?.value||'').trim();
+  const numGuests=parseInt(document.getElementById('awl-num-guests')?.value||2)||2;
+  const backup=(document.getElementById('awl-backup')?.value||'').trim();
+  const notes=(document.getElementById('awl-notes')?.value||'').trim();
+  const st=document.getElementById('awl-status');
+  if(!email||!name||!cabinType){
+    if(st){st.textContent='⚠️ Email, name, and cabin type are required.';st.style.color='#d97706';}
+    return;
+  }
+  if(st){st.textContent='Adding…';st.style.color='#64748b';}
+  // Look up profile user_id
+  const{data:prof}=await sb.from('profiles').select('id').eq('email',email).maybeSingle();
+  const userId=prof?.id||null;
+  const row={name,email,phone:phone||null,cabin_type:cabinType,num_guests:numGuests,backup_cabin_type:backup||null,created_at:new Date().toISOString()};
+  if(userId)row.user_id=userId;
+  const{error}=await sb.from('cabin_waitlist').insert(row);
+  if(error){
+    if(st){st.textContent='Error: '+error.message;st.style.color='#dc2626';}
+    return;
+  }
+  document.getElementById('admin-add-waitlist-modal').classList.remove('open');
+  loadWaitlist();
+  if(notes){flash('admin-alert','✅ Added '+name+' to waitlist. Note: '+notes,'success');}
+  else{flash('admin-alert','✅ Added '+name+' to '+cabinType+' waitlist.','success');}
 }
 
 // ── DEPOSIT DEADLINE AUTO-WAITLIST ───────────────────────────
@@ -9773,8 +9892,8 @@ This email was sent by the ${TRIP_NAME} portal.`
         </div>
         <div id="eg-sr-link-preview" style="display:none;background:#eff6ff;border:1.5px solid #93c5fd;border-radius:8px;padding:10px 14px;font-size:.8rem;color:#1e3a8a;margin-bottom:10px;">
         </div>
-        <div style="background:#fef9c3;border:1.5px solid #fde047;border-radius:8px;padding:8px 14px;font-size:.78rem;color:#713f12;margin-bottom:4px;">
-          ⚡ This email bypasses the hold queue and sends immediately.
+        <div style="background:#f0f9ff;border:1.5px solid #7dd3fc;border-radius:8px;padding:8px 14px;font-size:.78rem;color:#0c4a6e;margin-bottom:4px;">
+          📬 This email will be added to the hold queue. Edit the body above before sending, then release from the Email Queue tab.
         </div>`,
       body:`Dear [Traveler Name],
 
@@ -10487,6 +10606,17 @@ async function sendSpecialRequestEmail(){
   if(!needType){if(statusEl){statusEl.textContent='⚠️ Please select a Special Need Type.';statusEl.style.color='#d97706';}return;}
   if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
   const totalDeposit=numGuests*250;
+  // Read body from textarea and apply placeholder replacements
+  let bodyText=(document.getElementById('eg-body')?.value||'').trim();
+  bodyText=bodyText.replace(/\[NEED TYPE\]/g,displayType).replace(/\[NUM GUESTS\]/g,String(numGuests)).replace(/\[TOTAL DEPOSIT\]/g,`$${totalDeposit}.00`).replace(/\[Traveler Name\]/gi,toName);
+  // Strip leading greeting (buildEmailHtml adds its own)
+  bodyText=bodyText.replace(/^(Hello|Dear)\s+[^\n]+,?\n+/i,'').trimStart();
+  // Convert plain text paragraphs to HTML
+  const bodyHtmlContent=bodyText.split(/\n\n+/).map(para=>{
+    const lines=para.split('\n').map(l=>l.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')).join('<br>');
+    return `<p style="line-height:1.7;">${lines}</p>`;
+  }).join('');
+  // Append Carnival links if applicable
   const links=getSpecialRequestCarnivalLinks(needType);
   const linksHtml=links
     ?`<p style="font-size:.9rem;font-weight:700;color:#1a4f7a;margin-top:20px;border-top:2px solid #e2e8f0;padding-top:14px;">📋 Required Carnival Forms</p>
@@ -10495,30 +10625,12 @@ async function sendSpecialRequestEmail(){
     :'';
   const linksPlain=links?'\n\nCARNIVAL REQUIRED FORM(S):\n'+links.map(l=>`• ${l.label}: ${l.url}`).join('\n'):'';
   const subject=`${TRIP_NAME} — Special Request: ${displayType} — Full Deposit Required`;
-  const htmlBody=buildEmailHtml(toName,
-    `<p>Thank you for your interest in the <strong>${TRIP_NAME}</strong>! Your special request for a <strong>${displayType}</strong> has been noted.</p>
-     <div style="background:#fef3c7;border:1.5px solid #f6c440;border-radius:9px;padding:13px 16px;margin:16px 0;">
-       <strong style="color:#78460a;">⚠️ Full Deposit Required Before Confirmation</strong>
-       <p style="margin:6px 0 0;font-size:.88rem;color:#78460a;">As these types of rooms are extremely limited, Carnival Cruise Lines requires a <strong>full deposit of $250.00 per person in cabin</strong> prior to confirming the reservation. These cabins are first-come, first-serve basis and may not be available.</p>
-     </div>`+
-     buildPayTable([
-       {label:'Special Request Type',value:displayType},
-       {label:'Persons in Cabin',value:numGuests},
-       {label:'Full Deposit Required',value:`$${totalDeposit}.00 ($250.00 \xd7 ${numGuests} person${numGuests>1?'s':''})`},
-     ])+
-    `<p>Please log in to the Commonwealth Cruise Travel Portal to submit your deposit:</p>
-     <div style="text-align:center;margin:16px 0;">
-       <a href="${PORTAL_URL}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.95rem;padding:13px 30px;border-radius:10px;text-decoration:none;">💳 Submit Deposit</a>
-     </div>
-     ${linksHtml}
-     <p style="font-size:.86rem;margin-top:16px;">Once the deposit is received and availability is confirmed by Carnival Cruise Lines, your reservation will be finalized and you will receive a confirmation email.</p>
-     <p>Questions? Reply to this email or contact us at glowjetters@gmail.com</p>`
-  );
-  const plain=`Dear ${toName},\n\nThank you for your interest in the ${TRIP_NAME}! Your special request for a ${displayType} has been noted.\n\n⚠️ FULL DEPOSIT REQUIRED BEFORE CONFIRMATION\nAs these types of rooms are extremely limited, Carnival Cruise Lines requires a full deposit of $250.00 per person in cabin prior to confirming the reservation. These cabins are first-come, first-serve basis and may not be available.\n\nSpecial Request Type: ${displayType}\nPersons in Cabin: ${numGuests}\nFull Deposit Required: $${totalDeposit}.00 ($250.00 x ${numGuests} person${numGuests>1?'s':''})\n\nPlease log in to the portal to submit your deposit:\n${PORTAL_URL}${linksPlain}\n\nOnce the deposit is received and availability is confirmed by Carnival Cruise Lines, your reservation will be finalized and you will receive a confirmation email.\n\nQuestions? glowjetters@gmail.com\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the ${TRIP_NAME} portal.`;
-  const result=await sendEmail(toEmail,toName,subject,plain,htmlBody,false,true); // bypassHold=true
+  const htmlBody=buildEmailHtml(toName,bodyHtmlContent+linksHtml);
+  const plain=`${bodyText}${linksPlain}\n\nThis email was sent by the ${TRIP_NAME} portal.`;
+  const result=await sendEmail(toEmail,toName,subject,plain,htmlBody,false,false); // goes to hold queue
   if(statusEl){
     if(result?.fallback){statusEl.textContent='📧 Email client opened.';statusEl.style.color='#d97706';}
-    else{statusEl.textContent='✅ Special request email sent!';statusEl.style.color='#16a34a';}
+    else{statusEl.textContent='✅ Added to email queue for review.';statusEl.style.color='#16a34a';}
   }
 }
 
