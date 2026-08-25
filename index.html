@@ -1026,6 +1026,39 @@
   </div>
 </div>
 
+<!-- ADMIN CANCEL TRAVEL MODAL -->
+<div id="admin-cancel-travel-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box" style="max-width:460px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 style="color:#dc2626;font-size:1rem;margin:0;">🚫 Cancel Travel (Keep Profile)</h3>
+      <button onclick="document.getElementById('admin-cancel-travel-modal').classList.remove('open')" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px;">×</button>
+    </div>
+    <div id="cancel-travel-traveler-info" style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:10px 14px;font-size:.85rem;margin-bottom:14px;"></div>
+    <div style="margin-bottom:12px;">
+      <label style="display:flex;align-items:center;gap:8px;font-size:.9rem;cursor:pointer;">
+        <input type="checkbox" id="cancel-travel-return-inventory" checked style="width:16px;height:16px;">
+        <span>Return cabin to inventory</span>
+      </label>
+      <div style="font-size:.78rem;color:#64748b;margin-top:3px;padding-left:24px;">Restores the cabin slot so it can be booked by another traveler.</div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="display:flex;align-items:center;gap:8px;font-size:.9rem;cursor:pointer;">
+        <input type="checkbox" id="cancel-travel-flag-cancelled" checked style="width:16px;height:16px;">
+        <span>Flag profile as cancelled</span>
+      </label>
+      <div style="font-size:.78rem;color:#64748b;margin-top:3px;padding-left:24px;">Moves traveler to the Cancelled section. Profile and payment history are preserved.</div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:.88rem;font-weight:600;display:block;margin-bottom:5px;">Reason for Cancellation</label>
+      <textarea id="cancel-travel-reason" rows="3" placeholder="Optional — enter reason for cancellation..." style="width:100%;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.88rem;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="document.getElementById('admin-cancel-travel-modal').classList.remove('open')" style="flex:1;padding:10px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;cursor:pointer;font-size:.88rem;color:#374151;">Cancel</button>
+      <button onclick="adminConfirmCancelTravel()" style="flex:2;padding:10px;border:none;border-radius:8px;background:#dc2626;color:#fff;font-weight:700;cursor:pointer;font-size:.88rem;">🚫 Confirm Cancellation</button>
+    </div>
+  </div>
+</div>
+
 <!-- ADMIN LINK CABIN PARTNERS MODAL -->
 <div id="admin-link-cabin-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal-box" style="max-width:480px;">
@@ -6973,12 +7006,55 @@ function toggleEmailHistory(id){
   }
 }
 
-// Mark a traveler as cancelled/not going (no email sent, cabin stays, profile kept in DB)
-async function markTravelerNotGoing(userId,name){
-  if(!confirm(`Mark ${name} as "Not Going / Cancelled"?\n\nThis will:\n• Flag their profile as cancelled in the database\n• Move them to the Cancelled section at the bottom of the Travelers tab\n• Keep all their profile data and payment history intact\n• NOT send any emails and NOT return their cabin to inventory\n\nYou can restore them to active status at any time.`))return;
-  const{error}=await sb.from('profiles').update({status:'cancelled'}).eq('id',userId);
-  if(error){alert('Error: '+error.message);return;}
-  loadTravelers();
+// Mark a traveler as cancelled/not going (no email sent, profile kept in DB)
+let gCancelTravelUserId=null,gCancelTravelName=null,gCancelTravelCabinType=null,gCancelTravelPricePP=null;
+
+function markTravelerNotGoing(userId,name,cabinType,pricePP){
+  gCancelTravelUserId=userId;
+  gCancelTravelName=name;
+  gCancelTravelCabinType=cabinType||null;
+  gCancelTravelPricePP=pricePP||null;
+  const infoEl=document.getElementById('cancel-travel-traveler-info');
+  if(infoEl)infoEl.innerHTML=`<strong>${name}</strong>`+(cabinType?` — ${cabinType}`:'')+`<br><span style="font-size:.8rem;color:#991b1b;">Profile and payment history will NOT be deleted.</span>`;
+  const retInv=document.getElementById('cancel-travel-return-inventory');
+  const flagCx=document.getElementById('cancel-travel-flag-cancelled');
+  const reason=document.getElementById('cancel-travel-reason');
+  if(retInv)retInv.checked=true;
+  if(flagCx)flagCx.checked=true;
+  if(reason)reason.value='';
+  document.getElementById('admin-cancel-travel-modal').classList.add('open');
+}
+
+async function adminConfirmCancelTravel(){
+  if(!gCancelTravelUserId)return;
+  const returnInventory=document.getElementById('cancel-travel-return-inventory')?.checked;
+  const flagCancelled=document.getElementById('cancel-travel-flag-cancelled')?.checked;
+  const reason=(document.getElementById('cancel-travel-reason')?.value||'').trim();
+  const profileUpdate={};
+  if(flagCancelled)profileUpdate.status='cancelled';
+  if(reason)profileUpdate.cancellation_reason=reason;
+  if(Object.keys(profileUpdate).length>0){
+    const{error}=await sb.from('profiles').update(profileUpdate).eq('id',gCancelTravelUserId);
+    if(error){alert('Error updating profile: '+error.message);return;}
+  }
+  if(returnInventory&&gCancelTravelCabinType){
+    const{data:ca}=await sb.from('cabin_assignments').select('cabin_type,price_per_person').eq('user_id',gCancelTravelUserId).maybeSingle();
+    const ct=ca?.cabin_type||gCancelTravelCabinType;
+    const pp=ca?.price_per_person||gCancelTravelPricePP||null;
+    if(ct&&ct!=='Suite'){
+      await sb.rpc('increment_cabin',{cabin:ct});
+      await sb.rpc('increment_cabin_tier',{p_cabin_type:ct,p_price:pp});
+    }
+  }
+  document.getElementById('admin-cancel-travel-modal').classList.remove('open');
+  const msgs=[];
+  if(flagCancelled)msgs.push('profile flagged as cancelled');
+  if(returnInventory&&gCancelTravelCabinType)msgs.push('cabin returned to inventory');
+  const summary=msgs.length?msgs.join(', '):'no status changes made';
+  const n=gCancelTravelName;
+  gCancelTravelUserId=null;gCancelTravelName=null;gCancelTravelCabinType=null;gCancelTravelPricePP=null;
+  loadTravelers();loadInventoryTab();
+  flash('admin-alert',`✅ ${n}: ${summary}.`,'success');
 }
 
 // Restore a cancelled traveler back to active status
@@ -12513,7 +12589,7 @@ function handleTravelerAction(sel,userId){
         });
     }
   }
-  else if(v==='cancel_travel'){markTravelerNotGoing(d.userId,d.name);}
+  else if(v==='cancel_travel'){markTravelerNotGoing(d.userId,d.name,d.cabinType,d.pricePP);}
   else if(v==='cancel'){cancelTraveler(d.userId,d.name,d.email,d.cabinType,d.cabinNumber,d.citizenshipType,d.paid);}
   else if(v==='restore_traveler'){restoreTraveler(d.userId,d.name);}
   else if(v==='delete'){deleteTraveler(d.userId,d.name);}
