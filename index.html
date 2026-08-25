@@ -6259,6 +6259,7 @@ async function adminRemoveFromWaitlist(id,name){
 // ── ADMIN LINKED CABIN REQUESTS ──────────────────────────────
 let gLinkCabinPrimaryUserId=null;
 let gLinkCabinPartnerUserId=null;
+let gLinkCabinSource='waitlist'; // 'waitlist' | 'travelers'
 
 async function loadLinkedCabinRequests(){
   // Returns cabin_assignments where is_cabin_shared=true and linked_partner_user_id is null
@@ -6288,9 +6289,10 @@ async function loadLinkedCabinRequests(){
     <div style="height:20px;"></div>`;
 }
 
-function adminOpenLinkCabinModal(userId,name,email,cabinType,numGuests,partnerHint){
+function adminOpenLinkCabinModal(userId,name,email,cabinType,numGuests,partnerHint,source){
   gLinkCabinPrimaryUserId=userId;
   gLinkCabinPartnerUserId=null;
+  gLinkCabinSource=source||'waitlist';
   const info=document.getElementById('link-cabin-primary-info');
   if(info)info.innerHTML=`<strong>${name}</strong> &nbsp;|&nbsp; ${email}<br><span style="font-size:.8rem;">Cabin: ${cabinType} &nbsp;|&nbsp; Guests: ${numGuests}${partnerHint?` &nbsp;|&nbsp; Partner hint: <em>${partnerHint}</em>`:''}`;
   const pInfo=document.getElementById('link-partner-info');
@@ -6329,7 +6331,8 @@ async function adminConfirmCabinLink(){
   const{error}=await sb.rpc('link_cabin_partners',{p_user_id_a:gLinkCabinPrimaryUserId,p_user_id_b:gLinkCabinPartnerUserId});
   if(error){if(st){st.textContent='Error: '+error.message;st.style.color='#dc2626';}return;}
   document.getElementById('admin-link-cabin-modal').classList.remove('open');
-  loadWaitlist();
+  if(gLinkCabinSource==='travelers'){loadTravelers();}
+  else{loadWaitlist();}
   flash('admin-alert','✅ Cabin accounts linked successfully. Process cabin assignment manually.','success');
 }
 
@@ -6757,6 +6760,7 @@ async function loadTravelers(){
         '<option value="send_initial_deposit">&#x1F4B0; Send Initial Deposit Due</option>'+
         '<option value="add_note">📝 Add Note</option>'+'<option value="mark_deposit_paid">💰 Mark Deposit Paid</option>'+'<option value="send_pay_link">&#x1F4E8; Send Payment Link</option>'+
         '<option value="gratuity">&#x1F91D; Gratuity'+gratChk+'</option>'+
+        '<option value="link_cabin_partner">&#x1F517; Link Cabin Partner</option>'+
       '</optgroup>'+
       '<optgroup label="Account">'+
       '<option value="view_profile">&#x1F440; View Traveler Profile</option>'+
@@ -12418,6 +12422,7 @@ function handleTravelerAction(sel,userId){
   else if(v==='cancel'){cancelTraveler(d.userId,d.name,d.email,d.cabinType,d.cabinNumber,d.citizenshipType,d.paid);}
   else if(v==='restore_traveler'){restoreTraveler(d.userId,d.name);}
   else if(v==='delete'){deleteTraveler(d.userId,d.name);}
+  else if(v==='link_cabin_partner'){adminOpenLinkCabinModal(d.userId,d.name,d.email,d.cabinType,d.numGuests||1,'','travelers');}
 }
 
 // ── ADMIN UPDATE GUEST COUNT ──────────────────────────────────
