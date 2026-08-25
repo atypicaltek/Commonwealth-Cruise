@@ -6171,9 +6171,9 @@ async function adminWaitlistAutoFill(){
   if(!email){alert('Enter a traveler email first.');return;}
   const st=document.getElementById('awl-status');
   if(st){st.textContent='Looking up…';st.style.color='#64748b';}
-  const{data,error}=await sb.from('profiles').select('full_name,phone').eq('email',email).maybeSingle();
+  const{data,error}=await sb.from('profiles').select('name,phone').ilike('email',email).limit(1).maybeSingle();
   if(error||!data){if(st){st.textContent='No profile found for that email.';st.style.color='#d97706';}return;}
-  if(data.full_name){const n=document.getElementById('awl-name');if(n)n.value=data.full_name;}
+  if(data.name){const n=document.getElementById('awl-name');if(n)n.value=data.name;}
   if(data.phone){const p=document.getElementById('awl-phone');if(p)p.value=data.phone;}
   if(st){st.textContent='✓ Profile loaded.';st.style.color='#16a34a';}
 }
@@ -6193,7 +6193,7 @@ async function adminSubmitAddWaitlist(){
   }
   if(st){st.textContent='Adding…';st.style.color='#64748b';}
   // Look up profile user_id
-  const{data:prof}=await sb.from('profiles').select('id').eq('email',email).maybeSingle();
+  const{data:prof}=await sb.from('profiles').select('id').ilike('email',email).limit(1).maybeSingle();
   const userId=prof?.id||null;
   const row={name,email,phone:phone||null,cabin_type:cabinType,num_guests:numGuests,backup_cabin_type:backup||null,created_at:new Date().toISOString()};
   if(userId)row.user_id=userId;
