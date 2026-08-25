@@ -349,6 +349,8 @@
         <div id="dash-single-occ-note" style="display:none;background:rgba(255,200,0,.18);border:1px solid rgba(255,200,0,.4);border-radius:7px;padding:8px 12px;margin-top:12px;font-size:.82rem;line-height:1.5;">⚠️ <strong>Single Occupancy Notice:</strong> Single occupancy cabins require a <strong>double deposit</strong> and are charged at the <strong>double occupancy rate</strong>. Please contact the trip organizer if you have questions.</div>
         <div id="dash-backup-cabin-row" style="display:none;margin-top:8px;font-size:.8rem;opacity:.85;">🔄 Backup Cabin Preference: <span id="dash-backup-cabin-display" style="font-weight:700;"></span></div>
         <div id="dash-high-occ-note" style="display:none;background:rgba(255,200,0,.18);border:1px solid rgba(255,200,0,.4);border-radius:7px;padding:8px 12px;margin-top:8px;font-size:.82rem;line-height:1.5;">⏳ <strong>Occupancy Pending Review:</strong> Your cabin occupancy request is pending review by the Commonwealth Cruise Team for compliance with Carnival's cabin occupancy policy.</div>
+        <div id="dash-cabin-partner-banner" style="display:none;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:.83rem;line-height:1.55;animation:partnerBannerFlash 2s ease-in-out 3;"></div>
+        <style>@keyframes partnerBannerFlash{0%,100%{background:rgba(251,191,36,.22);border:1.5px solid rgba(251,191,36,.55);}50%{background:rgba(251,191,36,.42);border:1.5px solid rgba(251,191,36,.9);}}</style>
         <div id="dash-cabin-change-pending" style="display:none;background:rgba(255,200,0,.18);border:1px solid rgba(255,200,0,.4);border-radius:7px;padding:8px 12px;margin-top:8px;font-size:.82rem;line-height:1.5;">⏳ <strong>Cabin Change Request Pending:</strong> Your request to change to <span id="dash-cabin-change-requested" style="font-weight:800;"></span> is pending approval by the Commonwealth Cruise Team.</div>
         <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
           <button id="dash-cabin-photo-btn" onclick="openCabinPhotoModal()" style="display:none;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:7px;padding:6px 14px;font-size:.82rem;cursor:pointer;font-weight:600;">📷 Typical <span id="dash-cabin-photo-label"></span> Stateroom</button>
@@ -4093,6 +4095,32 @@ if(dsBadge){
     // High-occupancy pending notice
     const highOccNote=document.getElementById('dash-high-occ-note');
     if(highOccNote)highOccNote.style.display=cabin.high_occupancy_pending?'block':'none';
+    // ── Linked cabin partner banner ──
+    const partnerBanner=document.getElementById('dash-cabin-partner-banner');
+    if(partnerBanner){
+      if(cabin.linked_partner_user_id){
+        // Try to get partner name via SECURITY DEFINER RPC; fall back to cabin_partner_name hint
+        let partnerName=cabin.cabin_partner_name||'your cabin partner';
+        try{
+          const{data:pn}=await sb.rpc('get_cabin_partner_name',{p_partner_user_id:cabin.linked_partner_user_id});
+          if(pn)partnerName=pn;
+        }catch(e){}
+        partnerBanner.style.display='block';
+        // Reset animation so it plays on every dashboard load
+        partnerBanner.style.animation='none';
+        partnerBanner.offsetHeight; // reflow
+        partnerBanner.style.animation='partnerBannerFlash 2s ease-in-out 3';
+        partnerBanner.style.background='rgba(251,191,36,.22)';
+        partnerBanner.style.border='1.5px solid rgba(251,191,36,.55)';
+        partnerBanner.innerHTML=
+          '<strong>🔗 Shared Cabin Notice</strong><br>'+
+          'Your price is based on <strong>double occupancy</strong> with <strong>'+partnerName+'</strong>. '+
+          '<em>Pricing is void if cabin occupancy changes.</em> '+
+          'Contact the trip organizer for any occupancy questions.';
+      } else {
+        partnerBanner.style.display='none';
+      }
+    }
     // Cabin change request pending
     const ccrPending=document.getElementById('dash-cabin-change-pending');
     const ccrRequested=document.getElementById('dash-cabin-change-requested');
@@ -4124,10 +4152,19 @@ if(dsBadge){
         // Amount due before cabin # assigned = full deposit threshold ($250 × effective guests)
         const cabinAssignThreshold=250*effectiveGuests;
         cabinCostBreakdownEl.style.display='block';
+        const ppp=cabin.price_per_person?parseFloat(cabin.price_per_person):null;
+        const isLinked=!!cabin.linked_partner_user_id;
+        const depositsPaid=payments.filter(p=>!p.is_refunded).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+        const pppRow=ppp?'<tr><td style="padding:3px 0;opacity:.85;">Price Per Person</td><td style="text-align:right;font-weight:700;">'+fmt(ppp)+'</td></tr>':'';
+        const linkedDepRow=isLinked?
+          '<tr><td style="padding:3px 0;opacity:.85;">Your Deposits Paid</td><td style="text-align:right;font-weight:700;color:#86efac;">'+fmt(depositsPaid)+'</td></tr>':
+          '';
         cabinCostBreakdownEl.innerHTML=
           '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;opacity:.7;margin-bottom:8px;">💰 Cost Summary</div>'+
           '<table style="width:100%;border-collapse:collapse;font-size:.83rem;">'+
+            pppRow+
             '<tr><td style="padding:3px 0;opacity:.85;">'+(isSingleOcc?'Total Cabin Cost<br><span style="font-size:.73rem;opacity:.75;">1 traveler · double-occupancy rate</span>':'Total Cabin Cost<br><span style="font-size:.73rem;opacity:.75;">('+ng+' guest'+(ng>1?'s':'')+')</span>')+'</td><td style="text-align:right;font-weight:800;font-size:.97rem;">'+fmt(setCost)+'</td></tr>'+
+            linkedDepRow+
             '<tr><td colspan="2" style="padding:6px 0 3px;border-top:1px solid rgba(255,255,255,.25);font-size:.77rem;opacity:.8;">Gratuities: <strong>'+fmt(gratPP)+'/person</strong> — paid separately<br><span style="opacity:.7;">($'+gratRate+'/day × '+CRUISE_DAYS+' days per person)</span></td></tr>'+
           '</table>'+
           '<div style="margin-top:8px;border-top:1px solid rgba(255,255,255,.2);padding-top:8px;">'+
