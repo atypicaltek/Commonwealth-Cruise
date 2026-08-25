@@ -13841,6 +13841,10 @@ async function openTravelerCCAuthUpload(){
           </div>
         </div>
 
+        <div style="font-weight:700;color:#0f2744;font-size:.83rem;padding-bottom:4px;border-bottom:1.5px solid #e2e8f0;margin-bottom:9px;margin-top:13px;">Memo / Additional Notes</div>
+        <div style="font-size:.77rem;color:#64748b;margin-bottom:6px;line-height:1.5;">Optional — use this space for any special instructions or requests, e.g., <em>"Apply to reservation for another person"</em> or payment notes for your travel advisor.</div>
+        <textarea id="cca-memo" rows="3" placeholder="Enter any notes or special instructions here…" style="width:100%;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.86rem;resize:vertical;box-sizing:border-box;font-family:inherit;margin-bottom:13px;"></textarea>
+
         <div style="font-weight:700;color:#0f2744;font-size:.83rem;padding-bottom:4px;border-bottom:1.5px solid #e2e8f0;margin-bottom:8px;margin-top:13px;">Signature</div>
         <div style="font-size:.77rem;color:#64748b;margin-bottom:5px;">Sign below using your mouse or finger:</div>
         <div style="position:relative;border:1.5px solid #cbd5e1;border-radius:8px;background:#fafafa;margin-bottom:5px;overflow:hidden;">
@@ -13856,6 +13860,9 @@ async function openTravelerCCAuthUpload(){
             <label style="font-size:.79rem;color:#374151;font-weight:600;display:block;margin-bottom:3px;">Date</label>
             <input id="cca-date" type="text" value="${today}" readonly style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:8px 10px;font-size:.87rem;box-sizing:border-box;background:#f8fafc;color:#64748b;">
           </div>
+        </div>
+        <div style="background:#fef3c7;border:1.5px solid #fbbf24;border-radius:8px;padding:9px 12px;font-size:.76rem;color:#78350f;line-height:1.6;margin-bottom:10px;">
+          🔒 <strong>Security Notice:</strong> Once the payment authorized by this form has been processed, this form will be <strong>permanently deleted</strong> for your security. A new authorization form will be required for any additional payments.
         </div>
         <div id="ccauth-online-status" style="font-size:.83rem;min-height:18px;margin-bottom:10px;text-align:center;"></div>
         <button onclick="saveCCAuthOnlineForm('${lastName.replace(/'/g,"\\'")}',this)" style="width:100%;background:#1a4a7c;color:#fff;border:none;border-radius:9px;padding:11px;font-size:.92rem;font-weight:800;cursor:pointer;">💾 Save & Submit Authorization</button>
@@ -13965,6 +13972,7 @@ async function saveCCAuthOnlineForm(lastName, btn){
   const zip=(document.getElementById('cca-zip')?.value||'').trim();
   const authAmount=(document.getElementById('cca-amount')?.value||'').trim();
   const insurance=document.querySelector('input[name="cca-insurance"]:checked')?.value||'';
+  const memo=(document.getElementById('cca-memo')?.value||'').trim();
   const printed=(document.getElementById('cca-printed')?.value||'').trim();
   const dateStr=document.getElementById('cca-date')?.value||new Date().toLocaleDateString('en-US');
   const canvas=document.getElementById('cca-sig-canvas');
@@ -14028,6 +14036,12 @@ async function saveCCAuthOnlineForm(lastName, btn){
     const insText=insurance==='accept'?insAcceptText:insDeclineText;
     const insLines=doc.splitTextToSize(insText,tw);
     doc.text(insLines,ml,y);y+=insLines.length*3.8+6;
+    if(memo){
+      sec('MEMO / ADDITIONAL NOTES');
+      doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(30,41,59);
+      const memoLines=doc.splitTextToSize(memo,tw);
+      doc.text(memoLines,ml,y);y+=memoLines.length*4+8;
+    }
     sec('SIGNATURE');
     if(canvas&&!sigBlank){
       const sigData=canvas.toDataURL('image/png');
