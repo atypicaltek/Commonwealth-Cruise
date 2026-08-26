@@ -1026,6 +1026,33 @@
   </div>
 </div>
 
+<!-- ADMIN ADDITIONAL CABIN OCCUPANT MODAL -->
+<div id="admin-add-occupant-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box" style="max-width:480px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 style="color:#1a4a7c;font-size:1rem;margin:0;">👤 Additional Cabin Occupant</h3>
+      <button onclick="document.getElementById('admin-add-occupant-modal').classList.remove('open')" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px;">×</button>
+    </div>
+    <div id="add-occupant-traveler-info" style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:8px;padding:10px 14px;font-size:.85rem;margin-bottom:14px;"></div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:.88rem;font-weight:600;display:block;margin-bottom:5px;">Share Cabin With (Primary Traveler) *</label>
+      <select id="add-occupant-primary-sel" onchange="addOccupantPrimaryChange()" style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 10px;font-size:.88rem;box-sizing:border-box;">
+        <option value="">— Select a traveler —</option>
+      </select>
+    </div>
+    <div id="add-occupant-cabin-info" style="display:none;background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:8px 12px;font-size:.82rem;color:#166534;margin-bottom:12px;"></div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:.88rem;font-weight:600;display:block;margin-bottom:5px;">Cost for This Occupant *</label>
+      <input type="number" id="add-occupant-cost" min="0" step="0.01" placeholder="e.g. 850.00" style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 10px;font-size:.88rem;box-sizing:border-box;">
+      <div style="font-size:.76rem;color:#64748b;margin-top:3px;">Total cost for this traveler's share. No cabin inventory will be decremented — they share the primary's cabin.</div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="document.getElementById('admin-add-occupant-modal').classList.remove('open')" style="flex:1;padding:10px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;cursor:pointer;font-size:.88rem;color:#374151;">Cancel</button>
+      <button onclick="adminConfirmAdditionalOccupant()" style="flex:2;padding:10px;border:none;border-radius:8px;background:#1a4a7c;color:#fff;font-weight:700;cursor:pointer;font-size:.88rem;">👤 Confirm Additional Occupant</button>
+    </div>
+  </div>
+</div>
+
 <!-- ADMIN CANCEL TRAVEL MODAL -->
 <div id="admin-cancel-travel-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal-box" style="max-width:460px;">
@@ -6837,6 +6864,7 @@ async function loadTravelers(){
         '<option value="add_note">📝 Add Note</option>'+'<option value="mark_deposit_paid">💰 Mark Deposit Paid</option>'+'<option value="send_pay_link">&#x1F4E8; Send Payment Link</option>'+
         '<option value="gratuity">&#x1F91D; Gratuity'+gratChk+'</option>'+
         '<option value="link_cabin_partner">&#x1F517; Link Cabin Partner</option>'+
+        '<option value="add_cabin_occupant">&#x1F465; Additional Cabin Occupant</option>'+
       '</optgroup>'+
       '<optgroup label="Account">'+
       '<option value="view_profile">&#x1F440; View Traveler Profile</option>'+
@@ -7006,6 +7034,77 @@ function toggleEmailHistory(id){
   }
 }
 
+// ── ADDITIONAL CABIN OCCUPANT ─────────────────────────────────
+let gAddOccupantUserId=null,gAddOccupantName=null;
+
+function adminOpenAdditionalOccupantModal(userId,name){
+  gAddOccupantUserId=userId;
+  gAddOccupantName=name;
+  const infoEl=document.getElementById('add-occupant-traveler-info');
+  if(infoEl)infoEl.innerHTML=`Setting <strong>${name}</strong> as an additional occupant of another traveler's cabin.<br><span style="font-size:.8rem;color:#1e40af;">No inventory will be decremented. Cabin cost for this traveler will be set manually.</span>`;
+  const sel=document.getElementById('add-occupant-primary-sel');
+  if(sel){
+    sel.innerHTML='<option value="">— Select a traveler —</option>';
+    const travelers=Object.values(window.gTravelerData||{})
+      .filter(t=>t.userId!==userId&&t.cabinType&&t.cabinType!=='');
+    travelers.sort((a,b)=>a.name.localeCompare(b.name));
+    travelers.forEach(t=>{
+      const opt=document.createElement('option');
+      opt.value=t.userId;
+      opt.dataset.cabin=t.cabinType;
+      opt.dataset.cabinnum=t.cabinNumber||'';
+      opt.dataset.name=t.name;
+      opt.textContent=`${t.name} — ${t.cabinType}${t.cabinNumber?' #'+t.cabinNumber:''}`;
+      sel.appendChild(opt);
+    });
+  }
+  const infoBox=document.getElementById('add-occupant-cabin-info');
+  if(infoBox)infoBox.style.display='none';
+  const costInp=document.getElementById('add-occupant-cost');
+  if(costInp)costInp.value='';
+  document.getElementById('admin-add-occupant-modal').classList.add('open');
+}
+
+function addOccupantPrimaryChange(){
+  const sel=document.getElementById('add-occupant-primary-sel');
+  const infoBox=document.getElementById('add-occupant-cabin-info');
+  const chosen=sel?.options[sel.selectedIndex];
+  if(!chosen||!chosen.value){if(infoBox)infoBox.style.display='none';return;}
+  if(infoBox){
+    infoBox.style.display='block';
+    infoBox.innerHTML=`✅ Will share <strong>${chosen.dataset.cabin}${chosen.dataset.cabinnum?' #'+chosen.dataset.cabinnum:''}</strong> with <strong>${chosen.dataset.name}</strong>. Not counted as solo traveler.`;
+  }
+}
+
+async function adminConfirmAdditionalOccupant(){
+  const primarySel=document.getElementById('add-occupant-primary-sel');
+  const costInp=document.getElementById('add-occupant-cost');
+  const primaryId=primarySel?.value;
+  const costVal=costInp?.value?.trim();
+  if(!primaryId){alert('Please select a primary traveler.');return;}
+  if(!costVal||isNaN(parseFloat(costVal))||parseFloat(costVal)<0){alert('Please enter a valid cost.');return;}
+  const cost=parseFloat(costVal);
+  const primaryData=window.gTravelerData?.[primaryId];
+  const cabinType=primaryData?.cabinType||'';
+  const partnerName=primaryData?.name||'';
+  const{error}=await sb.from('cabin_assignments').upsert({
+    user_id:gAddOccupantUserId,
+    cabin_type:cabinType,
+    is_cabin_shared:true,
+    is_additional_occupant:true,
+    linked_partner_user_id:primaryId,
+    cabin_partner_name:partnerName,
+    cabin_cost:cost,
+    num_guests:1
+  },{onConflict:'user_id'});
+  if(error){alert('Error saving: '+error.message);return;}
+  document.getElementById('admin-add-occupant-modal').classList.remove('open');
+  const n=gAddOccupantName;
+  gAddOccupantUserId=null;gAddOccupantName=null;
+  loadTravelers();loadInventoryTab();
+  flash('admin-alert',`✅ ${n} set as additional occupant in ${cabinType||'cabin'} with ${partnerName}. Cost: ${fmt(cost)}.`,'success');
+}
+
 // Mark a traveler as cancelled/not going (no email sent, profile kept in DB)
 let gCancelTravelUserId=null,gCancelTravelName=null,gCancelTravelCabinType=null,gCancelTravelPricePP=null;
 
@@ -7037,13 +7136,16 @@ async function adminConfirmCancelTravel(){
     const{error}=await sb.from('profiles').update(profileUpdate).eq('id',gCancelTravelUserId);
     if(error){alert('Error updating profile: '+error.message);return;}
   }
-  if(returnInventory&&gCancelTravelCabinType){
+  if(returnInventory){
     const{data:ca}=await sb.from('cabin_assignments').select('cabin_type,price_per_person').eq('user_id',gCancelTravelUserId).maybeSingle();
-    const ct=ca?.cabin_type||gCancelTravelCabinType;
-    const pp=ca?.price_per_person||gCancelTravelPricePP||null;
+    const ct=ca?.cabin_type||gCancelTravelCabinType||null;
+    const pp=parseFloat(ca?.price_per_person||gCancelTravelPricePP||0)||null;
     if(ct&&ct!=='Suite'){
-      await sb.rpc('increment_cabin',{cabin:ct});
+      const{error:incErr}=await sb.rpc('increment_cabin',{cabin:ct});
+      if(incErr)console.warn('[cancelTravel] increment_cabin error:',incErr.message);
       await sb.rpc('increment_cabin_tier',{p_cabin_type:ct,p_price:pp});
+    } else if(!ct){
+      console.warn('[cancelTravel] No cabin type found for inventory return — skipped');
     }
   }
   document.getElementById('admin-cancel-travel-modal').classList.remove('open');
@@ -12594,6 +12696,7 @@ function handleTravelerAction(sel,userId){
   else if(v==='restore_traveler'){restoreTraveler(d.userId,d.name);}
   else if(v==='delete'){deleteTraveler(d.userId,d.name);}
   else if(v==='link_cabin_partner'){adminOpenLinkCabinModal(d.userId,d.name,d.email,d.cabinType,d.numGuests||1,'','travelers');}
+  else if(v==='add_cabin_occupant'){adminOpenAdditionalOccupantModal(d.userId,d.name);}
 }
 
 // ── ADMIN UPDATE GUEST COUNT ──────────────────────────────────
