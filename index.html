@@ -2628,7 +2628,8 @@ function calcAgeOnEmbarkation(dobStr){
 const MINOR_POLICY_TEXT={
   under14:'Guests 14 years of age and younger must be booked with a relative or guardian (25 years of age or older) in the same cabin or a connecting cabin. Your request is pending until the Commonwealth Cruise Team manually reviews for compliance with Carnival\'s minor policy.',
   age15to17:'Guests 15 – 17 years of age can only be separated by up to 3 staterooms from a relative or guardian (25 years of age or older). Your request is pending until the Commonwealth Cruise Team manually reviews for compliance with Carnival\'s minor policy.',
-  age18to20:'Guests 18 – 20 years of age must be linked as “Travel With” a relative or guardian 25 years of age or older. Your request is pending until the Commonwealth Cruise Team manually reviews for compliance with Carnival\'s minor policy.'
+  age18to20:'Guests 18 – 20 years of age must be linked as “Travel With” a relative or guardian 25 years of age or older. Your request is pending until the Commonwealth Cruise Team manually reviews for compliance with Carnival\'s minor policy.',
+  age21to24:'Guests 21 – 24 years of age must be traveling with a relative or guardian 25 years of age or older. Your request is pending until the Commonwealth Cruise Team manually reviews for compliance with Carnival\'s minor policy.'
 };
 
 function getMinorPolicyIssues(travelers){
@@ -2644,6 +2645,7 @@ function getMinorPolicyIssues(travelers){
     if(a.age<=14&&!hasGuardian)issues.push({name:a.name,age:a.age,bracket:'under14'});
     else if(a.age>=15&&a.age<=17&&!hasGuardian)issues.push({name:a.name,age:a.age,bracket:'age15to17'});
     else if(a.age>=18&&a.age<=20&&!hasGuardian)issues.push({name:a.name,age:a.age,bracket:'age18to20'});
+    else if(a.age>=21&&a.age<=24&&!hasGuardian)issues.push({name:a.name,age:a.age,bracket:'age21to24'});
   });
   return issues;
 }
@@ -2653,7 +2655,8 @@ function showMinorPolicyPopup(issues){
   let bracket=null;
   if(issues.some(i=>i.bracket==='under14'))bracket='under14';
   else if(issues.some(i=>i.bracket==='age15to17'))bracket='age15to17';
-  else bracket='age18to20';
+  else if(issues.some(i=>i.bracket==='age18to20'))bracket='age18to20';
+  else bracket='age21to24';
   const policyText=MINOR_POLICY_TEXT[bracket];
   const minorNames=issues.map(i=>i.name+' (age '+i.age+')').join(', ');
   let modal=document.getElementById('minor-policy-modal');
@@ -9087,8 +9090,8 @@ async function loadMinorRequests(){
     travelersByOwner[t.account_owner_id].push(t);
   });
 
-  const bracketLabel={under14:'Under 14',age15to17:'Ages 15–17',age18to20:'Ages 18–20'};
-  const bracketColor={under14:'#dc2626',age15to17:'#d97706',age18to20:'#1d4ed8'};
+  const bracketLabel={under14:'Under 14',age15to17:'Ages 15–17',age18to20:'Ages 18–20',age21to24:'Ages 21–24'};
+  const bracketColor={under14:'#dc2626',age15to17:'#d97706',age18to20:'#1d4ed8',age21to24:'#7c3aed'};
 
   const minorAccounts=[];
   (profiles||[]).forEach(p=>{
