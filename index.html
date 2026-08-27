@@ -7006,6 +7006,7 @@ async function loadTravelers(){
         '<option value="send_cc_auth">&#x1F4C4; Send CC Auth Form</option>'+
         '<option value="view_cc_auth">&#x1F4CB; Completed CC Auth'+(p.cc_auth_url?' &#x2713;':'')+'</option>'+
         '<option value="send_initial_deposit">&#x1F4B0; Send Initial Deposit Due</option>'+
+        '<option value="send_payment_confirmation">&#x1F4B3; Send Payment Confirmation</option>'+
         '<option value="add_note">📝 Add Note</option>'+'<option value="mark_deposit_paid">💰 Mark Deposit Paid</option>'+'<option value="send_pay_link">&#x1F4E8; Send Payment Link</option>'+
         '<option value="gratuity">&#x1F91D; Gratuity'+gratChk+'</option>'+
         '<option value="link_cabin_partner">&#x1F517; Link Cabin Partner</option>'+
@@ -12845,6 +12846,7 @@ function handleTravelerAction(sel,userId){
   else if(v==='send_cc_auth')sendCCAuthForm(d.name,d.email,d.cabinType,d.numGuests);
   else if(v==='view_cc_auth')openAdminCCAuthModal(d.userId,d.name,d.ccAuthUrl,d.ccAuthFilename);
   else if(v==='send_initial_deposit')adminOpenInitialDepositEmail(d.name,d.email);
+  else if(v==='send_payment_confirmation')adminOpenPaymentConfirmationEmail(d.userId,d.name,d.email);
   else if(v==='add_note'){showAdminNoteModal(d.userId,d.name);sel.value='';}
   else if(v==='mark_deposit_paid'){adminMarkDepositPaid(d.userId);sel.value='';}
   else if(v==='send_pay_link')emailPaymentLinkToTraveler(d.name,d.email,d.payLink);
@@ -12946,6 +12948,23 @@ function adminOpenInitialDepositEmail(name, email){
       if(emailEl)emailEl.value=email||'';
       // Auto-fill cabin type, guest count, deposit from traveler's profile
       if(email)initialDepositAutoFill();
+    },60);
+  },60);
+}
+
+// Open Email Generation tab pre-loaded with the Payment Confirmation template for a specific traveler
+function adminOpenPaymentConfirmationEmail(userId, name, email){
+  const tabBtn=document.querySelector('.tb-emailgen');
+  if(tabBtn)tabBtn.click();else loadEmailGenTab();
+  const idx=EMAIL_TEMPLATES.findIndex(t=>t.id==='payment_confirmed');
+  if(idx<0){alert('Payment Confirmation template not found.');return;}
+  setTimeout(()=>{
+    selectEmailTemplate(idx);
+    setTimeout(()=>{
+      const nameEl=document.getElementById('eg-to-name');
+      const emailEl=document.getElementById('eg-to-email');
+      if(nameEl)nameEl.value=name||'';
+      if(emailEl){emailEl.value=email||'';paymentConfirmationAutoFill();}
     },60);
   },60);
 }
