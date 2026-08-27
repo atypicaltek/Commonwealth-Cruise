@@ -678,6 +678,7 @@
       <button class="tab-btn tb-reports" onclick="switchTab('reports',this)">📊 Reports</button>
       <button class="tab-btn tb-missinginfo" style="background:#b45309;" onclick="switchTab('missinginfo',this);loadMissingInfoTab()">⚠️ Missing Info</button>
       <button class="tab-btn" style="background:#b91c1c;" onclick="switchTab('depoverdue',this);loadDepositOverdueTab()">🚨 Deposit Overdue</button>
+      <button class="tab-btn" style="background:#0f766e;" onclick="switchTab('travelinsurance',this);loadTravelInsuranceTab()">🛡️ Travel Insurance</button>
     </div>
 
     <!-- TRAVELERS -->
@@ -1013,6 +1014,18 @@
         </div>
         <p style="font-size:.84rem;color:var(--muted);margin:0 0 12px;">Travelers who have not met the minimum deposit of <strong>$100.00 per person</strong> by the September 1, 2026 deadline. Use <strong>📧 Send Email</strong> to queue a notice to the traveler.</p>
         <div id="deposit-overdue-tab-content"><div class="empty"><div class="ei">🚨</div><p>Click Refresh to load overdue deposits.</p></div></div>
+      </div>
+    </div>
+
+    <!-- TRAVEL INSURANCE -->
+    <div id="tab-travelinsurance" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🛡️ Travel Insurance</span>
+          <button class="btn btn-primary btn-sm" onclick="loadTravelInsuranceTab()" style="font-size:.79rem;">↻ Refresh</button>
+        </div>
+        <p style="font-size:.84rem;color:var(--muted);margin:0 0 12px;">Travelers who have selected <strong>Travel Insurance — Yes</strong>. Enter the quoted cost per traveler and update the status. Use <strong>📧 Send Quote</strong> to email the traveler their insurance cost.</p>
+        <div id="travel-insurance-tab-content"><div class="empty"><div class="ei">🛡️</div><p>Click Refresh to load travel insurance list.</p></div></div>
       </div>
     </div>
 
@@ -4148,12 +4161,25 @@ if(dsBadge){
     document.getElementById('dash-cabin-type-display').textContent=typeLabel;
     // Show cabin photo button if a photo has been uploaded for this cabin type
     checkAndShowCabinPhotoBtn(cabin.cabin_type||'');
-    const statusTxt=cabin.suite_pending?'Waitlisted — Suite pending availability':cabin.cabin_number?'Confirmed':'Reservation Held — Cabin # Assigned After Full Deposit';
+    const statusTxt=cabin.suite_pending?'Waitlisted — Suite pending availability':cabin.cabin_number?'Confirmed':'Reservation Held — Cabin # Reserved After Full Deposit';
     document.getElementById('dash-cabin-status-display').textContent=statusTxt;
     // Store cabin data globally for tile modals
     window.gDashCabinData=cabin;
     // Cabin # and guest count
-    document.getElementById('dash-cabin-num-display').textContent=cabin.cabin_number||'Pending';
+    // TBD: full deposit paid but no cabin # assigned yet
+    (async()=>{
+      let cabNumDisplay='Pending';
+      if(!cabin.cabin_number){
+        try{
+          const{data:myPays2}=await sb.from('user_payments').select('amount_paid').eq('user_id',gUser.id);
+          const totalPaid2=(myPays2||[]).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+          const ng2=cabin.num_guests||1;
+          const fullDep2=250*(ng2===1?2:ng2);
+          if(totalPaid2>=fullDep2)cabNumDisplay='TBD';
+        }catch(e){}
+      }
+      document.getElementById('dash-cabin-num-display').textContent=cabin.cabin_number||cabNumDisplay;
+    })();
     document.getElementById('dash-guests-display').textContent=cabin.num_guests||'—';
     // Yellow tile if occupant change is pending
     const guestTileEl=document.getElementById('dash-guests-display')?.closest('div[onclick]');
@@ -4269,10 +4295,11 @@ if(dsBadge){
             '<tr><td style="padding:3px 0;opacity:.85;">'+(isSingleOcc?'Total Cabin Cost<br><span style="font-size:.73rem;opacity:.75;">1 traveler · double-occupancy rate</span>':'Total Cabin Cost<br><span style="font-size:.73rem;opacity:.75;">('+ng+' guest'+(ng>1?'s':'')+')</span>')+'</td><td style="text-align:right;font-weight:800;font-size:.97rem;">'+fmt(setCost)+'</td></tr>'+
             linkedDepRow+
             '<tr><td colspan="2" style="padding:6px 0 3px;border-top:1px solid rgba(255,255,255,.25);font-size:.77rem;opacity:.8;">Gratuities: <strong>'+fmt(gratPP)+'/person</strong> — paid separately<br><span style="opacity:.7;">($'+gratRate+'/day × '+CRUISE_DAYS+' days per person)</span></td></tr>'+
+            (cabin.travel_insurance==='yes'&&cabin.travel_insurance_cost?'<tr id="ti-cost-row"><td style="padding:3px 0;opacity:.85;">🛡️ Travel Insurance<br><span style="font-size:.73rem;opacity:.75;">Cost quoted by organizer</span></td><td style="text-align:right;"><strong>'+fmt(parseFloat(cabin.travel_insurance_cost))+'</strong><br>'+(cabin.travel_insurance_status==='confirmed'?'<span style="font-size:.71rem;color:#86efac;font-weight:700;">✅ Confirmed</span>':'<button onclick="travelerConfirmTravelInsurance()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.5);color:#fff;border-radius:4px;padding:2px 8px;font-size:.71rem;font-weight:700;cursor:pointer;margin-top:2px;">Confirmed?</button>')+'</td></tr>':'')+
           '</table>'+
           '<div style="margin-top:8px;border-top:1px solid rgba(255,255,255,.2);padding-top:8px;">'+
             '<button onclick="toggleCabinAssignDue()" style="background:none;border:none;color:inherit;font-size:.78rem;font-weight:700;cursor:pointer;opacity:.85;padding:0;width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;">'+
-              '<span>🔑 Amount Due Before Cabin # Assigned</span>'+
+              '<span>🔑 Amount Due Before Cabin # Reserved</span>'+
               '<span id="cabin-assign-due-chev" style="font-size:.72rem;transition:transform .2s;">▶</span>'+
             '</button>'+
             (()=>{
@@ -4296,7 +4323,7 @@ if(dsBadge){
                   '<span style="opacity:.85;font-weight:700;">'+(depositMet?'✅ Deposit Satisfied':'Amount Still Due')+'</span>'+
                   '<strong style="font-size:.9rem;color:'+(depositMet?'#86efac':'#fde68a')+';">'+(depositMet?'$0.00':fmt(depositRemaining))+'</strong>'+
                 '</div>'+
-                '<div style="font-size:.73rem;opacity:.7;margin-top:4px;">$250 \xd7 '+effectiveGuests+' guest'+(effectiveGuests>1?'s':'')+' — cabin number is '+(depositMet?'eligible to be':'')+'assigned once this amount is paid.</div>'+
+                '<div style="font-size:.73rem;opacity:.7;margin-top:4px;">$250 \xd7 '+effectiveGuests+' guest'+(effectiveGuests>1?'s':'')+' — cabin number is '+(depositMet?'eligible to be':'')+'reserved once this amount is paid.</div>'+
               '</div>';
             })()+
           '</div>';
@@ -6684,6 +6711,182 @@ async function sendDepositOverdueEmail(toEmail,toName,numGuests){
   }
 }
 
+
+// ── TRAVEL INSURANCE ──────────────────────────────────────────
+async function saveAdminTravelInsurance(userId, val){
+  if(!val)return; // nothing selected
+  try{
+    await sb.rpc('admin_set_travel_insurance',{p_user_id:userId,p_val:val});
+    flash('admin-alert','🛡️ Travel Insurance set to '+val+' for traveler.','success');
+    loadTravelers();
+  }catch(e){
+    flash('admin-alert','❌ Failed to save Travel Insurance: '+(e.message||e),'error');
+  }
+}
+
+async function loadTravelInsuranceTab(){
+  const el=document.getElementById('travel-insurance-tab-content');
+  if(!el)return;
+  el.innerHTML='<div class="empty"><div class="ei">⏳</div><p>Loading…</p></div>';
+  const[{data:cabins},{data:profiles}]=await Promise.all([
+    sb.rpc('admin_get_all_cabin_assignments'),
+    sb.from('profiles').select('id,name,email').order('name')
+  ]);
+  const profMap={};(profiles||[]).forEach(p=>{profMap[p.id]=p;});
+  const tiCabins=(cabins||[]).filter(c=>c.travel_insurance==='yes');
+  if(!tiCabins.length){
+    el.innerHTML='<div class="empty"><div class="ei">🛡️</div><p>No travelers have selected Travel Insurance — Yes.</p></div>';
+    return;
+  }
+  // Build sortable table
+  window._tiData=tiCabins.map(c=>{
+    const p=profMap[c.user_id]||{};
+    return{
+      userId:c.user_id,
+      name:p.name||'—',
+      email:p.email||'',
+      cabinType:c.cabin_type||'—',
+      numGuests:c.num_guests||1,
+      cabinNumber:c.cabin_number||'—',
+      tiCost:c.travel_insurance_cost||'',
+      tiStatus:c.travel_insurance_status||''
+    };
+  });
+  window._tiSort={col:'name',dir:1};
+  renderTITable();
+}
+
+function renderTITable(){
+  const el=document.getElementById('travel-insurance-tab-content');
+  if(!el||!window._tiData)return;
+  const{col,dir}=window._tiSort;
+  const sorted=[...window._tiData].sort((a,b)=>{
+    const av=a[col]??'';const bv=b[col]??'';
+    return String(av).localeCompare(String(bv),undefined,{numeric:true})*dir;
+  });
+  const thS=c=>`<th style="cursor:pointer;user-select:none;padding:8px 10px;background:#f1f5f9;border-bottom:2px solid #e2e8f0;font-size:.78rem;white-space:nowrap;" onclick="window._tiSort={col:'${c}',dir:window._tiSort.col==='${c}'?-window._tiSort.dir:1};renderTITable();">${c.replace('ti','').replace(/([A-Z])/g,' $1').trim()}${window._tiSort.col===c?(window._tiSort.dir===1?' ▲':' ▼'):''}</th>`;
+  const rows=sorted.map(r=>`<tr>
+    <td style="padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:.84rem;font-weight:700;">${r.name}<br><small style="color:var(--muted);font-weight:400;">${r.email}</small></td>
+    <td style="padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:.82rem;">${r.cabinType}</td>
+    <td style="padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:.82rem;text-align:center;">${r.numGuests}</td>
+    <td style="padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:.82rem;text-align:center;">${r.cabinNumber}</td>
+    <td style="padding:7px 10px;border-bottom:1px solid #f1f5f9;">
+      <div style="display:flex;align-items:center;gap:5px;">
+        <span style="font-size:.8rem;">$</span>
+        <input type="number" id="ti-cost-${r.userId}" value="${r.tiCost||''}" placeholder="0.00" min="0" step="0.01"
+          style="width:80px;padding:4px 6px;border:1.5px solid #cbd5e1;border-radius:5px;font-size:.82rem;box-sizing:border-box;">
+        <button onclick="adminSaveTIDetails('${r.userId}')" style="background:#0f766e;color:#fff;border:none;border-radius:5px;padding:4px 8px;font-size:.75rem;font-weight:700;cursor:pointer;">Save</button>
+      </div>
+    </td>
+    <td style="padding:7px 10px;border-bottom:1px solid #f1f5f9;">
+      <select id="ti-status-${r.userId}" onchange="adminSaveTIStatus('${r.userId}',this.value)"
+        style="font-size:.8rem;padding:4px 6px;border:1.5px solid #cbd5e1;border-radius:5px;${r.tiStatus==='confirmed'?'color:#166534;font-weight:700;background:#f0fdf4;':r.tiStatus==='quoted'?'color:#92400e;background:#fffbeb;':''}">
+        <option value="">— Status —</option>
+        <option value="quoted"${r.tiStatus==='quoted'?' selected':''}>Quoted</option>
+        <option value="confirmed"${r.tiStatus==='confirmed'?' selected':''}>✅ Confirmed</option>
+      </select>
+    </td>
+    <td style="padding:7px 10px;border-bottom:1px solid #f1f5f9;">
+      <button onclick="sendTIQuoteEmail('${r.userId}','${(r.email||'').replace(/'/g,"\'")}','${(r.name||'').replace(/'/g,"\'")}','${r.tiCost||''}')"
+        style="background:#0f766e;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:.76rem;font-weight:700;cursor:pointer;">📧 Send Quote</button>
+    </td>
+  </tr>`);
+  el.innerHTML=`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">
+    <thead><tr>${thS('name')}${thS('cabinType')}${thS('numGuests')}${thS('cabinNumber')}${thS('tiCost')}${thS('tiStatus')}<th style="padding:8px 10px;background:#f1f5f9;border-bottom:2px solid #e2e8f0;font-size:.78rem;">Email</th></tr></thead>
+    <tbody>${rows.join('')}</tbody>
+  </table></div>`;
+}
+
+async function adminSaveTIDetails(userId){
+  const costEl=document.getElementById('ti-cost-'+userId);
+  const cost=parseFloat(costEl?.value)||null;
+  const statusEl=document.getElementById('ti-status-'+userId);
+  const status=statusEl?.value||null;
+  try{
+    await sb.rpc('admin_set_travel_insurance_details',{p_user_id:userId,p_cost:cost,p_status:status});
+    flash('admin-alert','🛡️ Travel Insurance details saved.','success');
+    // Update local data
+    const row=window._tiData?.find(r=>r.userId===userId);
+    if(row){row.tiCost=cost||'';row.tiStatus=status||'';}
+    renderTITable();
+  }catch(e){
+    flash('admin-alert','❌ Failed to save TI details: '+(e.message||e),'error');
+  }
+}
+
+async function adminSaveTIStatus(userId,val){
+  const costEl=document.getElementById('ti-cost-'+userId);
+  const cost=parseFloat(costEl?.value)||null;
+  try{
+    await sb.rpc('admin_set_travel_insurance_details',{p_user_id:userId,p_cost:cost,p_status:val||null});
+    flash('admin-alert','🛡️ Travel Insurance status updated.','success');
+    const row=window._tiData?.find(r=>r.userId===userId);
+    if(row){row.tiStatus=val||'';}
+    // re-style the select
+    const sel=document.getElementById('ti-status-'+userId);
+    if(sel){
+      sel.style.color=val==='confirmed'?'#166534':val==='quoted'?'#92400e':'';
+      sel.style.background=val==='confirmed'?'#f0fdf4':val==='quoted'?'#fffbeb':'';
+      sel.style.fontWeight=val==='confirmed'?'700':'';
+    }
+  }catch(e){
+    flash('admin-alert','❌ Failed to update TI status: '+(e.message||e),'error');
+  }
+}
+
+function sendTIQuoteEmail(userId,toEmail,toName,tiCost){
+  if(!toEmail){alert('No email address for this traveler.');return;}
+  if(!tiCost||parseFloat(tiCost)<=0){
+    if(!confirm('No cost entered yet. Send quote email anyway with TBD cost?'))return;
+  }
+  const cost=tiCost&&parseFloat(tiCost)>0?'$'+parseFloat(tiCost).toFixed(2):'[Cost — to be determined]';
+  const subject=`${TRIP_NAME} — Travel Insurance Quote`;
+  const bodyHtml=`<p>Thank you for your reservation on the <strong>${TRIP_NAME}</strong>!</p>
+<p>As you indicated interest in <strong>Travel Insurance</strong> for your trip, please find your quoted cost below.</p>
+<div style="background:#f0fdfa;border:2px solid #99f6e4;border-radius:10px;padding:16px 20px;margin:16px 0;text-align:center;">
+  <div style="font-size:.85rem;color:#0f766e;font-weight:600;margin-bottom:6px;">🛡️ Travel Insurance Quote</div>
+  <div style="font-size:1.4rem;font-weight:800;color:#0f766e;">${cost}</div>
+  <div style="font-size:.78rem;color:#64748b;margin-top:4px;">Based on your cabin type and occupancy</div>
+</div>
+<p>To confirm your travel insurance, please log in to your traveler portal and click <strong>Confirmed?</strong> in the Cost Summary section — or reply to this email to confirm.</p>
+<p>Travel insurance provides peace of mind in the event of trip cancellation, medical emergencies, or other unexpected events. Coverage details will be provided separately.</p>
+<p>If you have any questions about your quote or coverage options, please reply to this email.</p>`;
+  const plain=`Thank you for your reservation on the ${TRIP_NAME}!
+
+Travel Insurance Quote: ${cost}
+
+To confirm, please log in to your traveler portal and click 'Confirmed?' in the Cost Summary section.
+
+If you have questions, please reply to this email.
+
+Your Commonwealth Cruise Team`;
+  const html=buildEmailHtml(toName,bodyHtml);
+  sendEmail(toEmail,toName,subject,plain,html,false,false)
+    .then(()=>{
+      flash('admin-alert',`📧 Travel Insurance quote emailed to ${toName}.`,'success');
+      // Update status to quoted if not already confirmed
+      const row=window._tiData?.find(r=>r.userId===userId);
+      if(row&&row.tiStatus!=='confirmed'){
+        adminSaveTIStatus(userId,'quoted');
+      }
+    })
+    .catch(e=>flash('admin-alert','❌ Failed to send TI quote: '+(e.message||e),'error'));
+}
+
+async function travelerConfirmTravelInsurance(){
+  const btn=document.querySelector('[onclick="travelerConfirmTravelInsurance()"]');
+  if(btn){btn.disabled=true;btn.textContent='Confirming…';}
+  try{
+    await sb.rpc('traveler_confirm_travel_insurance');
+    flash('cabin-alert','✅ Travel Insurance confirmed! Your organizer has been notified.','success');
+    // Reload dashboard to update the row
+    loadDashboard();
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Confirmed?';}
+    flash('cabin-alert','❌ Failed to confirm: '+(e.message||e),'error');
+  }
+}
+
 // ── ADMIN ────────────────────────────────────────────────────
 async function adminInit(){
   // Load email hold state immediately on login so the variable is correct
@@ -7063,7 +7266,7 @@ async function loadTravelers(){
     return'<tr>'+
       '<td><a href="#" onclick="openManageTravelers(\''+p.id+'\',\''+safeN+'\','+( ca?.num_guests||1)+');return false;" style="font-weight:800;color:var(--primary);text-decoration:none;">'+(p.name||'<em style="color:var(--muted)">No name</em>')+'</a> '+docB+suiteB+noCabinB+needsCCLB+'<br><small style="color:var(--muted)">'+(p.email||'')+'</small></td>'+
       '<td><span class="badge badge-purple">'+cabinStr+'</span>'+
-        (()=>{const _uid=p.id;const _ng=ca?.num_guests||1;const _effG=_ng===1?2:_ng;const _pp=ca?.price_per_person?parseFloat(ca.price_per_person):null;const _cc=ca?.cabin_cost?parseFloat(ca.cabin_cost):null;const _tot=_pp?fmt(_pp*_effG):'';const _totColor=(_pp&&_cc&&Math.abs(_pp*_effG-_cc)<0.01)?'#166534':'#1a4a7c';return`<br><div style="margin-top:3px;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:.74rem;font-weight:700;color:#1a4a7c;"><input type="checkbox" id="tv-chk-${_uid}" ${_pp?'checked':''} onchange="toggleInlineTierInput('${_uid}')"><span>${_pp?'✅ Price Verified':'Price Verified'}</span></label><div id="tv-form-${_uid}" style="display:${_pp?'flex':'none'};align-items:center;gap:3px;flex-wrap:wrap;margin-top:3px;"><input type="number" id="tv-pp-${_uid}" value="${_pp||''}" placeholder="$/pp" step="0.01" min="0" style="width:72px;padding:2px 5px;font-size:.74rem;border:1.5px solid #cbd5e1;border-radius:4px;color:#1a4a7c;font-weight:700;" oninput="updateInlineTierTotal('${_uid}',${_effG},${_cc||0})"><span id="tv-tot-${_uid}" style="font-size:.71rem;color:${_totColor};font-weight:700;">${_tot?'= '+_tot:''}</span><button onclick="saveInlineTier('${_uid}',${_effG})" style="background:#1a4a7c;color:#fff;border:none;border-radius:4px;padding:2px 7px;font-size:.72rem;font-weight:700;cursor:pointer;">Save</button></div></div>`})()+''+
+        (()=>{const _uid=p.id;const _ng=ca?.num_guests||1;const _effG=_ng===1?2:_ng;const _pp=ca?.price_per_person?parseFloat(ca.price_per_person):null;const _cc=ca?.cabin_cost?parseFloat(ca.cabin_cost):null;const _tot=_pp?fmt(_pp*_effG):'';const _totColor=(_pp&&_cc&&Math.abs(_pp*_effG-_cc)<0.01)?'#166534':'#1a4a7c';return`<br><div style="margin-top:3px;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:.74rem;font-weight:700;color:#1a4a7c;"><input type="checkbox" id="tv-chk-${_uid}" ${_pp?'checked':''} onchange="toggleInlineTierInput('${_uid}')"><span>${_pp?'✅ Price Verified':'Price Verified'}</span></label><div id="tv-form-${_uid}" style="display:${_pp?'flex':'none'};align-items:center;gap:3px;flex-wrap:wrap;margin-top:3px;"><input type="number" id="tv-pp-${_uid}" value="${_pp||''}" placeholder="$/pp" step="0.01" min="0" style="width:72px;padding:2px 5px;font-size:.74rem;border:1.5px solid #cbd5e1;border-radius:4px;color:#1a4a7c;font-weight:700;" oninput="updateInlineTierTotal('${_uid}',${_effG},${_cc||0})"><span id="tv-tot-${_uid}" style="font-size:.71rem;color:${_totColor};font-weight:700;">${_tot?'= '+_tot:''}</span><button onclick="saveInlineTier('${_uid}',${_effG})" style="background:#1a4a7c;color:#fff;border:none;border-radius:4px;padding:2px 7px;font-size:.72rem;font-weight:700;cursor:pointer;">Save</button></div></div>`})()+(()=>{const _ti=ca?.travel_insurance||'';const _opts='<option value="">— Select —</option><option value="yes"'+(_ti==='yes'?' selected':'')+'>Travel Insurance-Yes</option><option value="no"'+(_ti==='no'?' selected':'')+'>Travel Insurance-No</option>';const _badge=_ti?('<span style="font-size:.71rem;font-weight:700;margin-left:4px;color:'+(_ti==='yes'?'#0f766e':'#dc2626')+';">'+(_ti==='yes'?'✅ Travel Insurance-Yes':'❌ Travel Insurance-No')+'</span>'):'';return'<br><div style="margin-top:4px;"><label style="font-size:.74rem;font-weight:700;color:#0f766e;display:block;margin-bottom:2px;">🛡️ Travel Insurance</label><select onchange="saveAdminTravelInsurance(\''+p.id+'\',this.value)" style="font-size:.74rem;padding:2px 5px;border:1.5px solid #99f6e4;border-radius:4px;color:#0f766e;font-weight:700;background:#f0fdfa;width:100%;max-width:160px;">'+_opts+'</select>'+_badge+'</div>';})()+''+
         (ca?.backup_cabin_type&&!ca?.suite_pending&&!ca?.cabin_number?'<br><span style="font-size:.74rem;color:var(--muted);">🔄 Backup: '+ca.backup_cabin_type+'</span>':'')+
         (ca?.high_occupancy_pending?'<br><span class="badge badge-warn" style="font-size:.72rem;">⚠️ High Occ. Pending</span>':'')+
         (ca?.cabin_change_pending&&ca?.requested_cabin_type?'<br><span class="badge badge-warn" style="font-size:.72rem;">🔄 Change Req: '+ca.requested_cabin_type+'</span>':'')+
@@ -10160,6 +10363,40 @@ Your Commonwealth Cruise Team
 This email was sent by the ${TRIP_NAME} portal.`
     }),
     // No customSend: sendGeneratedEmail() reads the edited textarea body and sends it
+  },
+  {
+    id:'travel_insurance_quote',label:'Travel Insurance Quote',icon:'🛡️',
+    toMode:'traveler',
+    buildPreview:()=>({
+      subject:`${TRIP_NAME} — Travel Insurance Quote`,
+      toLabel:'Traveler email',
+      toPlaceholder:'traveler@email.com',
+      toName:'',
+      extraFields:`
+        <div style="margin-bottom:12px;">
+          <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Quoted Insurance Cost</label>
+          <input id="eg-ti-cost" type="text" placeholder="e.g. $125.00" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+        </div>`,
+      body:`Hello [Traveler Name],
+
+Thank you for your reservation on the ${TRIP_NAME}!
+
+As you indicated interest in Travel Insurance for your trip, please find your quoted cost below.
+
+TRAVEL INSURANCE QUOTE
+Quoted Cost: [Insert Cost from field above]
+(Based on your cabin type and occupancy)
+
+To confirm your travel insurance, please log in to your traveler portal and click "Confirmed?" in the Cost Summary section — or reply to this email to confirm.
+
+Travel insurance provides peace of mind in the event of trip cancellation, medical emergencies, or other unexpected events. Coverage details will be provided separately.
+
+If you have any questions about your quote or coverage options, please reply to this email.
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
+    }),
   },
   {
     id:'suite_deposit_pending',label:'Suite Deposit Pending',icon:'🛳️',
@@ -13894,32 +14131,13 @@ function getDeckPlanBlobUrl(){
 function openDeckPlan(){
   const existing=document.getElementById('deck-plan-prompt');
   if(existing)existing.remove();
-  // Prefer hosted URL (no blob/CSP issues); fall back to embedded base64
+  // Open PDF directly in a new browser window/tab
   const pdfSrc=DECK_PLAN_URL||getDeckPlanBlobUrl();
-  const mo=document.createElement('div');
-  mo.id='deck-plan-viewer-modal';
-  mo.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:10001;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;';
-  mo.innerHTML=`
-    <div style="background:#fff;border-radius:14px;width:100%;max-width:900px;height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.4);">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1.5px solid #e2e8f0;flex-shrink:0;">
-        <strong style="color:#0f2744;font-size:.97rem;">🗺️ Carnival Freedom Deck Plan</strong>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <button onclick="downloadDeckPlanDirect()" style="background:#14532d;color:#fff;border:none;border-radius:7px;padding:7px 16px;font-size:.83rem;font-weight:700;cursor:pointer;">⬇️ Download</button>
-          <button onclick="document.getElementById('deck-plan-viewer-modal').remove()" style="background:#f1f5f9;color:#374151;border:none;border-radius:7px;padding:7px 14px;font-size:.83rem;font-weight:700;cursor:pointer;">✕ Close</button>
-        </div>
-      </div>
-      <object id="deck-plan-iframe" data="${pdfSrc}" type="application/pdf" style="flex:1;width:100%;border:none;">
-        <div style="padding:24px;text-align:center;color:#64748b;">
-          <p style="font-size:.95rem;">PDF preview not supported in your browser.</p>
-          <button onclick="downloadDeckPlanDirect()" style="background:#1a4a7c;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:.9rem;font-weight:700;cursor:pointer;margin-top:8px;">⬇️ Download Deck Plan Instead</button>
-        </div>
-      </object>
-    </div>`;
-  document.body.appendChild(mo);
+  window.open(pdfSrc,'_blank');
 }
 
 async function downloadDeckPlanDirect(){
-  // Cross-origin <a download> is blocked; fetch as blob instead
+  // Try hosted URL first; on failure (e.g. 404) fall back to embedded base64
   if(DECK_PLAN_URL){
     try{
       const resp=await fetch(DECK_PLAN_URL);
@@ -13930,11 +14148,11 @@ async function downloadDeckPlanDirect(){
       a.href=blobUrl;a.download='Carnival-Freedom-Deck-Plan.pdf';
       document.body.appendChild(a);a.click();
       setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(blobUrl);},1500);
+      return; // success — stop here
     }catch(e){
-      // Fallback: open in new tab (browser will offer Save As)
-      window.open(DECK_PLAN_URL,'_blank');
+      console.warn('Deck plan URL fetch failed, using embedded PDF',e);
+      // fall through to base64 fallback below
     }
-    return;
   }
   try{
     const bytes=atob(DECK_PLAN_B64);
