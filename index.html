@@ -352,6 +352,8 @@
         <div id="dash-cabin-partner-banner" style="display:none;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:.83rem;line-height:1.55;animation:partnerBannerFlash 2s ease-in-out 3;"></div>
         <style>@keyframes partnerBannerFlash{0%,100%{background:rgba(251,191,36,.22);border:1.5px solid rgba(251,191,36,.55);}50%{background:rgba(251,191,36,.42);border:1.5px solid rgba(251,191,36,.9);}}</style>
         <div id="dash-cabin-change-pending" style="display:none;background:rgba(255,200,0,.18);border:1px solid rgba(255,200,0,.4);border-radius:7px;padding:8px 12px;margin-top:8px;font-size:.82rem;line-height:1.5;">⏳ <strong>Cabin Change Request Pending:</strong> Your request to change to <span id="dash-cabin-change-requested" style="font-weight:800;"></span> is pending approval by the Commonwealth Cruise Team.</div>
+        <div id="dash-deposit-overdue-notice" style="display:none;background:#fef2f2;border:2px solid #dc2626;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:.83rem;line-height:1.6;color:#7f1d1d;animation:depositOverdueFlash 2s ease-in-out 4;">⚠️ <strong>Initial Deposit Not Received</strong><br>Your minimum deposit of $100.00 per person has not been received. Your cabin request is on hold. Remaining inventory will be rechecked beginning <strong>September 2, 2026</strong>. Please contact the trip organizer immediately to submit your deposit.</div>
+        <style>@keyframes depositOverdueFlash{0%,100%{background:#fef2f2;border-color:#dc2626;}50%{background:#fee2e2;border-color:#b91c1c;}}</style>
         <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
           <button id="dash-cabin-photo-btn" onclick="openCabinPhotoModal()" style="display:none;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:7px;padding:6px 14px;font-size:.82rem;cursor:pointer;font-weight:600;">📷 Typical <span id="dash-cabin-photo-label"></span> Stateroom</button>
           <button id="dash-cabin-change-btn" onclick="openCabinChangeRequest()" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:7px;padding:6px 14px;font-size:.82rem;cursor:pointer;font-weight:600;">🔄 Change Cabin</button>
@@ -675,6 +677,7 @@
       <button class="tab-btn" style="background:#0369a1;" onclick="switchTab('emailqueue',this);loadEmailQueueTab()">📬 Email Queue</button>
       <button class="tab-btn tb-reports" onclick="switchTab('reports',this)">📊 Reports</button>
       <button class="tab-btn tb-missinginfo" style="background:#b45309;" onclick="switchTab('missinginfo',this);loadMissingInfoTab()">⚠️ Missing Info</button>
+      <button class="tab-btn" style="background:#b91c1c;" onclick="switchTab('depoverdue',this);loadDepositOverdueTab()">🚨 Deposit Overdue</button>
     </div>
 
     <!-- TRAVELERS -->
@@ -998,6 +1001,18 @@
         </div>
         <p style="font-size:.84rem;color:var(--muted);margin:0 0 12px;">Profiles missing cabin type, guest count, or cabin traveler info. Use <strong>Fix →</strong> to open the traveler's admin profile, or <strong>✉️ Email</strong> to send a reminder.</p>
         <div id="missing-info-tab-content"><div class="empty"><div class="ei">⚠️</div><p>Click Refresh to load missing info.</p></div></div>
+      </div>
+    </div>
+
+    <!-- DEPOSIT OVERDUE -->
+    <div id="tab-depoverdue" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🚨 Deposit Overdue</span>
+          <button class="btn btn-primary btn-sm" onclick="loadDepositOverdueTab()" style="font-size:.79rem;">↻ Refresh</button>
+        </div>
+        <p style="font-size:.84rem;color:var(--muted);margin:0 0 12px;">Travelers who have not met the minimum deposit of <strong>$100.00 per person</strong> by the September 1, 2026 deadline. Use <strong>📧 Send Email</strong> to queue a notice to the traveler.</p>
+        <div id="deposit-overdue-tab-content"><div class="empty"><div class="ei">🚨</div><p>Click Refresh to load overdue deposits.</p></div></div>
       </div>
     </div>
 
@@ -2613,6 +2628,11 @@ function emailFullRefundReminder(name, email, totalPaid){
   sendEmail(email,name,subject,plain,html);
 }
 
+// ── DEPOSIT DEADLINE CONSTANTS ────────────────────────────────
+const DEPOSIT_DEADLINE   =new Date('2026-09-01T23:59:59-04:00'); // 9/1/26 11:59 PM ET
+const DEPOSIT_LOCKOUT_END=new Date('2026-09-02T23:59:59-04:00'); // 9/2/26 11:59 PM ET
+const MIN_DEPOSIT_PP     =100; // $100 minimum deposit per person
+
 // ── MINOR POLICY & TRAVELER VERIFICATION ─────────────────────
 const EMBARKATION_DATE=new Date('2027-06-20');
 
@@ -4184,6 +4204,21 @@ if(dsBadge){
         partnerBanner.style.display='none';
       }
     }
+    // ── Deposit overdue flash (shown after 9/1/26 if min deposit not met) ──
+    const depOverdueEl=document.getElementById('dash-deposit-overdue-notice');
+    if(depOverdueEl){
+      if(new Date()>=DEPOSIT_DEADLINE){
+        try{
+          const{data:myPays}=await sb.from('user_payments').select('amount_paid').eq('user_id',gUser.id).gt('amount_paid',0);
+          const totalPaid=(myPays||[]).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+          const ng=cabin.num_guests||1;
+          const minReq=ng*MIN_DEPOSIT_PP;
+          depOverdueEl.style.display=(totalPaid<minReq)?'block':'none';
+        }catch(e){depOverdueEl.style.display='none';}
+      }else{
+        depOverdueEl.style.display='none';
+      }
+    }
     // Cabin change request pending
     const ccrPending=document.getElementById('dash-cabin-change-pending');
     const ccrRequested=document.getElementById('dash-cabin-change-requested');
@@ -4777,6 +4812,12 @@ function clearAddTravelerForm(){
 
 async function addCabinTraveler(){
   clearFlash('cabin-alert');
+  // Profile lock: 11:59 PM 9/1/26 → 11:59 PM 9/2/26 — no traveler saves allowed
+  const _lockNow=new Date();
+  if(_lockNow>=DEPOSIT_DEADLINE&&_lockNow<=DEPOSIT_LOCKOUT_END){
+    flash('cabin-alert','🔒 Cabin traveler information cannot be updated between September 1–2, 2026 while deposits are being reviewed. Please contact the trip organizer for assistance.','error');
+    return;
+  }
   const sal=document.getElementById('ct-salutation').value;
   const suffix=document.getElementById('ct-suffix').value;
   const first=document.getElementById('ct-firstname').value.trim();
@@ -6498,8 +6539,7 @@ let gDepositDeadlineChecked=false;
 async function checkDepositDeadline(){
   if(gDepositDeadlineChecked)return;
   gDepositDeadlineChecked=true;
-  const DEADLINE=new Date('2026-09-01T23:59:59-04:00'); // Eastern time
-  if(new Date()<DEADLINE)return; // not yet past deadline
+  if(new Date()<DEPOSIT_DEADLINE)return; // not yet past deadline
   try{
     const[{data:cas},{data:pays},{data:profiles},{data:existingWl}]=await Promise.all([
       sb.rpc('admin_get_all_cabin_assignments'),
@@ -6540,6 +6580,99 @@ async function checkDepositDeadline(){
       loadWaitlist(); // refresh waitlist tab if open
     }
   }catch(e){console.warn('Deposit deadline check error (non-fatal):',e.message);}
+}
+
+// ── DEPOSIT OVERDUE TAB ───────────────────────────────────────
+async function loadDepositOverdueTab(){
+  const el=document.getElementById('deposit-overdue-tab-content');
+  if(!el)return;
+  el.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+
+  const now=new Date();
+  if(now<DEPOSIT_DEADLINE){
+    el.innerHTML='<div style="padding:20px;color:#64748b;text-align:center;font-size:.88rem;">The deposit deadline has not yet passed (September 1, 2026 at 11:59 PM ET). This list will populate after the deadline.</div>';
+    return;
+  }
+
+  try{
+    const[{data:cas,error:caErr},{data:pays},{data:profiles}]=await Promise.all([
+      sb.rpc('admin_get_all_cabin_assignments'),
+      sb.from('user_payments').select('user_id,amount_paid').gt('amount_paid',0),
+      sb.from('profiles').select('id,name,email,status').neq('is_admin',true)
+    ]);
+    if(caErr)throw caErr;
+
+    // Sum payments per user
+    const paidTotals={};
+    (pays||[]).forEach(p=>{paidTotals[p.user_id]=(paidTotals[p.user_id]||0)+parseFloat(p.amount_paid||0);});
+    const profMap={};(profiles||[]).forEach(p=>{profMap[p.id]=p;});
+
+    const overdue=[];
+    for(const ca of (cas||[])){
+      const prof=profMap[ca.user_id];
+      if(!prof||prof.status==='cancelled')continue;
+      if(ca.deposit_status==='confirmed')continue;
+      const ng=parseInt(ca.num_guests||1);
+      const totalPaid=paidTotals[ca.user_id]||0;
+      const minRequired=ng*MIN_DEPOSIT_PP;
+      if(totalPaid<minRequired){
+        overdue.push({userId:ca.user_id,name:prof.name||'—',email:prof.email||'',cabinType:ca.cabin_type||'—',numGuests:ng,totalPaid,minRequired,shortage:minRequired-totalPaid});
+      }
+    }
+
+    if(overdue.length===0){
+      el.innerHTML='<div style="padding:20px;text-align:center;color:#16a34a;font-weight:600;font-size:.9rem;">✅ All active travelers have met the minimum deposit requirement.</div>';
+      return;
+    }
+
+    let rows='';
+    overdue.forEach(r=>{
+      const safeName=(r.name||'').replace(/'/g,"\\'");
+      const safeEmail=(r.email||'').replace(/'/g,"\\'");
+      rows+=`<tr>
+        <td style="font-weight:600;">${r.name}</td>
+        <td style="font-size:.82rem;">${r.email||'—'}</td>
+        <td>${r.cabinType}</td>
+        <td style="text-align:center;">${r.numGuests}</td>
+        <td style="text-align:right;">$${r.totalPaid.toFixed(2)}</td>
+        <td style="text-align:right;">$${r.minRequired.toFixed(2)}</td>
+        <td style="text-align:right;color:#dc2626;font-weight:700;">$${r.shortage.toFixed(2)}</td>
+        <td><button class="btn btn-sm" style="background:#dc2626;color:#fff;font-size:.75rem;white-space:nowrap;" onclick="sendDepositOverdueEmail('${safeEmail}','${safeName}',${r.numGuests})">📧 Send Email</button></td>
+      </tr>`;
+    });
+
+    el.innerHTML=`<div style="font-size:.84rem;color:#b91c1c;font-weight:600;margin-bottom:10px;">⚠️ ${overdue.length} traveler${overdue.length!==1?'s':''} overdue — emails queued (held) and must be released from Email Queue tab.</div>
+    <div class="table-wrap"><table class="data-table">
+      <thead><tr><th>Name</th><th>Email</th><th>Cabin</th><th>Guests</th><th>Paid</th><th>Min Required</th><th>Shortage</th><th>Action</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+  }catch(e){
+    el.innerHTML=`<div style="padding:20px;color:#dc2626;">Error loading deposit overdue list: ${e.message}</div>`;
+  }
+}
+
+async function sendDepositOverdueEmail(toEmail,toName,numGuests){
+  if(!toEmail){alert('No email address on file for this traveler.');return;}
+  const ng=parseInt(numGuests)||1;
+  const minDep=(ng*MIN_DEPOSIT_PP).toFixed(2);
+  const subject=`${TRIP_NAME} — Action Required: Minimum Deposit Not Received`;
+  const plain=`Thank you for your reservation on the ${TRIP_NAME}.\n\nOur records indicate that the minimum deposit of $${minDep} (${ng} guest${ng!==1?'s':''} × $${MIN_DEPOSIT_PP}.00/person) has not been received by the September 1, 2026 deadline.\n\nYour cabin request is currently on hold.\n\nAvailability will be rechecked beginning September 2, 2026. At that time, your request will be reviewed and we will contact you regarding next steps.\n\nIf you believe this is an error or have already submitted payment, please reply to this email immediately.\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the ${TRIP_NAME} portal.`;
+  const bodyHtml=`<p>Thank you for your reservation on the <strong>${TRIP_NAME}</strong>.</p>
+<p>Our records indicate that the minimum deposit of <strong>$${minDep}</strong> (${ng} guest${ng!==1?'s':''} × $${MIN_DEPOSIT_PP}.00/person) has not been received by the <strong>September 1, 2026 deadline</strong>.</p>
+<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;">
+  <strong>⚠️ Your cabin request is currently on hold.</strong><br>
+  Availability will be rechecked beginning <strong>September 2, 2026</strong>. At that time, your request will be reviewed and we will contact you regarding next steps.
+</div>
+<p>If you believe this is an error or have already submitted payment, please reply to this email immediately so we can resolve this promptly.</p>
+<p>To submit your deposit, please complete the CC Authorization Form and return it to your trip organizer:<br>
+<a href="https://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf" style="color:#2563eb;">CC Authorization Form (PDF)</a></p>`;
+  const html=buildEmailHtml(toName,bodyHtml);
+  try{
+    await sendEmail(toEmail,toName,subject,plain,html,false,false); // bypassHold=false → held in queue
+    flash('admin-alert',`📧 Deposit overdue email queued for ${toName}.`,'success');
+  }catch(e){
+    flash('admin-alert',`❌ Failed to queue email for ${toName}: ${e.message}`,'error');
+  }
 }
 
 // ── ADMIN ────────────────────────────────────────────────────
@@ -9977,6 +10110,40 @@ A full deposit of $250.00 per person in your cabin is required to confirm an ASS
 Once your cabin is RESERVED, a personalized payment link will be provided to make the remainder of your payments.
 
 Please complete this at your earliest convenience. If you have any questions, reply to this email and we will be happy to assist.
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
+    }),
+    // No customSend: sendGeneratedEmail() reads the edited textarea body and sends it
+  },
+  {
+    id:'deposit_deadline_missed',label:'Deposit Deadline Missed',icon:'🚨',
+    toMode:'traveler',
+    buildPreview:()=>({
+      subject:`${TRIP_NAME} — Action Required: Minimum Deposit Not Received`,
+      toLabel:'Traveler email',
+      toPlaceholder:'traveler@email.com',
+      toName:'',
+      body:`Hello [Traveler Name],
+
+Thank you for your reservation on the ${TRIP_NAME}.
+
+Our records indicate that the minimum deposit of $100.00 per person in your cabin has not been received by the September 1, 2026 deadline.
+
+ACTION REQUIRED — CABIN REQUEST ON HOLD
+
+Your cabin request is currently on hold pending receipt of your minimum deposit.
+
+Availability will be rechecked beginning September 2, 2026. At that time, your request will be reviewed and we will contact you regarding next steps.
+
+If you believe this is an error or have already submitted payment, please reply to this email immediately so we can resolve this promptly.
+
+To submit your deposit, please complete the CC Authorization Form and return it to your trip organizer.
+
+https://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf
+
+Or if you prefer, reply requesting a call from one of our team members to receive your credit card information by phone for payment.
 
 Thank you,
 Your Commonwealth Cruise Team
