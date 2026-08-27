@@ -2632,6 +2632,11 @@ function emailFullRefundReminder(name, email, totalPaid){
 const DEPOSIT_DEADLINE   =new Date('2026-09-01T23:59:59-04:00'); // 9/1/26 11:59 PM ET
 const DEPOSIT_LOCKOUT_END=new Date('2026-09-02T23:59:59-04:00'); // 9/2/26 11:59 PM ET
 const MIN_DEPOSIT_PP     =100; // $100 minimum deposit per person
+// Solo travelers pay double-occupancy rate, so their minimum deposit is 2×
+function calcMinDeposit(numGuests){
+  const ng=parseInt(numGuests)||1;
+  return (ng<=1?2:ng)*MIN_DEPOSIT_PP; // 1 guest → $200 (solo rate), 2+ → $100×guests
+}
 
 // ── MINOR POLICY & TRAVELER VERIFICATION ─────────────────────
 const EMBARKATION_DATE=new Date('2027-06-20');
@@ -4212,7 +4217,7 @@ if(dsBadge){
           const{data:myPays}=await sb.from('user_payments').select('amount_paid').eq('user_id',gUser.id).gt('amount_paid',0);
           const totalPaid=(myPays||[]).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
           const ng=cabin.num_guests||1;
-          const minReq=ng*MIN_DEPOSIT_PP;
+          const minReq=calcMinDeposit(ng);
           depOverdueEl.style.display=(totalPaid<minReq)?'block':'none';
         }catch(e){depOverdueEl.style.display='none';}
       }else{
@@ -6614,7 +6619,7 @@ async function loadDepositOverdueTab(){
       if(ca.deposit_status==='confirmed')continue;
       const ng=parseInt(ca.num_guests||1);
       const totalPaid=paidTotals[ca.user_id]||0;
-      const minRequired=ng*MIN_DEPOSIT_PP;
+      const minRequired=calcMinDeposit(ng); // solo (1 guest) = $200; multi-guest = $100×guests
       if(totalPaid<minRequired){
         overdue.push({userId:ca.user_id,name:prof.name||'—',email:prof.email||'',cabinType:ca.cabin_type||'—',numGuests:ng,totalPaid,minRequired,shortage:minRequired-totalPaid});
       }
@@ -6654,11 +6659,15 @@ async function loadDepositOverdueTab(){
 async function sendDepositOverdueEmail(toEmail,toName,numGuests){
   if(!toEmail){alert('No email address on file for this traveler.');return;}
   const ng=parseInt(numGuests)||1;
-  const minDep=(ng*MIN_DEPOSIT_PP).toFixed(2);
+  const isSolo=ng<=1;
+  const minDep=calcMinDeposit(ng).toFixed(2);
+  const depDesc=isSolo
+    ?`$${minDep} (solo traveler — double-occupancy rate applies)`
+    :`$${minDep} (${ng} guests × $${MIN_DEPOSIT_PP}.00/person)`;
   const subject=`${TRIP_NAME} — Action Required: Minimum Deposit Not Received`;
-  const plain=`Thank you for your reservation on the ${TRIP_NAME}.\n\nOur records indicate that the minimum deposit of $${minDep} (${ng} guest${ng!==1?'s':''} × $${MIN_DEPOSIT_PP}.00/person) has not been received by the September 1, 2026 deadline.\n\nYour cabin request is currently on hold.\n\nAvailability will be rechecked beginning September 2, 2026. At that time, your request will be reviewed and we will contact you regarding next steps.\n\nIf you believe this is an error or have already submitted payment, please reply to this email immediately.\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the ${TRIP_NAME} portal.`;
+  const plain=`Thank you for your reservation on the ${TRIP_NAME}.\n\nOur records indicate that the minimum deposit of ${depDesc} has not been received by the September 1, 2026 deadline.\n\nYour cabin request is currently on hold.\n\nAvailability will be rechecked beginning September 2, 2026. At that time, your request will be reviewed and we will contact you regarding next steps.\n\nIf you believe this is an error or have already submitted payment, please reply to this email immediately.\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the ${TRIP_NAME} portal.`;
   const bodyHtml=`<p>Thank you for your reservation on the <strong>${TRIP_NAME}</strong>.</p>
-<p>Our records indicate that the minimum deposit of <strong>$${minDep}</strong> (${ng} guest${ng!==1?'s':''} × $${MIN_DEPOSIT_PP}.00/person) has not been received by the <strong>September 1, 2026 deadline</strong>.</p>
+<p>Our records indicate that the minimum deposit of <strong>${depDesc}</strong> has not been received by the <strong>September 1, 2026 deadline</strong>.</p>
 <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;">
   <strong>⚠️ Your cabin request is currently on hold.</strong><br>
   Availability will be rechecked beginning <strong>September 2, 2026</strong>. At that time, your request will be reviewed and we will contact you regarding next steps.
@@ -10537,8 +10546,8 @@ This email was sent by the ${TRIP_NAME} portal.`
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;">
           <div>
-            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Total Cabin Cost</label>
-            <input id="eg-cc-total" readonly style="width:100%;padding:8px 11px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:.88rem;box-sizing:border-box;background:#f8fafc;">
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Total Cabin Cost <span style="font-weight:400;color:#94a3b8;font-size:.72rem;text-transform:none;">(editable — override for solo/special)</span></label>
+            <input id="eg-cc-total" type="text" placeholder="Auto-calculated or enter override" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;background:#fff;">
           </div>
           <div>
             <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Single Traveler?</label>
@@ -11328,7 +11337,8 @@ function cabinCostRecalc(){
   const isSolo=(document.getElementById('eg-cc-is-solo')?.value||'no')==='yes';
   const total=isSolo?(pp*2):(n*pp); // single supplement = 2x the per-person rate
   const el=document.getElementById('eg-cc-total');
-  if(el)el.value=total>0?`$${total.toFixed(2)}`:'';
+  // Auto-populate if empty or was previously auto-set; admin can override by typing directly
+  if(el&&total>0)el.value=`$${total.toFixed(2)}`;
   // Refresh body preview
   const bodyEl=document.getElementById('eg-body');
   if(bodyEl){
@@ -11384,11 +11394,14 @@ async function sendCabinCostConfirmationEmail(){
   const perPerson=parseFloat(document.getElementById('eg-cc-per-person')?.value||0)||0;
   const isSolo=(document.getElementById('eg-cc-is-solo')?.value||'no')==='yes';
   const statusEl=document.getElementById('eg-send-status');
+  // Read total from field — admin may have manually overridden it for solo/special pricing
+  const totalRaw=(document.getElementById('eg-cc-total')?.value||'').replace(/[^0-9.]/g,'');
+  const total=parseFloat(totalRaw)||0;
   if(!toEmail){if(statusEl){statusEl.textContent='⚠️ Traveler email is required.';statusEl.style.color='#d97706';}return;}
   if(!cabinType){if(statusEl){statusEl.textContent='⚠️ Cabin type is required.';statusEl.style.color='#d97706';}return;}
   if(perPerson<=0){if(statusEl){statusEl.textContent='⚠️ Price per person is required.';statusEl.style.color='#d97706';}return;}
+  if(total<=0){if(statusEl){statusEl.textContent='⚠️ Total cabin cost is required — auto-fill by entering guests + price, or type an override.';statusEl.style.color='#d97706';}return;}
   if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
-  const total=isSolo?(perPerson*2):(numGuests*perPerson);
   const soloHtml=isSolo
     ?`<div style="background:#fef3c7;border:1.5px solid #f6c440;border-radius:9px;padding:13px 16px;margin:16px 0;">
         <strong style="color:#78460a;">⚠️ Solo Traveler Rate</strong>
