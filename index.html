@@ -7266,7 +7266,7 @@ async function loadTravelers(){
     return'<tr>'+
       '<td><a href="#" onclick="openManageTravelers(\''+p.id+'\',\''+safeN+'\','+( ca?.num_guests||1)+');return false;" style="font-weight:800;color:var(--primary);text-decoration:none;">'+(p.name||'<em style="color:var(--muted)">No name</em>')+'</a> '+docB+suiteB+noCabinB+needsCCLB+'<br><small style="color:var(--muted)">'+(p.email||'')+'</small></td>'+
       '<td><span class="badge badge-purple">'+cabinStr+'</span>'+
-        (()=>{const _uid=p.id;const _ng=ca?.num_guests||1;const _effG=_ng===1?2:_ng;const _pp=ca?.price_per_person?parseFloat(ca.price_per_person):null;const _cc=ca?.cabin_cost?parseFloat(ca.cabin_cost):null;const _tot=_pp?fmt(_pp*_effG):'';const _totColor=(_pp&&_cc&&Math.abs(_pp*_effG-_cc)<0.01)?'#166534':'#1a4a7c';return`<br><div style="margin-top:3px;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:.74rem;font-weight:700;color:#1a4a7c;"><input type="checkbox" id="tv-chk-${_uid}" ${_pp?'checked':''} onchange="toggleInlineTierInput('${_uid}')"><span>${_pp?'✅ Price Verified':'Price Verified'}</span></label><div id="tv-form-${_uid}" style="display:${_pp?'flex':'none'};align-items:center;gap:3px;flex-wrap:wrap;margin-top:3px;"><input type="number" id="tv-pp-${_uid}" value="${_pp||''}" placeholder="$/pp" step="0.01" min="0" style="width:72px;padding:2px 5px;font-size:.74rem;border:1.5px solid #cbd5e1;border-radius:4px;color:#1a4a7c;font-weight:700;" oninput="updateInlineTierTotal('${_uid}',${_effG},${_cc||0})"><span id="tv-tot-${_uid}" style="font-size:.71rem;color:${_totColor};font-weight:700;">${_tot?'= '+_tot:''}</span><button onclick="saveInlineTier('${_uid}',${_effG})" style="background:#1a4a7c;color:#fff;border:none;border-radius:4px;padding:2px 7px;font-size:.72rem;font-weight:700;cursor:pointer;">Save</button></div></div>`})()+(()=>{const _ti=ca?.travel_insurance||'';const _opts='<option value="">— Select —</option><option value="yes"'+(_ti==='yes'?' selected':'')+'>Travel Insurance-Yes</option><option value="no"'+(_ti==='no'?' selected':'')+'>Travel Insurance-No</option>';const _badge=_ti?('<span style="font-size:.71rem;font-weight:700;margin-left:4px;color:'+(_ti==='yes'?'#0f766e':'#dc2626')+';">'+(_ti==='yes'?'✅ Travel Insurance-Yes':'❌ Travel Insurance-No')+'</span>'):'';return'<br><div style="margin-top:4px;"><label style="font-size:.74rem;font-weight:700;color:#0f766e;display:block;margin-bottom:2px;">🛡️ Travel Insurance</label><select onchange="saveAdminTravelInsurance(\''+p.id+'\',this.value)" style="font-size:.74rem;padding:2px 5px;border:1.5px solid #99f6e4;border-radius:4px;color:#0f766e;font-weight:700;background:#f0fdfa;width:100%;max-width:160px;">'+_opts+'</select>'+_badge+'</div>';})()+''+
+        (()=>{const _uid=p.id;const _ng=ca?.num_guests||1;const _effG=_ng===1?2:_ng;const _pp=ca?.price_per_person?parseFloat(ca.price_per_person):null;const _pv=!!(ca?.price_verified||_pp);const _cc=ca?.cabin_cost?parseFloat(ca.cabin_cost):null;const _tot=_pp?fmt(_pp*_effG):'';const _totColor=(_pp&&_cc&&Math.abs(_pp*_effG-_cc)<0.01)?'#166534':'#1a4a7c';return`<br><div style="margin-top:3px;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:.74rem;font-weight:700;color:#1a4a7c;"><input type="checkbox" id="tv-chk-${_uid}" ${_pv?'checked':''} onchange="toggleInlineTierInputAndSave('${_uid}')"><span>${_pp?'✅ Price Verified':'Price Verified'}</span></label><div id="tv-form-${_uid}" style="display:${_pp?'flex':'none'};align-items:center;gap:3px;flex-wrap:wrap;margin-top:3px;"><input type="number" id="tv-pp-${_uid}" value="${_pp||''}" placeholder="$/pp" step="0.01" min="0" style="width:72px;padding:2px 5px;font-size:.74rem;border:1.5px solid #cbd5e1;border-radius:4px;color:#1a4a7c;font-weight:700;" oninput="updateInlineTierTotal('${_uid}',${_effG},${_cc||0})"><span id="tv-tot-${_uid}" style="font-size:.71rem;color:${_totColor};font-weight:700;">${_tot?'= '+_tot:''}</span><button onclick="saveInlineTier('${_uid}',${_effG})" style="background:#1a4a7c;color:#fff;border:none;border-radius:4px;padding:2px 7px;font-size:.72rem;font-weight:700;cursor:pointer;">Save</button></div></div>`})()+(()=>{const _ti=ca?.travel_insurance||'';const _opts='<option value="">— Select —</option><option value="yes"'+(_ti==='yes'?' selected':'')+'>Travel Insurance-Yes</option><option value="no"'+(_ti==='no'?' selected':'')+'>Travel Insurance-No</option>';const _badge=_ti?('<span style="font-size:.71rem;font-weight:700;margin-left:4px;color:'+(_ti==='yes'?'#0f766e':'#dc2626')+';">'+(_ti==='yes'?'✅ Travel Insurance-Yes':'❌ Travel Insurance-No')+'</span>'):'';return'<br><div style="margin-top:4px;"><label style="font-size:.74rem;font-weight:700;color:#0f766e;display:block;margin-bottom:2px;">🛡️ Travel Insurance</label><select onchange="saveAdminTravelInsurance(\''+p.id+'\',this.value)" style="font-size:.74rem;padding:2px 5px;border:1.5px solid #99f6e4;border-radius:4px;color:#0f766e;font-weight:700;background:#f0fdfa;width:100%;max-width:160px;">'+_opts+'</select>'+_badge+'</div>';})()+''+
         (ca?.backup_cabin_type&&!ca?.suite_pending&&!ca?.cabin_number?'<br><span style="font-size:.74rem;color:var(--muted);">🔄 Backup: '+ca.backup_cabin_type+'</span>':'')+
         (ca?.high_occupancy_pending?'<br><span class="badge badge-warn" style="font-size:.72rem;">⚠️ High Occ. Pending</span>':'')+
         (ca?.cabin_change_pending&&ca?.requested_cabin_type?'<br><span class="badge badge-warn" style="font-size:.72rem;">🔄 Change Req: '+ca.requested_cabin_type+'</span>':'')+
@@ -7486,16 +7486,10 @@ async function adminConfirmCancelTravel(){
     if(error){alert('Error updating profile: '+error.message);return;}
   }
   if(returnInventory){
-    const{data:ca}=await sb.from('cabin_assignments').select('cabin_type,price_per_person').eq('user_id',gCancelTravelUserId).maybeSingle();
-    const ct=ca?.cabin_type||gCancelTravelCabinType||null;
-    const pp=parseFloat(ca?.price_per_person||gCancelTravelPricePP||0)||null;
-    if(ct&&ct!=='Suite'){
-      const{error:incErr}=await sb.rpc('increment_cabin',{cabin:ct});
-      if(incErr)console.warn('[cancelTravel] increment_cabin error:',incErr.message);
-      await sb.rpc('increment_cabin_tier',{p_cabin_type:ct,p_price:pp});
-    } else if(!ct){
-      console.warn('[cancelTravel] No cabin type found for inventory return — skipped');
-    }
+    // Delete cabin_assignment row — inventory is derived from actual row count,
+    // so deleting the row immediately returns the cabin to available inventory
+    const{error:relErr}=await sb.rpc('admin_cancel_and_release_cabin',{p_user_id:gCancelTravelUserId});
+    if(relErr)console.warn('[cancelTravel] admin_cancel_and_release_cabin error:',relErr.message);
   }
   document.getElementById('admin-cancel-travel-modal').classList.remove('open');
   const msgs=[];
@@ -8835,6 +8829,15 @@ function toggleInlineTierInput(userId){
     if(lbl)lbl.textContent='Price Verified';
   }
 }
+async function toggleInlineTierInputAndSave(userId){
+  toggleInlineTierInput(userId);
+  const chk=document.getElementById('tv-chk-'+userId);
+  const verified=chk?.checked||false;
+  try{
+    const{error}=await sb.rpc('admin_set_price_verified',{p_user_id:userId,p_verified:verified});
+    if(error)console.warn('[priceVerified] save error:',error.message);
+  }catch(e){console.warn('[priceVerified] exception:',e);}
+}
 function updateInlineTierTotal(userId,effGuests,cabinCost){
   const inp=document.getElementById('tv-pp-'+userId);
   const totEl=document.getElementById('tv-tot-'+userId);
@@ -9849,6 +9852,10 @@ This email was sent by the ${TRIP_NAME} portal.`
       toLabel:'Traveler email',
       toPlaceholder:'traveler@email.com',
       toName:'',
+      extraFields:`<div style="margin-bottom:10px;">
+          <button type="button" onclick="cancellationNoticeAutoFill()" style="background:#fef2f2;color:#991b1b;border:1.5px solid #fca5a5;border-radius:7px;padding:6px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">🔍 Auto-fill from Profile</button>
+          <span style="font-size:.75rem;color:#94a3b8;margin-left:8px;">Enter traveler email first, then click to auto-fill.</span>
+        </div>`,
       body:`Dear [Traveler Name],
 
 This email confirms that your reservation for the ${TRIP_NAME} has been cancelled.
@@ -10841,6 +10848,55 @@ function initialDepositRecalc(){
   if(t)t.textContent='$'+total.toFixed(2);
 }
 
+async function cancellationNoticeAutoFill(){
+  const email=(document.getElementById('eg-to-email')||{}).value?.trim();
+  if(!email){alert('Enter the traveler email first.');return;}
+  try{
+    let name='',cabinType='',cabinNumber='',totalPaid=0,userId=null;
+    // Try updated RPC first (includes profile_email)
+    const{data:rpcData}=await sb.rpc('admin_get_all_cabin_assignments');
+    const t=(rpcData||[]).find(r=>(r.profile_email||'').toLowerCase()===email.toLowerCase());
+    if(t){
+      userId=t.user_id;
+      cabinType=t.cabin_type||'';
+      cabinNumber=t.cabin_number||'Not Assigned';
+      name=t.profile_name||'';
+    } else {
+      // Fallback: direct profile query
+      const{data:prof}=await sb.from('profiles').select('id,name').ilike('email',email).limit(1).single();
+      if(prof){
+        userId=prof.id;name=prof.name||'';
+        const{data:ca}=await sb.from('cabin_assignments').select('cabin_type,cabin_number').eq('user_id',prof.id).limit(1).single();
+        if(ca){cabinType=ca.cabin_type||'';cabinNumber=ca.cabin_number||'Not Assigned';}
+      }
+    }
+    if(!name&&!cabinType){alert('No profile found for: '+email+'\nFill in fields manually.');return;}
+    // Get total paid
+    if(userId){
+      const{data:payments}=await sb.from('user_payments').select('amount_paid,is_refunded').eq('user_id',userId);
+      totalPaid=(payments||[]).filter(p=>!p.is_refunded).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+    }
+    // Fill to-name
+    const nameEl=document.getElementById('eg-to-name');if(nameEl&&name)nameEl.value=name;
+    // Build cancellation date
+    const today=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+    const fmtPaid=totalPaid>0?'$'+totalPaid.toFixed(2):'$0.00';
+    // Replace placeholders in body textarea
+    const bodyEl=document.getElementById('eg-body');
+    if(bodyEl){
+      let b=bodyEl.value;
+      b=b.replace(/\[Traveler Name\]/g,name);
+      b=b.replace(/\[Cabin Type\]/g,cabinType||'—');
+      b=b.replace(/\[Cabin Number\]/g,cabinNumber||'Not Assigned');
+      b=b.replace(/\$\[Total Paid\]/g,fmtPaid);
+      b=b.replace(/\[Total Paid\]/g,totalPaid.toFixed(2));
+      b=b.replace(/\[Date\]/g,today);
+      bodyEl.value=b;
+    }
+    flash('admin-alert','✅ Cancellation notice auto-filled from profile.','success');
+  }catch(e){alert('Auto-fill error: '+e.message);}
+}
+
 function paymentConfirmationRecalc(){
   const totalPaid=parseFloat(document.getElementById('eg-pc-total-paid')?.value||0)||0;
   const cabinCost=parseFloat(document.getElementById('eg-pc-cabin-cost')?.value||0)||0;
@@ -10887,7 +10943,8 @@ async function paymentConfirmationAutoFill(){
     // Fill cabin fields
     const ctEl=document.getElementById('eg-pc-cabin-type');if(ctEl&&cabinType)ctEl.value=cabinType;
     const ngEl=document.getElementById('eg-pc-num-guests');if(ngEl&&numGuests)ngEl.value=numGuests;
-    const ppEl=document.getElementById('eg-pc-per-person');if(ppEl&&perPerson)ppEl.value=parseFloat(perPerson).toFixed(2);
+    // "Deposit Per Person" field = minimum deposit ($100/person), not the cabin price per person
+    const ppEl=document.getElementById('eg-pc-per-person');if(ppEl)ppEl.value=(MIN_DEPOSIT_PP||100).toFixed(2);
     const ccEl=document.getElementById('eg-pc-cabin-cost');if(ccEl&&cabinCost)ccEl.value=parseFloat(cabinCost).toFixed(2);
     // Fetch total paid from user_payments
     if(userId){
@@ -14483,6 +14540,9 @@ function updateInsuranceCaveat(){
   }
 }
 async function saveCCAuthOnlineForm(lastName, btn){
+  // Guard against double-click / double submission
+  if(btn&&btn.disabled)return;
+  if(btn){btn.disabled=true;}
   const statusEl=document.getElementById('ccauth-online-status');
   const cardName=(document.getElementById('cca-name')?.value||'').trim();
   const cardType=document.querySelector('input[name="cca-cardtype"]:checked')?.value||'';
@@ -14514,8 +14574,8 @@ async function saveCCAuthOnlineForm(lastName, btn){
   if(!insurance)missing.push('Travel insurance selection');
   if(!printed)missing.push('Printed name');
   if(sigBlank)missing.push('Signature');
-  if(missing.length){if(statusEl){statusEl.textContent='⚠️ Missing: '+missing.join(', ');statusEl.style.color='#dc2626';}return;}
-  if(btn){btn.disabled=true;btn.textContent='Generating PDF…';}
+  if(missing.length){if(statusEl){statusEl.textContent='⚠️ Missing: '+missing.join(', ');statusEl.style.color='#dc2626';}if(btn){btn.disabled=false;}return;}
+  if(btn){btn.textContent='Generating PDF…';}
   if(statusEl){statusEl.textContent='Generating PDF…';statusEl.style.color='#64748b';}
   const insAcceptText=`I have ACCEPTED and authorized the travel purchases above, including travel insurance, and I am aware the insurance premium is not refundable.`;
   const insDeclineText=`I am DECLINING TRAVEL INSURANCE. I have read and understand all cancellation charges and change fees related to the above travel arrangements, and that I may not be entitled to a full refund should my travel plans change. In case of cancellation of nonrefundable airline tickets or other arrangements, I agree to pay all applicable penalties according to the travel supplier's rules.`;
