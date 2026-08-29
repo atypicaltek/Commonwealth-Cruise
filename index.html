@@ -9455,7 +9455,24 @@ function toggleMinorDone(uid){
   const lsKey='minor_done_'+uid;
   const chk=document.getElementById('minor-chk-'+uid);
   const done=chk&&chk.checked;
-  if(done){localStorage.setItem(lsKey,'1');}else{localStorage.removeItem(lsKey);}
+  // Validate all required fields before allowing completion
+  if(done){
+    const resVal=(document.getElementById('minor-res-'+uid)?.value||'').trim();
+    const cabVal=(document.getElementById('minor-cab-'+uid)?.value||'').trim();
+    const xrefVal=(document.getElementById('minor-xref-'+uid)?.value||'').trim();
+    if(!resVal||!cabVal||!xrefVal){
+      if(chk)chk.checked=false;
+      const missing=[];
+      if(!resVal)missing.push('CCL Reservation #');
+      if(!cabVal)missing.push('Cross-Ref Cabin #');
+      if(!xrefVal)missing.push('Cross-Ref Traveler Name');
+      alert('Cannot mark as completed. Please fill in the following required field(s) first:\n\n• '+missing.join('\n• '));
+      return;
+    }
+    localStorage.setItem(lsKey,'1');
+  } else {
+    localStorage.removeItem(lsKey);
+  }
   const card=document.getElementById('minor-card-'+uid);
   if(!card)return;
   if(done){
@@ -9483,13 +9500,16 @@ function toggleMinorDone(uid){
 async function saveMinorCrossRef(uid){
   const resIn=document.getElementById('minor-res-'+uid);
   const cabIn=document.getElementById('minor-cab-'+uid);
+  const xrefIn=document.getElementById('minor-xref-'+uid);
   const statusEl=document.getElementById('minor-save-status-'+uid);
   const resVal=(resIn?resIn.value.trim():'');
   const cabVal=(cabIn?cabIn.value.trim():'');
+  const xrefVal=(xrefIn?xrefIn.value.trim():'');
   if(statusEl)statusEl.textContent='Saving…';
   const{error}=await sb.from('cabin_assignments').update({
     guest_reservation_number:resVal||null,
-    cabin_number:cabVal||null
+    cabin_number:cabVal||null,
+    cross_ref_traveler_name:xrefVal||null
   }).eq('user_id',uid);
   if(error){if(statusEl){statusEl.textContent='Error: '+error.message;statusEl.style.color='#dc2626';}}
   else{if(statusEl){statusEl.textContent='✅ Saved';statusEl.style.color='#16a34a';setTimeout(()=>{if(statusEl)statusEl.textContent='';},3000);}}
@@ -9502,11 +9522,13 @@ async function loadMinorRequests(){
   pendEl.innerHTML='<div class="loading"><div class="spinner"></div></div>';
   if(compEl)compEl.innerHTML='';
 
-  const[{data:profiles},{data:allCabins},{data:allTravelers}]=await Promise.all([
+  const[{data:profiles},{data:allCabins},{data:allTravelers},{data:crossRefRows}]=await Promise.all([
     sb.from('profiles').select('id,name,email,phone,status').eq('is_admin',false).order('name'),
     sb.rpc('admin_get_all_cabin_assignments'),
-    sb.from('cabin_travelers').select('id,account_owner_id,first_name,last_name,date_of_birth').order('created_at',{ascending:true})
+    sb.from('cabin_travelers').select('id,account_owner_id,first_name,last_name,date_of_birth').order('created_at',{ascending:true}),
+    sb.from('cabin_assignments').select('user_id,cross_ref_traveler_name')
   ]);
+  const crossRefMap={};(crossRefRows||[]).forEach(r=>{crossRefMap[r.user_id]=r.cross_ref_traveler_name||'';});
 
   const cabinMap={};(allCabins||[]).forEach(c=>{cabinMap[c.user_id]=c;});
   const travelersByOwner={};(allTravelers||[]).forEach(t=>{
@@ -9540,6 +9562,7 @@ async function loadMinorRequests(){
     const cabinType=ca?.cabin_type||'—';
     const cabinNum=ca?.cabin_number||'';
     const resNum=ca?.guest_reservation_number||'';
+    const xrefName=crossRefMap[uid]||'';
     const issueRows=issues.map(i=>`
       <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #fde8d0;">
         <span style="background:${bracketColor[i.bracket]};color:#fff;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap;">${bracketLabel[i.bracket]}</span>
@@ -9566,7 +9589,7 @@ async function loadMinorRequests(){
         </div>
         <div style="background:#fef9f0;border:1px solid #fed7aa;border-radius:8px;padding:12px 14px;margin-bottom:12px;">
           <div style="font-size:.78rem;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">🛏️ Cabin: ${cabinType}</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
             <div>
               <label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">CCL Reservation #</label>
               <input type="text" id="minor-res-${uid}" value="${resNum}" placeholder="e.g. 1234567" style="width:100%;padding:7px 10px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
@@ -9574,6 +9597,10 @@ async function loadMinorRequests(){
             <div>
               <label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">Cross-Ref Cabin #</label>
               <input type="text" id="minor-cab-${uid}" value="${cabinNum}" placeholder="e.g. 8245" style="width:100%;padding:7px 10px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">Cross-Ref Traveler Name <span style="color:#dc2626;">*</span></label>
+              <input type="text" id="minor-xref-${uid}" value="${xrefName}" placeholder="e.g. Jane Smith" style="width:100%;padding:7px 10px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
             </div>
           </div>
           <div style="margin-top:10px;display:flex;align-items:center;gap:12px;">
