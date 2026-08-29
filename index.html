@@ -6436,28 +6436,59 @@ let gLinkCabinSource='waitlist'; // 'waitlist' | 'travelers'
 
 async function loadLinkedCabinRequests(){
   // Returns cabin_assignments where is_cabin_shared=true and linked_partner_user_id is null
-  // joined with profiles for name/email/phone
   const{data:rows,error}=await sb.from('cabin_assignments')
-    .select('user_id,cabin_type,num_guests,cabin_partner_name,linked_partner_user_id,profiles(name,email,phone)')
+    .select('user_id,cabin_type,num_guests,cabin_partner_name,cabin_partner_email,partner_verified,partner_verified_at,linked_partner_user_id,profiles(name,email,phone)')
     .eq('is_cabin_shared',true)
     .is('linked_partner_user_id',null);
   if(error||!rows||!rows.length)return '';
   const tRows=rows.map(r=>{
     const p=r.profiles||{};
-    const safeId=(r.user_id||'').replace(/-/g,'_');
-    const partnerHint=r.cabin_partner_name?`<span style="font-size:.79rem;color:#64748b;">Partner hint: <em>${r.cabin_partner_name}</em></span>`:'';
+    const uid=r.user_id||'';
+    const safeId=uid.replace(/-/g,'_');
+    const pName=(r.cabin_partner_name||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    const pEmail=(r.cabin_partner_email||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    const tName=(p.name||'').replace(/'/g,"\\'");
+    const tEmail=(p.email||'').replace(/'/g,"\\'");
+    const verified=!!r.partner_verified;
+    const verifiedAt=r.partner_verified_at?new Date(r.partner_verified_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
+    const verifiedBadge=verified
+      ?`<span class="badge badge-success" style="font-size:.72rem;">✓ Verified${verifiedAt?' '+verifiedAt:''}</span>`
+      :`<span class="badge badge-gray" style="font-size:.72rem;">Unverified</span>`;
     return`<tr>
       <td><strong>${p.name||'—'}</strong><br><span style="font-size:.78rem;color:var(--muted);">${p.email||''}</span></td>
       <td style="font-size:.83rem;">${r.cabin_type||'—'}</td>
       <td style="text-align:center;font-weight:700;">${r.num_guests||'—'}</td>
-      <td style="font-size:.8rem;">${partnerHint||'—'}</td>
-      <td><button class="btn btn-primary btn-sm" style="font-size:.76rem;" onclick="adminOpenLinkCabinModal('${r.user_id}','${(p.name||'').replace(/'/g,"\\'")}','${(p.email||'').replace(/'/g,"\\'")}','${r.cabin_type||''}',${r.num_guests||1},'${(r.cabin_partner_name||'').replace(/'/g,"\\'")}')">🔗 Link Partner</button></td>
+      <td style="min-width:220px;">
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <input id="lpn-${safeId}" type="text" value="${pName}" placeholder="Partner name"
+            style="padding:5px 8px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:.82rem;width:100%;box-sizing:border-box;">
+          <input id="lpe-${safeId}" type="email" value="${pEmail}" placeholder="partner@email.com"
+            style="padding:5px 8px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:.82rem;width:100%;box-sizing:border-box;">
+          <button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;align-self:flex-start;"
+            onclick="adminSavePartnerDetails('${uid}')">💾 Save</button>
+        </div>
+      </td>
+      <td style="text-align:center;">
+        ${verifiedBadge}<br>
+        <label style="display:inline-flex;align-items:center;gap:4px;font-size:.78rem;margin-top:6px;cursor:pointer;">
+          <input type="checkbox" ${verified?'checked':''} onchange="adminTogglePartnerVerified('${uid}',${verified})">
+          Admin verify
+        </label>
+      </td>
+      <td>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;background:#eff6ff;border-color:#93c5fd;color:#1e40af;"
+            onclick="adminSendPartnerVerificationEmail('${uid}','${tName}','${tEmail}',document.getElementById('lpn-${safeId}')?.value||'${pName}',document.getElementById('lpe-${safeId}')?.value||'${pEmail}')">📧 Send Verification</button>
+          <button class="btn btn-primary btn-sm" style="font-size:.74rem;padding:3px 8px;"
+            onclick="adminOpenLinkCabinModal('${uid}','${tName}','${tEmail}','${r.cabin_type||''}',${r.num_guests||1},'${pName}')">🔗 Link Partner</button>
+        </div>
+      </td>
     </tr>`;
   }).join('');
   return`<div class="section-hdr" style="background:#dbeafe;color:#1e3a8a;border:1.5px solid #93c5fd;margin-bottom:0;">🔗 Linked Cabin Requests — ${rows.length} pending</div>
-    <p style="font-size:.82rem;color:var(--muted);padding:6px 0 2px;">These travelers registered with a cabin partner who has their own account. Link their accounts below, then process the cabin assignment manually.</p>
+    <p style="font-size:.82rem;color:var(--muted);padding:6px 0 2px;">These travelers registered with a cabin partner. Enter the partner's name/email, send a verification email, then link their accounts once confirmed.</p>
     <div class="table-wrap"><table><thead><tr>
-      <th>Traveler</th><th>Cabin Type</th><th style="text-align:center;">Guests</th><th>Partner Hint</th><th>Action</th>
+      <th>Traveler</th><th>Cabin Type</th><th style="text-align:center;">Guests</th><th>Partner Name / Email</th><th style="text-align:center;">Verified?</th><th>Actions</th>
     </tr></thead><tbody>${tRows}</tbody></table></div>
     <div style="height:20px;"></div>`;
 }
@@ -6507,6 +6538,46 @@ async function adminConfirmCabinLink(){
   if(gLinkCabinSource==='travelers'){loadTravelers();}
   else{loadWaitlist();}
   flash('admin-alert','✅ Cabin accounts linked successfully. Process cabin assignment manually.','success');
+}
+
+async function adminSavePartnerDetails(userId){
+  const safeId=userId.replace(/-/g,'_');
+  const name=(document.getElementById('lpn-'+safeId)?.value||'').trim();
+  const email=(document.getElementById('lpe-'+safeId)?.value||'').trim();
+  const{error}=await sb.rpc('admin_set_partner_details',{p_user_id:userId,p_partner_name:name||null,p_partner_email:email||null});
+  if(error){alert('Error saving partner details: '+error.message);return;}
+  flash('admin-alert','✅ Partner details saved.','success');
+  loadWaitlist();
+}
+
+async function adminTogglePartnerVerified(userId,currentVerified){
+  const{error}=await sb.rpc('admin_set_partner_verified',{p_user_id:userId,p_verified:!currentVerified});
+  if(error){alert('Error updating verification: '+error.message);loadWaitlist();return;}
+  loadWaitlist();
+}
+
+async function adminSendPartnerVerificationEmail(userId,travelerName,travelerEmail,partnerName,partnerEmail){
+  if(!partnerEmail||!partnerEmail.includes('@')){
+    alert('Please enter and save the partner\'s email address first.');return;
+  }
+  if(!travelerName){alert('Traveler name is missing.');return;}
+  const portalUrl='https://atypicaltek.github.io/Commonwealth-Cruise/';
+  const yesUrl=`${portalUrl}?partner_confirm=${userId}&answer=yes`;
+  const noUrl=`${portalUrl}?partner_confirm=${userId}&answer=no`;
+  const subject=`${TRIP_NAME} — Are You Traveling With ${travelerName}?`;
+  const plain=`Hello${partnerName?' '+partnerName:''},\n\n${travelerName} has indicated they will be sharing a cabin with you on the ${TRIP_NAME}.\n\nPlease confirm: Are you traveling with ${travelerName}?\n\nYES — I am traveling with ${travelerName}:\n${yesUrl}\n\nNO — I am not traveling with ${travelerName}:\n${noUrl}\n\nIf you have questions, please reply to this email.\n\nThank you,\nYour Commonwealth Cruise Team`;
+  const html=buildEmailHtml(partnerName||'Traveler',
+    `<p>${travelerName} has indicated they will be sharing a cabin with you on the <strong>${TRIP_NAME}</strong>.</p>`+
+    `<p style="margin:18px 0 10px;font-weight:700;font-size:1rem;">Are you traveling with ${travelerName}?</p>`+
+    `<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px;"><tr>`+
+    `<td style="padding-right:14px;"><a href="${yesUrl}" style="background:#16a34a;color:#fff;padding:13px 32px;border-radius:8px;text-decoration:none;font-weight:800;font-size:.95rem;display:inline-block;">✅&nbsp; Yes, I Am!</a></td>`+
+    `<td><a href="${noUrl}" style="background:#dc2626;color:#fff;padding:13px 32px;border-radius:8px;text-decoration:none;font-weight:800;font-size:.95rem;display:inline-block;">❌&nbsp; No, I\'m Not</a></td>`+
+    `</tr></table>`+
+    `<p style="font-size:.84rem;color:#64748b;">If you have questions about this request, please reply to this email.</p>`
+  );
+  if(!confirm(`Send partner verification email to ${partnerName||'partner'} at ${partnerEmail}?`))return;
+  sendEmail(partnerEmail,partnerName||'Traveler',subject,plain,html,false,false);
+  flash('admin-alert',`✅ Verification email sent to ${partnerEmail}.`,'success');
 }
 
 // ── ADMIN ADD TO WAITLIST ────────────────────────────────────
@@ -10822,6 +10893,58 @@ Your Commonwealth Cruise Team`
     }),
     useCustomSend:true,
     customSend:()=>sendCabinCostConfirmationEmail()
+  },
+  {
+    id:'partner_verification',
+    label:'Cabin Link Partner Verification',
+    icon:'🔗',
+    toMode:'custom',
+    buildPreview:()=>({
+      subject:`${TRIP_NAME} — Are You Traveling With [Traveler Name]?`,
+      toLabel:'Partner\'s email address',
+      toPlaceholder:'partner@email.com',
+      toName:'',
+      extraFields:`
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Traveler Name (who they're traveling with)</label>
+            <input id="eg-pv-traveler-name" type="text" placeholder="e.g. Jane Smith" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Traveler User ID (from Supabase — for Yes/No links)</label>
+            <input id="eg-pv-user-id" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+          </div>
+        </div>
+        <div style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:8px;padding:8px 14px;font-size:.78rem;color:#1e3a8a;margin-bottom:4px;">
+          📬 Clicking Yes or No in the email automatically updates verification status. Admin can also toggle manually in the Waitlist tab Linked Cabin Requests section.
+        </div>`,
+      body:`Hello [Partner Name],
+
+[Traveler Name] has indicated they will be sharing a cabin with you on the ${TRIP_NAME}.
+
+Please click one of the buttons below to confirm your response:
+
+✅ YES — I am traveling with [Traveler Name]
+❌ NO — I am not traveling with [Traveler Name]
+
+(Buttons appear in the email — click to respond automatically.)
+
+If you have any questions, please reply to this email.
+
+Thank you,
+Your Commonwealth Cruise Team`
+    }),
+    useCustomSend:true,
+    customSend:()=>{
+      const toEmail=(document.getElementById('eg-to-email')?.value||'').trim();
+      const toName=(document.getElementById('eg-to-name')?.value||'').trim();
+      const travelerName=(document.getElementById('eg-pv-traveler-name')?.value||'').trim();
+      const userId=(document.getElementById('eg-pv-user-id')?.value||'').trim();
+      if(!toEmail){alert('Please enter the partner\'s email address.');return;}
+      if(!travelerName){alert('Please enter the traveler\'s name.');return;}
+      if(!userId){alert('Please enter the traveler\'s User ID.');return;}
+      adminSendPartnerVerificationEmail(userId,travelerName,'',toName||'Traveler',toEmail);
+    }
   }
 ];
 
@@ -14040,6 +14163,35 @@ window.addEventListener('load',async()=>{
   wirePins();
   document.getElementById('login-email').value='';
   clearPin('lp');
+
+  // Handle partner verification email link clicks (?partner_confirm=UUID&answer=yes/no)
+  const _pvParams=new URLSearchParams(window.location.search);
+  const _pvUserId=_pvParams.get('partner_confirm');
+  const _pvAnswer=_pvParams.get('answer');
+  if(_pvUserId&&(_pvAnswer==='yes'||_pvAnswer==='no')){
+    const _pvConfirmed=_pvAnswer==='yes';
+    const{error:_pvErr}=await sb.rpc('confirm_cabin_partner_email',{p_user_id:_pvUserId,p_confirmed:_pvConfirmed});
+    // Show full-screen confirmation overlay
+    const _pvOverlay=document.createElement('div');
+    _pvOverlay.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:#1e293b;display:flex;align-items:center;justify-content:center;z-index:99999;';
+    _pvOverlay.innerHTML=`<div style="background:#fff;border-radius:16px;padding:40px 36px;max-width:440px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);">`+
+      (_pvConfirmed
+        ?`<div style="font-size:3.5rem;margin-bottom:8px;">✅</div><h2 style="color:#16a34a;margin:0 0 12px;font-size:1.4rem;">Confirmed!</h2><p style="color:#374151;line-height:1.6;">Thank you for confirming. The trip organizer has been notified and will be in touch about your cabin arrangements.</p>`
+        :`<div style="font-size:3.5rem;margin-bottom:8px;">❌</div><h2 style="color:#dc2626;margin:0 0 12px;font-size:1.4rem;">Response Recorded</h2><p style="color:#374151;line-height:1.6;">Thank you for letting us know. The trip organizer has been notified and will follow up if needed.</p>`)+
+      `<p style="font-size:.82rem;color:#94a3b8;margin-top:20px;">You may close this tab.</p></div>`;
+    document.body.appendChild(_pvOverlay);
+    // Notify admin
+    if(!_pvErr){
+      try{
+        const _pvNote=`Cabin partner verification response received.\n\nAnswer: ${_pvAnswer.toUpperCase()}\nUser ID: ${_pvUserId}\n\nPlease review the Linked Cabin Requests section in the Waitlist tab.`;
+        const _pvHtml=buildEmailHtml('Admin',`<p>A cabin partner verification response has been received.</p>`+buildPayTable([{label:'Answer',value:_pvAnswer.toUpperCase(),color:_pvConfirmed?'green':'red'},{label:'Traveler User ID',value:_pvUserId}])+`<p>Please review the <strong>Linked Cabin Requests</strong> section in the Waitlist tab.</p>`);
+        sendEmail(ADMIN_EMAIL,'Admin',`${TRIP_NAME} — Partner Verification: ${_pvAnswer.toUpperCase()}`,_pvNote,_pvHtml,false,true);
+      }catch(e){}
+    }
+    // Clean URL without reload
+    window.history.replaceState({},'',window.location.pathname);
+    return; // stop — don't attempt login flow
+  }
 
   if(window.location.hash.includes('access_token')||window.location.search.includes('mode=reset')){
     const{data}=await sb.auth.getSession();
