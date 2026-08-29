@@ -7710,7 +7710,7 @@ async function savePayment(){
   const amtPaid=parseFloat(document.getElementById('pay-paid').value)||0;
   const paidDate=document.getElementById('pay-date').value;
   if(!userId||!milestoneId){flash('payment-alert','Please select a traveler and milestone.');return;}
-  const{error}=await sb.from('user_payments').upsert({user_id:userId,milestone_id:milestoneId,amount_due:amtDue,amount_paid:amtPaid,paid_at:paidDate?new Date(paidDate).toISOString():null},{onConflict:'user_id,milestone_id'});
+  const{error}=await sb.from('user_payments').insert({user_id:userId,milestone_id:milestoneId,amount_due:amtDue,amount_paid:amtPaid,paid_at:paidDate?new Date(paidDate).toISOString():null});
   if(error){flash('payment-alert','Error: '+error.message);return;}
   flash('payment-alert','✅ Payment saved!','success');
 
@@ -13564,14 +13564,23 @@ async function runReport(){
   document.getElementById('rpt-results').innerHTML='<div class="loading"><div class="spinner"></div><p>Loading…</p></div>';
   document.getElementById('rpt-count').textContent='';
 
-  const{data:profiles}=await sb.from('profiles')
-    .select('*, cabin_assignments(cabin_type,cabin_number,cabin_cost,suite_pending,guest_reservation_number,payment_link), user_payments(milestone_id,amount_due,amount_paid)')
-    .eq('is_admin',false);
+  const[{data:profiles},{data:allReportPayments}]=await Promise.all([
+    sb.from('profiles')
+      .select('*, cabin_assignments(cabin_type,cabin_number,cabin_cost,suite_pending,guest_reservation_number,payment_link)')
+      .eq('is_admin',false),
+    sb.from('user_payments').select('user_id,milestone_id,amount_due,amount_paid,is_refunded')
+  ]);
+  // Build payment map keyed by user_id (same pattern as loadTravelers — avoids RLS blocking embedded join)
+  const rptPayMap={};
+  (allReportPayments||[]).forEach(x=>{
+    if(!rptPayMap[x.user_id])rptPayMap[x.user_id]=[];
+    rptPayMap[x.user_id].push(x);
+  });
 
   const rows=[];
   (profiles||[]).forEach(p=>{
     const ca=p.cabin_assignments;
-    const userPays=p.user_payments||[];
+    const userPays=(rptPayMap[p.id]||[]).filter(x=>!x.is_refunded);
 
     // Status filters
     if(statusFilter==='active'&&p.status==='cancelled')return;
