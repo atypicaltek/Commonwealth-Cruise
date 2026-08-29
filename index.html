@@ -6620,9 +6620,16 @@ async function adminSubmitAddWaitlist(){
   // Look up profile user_id
   let userId=null;
   try{const{data:prof}=await sb.from('profiles').select('id').ilike('email',email).limit(1).single();userId=prof?.id||null;}catch(e){}
-  const row={name,email,phone:phone||null,cabin_type:cabinType,num_guests:numGuests,backup_cabin_type:backup||null,created_at:new Date().toISOString()};
-  if(userId)row.user_id=userId;
-  const{error}=await sb.from('cabin_waitlist').insert(row);
+  const{error}=await sb.rpc('admin_add_waitlist_entry',{
+    p_user_id:userId||null,
+    p_name:name,
+    p_email:email,
+    p_phone:phone||null,
+    p_cabin_type:cabinType,
+    p_num_guests:numGuests,
+    p_backup_cabin_type:backup||null,
+    p_notes:notes||null
+  });
   if(error){
     if(st){st.textContent='Error: '+error.message;st.style.color='#dc2626';}
     return;
