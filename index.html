@@ -1441,8 +1441,12 @@
           <label style="font-size:.82rem;">Their Name (optional — helps us match your accounts)</label>
           <input type="text" id="reg-partner-name" placeholder="e.g. John Smith" autocomplete="off" style="width:100%;padding:8px 11px;border:1.5px solid #bae6fd;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
         </div>
-        <div style="background:#fef3c7;border:1.5px solid #f6c440;border-radius:8px;padding:10px 13px;font-size:.79rem;color:#78450a;line-height:1.5;">
-          ⚠️ Your cabin will be placed on a <strong>manual processing list</strong>. Admin will link your accounts and confirm your reservation. Cabin inventory will not be auto-assigned. You will be contacted once confirmed.
+        <div style="background:#dcfce7;border:1.5px solid #86efac;border-radius:8px;padding:10px 13px;font-size:.82rem;color:#14532d;line-height:1.6;margin-bottom:8px;">
+          ✅ <strong>Your account will be created immediately</strong> — click "Create Account" below to finish.<br>
+          After you log in, the Commonwealth Cruise Team will manually link your account with your cabin partner's and confirm your reservation.
+        </div>
+        <div style="background:#fef9c3;border:1.5px solid #fde047;border-radius:8px;padding:8px 12px;font-size:.78rem;color:#713f12;line-height:1.5;">
+          ℹ️ Cabin inventory will not be auto-reserved for shared-cabin accounts. You will be contacted once your reservation is confirmed.
         </div>
       </div>
       <div id="reg-busy" style="display:none;text-align:center;padding:10px;color:#1a4a7c;font-weight:600;" class="reg-busy-pulse">⏳ Creating your account…</div>
@@ -3045,6 +3049,8 @@ function onRegSharingChange(){
   const isYes=document.getElementById('reg-share-yes')?.checked;
   const wrap=document.getElementById('reg-partner-wrap');
   if(wrap)wrap.style.display=isYes?'block':'none';
+  const btn=document.getElementById('reg-complete-btn');
+  if(btn)btn.innerHTML=isYes?'&#x2713; Create Account &amp; Submit for Review':'&#x2713; Create Account';
 }
 
 async function completeRegistration(){
