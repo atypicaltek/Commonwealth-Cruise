@@ -12797,7 +12797,7 @@ function mtSlotHtml(idx, t, ownerEmail){
   const cit = t?.citizenship_type||'';
   const cty = t?.country_of_citizenship||'';
   const ph  = t?.phone||'';
-  const em  = isFirst ? (ownerEmail||'') : '';
+  const em  = isFirst ? (ownerEmail||'') : (t?.email||'');
 
   const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const monthOpts = months.map((m,i)=>`<option value="${String(i+1).padStart(2,'0')}" ${dobM===i+1?'selected':''}>${m}</option>`).join('');
@@ -12829,11 +12829,11 @@ function mtSlotHtml(idx, t, ownerEmail){
       <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">Gender *</label><select id="mt-gen-${idx}">${genOpts}</select></div>
       <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">Citizenship *</label><select id="mt-cit-${idx}">${citOpts}</select></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
       <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">State of Residency *</label><input type="text" id="mt-cty-${idx}" value="${cty}" placeholder="e.g. United States" autocomplete="off"></div>
       <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">Phone</label><input type="tel" id="mt-ph-${idx}" value="${ph}" placeholder="(555) 000-0000"></div>
+      <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">Email${isFirst?' (Account Holder)':''}</label><input type="email" id="mt-em-${idx}" value="${em}" placeholder="email@example.com" autocomplete="off"></div>
     </div>
-    ${isFirst ? `<div class="form-group" style="margin:4px 0 0;"><label style="font-size:.76rem;">Email (Account Holder)</label><input type="email" id="mt-em-0" value="${em}" placeholder="email@example.com" autocomplete="off"></div>` : ''}
   </div>`;
 }
 
@@ -12856,7 +12856,7 @@ async function openManageTravelers(ownerId, ownerName, numGuests){
     if(existing===null){
       // Fallback: direct query (only if cache not available yet)
       const{data:fetched,error:fetchErr}=await sb.from('cabin_travelers')
-        .select('id,salutation,first_name,middle_name,last_name,name_suffix,date_of_birth,gender,citizenship_type,country_of_citizenship,phone,account_owner_id')
+        .select('id,salutation,first_name,middle_name,last_name,name_suffix,date_of_birth,gender,citizenship_type,country_of_citizenship,phone,email,account_owner_id')
         .eq('account_owner_id',ownerId)
         .order('created_at',{ascending:true});
       if(fetchErr){
@@ -12914,6 +12914,7 @@ async function saveManageTravelers(){
       const cit=document.getElementById('mt-cit-'+i)?.value||'';
       const cty=document.getElementById('mt-cty-'+i)?.value.trim()||'';
       const ph=document.getElementById('mt-ph-'+i)?.value.trim()||'';
+      const em=document.getElementById('mt-em-'+i)?.value.trim()||'';
       const existingId=document.getElementById('mt-id-'+i)?.value||'';
 
       if(!fn&&!ln) continue; // skip empty slots
@@ -12924,7 +12925,8 @@ async function saveManageTravelers(){
         account_owner_id:gMtOwnerId,
         salutation:sal||null, first_name:fn, middle_name:mn||null, last_name:ln,
         name_suffix:sfx||null, date_of_birth:dob, gender:gen||null,
-        citizenship_type:cit||null, country_of_citizenship:cty||null, phone:ph||null
+        citizenship_type:cit||null, country_of_citizenship:cty||null,
+        phone:ph||null, email:em||null
       };
 
       if(existingId){
@@ -12938,9 +12940,8 @@ async function saveManageTravelers(){
       // If primary traveler (slot 0), also update profiles.name and email
       if(i===0){
         const fullName=[fn,ln].filter(Boolean).join(' ');
-        const newEmail=document.getElementById('mt-em-0')?.value.trim()||null;
         const profileUpdate={name:fullName};
-        if(newEmail)profileUpdate.email=newEmail;
+        if(em)profileUpdate.email=em;
         await sb.from('profiles').update(profileUpdate).eq('id',gMtOwnerId);
       }
     }
