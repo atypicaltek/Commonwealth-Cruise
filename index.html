@@ -6621,8 +6621,8 @@ async function adminSendPartnerVerificationEmail(userId,travelerName,travelerEma
   }
   if(!travelerName){alert('Traveler name is missing.');return;}
   const portalUrl='https://atypicaltek.github.io/Commonwealth-Cruise/';
-  const yesUrl=`${portalUrl}?partner_confirm=${userId}&answer=yes`;
-  const noUrl=`${portalUrl}?partner_confirm=${userId}&answer=no`;
+  const yesUrl=`${portalUrl}?partner_confirm=${userId}&answer=yes&tn=${encodeURIComponent(travelerName||'')}&pn=${encodeURIComponent(partnerName||'')}`;
+  const noUrl=`${portalUrl}?partner_confirm=${userId}&answer=no&tn=${encodeURIComponent(travelerName||'')}&pn=${encodeURIComponent(partnerName||'')}`;
   const subject=`${TRIP_NAME} — Are You Traveling With ${travelerName}?`;
   const plain=`Hello${partnerName?' '+partnerName:''},\n\n${travelerName} has indicated they will be sharing a cabin with you on the ${TRIP_NAME}.\n\nPlease confirm: Are you traveling with ${travelerName}?\n\nYES — I am traveling with ${travelerName}:\n${yesUrl}\n\nNO — I am not traveling with ${travelerName}:\n${noUrl}\n\nIf you have questions, please reply to this email.\n\nThank you,\nYour Commonwealth Cruise Team`;
   const html=buildEmailHtml(partnerName||'Traveler',
@@ -8648,7 +8648,13 @@ async function loadInventoryTab(){
   // decrement it), so we derive accuracy from real assignment rows.
   const bookedPerTier={};
   const unpricedPerType={};
+  const linkedPerType={};   // is_cabin_shared=TRUE + linked_partner_user_id set (secondary partners)
   (assignments||[]).forEach(a=>{
+    // Linked secondary partners share a slot with the primary — exclude from unpriced count
+    if(a.is_cabin_shared && a.linked_partner_user_id){
+      linkedPerType[a.cabin_type]=(linkedPerType[a.cabin_type]||0)+1;
+      return;
+    }
     const pp=a.price_per_person?parseFloat(a.price_per_person):0;
     if(!a.price_per_person||pp===0){
       unpricedPerType[a.cabin_type]=(unpricedPerType[a.cabin_type]||0)+1;
@@ -8715,12 +8721,19 @@ async function loadInventoryTab(){
       <div style="flex:1;font-size:.76rem;color:#92400e;font-style:italic;">Price not yet assigned</div>
       <div style="flex:0 0 auto;font-size:.76rem;font-weight:800;color:#d68910;">${unpricedCount} reservation${unpricedCount>1?'s':''}</div>
     </div>`:'';
-    const tierTable=(typeTiers.length||unpricedCount>0)&&!isSuite
+    // Add a "Linked Partner" row for secondary shared-cabin travelers (no slot consumed; no price required)
+    const linkedCount=isSuite?0:(linkedPerType[r.cabin_type]||0);
+    const linkedRow=linkedCount>0?`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #e8eef5;font-size:.8rem;background:#eff6ff;">
+      <div style="flex:0 0 auto;font-weight:700;color:#1d4ed8;min-width:80px;">🔗 Linked</div>
+      <div style="flex:1;font-size:.76rem;color:#1e40af;font-style:italic;">Sharing with another traveler — no slot consumed</div>
+      <div style="flex:0 0 auto;font-size:.76rem;font-weight:800;color:#1d4ed8;">${linkedCount} partner${linkedCount>1?'s':''}</div>
+    </div>`:'';
+    const tierTable=(typeTiers.length||unpricedCount>0||linkedCount>0)&&!isSuite
       ?`<div style="margin-top:10px;text-align:left;border:1.5px solid #dbe4ee;border-radius:7px;overflow:hidden;background:#fff;">
           <div style="background:#1a4a7c;color:#fff;font-size:.67rem;font-weight:700;padding:4px 10px;letter-spacing:.4px;display:flex;justify-content:space-between;align-items:center;">
             <span>PRICE / AVAILABILITY</span><span style="opacity:.75;font-weight:400;">booked/total</span>
           </div>
-          ${tierRows}${customRows}${unpricedRow}
+          ${tierRows}${customRows}${unpricedRow}${linkedRow}
         </div>`
       :(isSuite?'':`<div style="margin-top:8px;font-size:.75rem;color:var(--muted);font-style:italic;">No price tiers configured</div>`);
 
@@ -14436,6 +14449,8 @@ window.addEventListener('load',async()=>{
   const _pvParams=new URLSearchParams(window.location.search);
   const _pvUserId=_pvParams.get('partner_confirm');
   const _pvAnswer=_pvParams.get('answer');
+  const _pvTravelerName=_pvParams.get('tn')||'';
+  const _pvPartnerName=_pvParams.get('pn')||_pvUserId;
   if(_pvUserId&&(_pvAnswer==='yes'||_pvAnswer==='no')){
     const _pvConfirmed=_pvAnswer==='yes';
     const{error:_pvErr}=await sb.rpc('confirm_cabin_partner_email',{p_user_id:_pvUserId,p_confirmed:_pvConfirmed});
@@ -14451,8 +14466,8 @@ window.addEventListener('load',async()=>{
     // Notify admin
     if(!_pvErr){
       try{
-        const _pvNote=`Cabin partner verification response received.\n\nAnswer: ${_pvAnswer.toUpperCase()}\nUser ID: ${_pvUserId}\n\nPlease review the Linked Cabin Requests section in the Waitlist tab.`;
-        const _pvHtml=buildEmailHtml('Admin',`<p>A cabin partner verification response has been received.</p>`+buildPayTable([{label:'Answer',value:_pvAnswer.toUpperCase(),color:_pvConfirmed?'green':'red'},{label:'Traveler User ID',value:_pvUserId}])+`<p>Please review the <strong>Linked Cabin Requests</strong> section in the Waitlist tab.</p>`);
+        const _pvNote=`Cabin partner verification response received.\n\nAnswer: ${_pvAnswer.toUpperCase()}\nPrimary Traveler: ${_pvTravelerName||'(unknown)'}\nPartner: ${_pvPartnerName}\n\nPlease review the Linked Cabin Requests section in the Waitlist tab.`;
+        const _pvHtml=buildEmailHtml('Admin',`<p>A cabin partner verification response has been received.</p>`+buildPayTable([{label:'Answer',value:_pvAnswer.toUpperCase(),color:_pvConfirmed?'green':'red'},{label:'Primary Traveler',value:_pvTravelerName||'(unknown)'},{label:'Partner',value:_pvPartnerName}])+`<p>Please review the <strong>Linked Cabin Requests</strong> section in the Waitlist tab.</p>`);
         sendEmail(ADMIN_EMAIL,'Admin',`${TRIP_NAME} — Partner Verification: ${_pvAnswer.toUpperCase()}`,_pvNote,_pvHtml,false,true);
       }catch(e){}
     }
