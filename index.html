@@ -1978,7 +1978,16 @@ function prevPin(el,all){const i=[...all].indexOf(el);return i>0?all[i-1]:null;}
 function getPin(p){return Array.from({length:6},(_,i)=>{const e=document.getElementById(p+i);return e?e.value:'';}).join('');}
 function clearPin(p){for(let i=0;i<6;i++){const e=document.getElementById(p+i);if(e)e.value='';}}
 function fmt(n){return '$'+parseFloat(n||0).toFixed(2);}
-function fmtDate(d){return d?new Date(d+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';}
+function fmtDate(d){return d?new Date(d+'T00:00:00').toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'}):'—';}
+// ── Eastern Time (ET) display helpers ─────────────────────────────────────
+// All dates visible to users are formatted in America/New_York (ET).
+// todayET() returns a Date object set to midnight of TODAY in Eastern time,
+// safe to compare with other Date objects for deadline checks.
+function todayET(){
+  const s=new Date().toLocaleDateString('en-US',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'});
+  const [m,d,y]=s.split('/');return new Date(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}T00:00:00`);
+}
+function nowET(){return new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}));}
 
 // ── EMAIL ────────────────────────────────────────────────────
 // ── EMAIL TEMPLATE HELPERS ────────────────────────────────────
@@ -2565,7 +2574,7 @@ This email was sent by the ${TRIP_NAME} portal.`;
 
 function emailCancellationToTraveler(travelerName,travelerEmail,cabinType,cabinNumber,totalPaid){
   const subject=`${TRIP_NAME} — Reservation Cancellation`;
-  const cancelDate=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  const cancelDate=new Date().toLocaleDateString('en-US',{timeZone:'America/New_York',month:'long',day:'numeric',year:'numeric'});
   const html=buildEmailHtml(travelerName,
     `<p>This email confirms that your reservation for the <strong>${TRIP_NAME}</strong> has been cancelled.</p>
      <p><strong>Cancellation Details:</strong></p>
@@ -2591,7 +2600,7 @@ This email was sent by the ${TRIP_NAME} portal.`;
 
 function emailCancellationToAdmin(travelerName,travelerEmail,cabinType,cabinNumber,citizenship,totalPaid){
   const subject=`${TRIP_NAME} — CANCELLATION: ${travelerName}`;
-  const cancelDate=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  const cancelDate=new Date().toLocaleDateString('en-US',{timeZone:'America/New_York',month:'long',day:'numeric',year:'numeric'});
   const message=`A traveler has been cancelled from the ${TRIP_NAME}. Please process a refund if applicable.\n\nCANCELLED TRAVELER INFORMATION:\n• Name: ${travelerName}\n• Email: ${travelerEmail}\n• Citizenship: ${citizenship||'Unknown'}\n• Cabin Type: ${cabinType||'N/A'}\n• Cabin Number: ${cabinNumber||'Not yet assigned'}\n• Total Amount Paid: ${fmt(totalPaid)}\n• Cancellation Date: ${cancelDate}\n\nACTION REQUIRED:\n${totalPaid>0?`• Process refund of ${fmt(totalPaid)} to ${travelerEmail}\n`:'• No refund required (no payments made)\n'}• Cabin ${cabinType} has been returned to inventory\n• The cancellation has been logged in the Cancellations tab`;
   const cancelAdminHtml=buildEmailHtml('Admin',`<p style="color:#dc2626;">A traveler has been <strong>cancelled</strong> from the ${TRIP_NAME}.</p>`+buildPayTable([{label:'Name',value:travelerName},{label:'Email',value:travelerEmail},{label:'Citizenship',value:citizenship||'Unknown'},{label:'Cabin Type',value:cabinType||'N/A'},{label:'Cabin Number',value:cabinNumber||'Not yet assigned'},{label:'Total Paid',value:fmt(totalPaid)},{label:'Cancellation Date',value:cancelDate}])+`<p>Please process a refund if applicable.</p>`);
   sendEmail(ADMIN_EMAIL,'Admin',subject,message,cancelAdminHtml);
@@ -2652,7 +2661,7 @@ function calcMinDeposit(numGuests){
 }
 
 // ── MINOR POLICY & TRAVELER VERIFICATION ─────────────────────
-const EMBARKATION_DATE=new Date('2027-06-20');
+const EMBARKATION_DATE=new Date('2027-06-20T00:00:00-04:00');
 
 function calcAgeOnEmbarkation(dobStr){
   if(!dobStr)return null;
@@ -4385,7 +4394,7 @@ if(dsBadge){
   // so overpayments on earlier milestones carry forward and reduce later dues.
   const numGuests=cabin?.num_guests||1;
   const payMap={};payments.forEach(p=>{payMap[p.milestone_id]=p;});
-  const today=new Date();today.setHours(0,0,0,0);
+  const today=todayET();
   const totalPaid=payments.reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
   const totalRefunded=payments.filter(p=>p.is_refunded).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
   const netPaid=totalPaid-totalRefunded; // paid minus any admin-refunded amounts
@@ -4462,7 +4471,7 @@ if(dsBadge){
   document.getElementById('dash-paid-label').textContent=fmt(netPaid)+' paid'+(totalRefunded>0?' ('+fmt(totalRefunded)+' refunded)':'');
   document.getElementById('dash-paid-val').textContent=fmt(netPaid);
   if(nextDue){
-    const nd=nextDue.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    const nd=nextDue.toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric'});
     document.getElementById('dash-nextdue-val').textContent=nd;
     const lblEl=document.getElementById('dash-nextdue-label');
     if(lblEl)lblEl.textContent=nextDueLabel||'';
@@ -4587,8 +4596,8 @@ if(dsBadge){
   // Show when: fully paid AND today is on or after June 6, 2027 (14 days before Jun 20 embarkation)
   const checkinEl=document.getElementById('dash-checkin-banner');
   if(checkinEl){
-    const checkinOpenDate=new Date('2027-06-06T00:00:00');
-    const todayForCheckin=new Date(); todayForCheckin.setHours(0,0,0,0);
+    const checkinOpenDate=new Date('2027-06-06T00:00:00-04:00');
+    const todayForCheckin=todayET();
     const fullyPaid=cabinCost!=null&&netPaid>=cabinCost;
     checkinEl.style.display=(fullyPaid&&todayForCheckin>=checkinOpenDate)?'block':'none';
   }
@@ -4640,7 +4649,7 @@ if(dsBadge){
 // ── MILESTONE WARNING ────────────────────────────────────────
 function checkMilestoneWarning(milestones,payments,cabinCost){
   const payMap={};payments.forEach(p=>{payMap[p.milestone_id]=p;});
-  const today=new Date();today.setHours(0,0,0,0);
+  const today=todayET();
   const sevenDays=7*24*60*60*1000;
 
   const totalPaid=payments.reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
@@ -4672,7 +4681,7 @@ function checkMilestoneWarning(milestones,payments,cabinCost){
     const isOverdue=diff<0;
     const isDueSoon=diff>=0&&diff<=sevenDays;
     if(isOverdue||isDueSoon){
-      const dStr=dDate.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+      const dStr=dDate.toLocaleDateString('en-US',{timeZone:'America/New_York',weekday:'long',month:'long',day:'numeric',year:'numeric'});
       const shortfall=Math.max(0,cumReq-totalPaid);
       warnings.push({label:m.label,dStr,due:scaledMin,isOverdue,isDueSoon,remaining:shortfall});
     }
@@ -5453,7 +5462,7 @@ function sendTravelerChangeEmail(tName,toEmail,ownerName,oldData,newData){
   });
   const changeList=changes.length?changes.map(c=>`• ${c.label}: "${c.from}" → "${c.to}"`).join('\n'):'(No text field changes detected)';
   const subject=`${TRIP_NAME} — Traveler Record Updated: ${tName}`;
-  const updatedAt=new Date().toLocaleString();
+  const updatedAt=new Date().toLocaleString('en-US',{timeZone:'America/New_York'});
   const changeTrs=changes.length
     ?changes.map(c=>`<tr><td style="padding:7px 12px;border:1px solid #ddd;font-weight:bold;background:#fafafa;">${c.label}</td><td style="padding:7px 12px;border:1px solid #ddd;color:#666;">${c.from}</td><td style="padding:7px 12px;border:1px solid #ddd;font-weight:bold;">${c.to}</td></tr>`).join('')
     :`<tr><td colspan="3" style="padding:10px 12px;border:1px solid #ddd;color:#999;">No text field changes detected</td></tr>`;
@@ -5546,7 +5555,7 @@ async function openMyReceiptsModal(){
   // Build receipt cards
   sorted.forEach((l,idx)=>{
     const rcptNum=rcptNums[l.payment_id]||idx+1;
-    const sentDate=new Date(l.sent_at).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+    const sentDate=new Date(l.sent_at).toLocaleDateString('en-US',{timeZone:'America/New_York',month:'long',day:'numeric',year:'numeric'});
     const isImage=l.receipt_url&&/\.(jpg|jpeg|png|gif|webp)$/i.test(l.receipt_url);
     const isPdf=l.receipt_url&&/\.pdf$/i.test(l.receipt_url);
     const viewerHtml=l.receipt_url?
@@ -5583,7 +5592,7 @@ function showPaidDetail(){
   const totalPaid=made.reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
   const rows=made.map(p=>{
     const ms=gMilestones.find(m=>m.id===p.milestone_id);
-    const rawPaidAt=p.paid_at||p.paid_date;const dateStr=rawPaidAt?new Date(rawPaidAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+    const rawPaidAt=p.paid_at||p.paid_date;const dateStr=rawPaidAt?new Date(rawPaidAt).toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'}):'—';
     return`<tr><td><strong>${ms?.label||'Payment'}</strong></td><td>${dateStr}</td><td class="col-r" style="color:var(--success);font-weight:700;">${fmt(parseFloat(p.amount_paid||0))}</td></tr>`;
   }).join('');
   openPayDetailModal('Total Paid — Payment History',
@@ -5625,7 +5634,7 @@ function showBalanceDetail(){
     const cumReq=isGrat?(scaledMin||0):isLast?(gCabinCost!=null?gCabinCost:0):(cumMinThrough||0);
     const isCleared=isGrat?(scaledMin!=null&&paid>=scaledMin):cumReq>0&&cabinPaidB>=cumReq;
     const shortfall=isGrat?Math.max(0,(scaledMin||0)-paid):Math.max(0,cumReq-cabinPaidB);
-    const dateStr=m.due_date?new Date(m.due_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+    const dateStr=m.due_date?new Date(m.due_date+'T00:00:00').toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'}):'—';
     let status;
     if(isCleared)status='<span class="badge badge-success">Paid ✓</span>';
     else if(isGrat&&scaledMin==null)status='<span class="badge badge-gray">Optional</span>';
@@ -5642,7 +5651,7 @@ function showBalanceDetail(){
 function showScheduleDetail(){
   if(!gMilestones.length){return;}
   const payMap={};gPayments.forEach(p=>{payMap[p.milestone_id]=p;});
-  const today=new Date();today.setHours(0,0,0,0);
+  const today=todayET();
   const totalPaid=gPayments.reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
   const numGuests=(window.gNumGuests)||1;
   const lastDatedIdxS=gMilestones.reduce((li,m,i)=>m.due_date?i:li,-1);
@@ -5673,7 +5682,7 @@ function showScheduleDetail(){
     const dDate=m.due_date?new Date(m.due_date+'T00:00:00'):null;
     const isOver=!isCleared&&!isGrat&&dDate&&dDate<today;
     const isSoon=!isCleared&&!isOver&&!isGrat&&dDate&&(dDate-today)<7*24*60*60*1000&&dDate>=today;
-    const dateStr=dDate?dDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'No fixed date';
+    const dateStr=dDate?dDate.toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'}):'No fixed date';
     let status;
     if(isCleared)status='<span class="badge badge-success">Paid ✓</span>';
     else if(isGrat&&scaledMin!=null)status='<span class="badge badge-purple">Prepay Option</span>';
@@ -6273,7 +6282,7 @@ async function loadWaitlist(){
     const{data:ocReqs}=await sb.rpc('admin_get_occupant_change_requests');
     if(ocReqs&&ocReqs.length>0){
       const rows=ocReqs.map(r=>{
-        const dt=r.requested_at?new Date(r.requested_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+        const dt=r.requested_at?new Date(r.requested_at).toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'}):'—';
         const safeId=r.user_id.replace(/-/g,'_');
         return`<tr>
           <td><strong>${r.name||'—'}</strong><br><span style="font-size:.78rem;color:var(--muted);">${r.email||''}</span></td>
@@ -6327,7 +6336,7 @@ async function loadWaitlist(){
       '<th>Name</th><th>Email</th><th>Phone</th><th style="text-align:center;">Guests</th><th>Backup Pref.</th><th>Date Joined</th><th>Status</th><th>Action</th>'+
       '</tr></thead><tbody>';
     entries.forEach(w=>{
-      const dt=new Date(w.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      const dt=new Date(w.created_at).toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'});
       const safeName=(w.name||'—').replace(/'/g,"\\'");
       html+=`<tr>`+
         `<td><input type="checkbox" class="wl-cb" data-id="${w.id}" data-cabin="${cabinType}" onchange="updateWaitlistNotifyBtn()" ${w.notified?'disabled title="Already notified"':''}></td>`+
@@ -6383,8 +6392,8 @@ function updateWaitlistNotifyBtn(){
 function viewWaitlistTraveler(id){
   const w=gWaitlistData.find(x=>x.id===id);
   if(!w)return;
-  const dt=new Date(w.created_at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
-  const notifiedAt=w.notified_at?new Date(w.notified_at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+  const dt=new Date(w.created_at).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+  const notifiedAt=w.notified_at?new Date(w.notified_at).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'}):'—';
   document.getElementById('waitlist-detail-content').innerHTML=buildPayTable([
     {label:'Name',value:w.name||'—'},
     {label:'Email',value:w.email||'—'},
@@ -6489,7 +6498,7 @@ async function loadLinkedCabinRequests(){
     const tName=(p.name||'').replace(/'/g,"\\'");
     const tEmail=(p.email||'').replace(/'/g,"\\'");
     const verified=!!r.partner_verified;
-    const verifiedAt=r.partner_verified_at?new Date(r.partner_verified_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
+    const verifiedAt=r.partner_verified_at?new Date(r.partner_verified_at).toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric'}):'';
     const verifiedBadge=verified
       ?`<span class="badge badge-success" style="font-size:.72rem;">✓ Verified${verifiedAt?' '+verifiedAt:''}</span>`
       :`<span class="badge badge-gray" style="font-size:.72rem;">Unverified</span>`;
@@ -7182,7 +7191,7 @@ async function loadMissingInfoTab(){
       let lastEmailedColor='#94a3b8';
       if(p.lastEmail){
         const d=new Date(p.lastEmail.created_at);
-        lastEmailedTxt='Last: '+d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        lastEmailedTxt='Last: '+d.toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'});
         lastEmailedColor='#16a34a';
       }
       return`<tr id="${rowId}" data-missing="${missingData}" style="border-bottom:1px solid #f1f5f9;">
@@ -7444,7 +7453,7 @@ function renderTravelersView(){
           '<div id="'+eHid+'" style="display:none;position:absolute;z-index:200;right:0;top:100%;min-width:300px;background:var(--card);border:1.5px solid var(--border);border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.22);padding:4px 0;max-height:240px;overflow-y:auto;">'+
             tEmails.map(e=>{
               const d=new Date(e.created_at);
-              const ds=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+              const ds=d.toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'});
               const subj=(e.subject||'(no subject)').replace(/</g,'&lt;').replace(/>/g,'&gt;');
               return'<div style="padding:7px 12px;border-bottom:1px solid var(--border);font-size:.78rem;">'+
                 '<div style="font-weight:700;color:var(--text);line-height:1.3;">'+subj+'</div>'+
@@ -8056,8 +8065,8 @@ async function loadAdminPayments(){
     let badge,refundBtn='';
     // Refund lock dates
     const _now=new Date();
-    const _hardLock=new Date('2027-03-14T23:59:59');
-    const _overrideLock=new Date('2027-03-22T23:59:59');
+    const _hardLock=new Date('2027-03-14T23:59:59-05:00');
+    const _overrideLock=new Date('2027-03-22T23:59:59-04:00');
     const _refundAllowed=_now<=_hardLock;
     const _overrideAllowed=!_refundAllowed&&_now<=_overrideLock;
     if(isCancRefund){
@@ -8087,7 +8096,7 @@ async function loadAdminPayments(){
         }
       }
     }
-    const pd=p.paid_at?new Date(p.paid_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—';
+    const pd=p.paid_at?new Date(p.paid_at).toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric'}):'—';
     const cabinInfo=cabinInfoMap[p.user_id]||{cabinNum:'—',resNum:'—'};
     const safeRcptUrl=(p.receipt_url||'').replace(/'/g,"\\'");
     const safeRcptFile=(p.receipt_filename||'').replace(/'/g,"\\'");
@@ -8100,8 +8109,8 @@ async function loadAdminPayments(){
     let rcptCell='';
     if(p.receipt_url){
       const rcptDate=p.receipt_sent_at
-        ?new Date(p.receipt_sent_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
-        :(p.paid_at?new Date(p.paid_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—');
+        ?new Date(p.receipt_sent_at).toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'})
+        :(p.paid_at?new Date(p.paid_at).toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'}):'—');
       const rcptLabel=`<div style="font-weight:700;font-size:.8rem;"><a href="#" onclick="event.preventDefault();viewAdminReceipt('${safeRcptUrl}','${safeRcptFile.replace(/'/g,"\\'")}',${p._receiptNum})" style="color:#1a4a7c;text-decoration:underline;cursor:pointer;">Receipt #${p._receiptNum}</a></div><div style="font-size:.74rem;color:var(--muted);margin-bottom:4px;">${rcptDate}</div>`;
       if(p.receipt_sent){
         rcptCell=rcptLabel+`<button onclick="openReceiptModal('${p.id}','${safeRcptUrl}','${safeRcptFile}','${(p.profiles?.email||'').replace(/'/g,"\\'")}','${(p.profiles?.name||'').replace(/'/g,"\\'")}',true,${paid})" title="Receipt previously sent — click to re-send or use new email/receipt" style="background:#dcfce7;color:#166534;border:1.5px solid #86efac;border-radius:6px;padding:3px 9px;font-size:.78rem;font-weight:700;cursor:pointer;">📎 Send Receipt</button>`;
@@ -8249,7 +8258,7 @@ function epmRecalcDue(){
   const dueEl=document.getElementById('epm-due');
   if(pp>0){
     const total=(pp*n).toFixed(2);
-    if(totalEl)totalEl.textContent='$'+parseFloat(total).toLocaleString('en-US',{minimumFractionDigits:2});
+    if(totalEl)totalEl.textContent='$'+parseFloat(total).toLocaleString('en-US',{timeZone:'America/New_York',minimumFractionDigits:2});
     if(dueEl)dueEl.value=total;
   } else {
     if(totalEl)totalEl.textContent='';
@@ -8314,7 +8323,7 @@ function toggleRefundedPayments(){
 let gReceiptPayId=null,gReceiptUrl=null,gReceiptFilename=null;
 async function openReceiptModal(payId,receiptUrl,receiptFilename,primaryEmail,travelerName,alreadySent,amtPaid){
   gReceiptPayId=payId;gReceiptUrl=receiptUrl;gReceiptFilename=receiptFilename;
-  const paidFmt=amtPaid>0?'$'+parseFloat(amtPaid).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
+  const paidFmt=amtPaid>0?'$'+parseFloat(amtPaid).toLocaleString('en-US',{timeZone:'America/New_York',minimumFractionDigits:2,maximumFractionDigits:2}):'';
 
   // Always destroy and rebuild — guarantees clean state with zero pre-loaded attachments
   const existing=document.getElementById('receipt-send-modal');
@@ -8381,7 +8390,7 @@ async function openReceiptModal(payId,receiptUrl,receiptFilename,primaryEmail,tr
   if(logs&&logs.length>0){
     histEl.innerHTML=`<div style="font-weight:700;font-size:.82rem;color:#374151;margin-bottom:5px;">Send History</div>`+
       `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:7px;padding:8px 12px;font-size:.8rem;">`+
-      logs.map(l=>`<div style="padding:3px 0;border-bottom:1px solid #f3f4f6;">${new Date(l.sent_at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})} → <strong>${l.sent_to_email}</strong>${l.sent_to_name?' ('+l.sent_to_name+')':''}</div>`).join('')+
+      logs.map(l=>`<div style="padding:3px 0;border-bottom:1px solid #f3f4f6;">${new Date(l.sent_at).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})} → <strong>${l.sent_to_email}</strong>${l.sent_to_name?' ('+l.sent_to_name+')':''}</div>`).join('')+
       `</div>`;
   } else {
     histEl.innerHTML='';
@@ -8747,7 +8756,7 @@ function renderInvAssignmentsTable(){
     <td><strong>${a.profiles?.name||'—'}</strong><br><small style="color:var(--muted)">${a.profiles?.email||''}</small></td>
     <td>${a.cabin_type||'—'}${a.suite_pending?' <span class="badge badge-warn">Suite Pending</span>':''}</td>
     <td>${a.cabin_number||'<em style="color:var(--muted)">Not assigned</em>'}</td>
-    <td>${a.assigned_at?new Date(a.assigned_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</td>
+    <td>${a.assigned_at?new Date(a.assigned_at).toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'}):'—'}</td>
   </tr>`);
   asgEl.innerHTML=`<table><thead><tr>
     ${thClick('name','Traveler')}
@@ -8811,7 +8820,7 @@ async function showInventoryDetail(cabinType,filterPP){
 
   const cards=bookings.map(b=>{
     const travelers=travelerMap[b.user_id]||[];
-    const reservedDate=b.assigned_at?new Date(b.assigned_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+    const reservedDate=b.assigned_at?new Date(b.assigned_at).toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'}):'—';
     const statusBadge=b.suite_pending?'<span class="badge badge-warn">⭐ Suite Pending</span>':'<span class="badge badge-success">Confirmed ✓</span>';
     const gratBadge=b.gratuity_paid?'<span class="badge badge-success">Grat Paid ✓</span>':'<span class="badge badge-gray">Grat Unpaid</span>';
 
@@ -8819,11 +8828,11 @@ async function showInventoryDetail(cabinType,filterPP){
       ?`<tr><td colspan="5" style="color:var(--danger);font-style:italic;font-size:.84rem;">⚠️ No cabin travelers entered yet</td></tr>`
       :travelers.map(t=>{
         const tName=[t.first_name,t.middle_name,t.last_name,t.name_suffix].filter(Boolean).join(' ');
-        const dob=t.date_of_birth?new Date(t.date_of_birth+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+        const dob=t.date_of_birth?new Date(t.date_of_birth+'T00:00:00').toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'}):'—';
         const sr=(t.special_requests||[]).join(', ')||'None';
         const occasions=[];
-        if(t.birthday_date)occasions.push('🎂 '+new Date(t.birthday_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}));
-        if(t.anniversary_date)occasions.push('💍 '+new Date(t.anniversary_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}));
+        if(t.birthday_date)occasions.push('🎂 '+new Date(t.birthday_date+'T00:00:00').toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric'}));
+        if(t.anniversary_date)occasions.push('💍 '+new Date(t.anniversary_date+'T00:00:00').toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric'}));
         if(t.is_honeymoon)occasions.push('🥂 Honeymoon');
         const citLabel=(CT_LABELS[t.citizenship_type]||'')+' '+(t.country_of_citizenship||'');
         const ppDisplay=b.price_per_person?`<span style="font-size:.76rem;color:#1a4a7c;font-weight:700;background:#e8f0fb;border-radius:4px;padding:1px 5px;margin-left:4px;">💲${fmt(parseFloat(b.price_per_person))}/pp</span>`:'';
@@ -9113,7 +9122,7 @@ async function loadCancellationsTab(){
     const totalPaid=cr?.total_paid??payMap[p.id]??0;
     const cabinStr=cr?(cr.cabin_type||'—')+(cr.cabin_number?' #'+cr.cabin_number:''):(ca?(ca.cabin_type+(ca.cabin_number?' #'+ca.cabin_number:'')):'—');
     const refundBadge=cr?.refund_processed?'<span class="badge badge-success">Refunded &#x2713;</span>':'<span class="badge badge-danger">Pending Refund</span>';
-    const cancelDate=cr?.canceled_at?new Date(cr.canceled_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+    const cancelDate=cr?.canceled_at?new Date(cr.canceled_at).toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'}):'—';
     const markBtn=cr&&!cr.refund_processed?('<button class="btn-warn" onclick="markRefunded(\''+cr.id+'\')">Mark Refunded</button>'):'';
     const safeN=(p.name||'').replace(/'/g,"\\'");
     const emailBtn='<button class="btn btn-ghost btn-sm" style="font-size:.76rem;padding:3px 8px;" onclick="emailCancellationToTraveler(\''+safeN+'\',\''+p.email+'\',\''+(cr?.cabin_type||'')+'\',\''+(cr?.cabin_number||'')+'\','+totalPaid+')">&#x1F4E7; Re-send</button>';
@@ -9148,7 +9157,7 @@ async function loadSuiteRequests(){
     if(r.cancel_at){
       const cd=new Date(r.cancel_at);
       const isOverdue=cd<new Date();
-      cancelCell=`<span style="color:${isOverdue?'#dc2626':'#b45309'};font-weight:600;font-size:.82rem;">${cd.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})}</span>${isOverdue?' <span style="color:#dc2626;font-size:.72rem;font-weight:700;">EXPIRED</span>':''}`;
+      cancelCell=`<span style="color:${isOverdue?'#dc2626':'#b45309'};font-weight:600;font-size:.82rem;">${cd.toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})}</span>${isOverdue?' <span style="color:#dc2626;font-size:.72rem;font-weight:700;">EXPIRED</span>':''}`;
     } else if(isConfirmed){
       cancelCell=`<button class="btn-sm" style="font-size:.75rem;padding:3px 8px;background:#fef9c3;border:1px solid #fbbf24;border-radius:5px;cursor:pointer;" onclick="setSuiteCancelDate('${r.id}')">+ Set Date</button>`;
     }
@@ -9162,7 +9171,7 @@ async function loadSuiteRequests(){
       <td>${r.requestor_phone||'—'}</td>
       <td><span class="badge badge-purple">${r.backup_cabin_type}</span></td>
       <td>${badge}</td>
-      <td>${new Date(r.requested_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td>
+      <td>${new Date(r.requested_at).toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'})}</td>
       <td>${cancelCell}</td>
       <td>${actions}</td>
     </tr>`;
@@ -9253,7 +9262,7 @@ async function sendSuiteDepositReminder(r,timeLabel,flagField){
   const email=r.requestor_email;
   if(!email)return;
   const cancelAt=new Date(r.cancel_at);
-  const cancelStr=cancelAt.toLocaleString('en-US',{month:'long',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+  const cancelStr=cancelAt.toLocaleString('en-US',{timeZone:'America/New_York',month:'long',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
   const subject=`⚠️ REMINDER: Suite Deposit Due in ${timeLabel} — ${TRIP_NAME}`;
 
   const htmlBody=buildEmailHtml(name,`
@@ -9499,7 +9508,7 @@ async function loadCCLEntry(){
       </div>`:'';
 
     const tRows=travelers.map((t,i)=>{
-      const dob=t.date_of_birth?new Date(t.date_of_birth+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'2-digit',year:'numeric'}):'—';
+      const dob=t.date_of_birth?new Date(t.date_of_birth+'T00:00:00').toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'2-digit',year:'numeric'}):'—';
       const age=calcAgeOnEmbarkation(t.date_of_birth);
       const fn=[t.salutation,t.first_name,t.middle_name,t.last_name,t.name_suffix].filter(Boolean).join(' ');
       const citLabel={'us':'U.S. Citizen','non-us':'Non-U.S. Citizen','us-pr':'U.S. (Puerto Rico)','canadian':'Canadian'}[t.citizenship_type]||t.citizenship_type||'—';
@@ -11372,7 +11381,7 @@ async function travelersCompleteAutoFill(){
       if(t.date_of_birth){
         const dob=new Date(t.date_of_birth);
         age=' (Age '+(Math.floor((today-dob)/(365.25*24*3600*1000)))+')';
-        const dobStr=dob.toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'numeric'});
+        const dobStr=dob.toLocaleDateString('en-US',{timeZone:'America/New_York',month:'2-digit',day:'2-digit',year:'numeric'});
         return `• ${name}${age} — DOB: ${dobStr} — ${t.gender||'—'} — ${t.country_of_citizenship||'—'}`;
       }
       return `• ${name} — DOB: N/A — ${t.gender||'—'} — ${t.country_of_citizenship||'—'}`;
@@ -12273,7 +12282,7 @@ async function viewTravelerEmailHistory(email, name){
   const d=document.createElement('div');
   d.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;';
   const rows=(logs||[]).map(r=>{
-    const dt=r.created_at?new Date(r.created_at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'—';
+    const dt=r.created_at?new Date(r.created_at).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'—';
     const badge=r.status==='manual'
       ?'<span style="background:#f0fdf4;border:1px solid #86efac;color:#166534;border-radius:4px;padding:1px 6px;font-size:.72rem;">Manual</span>'
       :r.status==='sent'
@@ -12314,7 +12323,7 @@ async function viewTravelerEmailHistory(email, name){
 async function viewAdminEmailBody(emailId){
   const{data:eq}=await sb.from('email_queue').select('subject,to_email,to_name,created_at,status,html_body,plain_body').eq('id',emailId).single();
   if(!eq){alert('Email record not found.');return;}
-  const dt=eq.created_at?new Date(eq.created_at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'—';
+  const dt=eq.created_at?new Date(eq.created_at).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'—';
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px;';
   const bodyContent=eq.html_body&&eq.html_body!=='[Manually logged — email sent outside portal]'
@@ -12367,7 +12376,7 @@ async function openTravelerInbox(){
   const renderInbox=()=>{
     const rd=getReadEmailIds();
     const rows=(emails||[]).map(e=>{
-      const dt=e.created_at?new Date(e.created_at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'—';
+      const dt=e.created_at?new Date(e.created_at).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'—';
       const isUnread=!rd.has(String(e.id));
       return`<div onclick="openTravelerEmail('${e.id}',this)" data-email-id="${e.id}" style="display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-bottom:1px solid #f1f5f9;cursor:pointer;background:${isUnread?'#eff6ff':'#fff'};transition:background .15s;" onmouseenter="this.style.background='#f8fafc'" onmouseleave="this.style.background='${isUnread?'#eff6ff':'#fff'}'">
         <div style="flex:1;min-width:0;">
@@ -12398,7 +12407,7 @@ async function openTravelerEmail(emailId, rowEl){
   // Fetch email content
   const{data:eq}=await sb.from('email_queue').select('subject,created_at,html_body,plain_body').eq('id',emailId).single();
   if(!eq){alert('Message not found.');return;}
-  const dt=eq.created_at?new Date(eq.created_at).toLocaleString('en-US',{month:'long',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'—';
+  const dt=eq.created_at?new Date(eq.created_at).toLocaleString('en-US',{timeZone:'America/New_York',month:'long',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'—';
   const bodyContent=eq.html_body&&eq.html_body!=='[Manually logged — email sent outside portal]'
     ?`<iframe srcdoc="${eq.html_body.replace(/"/g,'&quot;')}" style="width:100%;height:100%;border:none;"></iframe>`
     :`<div style="padding:20px;font-family:sans-serif;font-size:.9rem;color:#374151;line-height:1.6;white-space:pre-wrap;">${(eq.plain_body||'[No content]').replace(/</g,'&lt;')}</div>`;
@@ -12435,7 +12444,7 @@ async function logManualEmailSent(email, name, rowEl){
     const dateCell=rowEl.querySelector('.mi-last-emailed');
     if(dateCell){
       const d=new Date(dateStr+'T12:00:00.000Z');
-      dateCell.textContent='Last: '+d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      dateCell.textContent='Last: '+d.toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'});
       dateCell.style.color='#16a34a';
     }
   }
@@ -12454,7 +12463,7 @@ async function sendMissingInfoEmailAndRefresh(email, name, rowEl){
       // Update last-emailed display
       const dateCell=rowEl?.querySelector('.mi-last-emailed');
       if(dateCell){
-        dateCell.textContent='Last: '+new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        dateCell.textContent='Last: '+new Date().toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'});
         dateCell.style.color='#16a34a';
       }
     } else {
@@ -14685,7 +14694,7 @@ async function openTravelerCCAuthUpload(){
     }
   }
   const cabinType=window.gDashCabinData?.cabin_type||'';
-  const today=new Date().toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'numeric'});
+  const today=new Date().toLocaleDateString('en-US',{timeZone:'America/New_York',month:'2-digit',day:'2-digit',year:'numeric'});
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;';
   overlay.innerHTML=`<div style="background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.3);width:100%;max-width:560px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;">
@@ -15317,7 +15326,7 @@ function showTravelersTileModal(){
   if(travelers.length>0){
     rows=travelers.map((t,i)=>{
       const fn=[t.salutation,t.first_name,t.middle_name,t.last_name,t.name_suffix].filter(Boolean).join(' ')||'—';
-      const dob=t.date_of_birth?new Date(t.date_of_birth+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+      const dob=t.date_of_birth?new Date(t.date_of_birth+'T00:00:00').toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'}):'—';
       const cit={'us':'U.S. Citizen','non-us':'Non-U.S. Citizen','us-pr':'U.S. (Puerto Rico)','canadian':'Canadian'}[t.citizenship_type]||t.citizenship_type||'—';
       return`<div style="border-bottom:1px solid #e2e8f0;padding:10px 0;${i===travelers.length-1?'border:none':''}">
         <div style="font-weight:700;font-size:.9rem;color:#0f2744;">Guest ${i+1}: ${fn}</div>
@@ -15407,7 +15416,7 @@ async function showAdminCabinNotification(cabin,milestones,payments){
     const firstMs=milestones[0];
     firstMsLabel=firstMs.label||'First Payment';
     if(firstMs.due_date){
-      firstMsDue=new Date(firstMs.due_date+' ').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+      firstMsDue=new Date(firstMs.due_date+' ').toLocaleDateString('en-US',{timeZone:'America/New_York',month:'long',day:'numeric',year:'numeric'});
     }
     // Find matching user_payment for this milestone
     const msPay=payments.find(p=>p.milestone_id===firstMs.id);
@@ -15650,7 +15659,7 @@ async function queueEmail(toEmail,toName,subject,plain,html,meta={}){
 
 function renderEmailQueueRows(rows,includeHeldBtn=false){
   return rows.map(e=>{
-    const d=new Date(e.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const d=new Date(e.created_at).toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
     const statusBadge=e.status==='sent'
       ?'<span class="badge badge-success">Sent ✓</span>'
       :e.status==='failed'
