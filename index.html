@@ -10978,14 +10978,34 @@ Your Commonwealth Cruise Team`
       toPlaceholder:'partner@email.com',
       toName:'',
       extraFields:`
+        <div style="background:#f0f9ff;border:1.5px solid #7dd3fc;border-radius:9px;padding:12px 14px;margin-bottom:12px;">
+          <label style="font-size:.78rem;font-weight:700;color:#0369a1;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px;">🔍 Auto-Fill by Traveler Email</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input id="eg-pv-lookup-email" type="email" placeholder="Traveler's portal email address…" autocomplete="off"
+              style="flex:1;padding:8px 11px;border:1.5px solid #7dd3fc;border-radius:7px;font-size:.88rem;box-sizing:border-box;"
+              onkeydown="if(event.key==='Enter')pvLookupTraveler()">
+            <button type="button" onclick="pvLookupTraveler()" style="padding:8px 16px;background:#0369a1;color:#fff;border:none;border-radius:7px;font-size:.85rem;font-weight:700;cursor:pointer;white-space:nowrap;">🔍 Lookup</button>
+          </div>
+          <div id="eg-pv-lookup-status" style="font-size:.78rem;margin-top:5px;min-height:16px;"></div>
+        </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
           <div>
             <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Traveler Name (who they're traveling with)</label>
             <input id="eg-pv-traveler-name" type="text" placeholder="e.g. Jane Smith" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
           </div>
           <div>
-            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Traveler User ID (from Supabase — for Yes/No links)</label>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Traveler User ID (auto-filled from Supabase)</label>
             <input id="eg-pv-user-id" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Cabin Type (auto-filled)</label>
+            <input id="eg-pv-cabin-type" type="text" placeholder="e.g. Interior" readonly style="width:100%;padding:8px 11px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:.88rem;box-sizing:border-box;background:#f8fafc;color:#475569;">
+          </div>
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Partner Hint (from cabin record)</label>
+            <input id="eg-pv-partner-hint" type="text" placeholder="(filled from cabin_assignments)" readonly style="width:100%;padding:8px 11px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:.88rem;box-sizing:border-box;background:#f8fafc;color:#475569;">
           </div>
         </div>
         <div style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:8px;padding:8px 14px;font-size:.78rem;color:#1e3a8a;margin-bottom:4px;">
@@ -11020,6 +11040,67 @@ Your Commonwealth Cruise Team`
     }
   }
 ];
+
+async function pvLookupTraveler(){
+  const lookupEl=document.getElementById('eg-pv-lookup-email');
+  const statusEl=document.getElementById('eg-pv-lookup-status');
+  const email=(lookupEl?.value||'').trim().toLowerCase();
+  if(!email){if(statusEl){statusEl.textContent='Enter a traveler email address first.';statusEl.style.color='#dc2626';}return;}
+  if(statusEl){statusEl.innerHTML='<span style="color:#475569;">🔍 Looking up…</span>';}
+
+  // Look up traveler profile by email
+  const{data:prof,error:profErr}=await sb.from('profiles')
+    .select('id,name,email,phone')
+    .ilike('email',email)
+    .limit(1)
+    .maybeSingle();
+
+  if(profErr||!prof){
+    if(statusEl){statusEl.innerHTML='<span style="color:#dc2626;">❌ No traveler found with that email address.</span>';}
+    return;
+  }
+
+  // Fetch cabin assignment for partner details, cabin type, guests
+  const{data:ca}=await sb.from('cabin_assignments')
+    .select('cabin_type,num_guests,cabin_partner_name,cabin_partner_email,cabin_number,guest_reservation_number')
+    .eq('user_id',prof.id)
+    .limit(1)
+    .maybeSingle();
+
+  // Populate traveler fields
+  const nameEl=document.getElementById('eg-pv-traveler-name');
+  const uidEl=document.getElementById('eg-pv-user-id');
+  const cabinTypeEl=document.getElementById('eg-pv-cabin-type');
+  const partnerHintEl=document.getElementById('eg-pv-partner-hint');
+  if(nameEl)nameEl.value=prof.name||'';
+  if(uidEl)uidEl.value=prof.id||'';
+  if(cabinTypeEl){
+    const cabStr=ca?(ca.cabin_type||'')+(ca.num_guests?' ('+ca.num_guests+' guests)':''):'';
+    cabinTypeEl.value=cabStr;
+  }
+  if(partnerHintEl)partnerHintEl.value=ca?.cabin_partner_name||'(not set)';
+
+  // Auto-fill the "To" email/name fields if partner info is on file and fields are empty
+  const toEmailEl=document.getElementById('eg-to-email');
+  const toNameEl=document.getElementById('eg-to-name');
+  if(toEmailEl&&(!toEmailEl.value||toEmailEl.value===toEmailEl.getAttribute('placeholder'))&&ca?.cabin_partner_email){
+    toEmailEl.value=ca.cabin_partner_email;
+  }
+  if(toNameEl&&!toNameEl.value&&ca?.cabin_partner_name){
+    toNameEl.value=ca.cabin_partner_name;
+  }
+
+  // Build status summary
+  const details=[];
+  if(ca?.cabin_type)details.push(ca.cabin_type+(ca.num_guests?' × '+ca.num_guests:''));
+  if(ca?.cabin_number)details.push('Cabin #'+ca.cabin_number);
+  if(ca?.guest_reservation_number)details.push('Res #'+ca.guest_reservation_number);
+  if(ca?.cabin_partner_name)details.push('Partner hint: '+ca.cabin_partner_name);
+  if(ca?.cabin_partner_email)details.push('Partner email: '+ca.cabin_partner_email);
+  if(statusEl){
+    statusEl.innerHTML=`<span style="color:#16a34a;">✅ Filled: <strong>${prof.name}</strong>${details.length?' — '+details.join(' · '):''}</span>`;
+  }
+}
 
 function initialDepositRecalc(){
   const cabinType=(document.getElementById('eg-dep-cabin-type')?.value||'').trim().toLowerCase();
