@@ -8629,9 +8629,12 @@ async function loadInventoryTab(){
     gInventoryTiersByType[t.cabin_type].push(t);
   });
 
-  // Derive reserved counts from actual cabin_assignments rows (source of truth)
+  // Derive reserved counts from actual cabin_assignments rows (source of truth).
+  // Linked secondary partners (is_cabin_shared=TRUE + linked_partner_user_id set) share
+  // a slot with the primary and do NOT consume their own cabin slot.
   const actualReserved={};
   (assignments||[]).forEach(a=>{
+    if(a.is_cabin_shared && a.linked_partner_user_id) return; // secondary — no slot consumed
     if(!actualReserved[a.cabin_type])actualReserved[a.cabin_type]=0;
     actualReserved[a.cabin_type]++;
   });
@@ -8700,7 +8703,7 @@ async function loadInventoryTab(){
     // Custom price rows: price_per_person values in actual bookings not matching any tier
     const customPriceMap={};
     if(!isSuite){
-      (assignments||[]).filter(a=>a.cabin_type===r.cabin_type&&a.price_per_person&&parseFloat(a.price_per_person)>0).forEach(a=>{
+      (assignments||[]).filter(a=>a.cabin_type===r.cabin_type&&a.price_per_person&&parseFloat(a.price_per_person)>0&&!(a.is_cabin_shared&&a.linked_partner_user_id)).forEach(a=>{
         const ppKey=`${Math.round(parseFloat(a.price_per_person)*100)}`;
         if(!knownTierKeys.has(ppKey)){
           customPriceMap[ppKey]=(customPriceMap[ppKey]||0)+1;
