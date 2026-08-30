@@ -7230,6 +7230,9 @@ function switchTab(name,btn){
   if(name==='travelers')loadTravelers();
 }
 
+let gTravSort=null;
+let gTravSearch='';
+
 async function loadTravelers(){
   const[
     {data:profiles},
@@ -7252,9 +7255,7 @@ async function loadTravelers(){
     emailMap[k].push(e);
   });
 
-  const el=document.getElementById('admin-travelers');
-  if(!profiles||profiles.length===0){el.innerHTML='<div class="empty"><div class="ei">&#x1F465;</div><p>No travelers yet.</p></div>';return;}
-
+  // Store fetched data globally so search/sort can re-render without re-fetching
   const cabinMap={};(allCabins||[]).forEach(c=>{cabinMap[c.user_id]=c;});
   const payMap={};(allPayments||[]).forEach(p=>{
     if(!payMap[p.user_id])payMap[p.user_id]={due:0,paid:0};
@@ -7265,10 +7266,84 @@ async function loadTravelers(){
     if(!occupantMap[t.account_owner_id])occupantMap[t.account_owner_id]=[];
     occupantMap[t.account_owner_id].push(t);
   });
-  window.gOccupantMap=occupantMap; // cache for openManageTravelers (avoids RLS-blocked direct query)
+  window.gOccupantMap=occupantMap;
+  window.gTravelerData={};
+  window._travRaw={profiles:profiles||[],cabinMap,payMap,occupantMap,emailMap};
+  renderTravelersView();
+}
+
+function setTravSort(key){
+  if(gTravSort&&gTravSort.key===key){gTravSort={key,dir:gTravSort.dir==='asc'?'desc':'asc'};}
+  else{gTravSort={key,dir:'asc'};}
+  renderTravelersView();
+}
+
+function renderTravelersView(){
+  const el=document.getElementById('admin-travelers');
+  if(!el)return;
+  const raw=window._travRaw;
+  if(!raw){el.innerHTML='<div class="loading"><div class="spinner"></div></div>';return;}
+  const{profiles,cabinMap,payMap,occupantMap,emailMap}=raw;
+  if(!profiles||profiles.length===0){el.innerHTML='<div class="empty"><div class="ei">&#x1F465;</div><p>No travelers yet.</p></div>';return;}
+  window.gOccupantMap=occupantMap;
   window.gTravelerData={};
 
-  const active=profiles.filter(p=>p.status!=='cancelled');
+  // Search filter
+  const q=(gTravSearch||'').toLowerCase().trim();
+  const searchActive=q.length>0;
+  const sortActive=!!gTravSort;
+  const filteredProfiles=searchActive
+    ?profiles.filter(p=>{
+        if((p.name||'').toLowerCase().includes(q))return true;
+        if((p.email||'').toLowerCase().includes(q))return true;
+        return(occupantMap[p.id]||[]).some(t=>[t.first_name,t.middle_name,t.last_name].filter(Boolean).join(' ').toLowerCase().includes(q));
+      })
+    :profiles;
+
+  // Sort helpers
+  const lastName=name=>(name||'').trim().split(/\s+/).pop().toLowerCase();
+  function sortVal(p){
+    const ca=cabinMap[p.id];
+    const pd=payMap[p.id]||{due:0,paid:0};
+    const paid=pd.paid;
+    const cc=ca?.cabin_cost?parseFloat(ca.cabin_cost):null;
+    const bal=cc?Math.max(0,cc-paid):null;
+    const pct=cc?Math.min(100,Math.round((paid/cc)*100)):(pd.due>0?Math.round((paid/pd.due)*100):0);
+    switch(gTravSort?.key){
+      case 'cabin':return(ca?.cabin_type||'zzz').toLowerCase();
+      case 'paid':return paid;
+      case 'balance':return bal??999999;
+      case 'pct':return pct;
+      default:return lastName(p.name);
+    }
+  }
+  const dir=(gTravSort?.dir==='desc')?-1:1;
+  const sortFn=(a,b)=>{const av=sortVal(a),bv=sortVal(b);return typeof av==='string'?dir*av.localeCompare(bv):dir*(av-bv);};
+  const byLastName=(a,b)=>lastName(a.name).localeCompare(lastName(b.name));
+
+  // Sortable column headers
+  const si=key=>gTravSort?.key===key?(gTravSort.dir==='asc'?' ▲':' ▼'):'';
+  const thS='cursor:pointer;user-select:none;white-space:nowrap;';
+  const thead='<thead><tr>'+
+    '<th style="'+thS+'" onclick="setTravSort(\'lastName\')">Traveler'+si('lastName')+'</th>'+
+    '<th style="'+thS+'" onclick="setTravSort(\'cabin\')">Cabin'+si('cabin')+'</th>'+
+    '<th>Res. / Link</th>'+
+    '<th class="col-r" style="'+thS+'" onclick="setTravSort(\'paid\')">Paid'+si('paid')+'</th>'+
+    '<th class="col-r" style="'+thS+'" onclick="setTravSort(\'balance\')">Balance'+si('balance')+'</th>'+
+    '<th style="'+thS+'" onclick="setTravSort(\'pct\')">Progress'+si('pct')+'</th>'+
+    '<th>Emails</th><th>Actions</th>'+
+  '</tr></thead>';
+  const ctheadRow='<thead><tr><th>Traveler</th><th>Cabin</th><th>Res. / Link</th><th class="col-r">Paid</th><th class="col-r">Balance</th><th>Progress</th><th>Actions</th></tr></thead>';
+
+  // Search + sort control bar
+  const searchBox='<div style="margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'+
+    '<input type="text" id="trav-search-input" value="'+(gTravSearch||'').replace(/"/g,'&quot;')+'"'+
+    ' placeholder="🔍 Search name, email, or cabin traveler…"'+
+    ' oninput="gTravSearch=this.value;renderTravelersView()"'+
+    ' style="flex:1;min-width:220px;max-width:440px;padding:7px 12px;font-size:.88rem;border:1.5px solid var(--border);border-radius:8px;color:var(--text);background:var(--card);">'+
+    (sortActive?'<button onclick="gTravSort=null;renderTravelersView()" style="background:#e5e7eb;border:none;border-radius:6px;padding:6px 10px;font-size:.8rem;cursor:pointer;color:#374151;">↺ Reset Sort</button>':'')+
+    (searchActive?'<button onclick="gTravSearch=\'\';renderTravelersView()" style="background:#e5e7eb;border:none;border-radius:6px;padding:6px 10px;font-size:.8rem;cursor:pointer;color:#374151;">✕ Clear</button>':'')+
+  '</div>';
 
   function makeRow(p){
     const ca=cabinMap[p.id]||null;
@@ -7290,11 +7365,9 @@ async function loadTravelers(){
     const docB=p.needs_doc_info?'<span class="badge needs-info">Needs Doc</span> ':'';
     const suiteB=ca?.suite_pending?'<span class="badge badge-warn">Suite&#x2B50;</span> ':'';
     const noCabinB=!ca?'<span class="badge badge-gray">No Cabin</span> ':'';
-    // Show amber badge when traveler has paid something but no personal CCL link is set yet
     const needsCCLB=(ca&&paid>0&&!ca.payment_link)
       ?'<span class="badge badge-warn" style="font-size:.72rem;" title="Traveler has paid but no personal CCL payment link has been assigned yet">&#x26A0;&#xFE0F; Needs CCL Link</span> ':'';
     const safeN=(p.name||'').replace(/'/g,"\\'");
-    const safePayLink=(ca?.payment_link||'').replace(/'/g,"\\'");
     window.gTravelerData[p.id]={userId:p.id,name:p.name||'',email:p.email||'',
       cabinType:ca?.cabin_type||'',cabinNumber:ca?.cabin_number||'',
       citizenshipType:'',paid,numGuests:ca?.num_guests||1,
@@ -7327,7 +7400,7 @@ async function loadTravelers(){
         '<option value="view_cc_auth">&#x1F4CB; Completed CC Auth'+(p.cc_auth_url?' &#x2713;':'')+'</option>'+
         '<option value="send_initial_deposit">&#x1F4B0; Send Initial Deposit Due</option>'+
         '<option value="send_payment_confirmation">&#x1F4B3; Send Payment Confirmation</option>'+
-        '<option value="add_note">📝 Add Note</option>'+'<option value="mark_deposit_paid">💰 Mark Deposit Paid</option>'+'<option value="send_pay_link">&#x1F4E8; Send Payment Link</option>'+
+        '<option value="add_note">📝 Add Note</option><option value="mark_deposit_paid">💰 Mark Deposit Paid</option><option value="send_pay_link">&#x1F4E8; Send Payment Link</option>'+
         '<option value="gratuity">&#x1F91D; Gratuity'+gratChk+'</option>'+
         '<option value="link_cabin_partner">&#x1F517; Link Cabin Partner</option>'+
         '<option value="add_cabin_occupant">&#x1F465; Additional Cabin Occupant</option>'+
@@ -7367,7 +7440,7 @@ async function loadTravelers(){
     const emailCell=eCount===0
       ?'<td style="font-size:.78rem;color:var(--muted);text-align:center;">—</td>'
       :'<td><div style="position:relative;display:inline-block;">'+
-          '<button onclick="toggleEmailHistory(\''+eHid+'\')" style="background:#1a4a7c;color:#fff;border:none;border-radius:6px;padding:3px 9px;font-size:.76rem;font-weight:700;cursor:pointer;">📧 '+eCount+'</button>'+
+          '<button onclick="toggleEmailHistory(\''+eHid+'\')" style="background:#1a4a7c;color:#fff;border:none;border-radius:6px;padding:3px 9px;font-size:.76rem;font-weight:700;cursor:pointer;">&#x1F4E7; '+eCount+'</button>'+
           '<div id="'+eHid+'" style="display:none;position:absolute;z-index:200;right:0;top:100%;min-width:300px;background:var(--card);border:1.5px solid var(--border);border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.22);padding:4px 0;max-height:240px;overflow-y:auto;">'+
             tEmails.map(e=>{
               const d=new Date(e.created_at);
@@ -7383,10 +7456,10 @@ async function loadTravelers(){
     return'<tr>'+
       '<td><a href="#" onclick="openManageTravelers(\''+p.id+'\',\''+safeN+'\','+( ca?.num_guests||1)+');return false;" style="font-weight:800;color:var(--primary);text-decoration:none;">'+(p.name||'<em style="color:var(--muted)">No name</em>')+'</a> '+docB+suiteB+noCabinB+needsCCLB+'<br><small style="color:var(--muted)">'+(p.email||'')+'</small></td>'+
       '<td><span class="badge badge-purple">'+cabinStr+'</span>'+
-        (()=>{const _uid=p.id;const _ng=ca?.num_guests||1;const _effG=_ng===1?2:_ng;const _pp=ca?.price_per_person?parseFloat(ca.price_per_person):null;const _cc=ca?.cabin_cost?parseFloat(ca.cabin_cost):null;const _tot=_pp?fmt(_pp*_effG):'';const _totColor=(_pp&&_cc&&Math.abs(_pp*_effG-_cc)<0.01)?'#166534':'#1a4a7c';return`<br><div style="margin-top:3px;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:.74rem;font-weight:700;color:#1a4a7c;"><input type="checkbox" id="tv-chk-${_uid}" ${_pp?'checked':''} onchange="toggleInlineTierInput('${_uid}')"><span>${_pp?'✅ Price Verified':'Price Verified'}</span></label><div id="tv-form-${_uid}" style="display:${_pp?'flex':'none'};align-items:center;gap:3px;flex-wrap:wrap;margin-top:3px;"><input type="number" id="tv-pp-${_uid}" value="${_pp||''}" placeholder="$/pp" step="0.01" min="0" style="width:72px;padding:2px 5px;font-size:.74rem;border:1.5px solid #cbd5e1;border-radius:4px;color:#1a4a7c;font-weight:700;" oninput="updateInlineTierTotal('${_uid}',${_effG},${_cc||0})"><span id="tv-tot-${_uid}" style="font-size:.71rem;color:${_totColor};font-weight:700;">${_tot?'= '+_tot:''}</span><button onclick="saveInlineTier('${_uid}',${_effG})" style="background:#1a4a7c;color:#fff;border:none;border-radius:4px;padding:2px 7px;font-size:.72rem;font-weight:700;cursor:pointer;">Save</button></div></div>`})()+(()=>{const _ti=ca?.travel_insurance||'';const _opts='<option value="">— Select —</option><option value="yes"'+(_ti==='yes'?' selected':'')+'>Travel Insurance-Yes</option><option value="no"'+(_ti==='no'?' selected':'')+'>Travel Insurance-No</option>';const _badge=_ti?('<span style="font-size:.71rem;font-weight:700;margin-left:4px;color:'+(_ti==='yes'?'#0f766e':'#dc2626')+';">'+(_ti==='yes'?'✅ Travel Insurance-Yes':'❌ Travel Insurance-No')+'</span>'):'';return'<br><div style="margin-top:4px;"><label style="font-size:.74rem;font-weight:700;color:#0f766e;display:block;margin-bottom:2px;">🛡️ Travel Insurance</label><select onchange="saveAdminTravelInsurance(\''+p.id+'\',this.value)" style="font-size:.74rem;padding:2px 5px;border:1.5px solid #99f6e4;border-radius:4px;color:#0f766e;font-weight:700;background:#f0fdfa;width:100%;max-width:160px;">'+_opts+'</select>'+_badge+'</div>';})()+''+
-        (ca?.backup_cabin_type&&!ca?.suite_pending&&!ca?.cabin_number?'<br><span style="font-size:.74rem;color:var(--muted);">🔄 Backup: '+ca.backup_cabin_type+'</span>':'')+
-        (ca?.high_occupancy_pending?'<br><span class="badge badge-warn" style="font-size:.72rem;">⚠️ High Occ. Pending</span>':'')+
-        (ca?.cabin_change_pending&&ca?.requested_cabin_type?'<br><span class="badge badge-warn" style="font-size:.72rem;">🔄 Change Req: '+ca.requested_cabin_type+'</span>':'')+
+        (()=>{const _uid=p.id;const _ng=ca?.num_guests||1;const _effG=_ng===1?2:_ng;const _pp=ca?.price_per_person?parseFloat(ca.price_per_person):null;const _cc=ca?.cabin_cost?parseFloat(ca.cabin_cost):null;const _tot=_pp?fmt(_pp*_effG):'';const _totColor=(_pp&&_cc&&Math.abs(_pp*_effG-_cc)<0.01)?'#166534':'#1a4a7c';return`<br><div style="margin-top:3px;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:.74rem;font-weight:700;color:#1a4a7c;"><input type="checkbox" id="tv-chk-${_uid}" ${_pp?'checked':''} onchange="toggleInlineTierInput('${_uid}')"><span>${_pp?'&#x2705; Price Verified':'Price Verified'}</span></label><div id="tv-form-${_uid}" style="display:none;align-items:center;gap:3px;flex-wrap:wrap;margin-top:3px;"><input type="number" id="tv-pp-${_uid}" value="${_pp||''}" placeholder="$/pp" step="0.01" min="0" style="width:72px;padding:2px 5px;font-size:.74rem;border:1.5px solid #cbd5e1;border-radius:4px;color:#1a4a7c;font-weight:700;" oninput="updateInlineTierTotal('${_uid}',${_effG},${_cc||0})"><span id="tv-tot-${_uid}" style="font-size:.71rem;color:${_totColor};font-weight:700;">${_tot?'= '+_tot:''}</span><button onclick="saveInlineTier('${_uid}',${_effG})" style="background:#1a4a7c;color:#fff;border:none;border-radius:4px;padding:2px 7px;font-size:.72rem;font-weight:700;cursor:pointer;">Save</button></div></div>`})()+(()=>{const _ti=ca?.travel_insurance||'';const _opts='<option value="">— Select —</option><option value="yes"'+(_ti==='yes'?' selected':'')+'>Travel Insurance-Yes</option><option value="no"'+(_ti==='no'?' selected':'')+'>Travel Insurance-No</option>';const _badge=_ti?('<span style="font-size:.71rem;font-weight:700;margin-left:4px;color:'+(_ti==='yes'?'#0f766e':'#dc2626')+';">'+(_ti==='yes'?'&#x2705; Travel Insurance-Yes':'&#x274C; Travel Insurance-No')+'</span>'):'';return'<br><div style="margin-top:4px;"><label style="font-size:.74rem;font-weight:700;color:#0f766e;display:block;margin-bottom:2px;">&#x1F6E1;&#xFE0F; Travel Insurance</label><select onchange="saveAdminTravelInsurance(\''+p.id+'\',this.value)" style="font-size:.74rem;padding:2px 5px;border:1.5px solid #99f6e4;border-radius:4px;color:#0f766e;font-weight:700;background:#f0fdfa;width:100%;max-width:160px;">'+_opts+'</select>'+_badge+'</div>';})()+''+
+        (ca?.backup_cabin_type&&!ca?.suite_pending&&!ca?.cabin_number?'<br><span style="font-size:.74rem;color:var(--muted);">&#x1F504; Backup: '+ca.backup_cabin_type+'</span>':'')+
+        (ca?.high_occupancy_pending?'<br><span class="badge badge-warn" style="font-size:.72rem;">&#x26A0;&#xFE0F; High Occ. Pending</span>':'')+
+        (ca?.cabin_change_pending&&ca?.requested_cabin_type?'<br><span class="badge badge-warn" style="font-size:.72rem;">&#x1F504; Change Req: '+ca.requested_cabin_type+'</span>':'')+
       '</td>'+
       '<td style="font-size:.82rem;min-width:100px;">'+reservNum+'<br>'+payLink+'</td>'+
       '<td class="col-r" style="color:var(--success)"><strong>'+fmt(paid)+'</strong></td>'+
@@ -7397,35 +7470,11 @@ async function loadTravelers(){
     '</tr>'+occRows;
   }
 
-  const thead='<thead><tr><th>Traveler</th><th>Cabin</th><th>Res. / Link</th><th class="col-r">Paid</th><th class="col-r">Balance</th><th>Progress</th><th>Emails</th><th>Actions</th></tr></thead>';
-
-  // Group travelers into three active sections + one cancelled section
-  const byName=(a,b)=>(a.name||'').localeCompare(b.name||'');
-  const cancelled=profiles.filter(p=>p.status==='cancelled').sort(byName);
-  const grpNoPay=active.filter(p=>!(payMap[p.id]?.paid>0)&&!cabinMap[p.id]?.cabin_number).sort(byName);
-  const grpHasPay=active.filter(p=>(payMap[p.id]?.paid>0)&&!cabinMap[p.id]?.cabin_number).sort(byName);
-  const grpAssigned=active.filter(p=>!!cabinMap[p.id]?.cabin_number).sort(byName);
-
-  function buildTravelerGroup(label,icon,borderColor,bgColor,travelers,secId,startCollapsed){
-    if(travelers.length===0)return'';
-    const rows=travelers.map(makeRow).join('');
-    const collStyle=startCollapsed?'display:none':'';
-    const chev=startCollapsed?'▶':'▼';
-    return`<div style="margin-bottom:14px;border:1.5px solid ${borderColor};border-radius:10px;overflow:hidden;">
-      <div style="background:${bgColor};padding:10px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;" onclick="toggleTravelerSection('${secId}')">
-        <span style="font-weight:800;font-size:.88rem;color:${borderColor};">${icon} ${label} <span style="font-weight:600;font-size:.8rem;opacity:.75;">(${travelers.length})</span></span>
-        <span id="trav-sec-chev-${secId}" style="font-size:.8rem;color:${borderColor};">${chev}</span>
-      </div>
-      <div id="trav-sec-${secId}" style="${collStyle}"><div class="table-wrap"><table>${thead}<tbody>${rows}</tbody></table></div></div>
-    </div>`;
-  }
-
-  // Cancelled traveler rows — limited action menu (restore or delete)
   function makeCancelledRow(p){
     const ca=cabinMap[p.id]||null;
     const pData=payMap[p.id]||{due:0,paid:0};
     const paid=pData.paid;
-    const cabinStr=ca?(ca.cabin_type+(ca.cabin_number?' #'+ca.cabin_number:'')):'—';
+    const cabinStr=ca?(ca.cabin_type+(ca.cabin_number?' #'+ca.cabin_number:'')):'&#x2014;';
     window.gTravelerData[p.id]={userId:p.id,name:p.name||'',email:p.email||'',
       cabinType:ca?.cabin_type||'',cabinNumber:ca?.cabin_number||'',
       citizenshipType:'',paid,numGuests:ca?.num_guests||1,
@@ -7442,7 +7491,7 @@ async function loadTravelers(){
       '<option value="delete">&#x1F5D1; Delete Account</option>'+
       '</select>';
     return'<tr style="opacity:.7;background:#fdf2f2;">'+
-      '<td><span style="font-weight:700;">'+(p.name||'—')+'</span><br><small style="color:#6b7280;">'+(p.email||'')+'</small><br><span class="badge badge-danger" style="font-size:.72rem;margin-top:2px;">🚫 Cancelled / Not Going</span></td>'+
+      '<td><span style="font-weight:700;">'+(p.name||'—')+'</span><br><small style="color:#6b7280;">'+(p.email||'')+'</small><br><span class="badge badge-danger" style="font-size:.72rem;margin-top:2px;">&#x1F6AB; Cancelled / Not Going</span></td>'+
       '<td style="color:#9ca3af;">'+(cabinStr||'—')+'</td>'+
       '<td style="color:#9ca3af;">—</td>'+
       '<td class="col-r" style="color:#9ca3af;">'+(paid>0?fmt(paid):'—')+'</td>'+
@@ -7452,24 +7501,68 @@ async function loadTravelers(){
       '</tr>';
   }
 
-  el.innerHTML=(
-    buildTravelerGroup('No Payment Made','🔴 ','#dc2626','#fff5f5',grpNoPay,'nopay',false)+
-    buildTravelerGroup('Payment in Progress','🟡 ','#d97706','#fffbeb',grpHasPay,'haspay',false)+
-    buildTravelerGroup('Cabin Assigned','🟢 ','#16a34a','#f0fdf4',grpAssigned,'assigned',false)
-  )||'<div class="empty"><div class="ei">👥</div><p>No travelers yet.</p></div>';
-
-  // Cancelled section always at bottom, collapsed by default
-  if(cancelled.length>0){
-    const cancelledRows=cancelled.map(makeCancelledRow).join('');
-    const cancelledTheadRow='<thead><tr><th>Traveler</th><th>Cabin</th><th>Res. / Link</th><th class="col-r">Paid</th><th class="col-r">Balance</th><th>Progress</th><th>Actions</th></tr></thead>';
-    el.innerHTML+='<div style="margin-top:6px;border:1.5px solid #9ca3af;border-radius:10px;overflow:hidden;">'+
-      '<div style="background:#f3f4f6;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;" onclick="toggleTravelerSection(\'cancelled\')">'+
-        '<span style="font-weight:800;font-size:.88rem;color:#6b7280;">🚫 Cancelled / Not Going <span style="font-weight:600;font-size:.8rem;opacity:.75;">('+cancelled.length+')</span></span>'+
-        '<span id="trav-sec-chev-cancelled" style="font-size:.8rem;color:#6b7280;">▶</span>'+
+  function buildTravelerGroup(label,icon,borderColor,bgColor,travelers,secId,startCollapsed){
+    if(travelers.length===0)return'';
+    const rows=travelers.map(makeRow).join('');
+    const collStyle=startCollapsed?'display:none':'';
+    const chev=startCollapsed?'&#x25B6;':'&#x25BC;';
+    return'<div style="margin-bottom:14px;border:1.5px solid '+borderColor+';border-radius:10px;overflow:hidden;">'+
+      '<div style="background:'+bgColor+';padding:10px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;" onclick="toggleTravelerSection(\''+secId+'\')">'+
+        '<span style="font-weight:800;font-size:.88rem;color:'+borderColor+';">'+icon+' '+label+' <span style="font-weight:600;font-size:.8rem;opacity:.75;">('+travelers.length+')</span></span>'+
+        '<span id="trav-sec-chev-'+secId+'" style="font-size:.8rem;color:'+borderColor+';">'+chev+'</span>'+
       '</div>'+
-      '<div id="trav-sec-cancelled" style="display:none;"><div class="table-wrap"><table>'+cancelledTheadRow+'<tbody>'+cancelledRows+'</tbody></table></div></div>'+
+      '<div id="trav-sec-'+secId+'" style="'+collStyle+'"><div class="table-wrap"><table>'+thead+'<tbody>'+rows+'</tbody></table></div></div>'+
     '</div>';
   }
+
+  // No search results
+  if(searchActive&&!filteredProfiles.length){
+    el.innerHTML=searchBox+'<div class="empty"><div class="ei">&#x1F50D;</div><p>No travelers match “<strong>'+q+'</strong>”.</p></div>';
+    return;
+  }
+
+  const active=filteredProfiles.filter(p=>p.status!=='cancelled');
+  const cancelled=filteredProfiles.filter(p=>p.status==='cancelled');
+
+  // Flat view when search active OR a sort column is selected
+  if(searchActive||sortActive){
+    const sortedActive=[...active].sort(sortActive?sortFn:byLastName);
+    const sortedCancelled=[...cancelled].sort(byLastName);
+    let html=searchBox;
+    if(sortedActive.length)html+='<div class="table-wrap"><table>'+thead+'<tbody>'+sortedActive.map(makeRow).join('')+'</tbody></table></div>';
+    if(sortedCancelled.length){
+      html+='<div style="margin-top:10px;border:1.5px solid #9ca3af;border-radius:10px;overflow:hidden;">'+
+        '<div style="background:#f3f4f6;padding:8px 16px;font-weight:800;font-size:.88rem;color:#6b7280;">&#x1F6AB; Cancelled / Not Going ('+sortedCancelled.length+')</div>'+
+        '<div class="table-wrap"><table>'+ctheadRow+'<tbody>'+sortedCancelled.map(makeCancelledRow).join('')+'</tbody></table></div>'+
+      '</div>';
+    }
+    el.innerHTML=html;
+    return;
+  }
+
+  // Default grouped view, sorted by last name within each group
+  const grpNoPay=active.filter(p=>!(payMap[p.id]?.paid>0)&&!cabinMap[p.id]?.cabin_number).sort(byLastName);
+  const grpHasPay=active.filter(p=>(payMap[p.id]?.paid>0)&&!cabinMap[p.id]?.cabin_number).sort(byLastName);
+  const grpAssigned=active.filter(p=>!!cabinMap[p.id]?.cabin_number).sort(byLastName);
+
+  let html=searchBox+(
+    buildTravelerGroup('No Payment Made','&#x1F534;','#dc2626','#fff5f5',grpNoPay,'nopay',false)+
+    buildTravelerGroup('Payment in Progress','&#x1F7E1;','#d97706','#fffbeb',grpHasPay,'haspay',false)+
+    buildTravelerGroup('Cabin Assigned','&#x1F7E2;','#16a34a','#f0fdf4',grpAssigned,'assigned',false)
+  );
+  if(!html.includes('<tr'))html=searchBox+'<div class="empty"><div class="ei">&#x1F465;</div><p>No travelers yet.</p></div>';
+
+  if(cancelled.length>0){
+    const cancelledRows=cancelled.sort(byLastName).map(makeCancelledRow).join('');
+    html+='<div style="margin-top:6px;border:1.5px solid #9ca3af;border-radius:10px;overflow:hidden;">'+
+      '<div style="background:#f3f4f6;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;" onclick="toggleTravelerSection(\'cancelled\')">'+
+        '<span style="font-weight:800;font-size:.88rem;color:#6b7280;">&#x1F6AB; Cancelled / Not Going <span style="font-weight:600;font-size:.8rem;opacity:.75;">('+cancelled.length+')</span></span>'+
+        '<span id="trav-sec-chev-cancelled" style="font-size:.8rem;color:#6b7280;">&#x25B6;</span>'+
+      '</div>'+
+      '<div id="trav-sec-cancelled" style="display:none;"><div class="table-wrap"><table>'+ctheadRow+'<tbody>'+cancelledRows+'</tbody></table></div></div>'+
+    '</div>';
+  }
+  el.innerHTML=html;
 }
 
 function toggleTravelerSection(secId){
