@@ -3126,8 +3126,13 @@ async function completeRegistration(){
       const _typeFull=_invRow&&_booked!=null&&_booked>=_invRow.total_cabins;
       const _tierFull=!_tiers||_tiers.length===0;
       if(_typeFull||_tierFull){
-        showErr(`${regCabinCheck} cabins are currently sold out. Your account will be created and you'll be added to the waitlist — we'll contact you when a spot opens.`);
-        // Don't return — let the RPC handle it so the account is still created with waitlist routing
+        // Show amber info notice — do NOT call showErr() which re-enables the button.
+        // The RPC handles waitlist routing; account is still created normally.
+        alertEl.className='alert';
+        alertEl.style.cssText='display:block;background:#fef3c7;border:1.5px solid #fbbf24;color:#78350f;padding:10px 14px;border-radius:8px;font-size:.83rem;line-height:1.5;';
+        alertEl.textContent=`${regCabinCheck} cabins are currently sold out — your account will still be created and you'll be added to the waitlist. We'll contact you when a spot opens.`;
+        busy.textContent='⏳ Creating your account & joining waitlist…';
+        // Don't return — let the RPC handle waitlist routing
       }
     }
 
