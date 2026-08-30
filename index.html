@@ -3099,6 +3099,23 @@ async function completeRegistration(){
   };
 
   try{
+    // Pre-check: verify cabin type is not sold out before calling the RPC.
+    // The RPC enforces this server-side too — this gives the user a fast, friendly message first.
+    const regCabinCheck=isSuiteReq?backupCabin:cabinType;
+    if(!isSuiteReq&&!['Full Accessible','Ambulatory Accessible'].includes(cabinType)&&regCabinCheck){
+      const[{data:_invRow},{count:_booked},{data:_tiers}]=await Promise.all([
+        sb.from('cabin_inventory').select('total_cabins').eq('cabin_type',regCabinCheck).single(),
+        sb.from('cabin_assignments').select('id',{count:'exact',head:true}).eq('cabin_type',regCabinCheck),
+        sb.from('cabin_price_tiers').select('id').eq('cabin_type',regCabinCheck).gt('available_cabins',0).limit(1)
+      ]);
+      const _typeFull=_invRow&&_booked!=null&&_booked>=_invRow.total_cabins;
+      const _tierFull=!_tiers||_tiers.length===0;
+      if(_typeFull||_tierFull){
+        showErr(`${regCabinCheck} cabins are currently sold out. Your account will be created and you'll be added to the waitlist — we'll contact you when a spot opens.`);
+        // Don't return — let the RPC handle it so the account is still created with waitlist routing
+      }
+    }
+
     // Creates auth account + profile + cabin_assignments atomically inside SECURITY DEFINER RPC.
     // Cabin type/guest count are passed directly so they are written server-side
     // regardless of whether auto-sign-in succeeds — eliminates the RLS-blocked JS insert path.
@@ -3130,10 +3147,27 @@ async function completeRegistration(){
 
     // SMS alert to admin
     const _fullName=[document.getElementById('reg-firstname')?.value?.trim(),document.getElementById('reg-lastname')?.value?.trim()].filter(Boolean).join(' ');
-    sendAdminSms(`New CruisePortal account: ${_fullName||'Unknown'} (${gRegEmail}) — ${cabinType||'cabin TBD'} x${numGuests||'?'}`);
+    const _wasWaitlisted=result&&typeof result==='object'&&result.waitlisted===true;
+    sendAdminSms(`New CruisePortal account: ${_fullName||'Unknown'} (${gRegEmail}) — ${cabinType||'cabin TBD'} x${numGuests||'?'}${_wasWaitlisted?' [WAITLISTED — sold out]':''}`);
+
+    // If routed to waitlist (sold out), send waitlist emails
+    if(_wasWaitlisted){
+      const _wlCabin=(result&&result.cabin_type)||cabinType;
+      const _wlHtml=buildEmailHtml(_fullName,
+        `<p>Thank you for registering for the ${TRIP_NAME}!</p>`+
+        `<p>Unfortunately, <strong>${_wlCabin} Cabins</strong> are currently sold out. You have been added to the waitlist.</p>`+
+        buildPayTable([{label:'Cabin Type Requested',value:_wlCabin},{label:'Number of Guests',value:numGuests||'—'}])+
+        `<p>We will contact you by email as soon as a spot becomes available. <strong>No payment is required at this time.</strong></p>`+
+        `<p>Your portal account has been created — you can log in to check your status at any time.</p>`
+      );
+      const _wlPlain=`Thank you for registering for the ${TRIP_NAME}!\n\n${_wlCabin} Cabins are sold out. You've been added to the waitlist (${numGuests||'—'} guests).\n\nWe'll contact you when a spot opens up. No payment required now.\n\nYou can log in to the portal to check your status.`;
+      sendEmail(gRegEmail,_fullName,`${TRIP_NAME} — You're on the Waitlist: ${_wlCabin} Cabin`,_wlPlain,_wlHtml);
+      const _wlAdminHtml=buildEmailHtml('Admin',`<p>${_fullName} registered but was routed to the <strong>${_wlCabin} Cabin waitlist</strong> (sold out at booking time).</p>`+buildPayTable([{label:'Name',value:_fullName},{label:'Email',value:gRegEmail},{label:'Cabin Requested',value:_wlCabin},{label:'Guests',value:numGuests||'—'}]));
+      sendEmail(ADMIN_EMAIL,'Admin',`${TRIP_NAME} — New Waitlist (Registration): ${_fullName}`,`${_fullName} (${gRegEmail}) registered and was waitlisted for ${_wlCabin} x${numGuests||'?'}.`,_wlAdminHtml);
+    }
 
     // Accessible cabin: email traveler + admin (bypass hold)
-    if(['Full Accessible','Ambulatory Accessible'].includes(cabinType)){
+    if(!_wasWaitlisted&&['Full Accessible','Ambulatory Accessible'].includes(cabinType)){
       emailAccessibleRequestReceived({name:_fullName,email:gRegEmail},cabinType,numGuests);
     }
 
@@ -3790,11 +3824,16 @@ async function doProfileSetup(){
   // Accessible cabin types always go to waitlist — skip sold-out check
   if(!isAccessiblePsetup){
   // Use actual cabin_assignments count as source of truth (available_cabins counter can drift)
-  const[{data:invRow},{count:actualBooked}]=await Promise.all([
+  // Also check price tier availability — if all tiers exhausted, route to waitlist
+  const[{data:invRow},{count:actualBooked},{data:tierAvail}]=await Promise.all([
     sb.from('cabin_inventory').select('total_cabins').eq('cabin_type',checkCabin).single(),
-    sb.from('cabin_assignments').select('id',{count:'exact',head:true}).eq('cabin_type',checkCabin)
+    sb.from('cabin_assignments').select('id',{count:'exact',head:true}).eq('cabin_type',checkCabin),
+    sb.from('cabin_price_tiers').select('id').eq('cabin_type',checkCabin).gt('available_cabins',0).limit(1)
   ]);
-  const soldOut=!invRow||(actualBooked!=null&&actualBooked>=invRow.total_cabins);
+  const typeSoldOut=!invRow||(actualBooked!=null&&actualBooked>=invRow.total_cabins);
+  // Only apply tier check for regular cabin types that have price tiers
+  const tierSoldOut=!typeSoldOut&&(tierAvail!=null&&tierAvail.length===0);
+  const soldOut=typeSoldOut||tierSoldOut;
   if(soldOut){
     // ── SOLD OUT: Join waitlist ───────────────────────────────
     flash('psetup-alert','That cabin type is currently sold out. Adding you to the waitlist…','info');
