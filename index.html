@@ -10094,25 +10094,41 @@ This email was sent by the ${TRIP_NAME} portal.`
       toLabel:'Traveler email',
       toPlaceholder:'traveler@email.com',
       toName:'',
+      extraFields:`<div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;">
+  <button type="button" onclick="depositCompleteAutoFill()" style="background:#e0f2fe;color:#0c4a6e;border:1.5px solid #bae6fd;border-radius:7px;padding:6px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">🔍 Auto-fill from Profile</button>
+  <span id="eg-dc-autofill-status" style="font-size:.75rem;color:#94a3b8;">Enter traveler email above, then click to auto-fill.</span>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:6px;">
+  <div><label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Cabin Type</label>
+    <input id="eg-dc-cabin-type" type="text" placeholder="e.g. Balcony" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;"></div>
+  <div><label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Guests in Cabin</label>
+    <input id="eg-dc-num-guests" type="number" min="1" max="6" value="2" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;"></div>
+  <div><label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Deposit Per Person ($)</label>
+    <input id="eg-dc-deposit-pp" type="number" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;"></div>
+  <div><label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Total Paid to Date ($)</label>
+    <input id="eg-dc-total-paid" type="number" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;" title="Auto-filled from payment records. Edit to override."></div>
+</div>`,
       body:`Hello [Traveler Name],
 
-Fantastic news! Your full deposit for the ${TRIP_NAME} has been received! 🎉
+Fantastic news! Your full deposit for the Commonwealth Cruise 2027 has been received! 🎉
 
-Deposit Summary:
+DEPOSIT SUMMARY:
 • Travelers in Your Cabin: [Count]
 • Deposit Per Person: $250.00
 • Total Deposit Received: $[Total Paid]
 
-Next Steps:
-1. Your cabin number will be assigned and sent to you by a separate email shortly.
-2. A personalized payment link for all future payments will also be sent to you by email.
+NEXT STEPS:
+1. Your cabin number is 1301.
+2. Your reservation number is DK9J50.
 
-Thank you for securing your spot on the ${TRIP_NAME}! We can't wait to sail with you!
+You can use this information to set up your Carnival Account, view your cabin, etc.
 
-Thank you,
-Your Commonwealth Cruise Team
-This email was sent by the ${TRIP_NAME} portal.`
-    })
+Please also review your name, DOB, citizenship, etc. and make sure all information is correct.
+
+Thank you for securing your spot on the Commonwealth Cruise 2027! We can't wait to sail with you!`
+    }),
+    useCustomSend:true,
+    customSend:()=>sendDepositCompleteEmail()
   },
   {
     id:'cancellation_traveler',label:'Cancellation Notice (Traveler)',icon:'🚫',
@@ -11402,6 +11418,97 @@ async function sendPaymentConfirmationEmail(){
   }
 }
 
+// ── DEPOSIT COMPLETE EMAIL ────────────────────────────────────────
+async function depositCompleteAutoFill(){
+  const email=(document.getElementById('eg-to-email')||{}).value?.trim();
+  const statusEl=document.getElementById('eg-dc-autofill-status');
+  if(!email){if(statusEl){statusEl.textContent='Enter traveler email above first.';statusEl.style.color='#d97706';}return;}
+  if(statusEl){statusEl.innerHTML='<span style="color:#475569;">🔍 Looking up…</span>';}
+  try{
+    let name='',cabinType='',numGuests=null,perPerson=null,userId=null;
+    const{data:rpcData}=await sb.rpc('admin_get_all_cabin_assignments');
+    const found=(rpcData||[]).find(r=>(r.email||r.user_email||'').toLowerCase()===email.toLowerCase());
+    if(found){
+      name=found.full_name||found.name||'';
+      cabinType=found.cabin_type||'';
+      numGuests=found.num_guests||null;
+      perPerson=found.price_per_person||null;
+      userId=found.user_id||found.id||null;
+    } else {
+      const{data:prof}=await sb.from('profiles').select('id,name').ilike('email',email).limit(1).single();
+      if(prof){
+        name=prof.name||'';userId=prof.id;
+        const{data:ca}=await sb.from('cabin_assignments').select('cabin_type,num_guests,price_per_person').eq('user_id',prof.id).limit(1).single();
+        if(ca){cabinType=ca.cabin_type||'';numGuests=ca.num_guests||null;perPerson=ca.price_per_person||null;}
+      }
+    }
+    if(!name&&!cabinType){if(statusEl){statusEl.textContent='No profile found for that email — fill in fields manually.';statusEl.style.color='#dc2626';}return;}
+    const nameEl=document.getElementById('eg-to-name');if(nameEl&&name)nameEl.value=name;
+    const ctEl=document.getElementById('eg-dc-cabin-type');if(ctEl)ctEl.value=cabinType;
+    const ngEl=document.getElementById('eg-dc-num-guests');if(ngEl&&numGuests)ngEl.value=numGuests;
+    if(perPerson){
+      const ppEl=document.getElementById('eg-dc-deposit-pp');
+      if(ppEl)ppEl.value=parseFloat(perPerson).toFixed(2);
+    }
+    if(userId){
+      const{data:payments}=await sb.from('user_payments').select('amount_paid,is_refunded').eq('user_id',userId);
+      if(payments){
+        const totalPaid=payments.filter(p=>!p.is_refunded).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+        const tpEl=document.getElementById('eg-dc-total-paid');if(tpEl)tpEl.value=totalPaid.toFixed(2);
+      }
+    }
+    if(statusEl){statusEl.textContent='✅ Auto-filled from profile.';statusEl.style.color='#16a34a';setTimeout(()=>{if(statusEl)statusEl.textContent='';},5000);}
+  }catch(e){
+    if(statusEl){statusEl.textContent='Auto-fill failed: '+(e.message||e);statusEl.style.color='#dc2626';}
+  }
+}
+
+async function sendDepositCompleteEmail(){
+  const toEmail=(document.getElementById('eg-to-email')||{}).value?.trim();
+  const toName=(document.getElementById('eg-to-name')||{}).value?.trim()||'Traveler';
+  const cabinType=(document.getElementById('eg-dc-cabin-type')||{}).value?.trim()||'your cabin type';
+  const numGuests=(document.getElementById('eg-dc-num-guests')||{}).value?.trim()||'';
+  const depositPP=parseFloat((document.getElementById('eg-dc-deposit-pp')||{}).value||0)||0;
+  const totalPaid=parseFloat((document.getElementById('eg-dc-total-paid')||{}).value||0)||0;
+  const statusEl=document.getElementById('eg-send-status');
+  if(!toEmail){if(statusEl){statusEl.textContent='⚠️ Traveler email is required.';statusEl.style.color='#d97706';}return;}
+  if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
+  const subject=`${TRIP_NAME} — Deposit Complete`;
+  const rawBody=(document.getElementById('eg-body')||{}).value||'';
+  const isSolo=(parseInt(numGuests)||2)===1;
+  const plainBody=rawBody
+    .replace(/\[Traveler Name\]/gi,toName)
+    .replace(/\[Count\]/gi,numGuests)
+    .replace(/\[Total Paid\]/gi,totalPaid.toFixed(2));
+  const bodyParas=plainBody.split(/\n{2,}/).map(para=>{
+    const t=para.trim();if(!t)return'';
+    // Strip duplicate greeting (buildEmailHtml adds its own "Hello [name]")
+    if(/^Hello\b/i.test(t)&&t.length<80)return'';
+    if(t.includes('DEPOSIT SUMMARY')){
+      return`<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:16px 18px;margin:18px 0;">
+        <strong style="display:block;font-size:.95rem;color:#14532d;margin-bottom:12px;">🎉 Deposit Summary</strong>
+        <table style="width:100%;border-collapse:collapse;font-size:.9rem;">
+          <tr style="border-bottom:1px solid #bbf7d0;"><td style="padding:8px 6px;color:#374151;">Travelers in Cabin</td><td style="padding:8px 6px;text-align:right;font-weight:600;">${numGuests}${isSolo?' (Solo — double-occupancy rate applied)':''}</td></tr>
+          ${depositPP>0?`<tr style="border-bottom:1px solid #bbf7d0;"><td style="padding:8px 6px;color:#374151;">Deposit Per Person</td><td style="padding:8px 6px;text-align:right;font-weight:600;">$${depositPP.toFixed(2)}</td></tr>`:''}
+          <tr style="background:#dcfce7;"><td style="padding:10px 6px;font-weight:800;color:#14532d;font-size:1rem;">Total Deposit Received</td><td style="padding:10px 6px;text-align:right;font-weight:800;color:#16a34a;font-size:1.05rem;">$${totalPaid.toFixed(2)}</td></tr>
+        </table></div>`;
+    }
+    if(t.startsWith('NEXT STEPS')||t.includes('NEXT STEPS')){return`<p style="font-weight:700;color:#0f2744;">${t}</p>`;}
+    if(/^\d+\./.test(t)){const items=t.split('\n').filter(l=>l.trim());return`<ol style="line-height:2;padding-left:20px;">${items.map(l=>`<li>${l.replace(/^\d+\.\s*/,'').replace(/https?:\/\/\S+/g,u=>`<a href="${u}" style="color:#1a4a7c;">${u}</a>`)}</li>`).join('')}</ol>`;}
+    if(t.startsWith('•')){const items=t.split('\n').filter(l=>l.trim());return`<ul style="line-height:2;padding-left:20px;">${items.map(l=>`<li>${l.replace(/^•\s*/,'')}</li>`).join('')}</ul>`;}
+    if(t===t.toUpperCase()&&t.length>4&&!/[a-z]/.test(t)){return`<p style="font-weight:700;color:#0f2744;">${t}</p>`;}
+    return`<p style="line-height:1.85;">${t.replace(/https?:\/\/\S+/g,u=>`<a href="${u}" style="color:#1a4a7c;">${u}</a>`)}</p>`;
+  }).join('');
+  const styledParas=styleEmailDates(bodyParas);
+  const htmlBody=buildEmailHtml(toName,styledParas);
+  try{
+    await sendEmail(toEmail,toName,subject,plainBody,htmlBody,false,false);
+    if(statusEl){statusEl.textContent='✅ Deposit Complete email sent!';statusEl.style.color='#16a34a';setTimeout(()=>{if(statusEl)statusEl.textContent='';},6000);}
+  }catch(e){
+    if(statusEl){statusEl.textContent='⚠️ Error: '+(e.message||e);statusEl.style.color='#dc2626';}
+  }
+}
+
 async function initialDepositAutoFill(){
   const email=(document.getElementById('eg-to-email')||{}).value?.trim();
   if(!email){alert('Enter the traveler email first.');return;}
@@ -11788,6 +11895,8 @@ async function sendDeclinedPaymentEmail(){
   const amtFmt=paymentAmount?'$'+parseFloat(paymentAmount).toFixed(2):'—';
   const bodyParas=plainBody.split(/\n{2,}/).map(para=>{
     const t=para.trim();if(!t)return'';
+    // Strip duplicate greeting (buildEmailHtml adds its own "Hello [name]")
+    if(/^Hello\b/i.test(t)&&t.length<80)return'';
     if(t.includes('DECLINED PAYMENT DETAILS')){
       return`<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:16px 18px;margin:18px 0;"><strong style="display:block;font-size:.95rem;color:#991b1b;margin-bottom:12px;">🚫 Declined Payment Details</strong><table style="width:100%;border-collapse:collapse;font-size:.9rem;"><tr style="border-bottom:1px solid #fecaca;"><td style="padding:8px 6px;color:#374151;">Cabin Type</td><td style="padding:8px 6px;text-align:right;font-weight:600;">${cabinType}</td></tr><tr style="border-bottom:1px solid #fecaca;"><td style="padding:8px 6px;color:#374151;">Guests in Cabin</td><td style="padding:8px 6px;text-align:right;font-weight:600;">${numGuests}</td></tr><tr><td style="padding:10px 6px;font-weight:800;color:#991b1b;font-size:1rem;">Amount Declined</td><td style="padding:10px 6px;text-align:right;font-weight:800;color:#dc2626;font-size:1.05rem;">${declinedFmt}</td></tr></table></div>`;
     }
@@ -11808,6 +11917,12 @@ async function sendDeclinedPaymentEmail(){
   const htmlBody=buildEmailHtml(toName,styledParas);
   try{
     await sendEmail(toEmail,toName,subject,plainBody,htmlBody,false,false);
+    // Log declined payment email to localStorage for CC Auth report tracking
+    try{
+      const log=JSON.parse(localStorage.getItem('dp_declined_log')||'[]');
+      log.push({email:toEmail.toLowerCase(),name:toName,date:new Date().toISOString(),paymentType:paymentType||'Payment',amount:paymentAmount?parseFloat(paymentAmount).toFixed(2):''});
+      localStorage.setItem('dp_declined_log',JSON.stringify(log));
+    }catch(e){}
     if(statusEl){statusEl.textContent='✅ Declined Payment Notice sent!';statusEl.style.color='#16a34a';setTimeout(()=>{if(statusEl)statusEl.textContent='';},6000);}
   }catch(e){
     if(statusEl){statusEl.textContent='⚠️ Error: '+(e.message||e);statusEl.style.color='#dc2626';}
@@ -14459,22 +14574,27 @@ async function runQuickReport(type){
         </tr>`).join('')}</tbody></table>`;
 
     }else if(type==='cc_auth'){
-      // Travelers who have submitted CC auth (cc_auth_url not null in profiles)
-      const{data:profiles}=await sb.from('profiles').select('id,name,email,status,cc_auth_url').eq('is_admin',false).not('cc_auth_url','is',null);
-      const rows=(profiles||[]).map(p=>({
+      // Fetch all non-admin profiles; filter to those with CC auth or declined payment emails
+      const{data:profiles}=await sb.from('profiles').select('id,name,email,status,cc_auth_url').eq('is_admin',false);
+      let dpLog=[];try{dpLog=JSON.parse(localStorage.getItem('dp_declined_log')||'[]');}catch(e){}
+      const dpMap={};
+      dpLog.forEach(entry=>{const k=(entry.email||'').toLowerCase();if(!dpMap[k])dpMap[k]=[];dpMap[k].push(entry);});
+      const rows=(profiles||[]).filter(p=>p.cc_auth_url||dpMap[(p.email||'').toLowerCase()]?.length).map(p=>({
         name:p.name||'—',email:p.email||'—',status:p.status||'active',
-        authUrl:p.cc_auth_url||''
+        authUrl:p.cc_auth_url||'',
+        declined:dpMap[(p.email||'').toLowerCase()]||[]
       }));
       gQuickReportData=rows;
-      statusEl.textContent=`${rows.length} CC auth submission${rows.length!==1?'s':''}`;
-      if(!rows.length){el.innerHTML='<div class="empty"><div class="ei">📋</div><p>No CC auth submissions on file.</p></div>';return;}
+      statusEl.textContent=`${rows.length} traveler${rows.length!==1?'s':''} — ${rows.filter(r=>r.authUrl).length} CC auth submitted, ${rows.filter(r=>r.declined.length).length} declined notices sent`;
+      if(!rows.length){el.innerHTML='<div class="empty"><div class="ei">📋</div><p>No CC auth submissions or declined payment notices on file.</p></div>';return;}
       el.innerHTML=`<table>
-        <thead><tr><th>Traveler</th><th>Email</th><th>Status</th><th>CC Auth</th></tr></thead>
+        <thead><tr><th>Traveler</th><th>Email</th><th>Status</th><th>Declined Payments</th><th>CC Auth</th></tr></thead>
         <tbody>${rows.map(r=>`<tr>
           <td><strong>${r.name}</strong></td>
           <td style="font-size:.82rem;">${r.email}</td>
           <td><span class="badge ${r.status==='cancelled'?'badge-danger':'badge-success'}">${r.status}</span></td>
-          <td>${r.authUrl?`<a href="${r.authUrl}" target="_blank" style="color:var(--secondary);font-size:.82rem;">View Form ↗</a>`:'—'}</td>
+          <td>${r.declined.length?r.declined.map(d=>`<div style="line-height:1.4;margin-bottom:4px;"><span style="font-size:.78rem;font-weight:700;color:#dc2626;">${d.paymentType||'Payment'}${d.amount?` — $${d.amount}`:''}</span><br><span style="font-size:.72rem;color:#94a3b8;">${new Date(d.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span></div>`).join(''):'<span style="color:#94a3b8;font-size:.8rem;">—</span>'}</td>
+          <td>${r.authUrl?`<a href="${r.authUrl}" target="_blank" style="color:var(--secondary);font-size:.82rem;">View Form ↗</a>`:'<span style="color:#94a3b8;font-size:.8rem;">—</span>'}</td>
         </tr>`).join('')}</tbody></table>`;
 
     }else if(type==='payments'){
