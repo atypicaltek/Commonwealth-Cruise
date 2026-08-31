@@ -7715,10 +7715,11 @@ async function adminConfirmCancelTravel(){
     const{error}=await sb.from('profiles').update(profileUpdate).eq('id',gCancelTravelUserId);
     if(error){alert('Error updating profile: '+error.message);return;}
   }
+  // Always fetch cabin info before deleting the row
+  const{data:ca}=await sb.from('cabin_assignments').select('cabin_type,price_per_person').eq('user_id',gCancelTravelUserId).maybeSingle();
+  const ct=ca?.cabin_type||gCancelTravelCabinType||null;
+  const pp=parseFloat(ca?.price_per_person||gCancelTravelPricePP||0)||null;
   if(returnInventory){
-    const{data:ca}=await sb.from('cabin_assignments').select('cabin_type,price_per_person').eq('user_id',gCancelTravelUserId).maybeSingle();
-    const ct=ca?.cabin_type||gCancelTravelCabinType||null;
-    const pp=parseFloat(ca?.price_per_person||gCancelTravelPricePP||0)||null;
     if(ct&&ct!=='Suite'){
       const{error:incErr}=await sb.rpc('increment_cabin',{cabin:ct});
       if(incErr)console.warn('[cancelTravel] increment_cabin error:',incErr.message);
@@ -7727,6 +7728,8 @@ async function adminConfirmCancelTravel(){
       console.warn('[cancelTravel] No cabin type found for inventory return — skipped');
     }
   }
+  // Always remove the cabin_assignments row so cancelled traveler no longer appears in inventory counts
+  await sb.from('cabin_assignments').delete().eq('user_id',gCancelTravelUserId);
   document.getElementById('admin-cancel-travel-modal').classList.remove('open');
   const msgs=[];
   if(flagCancelled)msgs.push('profile flagged as cancelled');
@@ -8726,7 +8729,7 @@ async function loadInventoryTab(){
     </div>`:'';
     // Add a "Linked Partner" row for secondary shared-cabin travelers (no slot consumed; no price required)
     const linkedCount=isSuite?0:(linkedPerType[r.cabin_type]||0);
-    const linkedRow=linkedCount>0?`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #e8eef5;font-size:.8rem;background:#eff6ff;">
+    const linkedRow=linkedCount>0?`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #e8eef5;font-size:.8rem;background:#eff6ff;cursor:pointer;" onclick="event.stopPropagation();showInventoryDetail('${r.cabin_type}','linked')" title="Click to see linked travelers only">
       <div style="flex:0 0 auto;font-weight:700;color:#1d4ed8;min-width:80px;">🔗 Linked</div>
       <div style="flex:1;font-size:.76rem;color:#1e40af;font-style:italic;">Sharing with another traveler — no slot consumed</div>
       <div style="flex:0 0 auto;font-size:.76rem;font-weight:800;color:#1d4ed8;">${linkedCount} partner${linkedCount>1?'s':''}</div>
@@ -8740,11 +8743,12 @@ async function loadInventoryTab(){
         </div>`
       :(isSuite?'':`<div style="margin-top:8px;font-size:.75rem;color:var(--muted);font-style:italic;">No price tiers configured</div>`);
 
+    const totalOccupants=reserved+linkedCount;
     return`<div class="inv-card ${colors[r.cabin_type]||''}" onclick="showInventoryDetail('${r.cabin_type}')">
       <div style="font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">${r.cabin_type}</div>
       <div class="inv-num">${available}</div>
       <div class="inv-label">Available</div>
-      <div class="inv-sub">${reserved} reserved of ${r.total_cabins} total</div>
+      <div class="inv-sub">${totalOccupants} reserved of ${r.total_cabins} total${linkedCount>0?` <span style="font-size:.7rem;color:#1d4ed8;">(${linkedCount} linked)</span>`:''}</div>
       <div class="pbar-track" style="margin-top:10px;height:6px;"><div class="mpbar-fill" style="width:${pct}%;background:${barColor};"></div></div>
       ${tierTable}
       <div class="inv-click-hint" style="margin-top:8px;">Click to see who's booked ↗</div>
@@ -8817,12 +8821,14 @@ async function showInventoryDetail(cabinType,filterPP){
   // Apply price tier filter if provided — match on price_per_person (not cabin_cost,
   // which varies for parties of 3-5 sharing a cabin at the same per-person rate)
   let bookings=(caRows||[]);
-  if(filterPP===0){
-    bookings=bookings.filter(b=>!b.price_per_person||parseFloat(b.price_per_person)===0);
+  if(filterPP==='linked'){
+    bookings=bookings.filter(b=>b.is_cabin_shared===true);
+  }else if(filterPP===0){
+    bookings=bookings.filter(b=>!b.is_cabin_shared&&(!b.price_per_person||parseFloat(b.price_per_person)===0));
   }else if(filterPP!=null&&filterPP>0){
-    bookings=bookings.filter(b=>b.price_per_person&&Math.abs(parseFloat(b.price_per_person)-filterPP)<0.01);
+    bookings=bookings.filter(b=>!b.is_cabin_shared&&b.price_per_person&&Math.abs(parseFloat(b.price_per_person)-filterPP)<0.01);
   }
-  const filterLabel=filterPP===0?' — No Tier':filterPP>0?` — ${fmt(filterPP)}/pp`:'';
+  const filterLabel=filterPP==='linked'?' — Linked Partners':filterPP===0?' — No Tier':filterPP>0?` — ${fmt(filterPP)}/pp`:'';
   document.getElementById('inv-detail-title').textContent=`${cabinType} Cabin${filterLabel} — ${bookings.length} Booked`;
 
   if(bookings.length===0){
