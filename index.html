@@ -11168,6 +11168,53 @@ Your Commonwealth Cruise Team`
       adminSendPartnerVerificationEmail(userId,travelerName,'',toName||'Traveler',toEmail);
     }
   }
+  ,{
+    id:'declined_payment',label:'Declined Payment Notice',icon:'🚫',
+    toMode:'traveler',
+    buildPreview:()=>({
+      subject:`${TRIP_NAME} — Payment Declined — Action Required`,
+      toLabel:'Traveler email',toPlaceholder:'traveler@email.com',toName:'',
+      extraFields:`<div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;">
+  <button type="button" onclick="declinedPaymentAutoFill()" style="background:#e0f2fe;color:#0c4a6e;border:1.5px solid #bae6fd;border-radius:7px;padding:6px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">🔍 Auto-fill from Profile</button>
+  <span id="eg-dp-autofill-status" style="font-size:.75rem;color:#94a3b8;">Enter traveler email above, then click to auto-fill.</span>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+  <div><label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Cabin Type</label>
+    <input id="eg-dp-cabin-type" type="text" placeholder="e.g. Balcony" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;"></div>
+  <div><label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Guests in Cabin</label>
+    <input id="eg-dp-num-guests" type="number" min="1" max="6" value="2" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;"></div>
+  <div><label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Amount Declined ($)</label>
+    <input id="eg-dp-declined-amount" type="number" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:8px 11px;border:1.5px solid #f87171;border-radius:7px;font-size:.88rem;box-sizing:border-box;"></div>
+</div>
+<div style="background:#fef3c7;border:1.5px solid #fbbf24;border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+  <div style="font-size:.8rem;font-weight:700;color:#78350f;margin-bottom:8px;">💳 Payment Requiring Resubmission</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+    <div><label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Payment Type</label>
+      <select id="eg-dp-payment-type" onchange="dpPaymentTypeChange()" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.86rem;box-sizing:border-box;">
+        <option value="">-- Select --</option>
+        <option value="Initial Deposit">Initial Deposit</option>
+        <option value="2nd Payment">2nd Payment</option>
+        <option value="3rd Payment">3rd Payment</option>
+        <option value="Final Payment">Final Payment</option>
+        <option value="Gratuity">Gratuity</option>
+        <option value="Travel Insurance">Travel Insurance</option>
+        <option value="Other">Other</option>
+      </select></div>
+    <div><label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Amount Due ($)</label>
+      <input id="eg-dp-payment-amount" type="number" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;"></div>
+    <div><label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Due Date</label>
+      <input id="eg-dp-payment-due-date" type="date" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;"></div>
+  </div>
+</div>
+<div style="margin-bottom:10px;">
+  <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Cabin Travelers <span style="font-weight:400;text-transform:none;font-size:.74rem;color:#94a3b8;">(auto-filled — edit if needed)</span></label>
+  <textarea id="eg-dp-travelers" rows="3" placeholder="Auto-filled from profile after clicking Auto-fill" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.83rem;font-family:monospace;resize:vertical;box-sizing:border-box;"></textarea>
+</div>`,
+      body:`Hello [TRAVELER_NAME],\n\nWe are reaching out to inform you that a recent payment attempt associated with your ${TRIP_NAME} cabin reservation was DECLINED by your financial institution.\n\nDECLINED PAYMENT DETAILS:\n• Cabin Type: [CABIN_TYPE]\n• Number of Guests: [NUM_GUESTS]\n• Amount Declined: $[DECLINED_AMOUNT]\n\nREQUIRED RESUBMISSION:\n• Payment Type: [PAYMENT_TYPE]\n• Amount Due: $[PAYMENT_AMOUNT]\n• Due Date: [PAYMENT_DUE_DATE]\n\nCABIN TRAVELERS:\n[TRAVELERS_LIST]\n\n⚠️ Your cabin reservation may be placed on hold if payment is not received by the due date above.\n\nTo resubmit your payment:\n1. Log in to the Commonwealth Cruise Travel Portal at https://atypicaltek.github.io/Commonwealth-Cruise/\n2. Select "Make A Payment" from your dashboard\n3. Complete a new CC Authorization Form\n\nIf you believe this was a bank error, please contact your financial institution and resubmit at your earliest convenience.\n\nOnce your payment is received, we will send a confirmation.\n\nThank you,\nYour Commonwealth Cruise Team\nQuestions? ${ADMIN_EMAIL}`
+    }),
+    useCustomSend:true,
+    customSend:()=>sendDeclinedPaymentEmail()
+  }
 ];
 
 async function pvLookupTraveler(){
@@ -11636,6 +11683,134 @@ async function send2ndPaymentEmail(){
     if(statusEl){statusEl.textContent='2nd Payment Due email sent!';statusEl.style.color='#16a34a';setTimeout(()=>{if(statusEl)statusEl.textContent='';},6000);}
   }catch(e){
     if(statusEl){statusEl.textContent='Error: '+(e.message||e);statusEl.style.color='#dc2626';}
+  }
+}
+
+// ── DECLINED PAYMENT EMAIL ────────────────────────────────────────
+let _dpMilestones=[];
+
+async function declinedPaymentAutoFill(){
+  const email=(document.getElementById('eg-to-email')||{}).value?.trim();
+  const statusEl=document.getElementById('eg-dp-autofill-status');
+  if(!email){if(statusEl){statusEl.textContent='Enter traveler email above first.';statusEl.style.color='#d97706';}return;}
+  if(statusEl){statusEl.innerHTML='<span style="color:#475569;">🔍 Looking up…</span>';}
+  try{
+    let name='',cabinType='',numGuests=null,travelersText='',userId=null;
+    const{data:rpcData}=await sb.rpc('admin_get_all_cabin_assignments');
+    const found=(rpcData||[]).find(r=>(r.email||r.user_email||'').toLowerCase()===email.toLowerCase());
+    if(found){
+      name=found.full_name||found.name||'';
+      cabinType=found.cabin_type||'';
+      numGuests=found.num_guests||null;
+      userId=found.user_id||found.id||null;
+    } else {
+      const{data:prof}=await sb.from('profiles').select('id,name').ilike('email',email).limit(1).single();
+      if(prof){
+        name=prof.name||'';userId=prof.id;
+        const{data:ca}=await sb.from('cabin_assignments').select('cabin_type,num_guests').eq('user_id',prof.id).limit(1).single();
+        if(ca){cabinType=ca.cabin_type||'';numGuests=ca.num_guests||null;}
+      }
+    }
+    if(userId){
+      const{data:travelers}=await sb.from('cabin_travelers').select('first_name,last_name,suffix').eq('user_id',userId).order('created_at');
+      if(travelers&&travelers.length){
+        travelersText=travelers.map((t,i)=>`${i+1}. ${[t.first_name,t.last_name,t.suffix].filter(Boolean).join(' ')}`).join('\n');
+      }
+    }
+    const{data:milestones}=await sb.from('payment_milestones').select('*').order('due_date',{ascending:true});
+    _dpMilestones=milestones||[];
+    const sel=document.getElementById('eg-dp-payment-type');
+    if(sel&&_dpMilestones.length){
+      sel.innerHTML='<option value="">-- Select --</option>';
+      _dpMilestones.forEach(m=>{
+        const opt=document.createElement('option');
+        opt.value=m.label||'';opt.textContent=m.label||'';
+        if(m.due_date)opt.dataset.dueDate=m.due_date;
+        if(m.minimum_amount!=null)opt.dataset.minAmount=m.minimum_amount;
+        sel.appendChild(opt);
+      });
+      ['Gratuity','Travel Insurance','Other'].forEach(v=>{
+        const opt=document.createElement('option');opt.value=v;opt.textContent=v;sel.appendChild(opt);
+      });
+    }
+    if(!name&&!cabinType){if(statusEl){statusEl.textContent='No profile found for that email — fill in fields manually.';statusEl.style.color='#dc2626';}return;}
+    const nameEl=document.getElementById('eg-to-name');if(nameEl&&name)nameEl.value=name;
+    const ctEl=document.getElementById('eg-dp-cabin-type');if(ctEl)ctEl.value=cabinType;
+    const ngEl=document.getElementById('eg-dp-num-guests');if(ngEl&&numGuests)ngEl.value=numGuests;
+    const tvEl=document.getElementById('eg-dp-travelers');if(tvEl)tvEl.value=travelersText;
+    if(statusEl){statusEl.textContent='✅ Auto-filled from profile.';statusEl.style.color='#16a34a';setTimeout(()=>{if(statusEl)statusEl.textContent='';},5000);}
+  }catch(e){
+    if(statusEl){statusEl.textContent='Auto-fill failed: '+(e.message||e);statusEl.style.color='#dc2626';}
+  }
+}
+
+function dpPaymentTypeChange(){
+  const sel=document.getElementById('eg-dp-payment-type');
+  const opt=sel?.options[sel.selectedIndex];
+  if(!opt||!opt.value)return;
+  const numGuests=parseInt(document.getElementById('eg-dp-num-guests')?.value||2);
+  const isSolo=numGuests===1;
+  if(opt.dataset.dueDate){const d=document.getElementById('eg-dp-payment-due-date');if(d)d.value=opt.dataset.dueDate;}
+  if(opt.dataset.minAmount!=null){
+    const pp=parseFloat(opt.dataset.minAmount);
+    const total=isSolo?pp*2:pp*numGuests;
+    const a=document.getElementById('eg-dp-payment-amount');if(a)a.value=total.toFixed(2);
+  }
+}
+
+async function sendDeclinedPaymentEmail(){
+  const toEmail=(document.getElementById('eg-to-email')||{}).value?.trim();
+  const toName=(document.getElementById('eg-to-name')||{}).value?.trim()||'Traveler';
+  const cabinType=(document.getElementById('eg-dp-cabin-type')||{}).value?.trim()||'your cabin type';
+  const numGuests=(document.getElementById('eg-dp-num-guests')||{}).value?.trim()||'';
+  const declinedAmt=(document.getElementById('eg-dp-declined-amount')||{}).value?.trim()||'';
+  const paymentType=(document.getElementById('eg-dp-payment-type')||{}).value?.trim()||'';
+  const paymentAmount=(document.getElementById('eg-dp-payment-amount')||{}).value?.trim()||'';
+  const paymentDueDateRaw=(document.getElementById('eg-dp-payment-due-date')||{}).value?.trim()||'';
+  const travelersRaw=(document.getElementById('eg-dp-travelers')||{}).value?.trim()||'';
+  const statusEl=document.getElementById('eg-send-status');
+  if(!toEmail){if(statusEl){statusEl.textContent='⚠️ Traveler email is required.';statusEl.style.color='#d97706';}return;}
+  let paymentDueDateDisplay=paymentDueDateRaw;
+  if(paymentDueDateRaw){try{const d=new Date(paymentDueDateRaw+'T12:00:00');paymentDueDateDisplay=d.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});}catch(e){}}
+  if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
+  const subject=`${TRIP_NAME} — Payment Declined — Action Required`;
+  const rawBody=(document.getElementById('eg-body')||{}).value||'';
+  const plainBody=rawBody
+    .replace(/\[TRAVELER_NAME\]/g,toName)
+    .replace(/\[CABIN_TYPE\]/g,cabinType)
+    .replace(/\[NUM_GUESTS\]/g,numGuests)
+    .replace(/\[DECLINED_AMOUNT\]/g,declinedAmt?parseFloat(declinedAmt).toFixed(2):'[not entered]')
+    .replace(/\[PAYMENT_TYPE\]/g,paymentType||'[not selected]')
+    .replace(/\[PAYMENT_AMOUNT\]/g,paymentAmount?parseFloat(paymentAmount).toFixed(2):'[not entered]')
+    .replace(/\[PAYMENT_DUE_DATE\]/g,paymentDueDateDisplay||'[not set]')
+    .replace(/\[TRAVELERS_LIST\]/g,travelersRaw||'[not provided]');
+  const declinedFmt=declinedAmt?'$'+parseFloat(declinedAmt).toFixed(2):'—';
+  const amtFmt=paymentAmount?'$'+parseFloat(paymentAmount).toFixed(2):'—';
+  const bodyParas=plainBody.split(/\n{2,}/).map(para=>{
+    const t=para.trim();if(!t)return'';
+    if(t.includes('DECLINED PAYMENT DETAILS')){
+      return`<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:16px 18px;margin:18px 0;"><strong style="display:block;font-size:.95rem;color:#991b1b;margin-bottom:12px;">🚫 Declined Payment Details</strong><table style="width:100%;border-collapse:collapse;font-size:.9rem;"><tr style="border-bottom:1px solid #fecaca;"><td style="padding:8px 6px;color:#374151;">Cabin Type</td><td style="padding:8px 6px;text-align:right;font-weight:600;">${cabinType}</td></tr><tr style="border-bottom:1px solid #fecaca;"><td style="padding:8px 6px;color:#374151;">Guests in Cabin</td><td style="padding:8px 6px;text-align:right;font-weight:600;">${numGuests}</td></tr><tr><td style="padding:10px 6px;font-weight:800;color:#991b1b;font-size:1rem;">Amount Declined</td><td style="padding:10px 6px;text-align:right;font-weight:800;color:#dc2626;font-size:1.05rem;">${declinedFmt}</td></tr></table></div>`;
+    }
+    if(t.includes('REQUIRED RESUBMISSION')){
+      return`<div style="background:#fef3c7;border:1.5px solid #fbbf24;border-radius:10px;padding:16px 18px;margin:18px 0;"><strong style="display:block;font-size:.95rem;color:#78350f;margin-bottom:12px;">💳 Required Resubmission</strong><table style="width:100%;border-collapse:collapse;font-size:.9rem;"><tr style="border-bottom:1px solid #fde68a;"><td style="padding:8px 6px;color:#374151;">Payment Type</td><td style="padding:8px 6px;text-align:right;font-weight:600;">${paymentType||'—'}</td></tr><tr style="border-bottom:1px solid #fde68a;"><td style="padding:8px 6px;color:#374151;">Amount Due</td><td style="padding:8px 6px;text-align:right;font-weight:700;color:#b45309;">${amtFmt}</td></tr><tr style="background:#fef9c3;"><td style="padding:10px 6px;font-weight:800;color:#78350f;font-size:1rem;">Due Date</td><td style="padding:10px 6px;text-align:right;font-weight:800;color:#dc2626;font-size:1.05rem;">${paymentDueDateDisplay||'—'}</td></tr></table></div>`;
+    }
+    if(t.includes('CABIN TRAVELERS')){
+      const tList=(travelersRaw||'[not provided]').split('\n').filter(l=>l.trim());
+      return`<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:14px 18px;margin:18px 0;"><strong style="display:block;font-size:.9rem;color:#14532d;margin-bottom:8px;">🧳 Cabin Travelers</strong><ul style="margin:0;padding-left:18px;line-height:1.9;">${tList.map(l=>`<li style="color:#374151;">${l.replace(/^\d+\.\s*/,'')}</li>`).join('')}</ul></div>`;
+    }
+    if(t.startsWith('⚠️')){return`<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:12px 16px;font-weight:700;color:#991b1b;margin:18px 0;">${t}</div>`;}
+    if(/^\d+\./.test(t)){const items=t.split('\n').filter(l=>l.trim());return`<ol style="line-height:2;padding-left:20px;">${items.map(l=>`<li>${l.replace(/^\d+\.\s*/,'').replace(/https?:\/\/\S+/g,u=>`<a href="${u}" style="color:#1a4a7c;">${u}</a>`)}</li>`).join('')}</ol>`;}
+    if(t.startsWith('•')){const items=t.split('\n').filter(l=>l.trim());return`<ul style="line-height:2;padding-left:20px;">${items.map(l=>`<li>${l.replace(/^•\s*/,'')}</li>`).join('')}</ul>`;}
+    if(t===t.toUpperCase()&&t.length>4&&!/[a-z]/.test(t)){return`<p style="font-weight:700;color:#0f2744;">${t}</p>`;}
+    return`<p style="line-height:1.85;">${t.replace(/https?:\/\/\S+/g,u=>`<a href="${u}" style="color:#1a4a7c;">${u}</a>`)}</p>`;
+  }).join('');
+  const styledParas=styleEmailDates(bodyParas);
+  const htmlBody=buildEmailHtml(toName,styledParas);
+  try{
+    await sendEmail(toEmail,toName,subject,plainBody,htmlBody,false,false);
+    if(statusEl){statusEl.textContent='✅ Declined Payment Notice sent!';statusEl.style.color='#16a34a';setTimeout(()=>{if(statusEl)statusEl.textContent='';},6000);}
+  }catch(e){
+    if(statusEl){statusEl.textContent='⚠️ Error: '+(e.message||e);statusEl.style.color='#dc2626';}
   }
 }
 
