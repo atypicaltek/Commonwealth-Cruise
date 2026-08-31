@@ -6323,11 +6323,40 @@ async function loadWaitlist(){
   // Load linked cabin requests (shared-account registrations needing manual linking)
   const linkedHtml=await loadLinkedCabinRequests().catch(()=>'');
 
+  // ── Duplicate account detection ──────────────────────────────
+  // Fetch all non-admin profiles, group by email, flag those with 2+ profiles at the same email.
+  let dupHtml='';
+  try{
+    const{data:allProfiles}=await sb.from('profiles').select('id,name,email,status').eq('is_admin',false);
+    const emailGroups={};
+    (allProfiles||[]).forEach(p=>{
+      if(!p.email)return;
+      const k=p.email.toLowerCase().trim();
+      if(!emailGroups[k])emailGroups[k]=[];
+      emailGroups[k].push(p);
+    });
+    const dups=Object.values(emailGroups).filter(g=>g.length>1);
+    if(dups.length){
+      const dupRows=dups.map(group=>{
+        const rows=group.map(p=>`<tr>
+          <td><strong>${p.name||'—'}</strong></td>
+          <td style="font-size:.82rem;">${p.email||'—'}</td>
+          <td><span class="badge ${p.status==='cancelled'?'badge-danger':'badge-gray'}">${p.status||'active'}</span></td>
+          <td style="font-size:.78rem;color:var(--muted);">${p.id}</td>
+        </tr>`).join('');
+        return rows;
+      }).join('');
+      dupHtml=`<div class="section-hdr" style="background:#fce7f3;color:#9d174d;border:1.5px solid #f472b6;margin-bottom:0;">⚠️ Potential Duplicate Accounts — ${dups.length} email${dups.length!==1?'s':''} with multiple profiles</div>
+        <div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Status</th><th style="font-size:.75rem;">Profile ID</th></tr></thead><tbody>${dupRows}</tbody></table></div>
+        <div style="height:20px;"></div>`;
+    }
+  }catch(e){console.warn('[waitlist] duplicate check error:',e);}
+
   const{data:wl,error}=await sb.rpc('admin_get_waitlist');
-  if(error){el.innerHTML=linkedHtml+occupantHtml+'<div class="alert alert-error show">'+error.message+'</div>';if(notifyBtn)notifyBtn.style.display='none';return;}
+  if(error){el.innerHTML=linkedHtml+occupantHtml+dupHtml+'<div class="alert alert-error show">'+error.message+'</div>';if(notifyBtn)notifyBtn.style.display='none';return;}
   gWaitlistData=wl||[];
   if(!gWaitlistData.length){
-    el.innerHTML=linkedHtml+occupantHtml+'<div class="empty"><div class="ei">⏳</div><p>No cabin waitlist entries.</p></div>';
+    el.innerHTML=linkedHtml+occupantHtml+dupHtml+'<div class="empty"><div class="ei">⏳</div><p>No cabin waitlist entries.</p></div>';
     if(notifyBtn)notifyBtn.style.display='none';
     return;
   }
@@ -6363,7 +6392,7 @@ async function loadWaitlist(){
     });
     html+='</tbody></table></div>';
   });
-  el.innerHTML=linkedHtml+occupantHtml+html;
+  el.innerHTML=linkedHtml+occupantHtml+dupHtml+html;
   if(notifyBtn)notifyBtn.style.display='inline-flex';
   updateWaitlistNotifyBtn();
 }
@@ -8632,12 +8661,20 @@ async function loadInventoryTab(){
     gInventoryTiersByType[t.cabin_type].push(t);
   });
 
+  // Build a set of all user_ids in assignments so we can validate linked-partner references.
+  // A row is only treated as a linked secondary if its linked_partner_user_id actually
+  // points to another row in this assignments list (guards against stale/incorrect flags).
+  const allAssignmentUserIds=new Set((assignments||[]).map(a=>a.user_id));
+  const isValidLinkedSecondary=a=>
+    a.is_cabin_shared===true &&
+    a.linked_partner_user_id &&
+    allAssignmentUserIds.has(a.linked_partner_user_id);
+
   // Derive reserved counts from actual cabin_assignments rows (source of truth).
-  // Linked secondary partners (is_cabin_shared=TRUE + linked_partner_user_id set) share
-  // a slot with the primary and do NOT consume their own cabin slot.
+  // Linked secondary partners share a slot with the primary and do NOT consume their own slot.
   const actualReserved={};
   (assignments||[]).forEach(a=>{
-    if(a.is_cabin_shared && a.linked_partner_user_id) return; // secondary — no slot consumed
+    if(isValidLinkedSecondary(a)) return; // secondary — no slot consumed
     if(!actualReserved[a.cabin_type])actualReserved[a.cabin_type]=0;
     actualReserved[a.cabin_type]++;
   });
@@ -8654,10 +8691,9 @@ async function loadInventoryTab(){
   // decrement it), so we derive accuracy from real assignment rows.
   const bookedPerTier={};
   const unpricedPerType={};
-  const linkedPerType={};   // is_cabin_shared=TRUE + linked_partner_user_id set (secondary partners)
+  const linkedPerType={};   // valid linked secondary partners (no slot consumed)
   (assignments||[]).forEach(a=>{
-    // Linked secondary partners share a slot with the primary — exclude from unpriced count
-    if(a.is_cabin_shared && a.linked_partner_user_id){
+    if(isValidLinkedSecondary(a)){
       linkedPerType[a.cabin_type]=(linkedPerType[a.cabin_type]||0)+1;
       return;
     }
@@ -8682,11 +8718,14 @@ async function loadInventoryTab(){
     const typeTiers=isSuite?[]:(tiersByType[r.cabin_type]||[]);
     // Build set of known tier prices for this cabin type (to detect custom prices)
     const knownTierKeys=new Set((typeTiers).map(t=>`${Math.round(parseFloat(t.price_per_person)*100)}`));
+    // Unpriced bookings eat into overall availability but don't belong to any tier;
+    // subtract them from each tier's remaining so the tier slider matches the tile's available.
+    const unpricedOffset=isSuite?0:(unpricedPerType[r.cabin_type]||0);
     const tierRows=typeTiers.map(t=>{
       // Use actual booking counts (accurate) rather than stale available_cabins field
       const tierKey=`${t.cabin_type}__${Math.round(parseFloat(t.price_per_person)*100)}`;
       const tierBooked=bookedPerTier[tierKey]||0;
-      const tierAvail=Math.max(0,t.total_cabins-tierBooked);
+      const tierAvail=Math.max(0,t.total_cabins-tierBooked-unpricedOffset);
       const tierPct=t.total_cabins>0?Math.round((tierBooked/t.total_cabins)*100):0;
       const isSoldOut=tierAvail===0;
       const isLow=tierAvail>0&&tierAvail<=3;
@@ -8743,12 +8782,11 @@ async function loadInventoryTab(){
         </div>`
       :(isSuite?'':`<div style="margin-top:8px;font-size:.75rem;color:var(--muted);font-style:italic;">No price tiers configured</div>`);
 
-    const totalOccupants=reserved+linkedCount;
     return`<div class="inv-card ${colors[r.cabin_type]||''}" onclick="showInventoryDetail('${r.cabin_type}')">
       <div style="font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">${r.cabin_type}</div>
       <div class="inv-num">${available}</div>
       <div class="inv-label">Available</div>
-      <div class="inv-sub">${totalOccupants} reserved of ${r.total_cabins} total${linkedCount>0?` <span style="font-size:.7rem;color:#1d4ed8;">(${linkedCount} linked)</span>`:''}</div>
+      <div class="inv-sub">${reserved} reserved of ${r.total_cabins} total${linkedCount>0?` <span style="font-size:.7rem;color:#1d4ed8;">(+${linkedCount} linked)</span>`:''}</div>
       <div class="pbar-track" style="margin-top:10px;height:6px;"><div class="mpbar-fill" style="width:${pct}%;background:${barColor};"></div></div>
       ${tierTable}
       <div class="inv-click-hint" style="margin-top:8px;">Click to see who's booked ↗</div>
