@@ -13554,11 +13554,12 @@ async function changeCabinType(userId,name,currentType,currentNumGuests){
 
 // ── ADMIN MANAGE ALL TRAVELERS ────────────────────────────────
 
-function mtSlotHtml(idx, t, ownerEmail){
+function mtSlotHtml(idx, t, ownerEmail, isOverCount){
   const isFirst = idx===0;
   const label = isFirst ? 'Traveler 1 (Account Holder / Primary)' : `Traveler ${idx+1}`;
-  const bg = isFirst ? '#f0f7ff' : '#f8fafc';
-  const border = isFirst ? '#aed6f1' : '#e2e8f0';
+  const overCountFlag = isOverCount && !isFirst;
+  const bg = overCountFlag ? '#fff5f5' : (isFirst ? '#f0f7ff' : '#f8fafc');
+  const border = overCountFlag ? '#fca5a5' : (isFirst ? '#aed6f1' : '#e2e8f0');
   const tid = t?.id||'';
   const sal = t?.salutation||'';
   const fn  = t?.first_name||'';
@@ -13585,8 +13586,12 @@ function mtSlotHtml(idx, t, ownerEmail){
   const genOpts=['','Male','Female','Other','Prefer Not to Answer'].map(g=>`<option value="${g}" ${gen===g?'selected':''}>${g||'Select'}</option>`).join('');
   const citOpts=[['','— Select —'],['us','U.S. Citizen'],['us-pr','U.S. Perm. Resident'],['non-us','Non-U.S. Citizen'],['canadian','Canadian'],['other','Other']].map(([v,l])=>`<option value="${v}" ${cit===v?'selected':''}>${l}</option>`).join('');
 
-  return `<div style="background:${bg};border:1.5px solid ${border};border-radius:10px;padding:14px 16px;margin-bottom:14px;">
-    <div style="font-weight:800;color:var(--primary);margin-bottom:12px;font-size:.93rem;">${label}</div>
+  const overCountWarning = overCountFlag ? `<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:6px 10px;margin-bottom:10px;font-size:.78rem;color:#dc2626;font-weight:700;">⚠️ Over guest count — remove this traveler or increase the guest count.</div>` : '';
+  const removeBtn = tid ? `<button type="button" onclick="adminRemoveMtTraveler('${tid}',${idx})" style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:4px 11px;font-size:.77rem;font-weight:700;cursor:pointer;float:right;margin-left:8px;" title="Delete this traveler record">🗑️ Remove</button>` : '';
+
+  return `<div id="mt-slot-div-${idx}" style="background:${bg};border:1.5px solid ${border};border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+    <div style="font-weight:800;color:var(--primary);margin-bottom:12px;font-size:.93rem;">${removeBtn}${label}</div>
+    ${overCountWarning}
     <input type="hidden" id="mt-id-${idx}" value="${tid}">
     <div style="display:grid;grid-template-columns:80px 1fr 1fr 1fr 80px;gap:8px;margin-bottom:10px;">
       <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">Title</label><select id="mt-sal-${idx}">${salOpts}</select></div>
@@ -13610,6 +13615,29 @@ function mtSlotHtml(idx, t, ownerEmail){
       <div class="form-group" style="margin:0;"><label style="font-size:.76rem;">Email${isFirst?' (Account Holder)':''}</label><input type="email" id="mt-em-${idx}" value="${em}" placeholder="email@example.com" autocomplete="off"></div>
     </div>
   </div>`;
+}
+
+async function adminRemoveMtTraveler(existingId, slotIdx){
+  const fn=document.getElementById('mt-fn-'+slotIdx)?.value||'';
+  const ln=document.getElementById('mt-ln-'+slotIdx)?.value||'';
+  const tName=[fn,ln].filter(Boolean).join(' ')||'this traveler';
+  if(!confirm(`Remove ${tName} from the cabin?\n\nThis will permanently delete their traveler record. The guest count should also be updated via "Update Guest Count" in the Actions menu.\n\nContinue?`))return;
+  const{error}=await sb.from('cabin_travelers').delete().eq('id',existingId);
+  if(error){alert('Error removing traveler: '+error.message);return;}
+  // Remove from UI immediately
+  const slotDiv=document.getElementById('mt-slot-div-'+slotIdx);
+  if(slotDiv)slotDiv.remove();
+  // Update occupant cache
+  if(window.gOccupantMap&&gMtOwnerId){
+    window.gOccupantMap[gMtOwnerId]=(window.gOccupantMap[gMtOwnerId]||[]).filter(t=>t.id!==existingId);
+  }
+  // Also update _travRaw occupantMap so renderTravelersView reflects the change
+  if(window._travRaw?.occupantMap&&gMtOwnerId){
+    window._travRaw.occupantMap[gMtOwnerId]=(window._travRaw.occupantMap[gMtOwnerId]||[]).filter(t=>t.id!==existingId);
+  }
+  // Show brief confirmation in the modal alert
+  const alertEl=document.getElementById('mt-alert');
+  if(alertEl){alertEl.className='alert alert-success';alertEl.textContent=`✅ ${tName} removed from cabin.`;alertEl.style.display='block';setTimeout(()=>{if(alertEl)alertEl.style.display='none';},3000);}
 }
 
 async function openManageTravelers(ownerId, ownerName, numGuests){
@@ -13652,8 +13680,16 @@ async function openManageTravelers(ownerId, ownerName, numGuests){
         if(profRow?.email)ownerEmail=profRow.email;
       }catch(e2){}
     }
+    const totalSlots=Math.max(ng,gMtExisting.length);
+    const excessCount=gMtExisting.length-ng;
     let slots='';
-    for(let i=0;i<ng;i++){slots+=mtSlotHtml(i,gMtExisting[i]||null,i===0?ownerEmail:'');}
+    if(excessCount>0){
+      slots+=`<div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:10px;padding:12px 16px;margin-bottom:14px;">
+        <strong style="color:#dc2626;">⚠️ Guest Count Mismatch</strong>
+        <p style="margin:4px 0 0;font-size:.84rem;color:#7f1d1d;">The cabin is set to <strong>${ng} guest${ng>1?'s':''}</strong> but <strong>${gMtExisting.length} travelers</strong> are on file. Remove the excess traveler${excessCount>1?'s':''} below (shown with red border) or update the guest count via "Update Guest Count" in the Actions menu.</p>
+      </div>`;
+    }
+    for(let i=0;i<totalSlots;i++){slots+=mtSlotHtml(i,gMtExisting[i]||null,i===0?ownerEmail:'',i>=ng);}
     if(slotsEl)slotsEl.innerHTML=slots||'<p style="color:var(--muted);padding:8px;">No slots to display.</p>';
   }catch(e){
     const alertEl2=document.getElementById('mt-alert');
