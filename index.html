@@ -367,8 +367,15 @@
           <button onclick="openCabinSelection()" style="background:#22c55e;color:#fff;border:none;border-radius:9px;padding:12px 28px;font-size:1rem;font-weight:800;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.25);letter-spacing:.02em;">🛳️ Select Cabin Type</button>
         </div>
       </div>
+      <!-- Extra cabin cards inserted here by JS for 2nd+ cabins -->
+      <div id="dash-extra-cabins" style="display:none;"></div>
+      <!-- Request Second Cabin button -->
+      <div style="text-align:center;margin-bottom:14px;">
+        <button id="dash-add-second-cabin-btn" onclick="openRequestSecondCabin()" style="display:none;background:rgba(26,74,124,.12);border:1.5px solid #2176ae;color:#1a4a7c;border-radius:9px;padding:8px 20px;font-size:.84rem;font-weight:700;cursor:pointer;">➕ Request Additional Cabin</button>
+      </div>
+
       <div class="progress-card">
-        
+
         <div class="progress-meta"><span>Payment Progress</span><span class="progress-pct" id="dash-pct"></span></div>
         <div class="pbar-track"><div class="pbar-fill" id="dash-pbar" style="width:0%"></div></div>
         <div class="progress-labels"><span id="dash-paid-label">$0 paid</span><span id="dash-total-label" style="color:var(--muted);font-style:italic;">Total: Pending admin update</span></div>
@@ -1077,6 +1084,90 @@
     <div style="display:flex;gap:10px;">
       <button onclick="document.getElementById('admin-add-occupant-modal').classList.remove('open')" style="flex:1;padding:10px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;cursor:pointer;font-size:.88rem;color:#374151;">Cancel</button>
       <button onclick="adminConfirmAdditionalOccupant()" style="flex:2;padding:10px;border:none;border-radius:8px;background:#1a4a7c;color:#fff;font-weight:700;cursor:pointer;font-size:.88rem;">👤 Confirm Additional Occupant</button>
+    </div>
+  </div>
+</div>
+
+<!-- TRAVELER: REQUEST SECOND CABIN MODAL -->
+<div id="request-second-cabin-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box" style="max-width:480px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 style="color:#1a4a7c;font-size:1rem;margin:0;">🛏️ Request Additional Cabin</h3>
+      <button onclick="document.getElementById('request-second-cabin-modal').classList.remove('open')" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px;">×</button>
+    </div>
+    <p style="font-size:.85rem;color:#374151;margin:0 0 14px;">Select the cabin type and number of guests for your additional cabin. Your request will be sent to the admin for review and assignment.</p>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:.8rem;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Cabin Type *</label>
+      <select id="req2-cabin-type" style="width:100%;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.88rem;box-sizing:border-box;">
+        <option value="">-- Select --</option>
+        <option value="Interior">Interior</option>
+        <option value="Ocean View">Ocean View</option>
+        <option value="Balcony">Balcony</option>
+        <option value="Suite">Suite</option>
+      </select>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:.8rem;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Number of Guests *</label>
+      <select id="req2-num-guests" style="width:100%;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.88rem;box-sizing:border-box;">
+        <option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option>
+      </select>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:.8rem;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Notes (optional)</label>
+      <textarea id="req2-notes" rows="2" placeholder="e.g. Adjacent cabin preferred, accessibility needs…" style="width:100%;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.87rem;box-sizing:border-box;resize:vertical;"></textarea>
+    </div>
+    <div id="req2-msg" style="display:none;margin-bottom:10px;padding:9px 12px;border-radius:8px;font-size:.85rem;"></div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="document.getElementById('request-second-cabin-modal').classList.remove('open')" style="flex:1;padding:10px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;cursor:pointer;font-size:.88rem;color:#374151;">Cancel</button>
+      <button onclick="submitRequestSecondCabin()" style="flex:2;padding:10px;border:none;border-radius:8px;background:#1a4a7c;color:#fff;font-weight:700;cursor:pointer;font-size:.88rem;">Submit Request</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN: ADD 2ND CABIN MODAL -->
+<div id="admin-add-second-cabin-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box" style="max-width:500px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 style="color:#1a4a7c;font-size:1rem;margin:0;">🛏️ Add 2nd Cabin</h3>
+      <button onclick="document.getElementById('admin-add-second-cabin-modal').classList.remove('open')" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px;">×</button>
+    </div>
+    <div id="admin-add2cab-traveler-info" style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:8px;padding:10px 14px;font-size:.85rem;margin-bottom:14px;"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div>
+        <label style="font-size:.8rem;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Cabin Type *</label>
+        <select id="admin-add2cab-type" style="width:100%;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.88rem;box-sizing:border-box;">
+          <option value="">-- Select --</option>
+          <option value="Interior">Interior</option>
+          <option value="Ocean View">Ocean View</option>
+          <option value="Balcony">Balcony</option>
+          <option value="Suite">Suite</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:.8rem;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Num Guests *</label>
+        <select id="admin-add2cab-guests" style="width:100%;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.88rem;box-sizing:border-box;">
+          <option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div>
+        <label style="font-size:.8rem;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Cabin # (optional)</label>
+        <input id="admin-add2cab-number" type="text" placeholder="e.g. 4512" style="width:100%;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.88rem;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:.8rem;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Price/Person ($)</label>
+        <input id="admin-add2cab-price" type="number" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.88rem;box-sizing:border-box;">
+      </div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:.8rem;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Cabin Cost ($)</label>
+      <input id="admin-add2cab-cost" type="number" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.88rem;box-sizing:border-box;">
+    </div>
+    <div id="admin-add2cab-msg" style="display:none;margin-bottom:10px;padding:9px 12px;border-radius:8px;font-size:.85rem;"></div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="document.getElementById('admin-add-second-cabin-modal').classList.remove('open')" style="flex:1;padding:10px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;cursor:pointer;font-size:.88rem;color:#374151;">Cancel</button>
+      <button onclick="adminConfirmAddSecondCabin()" style="flex:2;padding:10px;border:none;border-radius:8px;background:#1a4a7c;color:#fff;font-weight:700;cursor:pointer;font-size:.88rem;">✅ Add Cabin</button>
     </div>
   </div>
 </div>
@@ -4140,7 +4231,7 @@ async function loadDashboard(){
   const[msRes,pyRes,caRes]=await Promise.all([
     sb.from('payment_milestones').select('*').order('due_date',{ascending:true}),
     sb.from('user_payments').select('*').eq('user_id',gUser.id),
-    sb.from('cabin_assignments').select('*').eq('user_id',gUser.id).limit(1)
+    sb.from('cabin_assignments').select('*').eq('user_id',gUser.id).order('created_at',{ascending:true})
   ]);
 
   if(msRes.error){
@@ -4150,13 +4241,17 @@ async function loadDashboard(){
 
   const milestones=msRes.data||[];
   const payments=pyRes.data||[];
-  const cabin=(caRes.data&&caRes.data.length>0)?caRes.data[0]:null;
+  // Multi-cabin: first row is primary (drives main card); additional rows are secondary cabins
+  const allCabins=caRes.data||[];
+  const cabin=allCabins.length>0?allCabins[0]:null;
+  const extraCabins=allCabins.slice(1); // any additional cabin assignments
   const cabinLoadErr=caRes.error||null; // flag but don't bail — payment schedule must still render
 
-  const cabinCost=cabin?.cabin_cost?parseFloat(cabin.cabin_cost):null;
+  // Sum cabin costs across ALL cabins for payment schedule totals
+  const cabinCost=allCabins.reduce((s,c)=>s+(c.cabin_cost?parseFloat(c.cabin_cost):0),0)||null;
   // Cache globally so tile-click modals can read them without re-fetching
   gMilestones=milestones;gPayments=payments;gCabinCost=cabinCost;
-  window.gNumGuests=cabin?.num_guests||1;
+  window.gNumGuests=allCabins.reduce((s,c)=>s+(c.num_guests||1),0)||1;
 
   // ── Cabin card: error / no-cabin / has-cabin ─────────────────
   if(cabinLoadErr && !cabin){
@@ -4400,10 +4495,48 @@ if(dsBadge){
     window._pendingWelcomeModalCheck=false;
   }
 
+  // ── Render extra cabin cards (2nd+ cabins) ────────────────────
+  {
+    const container=document.getElementById('dash-extra-cabins');
+    if(container){
+      if(extraCabins.length>0){
+        container.innerHTML=extraCabins.map((ec,idx)=>{
+          const ecType=ec.cabin_type||'—';
+          const ecNum=ec.cabin_number||'Pending';
+          const ecGuests=ec.num_guests||'—';
+          const ecCost=ec.cabin_cost?`<span style="font-size:.8rem;opacity:.85;">Total: ${fmt(parseFloat(ec.cabin_cost))}</span>`:'<span style="font-size:.8rem;opacity:.7;">Cost: Pending</span>';
+          const ecStatus=ec.cabin_number?'Confirmed':'Reservation Held';
+          return`<div style="background:linear-gradient(135deg,#134e4a,#0f766e);color:#fff;border-radius:14px;padding:14px 18px;margin-bottom:14px;box-shadow:0 4px 14px rgba(19,78,74,.3);">
+            <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;opacity:.72;margin-bottom:5px;">Additional Cabin ${idx+2}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
+              <div>
+                <div style="font-size:1.15rem;font-weight:800;">${ecType}</div>
+                <div style="font-size:.78rem;opacity:.8;margin-top:2px;">${ecStatus}</div>
+              </div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-left:auto;">
+                <div style="background:rgba(255,255,255,.15);border-radius:8px;padding:7px 12px;text-align:center;min-width:65px;"><div style="font-size:1rem;font-weight:700;">${ecNum}</div><div style="font-size:.7rem;opacity:.75;">Cabin #</div></div>
+                <div style="background:rgba(255,255,255,.15);border-radius:8px;padding:7px 12px;text-align:center;min-width:65px;"><div style="font-size:1rem;font-weight:700;">${ecGuests}</div><div style="font-size:.7rem;opacity:.75;">Guests</div></div>
+              </div>
+            </div>
+            <div style="margin-top:8px;">${ecCost}</div>
+            ${ec.guest_reservation_number?`<div style="margin-top:5px;font-size:.78rem;opacity:.82;">Reservation #: <strong>${ec.guest_reservation_number}</strong></div>`:''}
+          </div>`;
+        }).join('');
+        container.style.display='block';
+      } else {
+        container.innerHTML='';
+        container.style.display='none';
+      }
+    }
+    // Show/hide the "Request Second Cabin" button
+    const btn2=document.getElementById('dash-add-second-cabin-btn');
+    if(btn2) btn2.style.display=cabin?'inline-block':'none';
+  }
+
   // ── Payment schedule calculations ────────────────────────────
-  // Scale minimums by number of guests in cabin; use cumulative comparison
+  // Scale minimums by total guests across all cabins; use cumulative comparison
   // so overpayments on earlier milestones carry forward and reduce later dues.
-  const numGuests=cabin?.num_guests||1;
+  const numGuests=allCabins.reduce((s,c)=>s+(c.num_guests||1),0)||1;
   const payMap={};payments.forEach(p=>{payMap[p.milestone_id]=p;});
   const today=todayET();
   const totalPaid=payments.reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
@@ -7462,6 +7595,7 @@ function renderTravelersView(){
         '<option value="send_welcome">&#x1F4E7; Send Welcome Email</option>'+
         '<option value="send_temp_pin">&#x1F511; Send New Temp PIN / Reset</option>'+
         (ca?.high_occupancy_pending?'<option value="clear_high_occ">&#x2705; Clear High Occ. Flag</option>':'')+
+        '<option value="add_second_cabin">&#x1F6CC; Add 2nd Cabin</option>'+
         '<option value="cancel_travel">&#x1F6AB; Cancel Travel (Keep Profile)</option>'+
         '<option value="cancel">&#x1F4E7; Cancel Reservation + Send Email</option>'+
         '<option value="delete">&#x1F5D1; Delete Account</option>'+
@@ -7730,6 +7864,93 @@ function markTravelerNotGoing(userId,name,cabinType,pricePP){
   if(flagCx)flagCx.checked=true;
   if(reason)reason.value='';
   document.getElementById('admin-cancel-travel-modal').classList.add('open');
+}
+
+// ── SECOND CABIN — TRAVELER REQUEST ───────────────────────────
+function openRequestSecondCabin(){
+  const el=document.getElementById('request-second-cabin-modal');
+  if(!el)return;
+  document.getElementById('req2-cabin-type').value='';
+  document.getElementById('req2-num-guests').value='2';
+  const nEl=document.getElementById('req2-notes');
+  if(nEl)nEl.value='';
+  const msg=document.getElementById('req2-msg');
+  if(msg){msg.style.display='none';msg.textContent='';}
+  el.classList.add('open');
+}
+
+async function submitRequestSecondCabin(){
+  const cabinType=document.getElementById('req2-cabin-type')?.value;
+  const numGuests=parseInt(document.getElementById('req2-num-guests')?.value)||2;
+  const notes=document.getElementById('req2-notes')?.value||'';
+  const msg=document.getElementById('req2-msg');
+  const showMsg=(txt,ok)=>{if(!msg)return;msg.style.display='block';msg.style.background=ok?'#f0fdf4':'#fef2f2';msg.style.color=ok?'#166534':'#dc2626';msg.style.border=`1px solid ${ok?'#86efac':'#fca5a5'}`;msg.textContent=txt;};
+  if(!cabinType){showMsg('Please select a cabin type.',false);return;}
+  if(!gUser){showMsg('Not logged in.',false);return;}
+  // Insert pending row into cabin_assignments (no cabin number/cost yet — admin assigns)
+  const{error}=await sb.from('cabin_assignments').insert({
+    user_id:gUser.id,
+    cabin_type:cabinType,
+    num_guests:numGuests,
+    suite_pending:cabinType==='Suite',
+    notes:notes||null,
+    status:'pending_admin'
+  });
+  if(error){showMsg('Error submitting request: '+error.message,false);return;}
+  showMsg('✅ Request submitted! The admin will assign your cabin shortly.',true);
+  setTimeout(()=>{
+    document.getElementById('request-second-cabin-modal').classList.remove('open');
+    loadDashboard();
+  },2200);
+}
+
+// ── SECOND CABIN — ADMIN ADD ───────────────────────────────────
+let gAdmin2CabUserId='',gAdmin2CabName='';
+function openAdminAddSecondCabin(userId,name,email){
+  gAdmin2CabUserId=userId;gAdmin2CabName=name;
+  const info=document.getElementById('admin-add2cab-traveler-info');
+  if(info)info.innerHTML=`Traveler: <strong>${name}</strong><br>Email: ${email||'—'}`;
+  ['admin-add2cab-type','admin-add2cab-guests','admin-add2cab-number','admin-add2cab-price','admin-add2cab-cost'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.value=id==='admin-add2cab-guests'?'2':'';
+  });
+  const msg=document.getElementById('admin-add2cab-msg');
+  if(msg){msg.style.display='none';msg.textContent='';}
+  document.getElementById('admin-add-second-cabin-modal').classList.add('open');
+}
+
+async function adminConfirmAddSecondCabin(){
+  const cabinType=document.getElementById('admin-add2cab-type')?.value;
+  const numGuests=parseInt(document.getElementById('admin-add2cab-guests')?.value)||2;
+  const cabinNumber=document.getElementById('admin-add2cab-number')?.value?.trim()||null;
+  const pricePP=parseFloat(document.getElementById('admin-add2cab-price')?.value)||null;
+  const cabinCost=parseFloat(document.getElementById('admin-add2cab-cost')?.value)||null;
+  const msg=document.getElementById('admin-add2cab-msg');
+  const showMsg=(txt,ok)=>{if(!msg)return;msg.style.display='block';msg.style.background=ok?'#f0fdf4':'#fef2f2';msg.style.color=ok?'#166534':'#dc2626';msg.style.border=`1px solid ${ok?'#86efac':'#fca5a5'}`;msg.textContent=txt;};
+  if(!cabinType){showMsg('Please select a cabin type.',false);return;}
+  if(!gAdmin2CabUserId){showMsg('No traveler selected.',false);return;}
+  const row={
+    user_id:gAdmin2CabUserId,
+    cabin_type:cabinType,
+    num_guests:numGuests,
+    suite_pending:cabinType==='Suite'&&!cabinNumber,
+    assigned_at:new Date().toISOString()
+  };
+  if(cabinNumber)row.cabin_number=cabinNumber;
+  if(pricePP)row.price_per_person=pricePP;
+  if(cabinCost)row.cabin_cost=cabinCost;
+  const{error}=await sb.from('cabin_assignments').insert(row);
+  if(error){showMsg('Error adding cabin: '+error.message,false);return;}
+  // Decrement inventory if cabin assigned and type isn't Suite
+  if(cabinNumber&&cabinType!=='Suite'){
+    await sb.rpc('decrement_cabin',{cabin:cabinType}).catch(()=>{});
+    if(pricePP)await sb.rpc('decrement_cabin_tier',{p_cabin_type:cabinType,p_price:pricePP}).catch(()=>{});
+  }
+  showMsg(`✅ 2nd cabin (${cabinType}) added for ${gAdmin2CabName}.`,true);
+  setTimeout(()=>{
+    document.getElementById('admin-add-second-cabin-modal').classList.remove('open');
+    loadTravelers&&loadTravelers();
+  },1800);
 }
 
 async function adminConfirmCancelTravel(){
@@ -13854,6 +14075,7 @@ function handleTravelerAction(sel,userId){
         });
     }
   }
+  else if(v==='add_second_cabin'){openAdminAddSecondCabin(d.userId,d.name,d.email);}
   else if(v==='cancel_travel'){markTravelerNotGoing(d.userId,d.name,d.cabinType,d.pricePP);}
   else if(v==='cancel'){cancelTraveler(d.userId,d.name,d.email,d.cabinType,d.cabinNumber,d.citizenshipType,d.paid);}
   else if(v==='restore_traveler'){restoreTraveler(d.userId,d.name);}
