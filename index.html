@@ -1098,13 +1098,14 @@
     <p style="font-size:.85rem;color:#374151;margin:0 0 14px;">Select the cabin type and number of guests for your additional cabin. Your request will be sent to the admin for review and assignment.</p>
     <div style="margin-bottom:12px;">
       <label style="font-size:.8rem;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Cabin Type *</label>
-      <select id="req2-cabin-type" style="width:100%;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.88rem;box-sizing:border-box;">
+      <select id="req2-cabin-type" onchange="onReq2CabinTypeChange()" style="width:100%;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.88rem;box-sizing:border-box;">
         <option value="">-- Select --</option>
         <option value="Interior">Interior</option>
         <option value="Ocean View">Ocean View</option>
         <option value="Balcony">Balcony</option>
         <option value="Suite">Suite</option>
       </select>
+      <div id="req2-tier-panel" style="display:none;"></div>
     </div>
     <div style="margin-bottom:12px;">
       <label style="font-size:.8rem;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Number of Guests *</label>
@@ -1449,6 +1450,7 @@
           <option value="Full Accessible">Full Accessible Cabin (Wheelchair/Power Scooter) ♿ — Request Only</option>
           <option value="Ambulatory Accessible">Ambulatory Accessible Cabin ♿ — Request Only</option>
         </select>
+        <div id="reg-tier-panel" style="display:none;"></div>
       </div>
       <!-- Accessible notice — shown when accessible cabin type selected -->
       <div id="reg-accessible-notice" style="display:none;background:#eff6ff;border:1.5px solid #93c5fd;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
@@ -1679,6 +1681,7 @@
           </select>
         </div>
         <div class="cabin-avail" id="psetup-cabin-avail">Loading availability…</div>
+        <div id="psetup-tier-panel" style="display:none;"></div>
         <div id="psetup-occupancy-section" style="display:none;margin-top:12px;">
           <div class="form-group" style="margin-bottom:4px;"><label>Number of People in Your Cabin *</label>
             <select id="psetup-num-guests" onchange="onPsetupGuestsChange()">
@@ -3089,6 +3092,8 @@ function onRegCabinTypeChange(){
     const ph=document.getElementById('reg-suite-phone');if(ph)ph.value='';
     const bc=document.getElementById('reg-backup-cabin');if(bc)bc.value='';
   }
+  // Show price tiers for selected cabin type
+  renderCabinTierPanel(val,'reg-tier-panel');
 }
 function onRegNumGuestsChange(sel){
   const notice=document.getElementById('reg-solo-notice');
@@ -3744,6 +3749,42 @@ async function loadAndRoute(user){
 
 // ── PROFILE SETUP MODAL ──────────────────────────────────────
 let gCabinMinPrices={}; // {cabinType: minPrice_per_person when available}
+let gCabinTierData=[]; // cached cabin_price_tiers rows for all three selection flows
+
+// ── Shared cabin tier panel renderer ──────────────────────────
+// Renders price tiers (availability + cost) into containerId.
+// Clears the panel if no cabin type selected or no tier data.
+function renderCabinTierPanel(cabinType, containerId){
+  const el=document.getElementById(containerId);
+  if(!el)return;
+  if(!cabinType||cabinType==='Suite'){
+    el.style.display='none';el.innerHTML='';return;
+  }
+  const tiers=(gCabinTierData||[]).filter(t=>t.cabin_type===cabinType).sort((a,b)=>parseFloat(a.price_per_person)-parseFloat(b.price_per_person));
+  if(!tiers.length){
+    el.style.display='none';el.innerHTML='';return;
+  }
+  const fmt=n=>n!=null?'$'+parseFloat(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}):'—';
+  const rows=tiers.map(t=>{
+    const pp=parseFloat(t.price_per_person);
+    const avail=t.available_cabins??0;
+    let availLabel,availColor;
+    if(avail<=0){availLabel='Sold Out';availColor='#dc2626';}
+    else if(avail<=3){availLabel=`${avail} left — Almost Full!`;availColor='#d97706';}
+    else if(avail<=10){availLabel=`${avail} available`;availColor='#d97706';}
+    else{availLabel=`${avail} available`;availColor='#166534';}
+    return`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:7px;background:${avail<=0?'#fef2f2':'#f0fdf4'};margin-bottom:5px;${avail<=0?'opacity:.65;':''}">
+      <span style="font-weight:700;font-size:.9rem;color:#1a4a7c;">${fmt(pp)}<span style="font-weight:400;font-size:.78rem;color:#64748b;">/person</span></span>
+      <span style="font-size:.8rem;font-weight:600;color:${availColor};">${availLabel}</span>
+    </div>`;
+  }).join('');
+  el.style.display='block';
+  el.innerHTML=`<div style="border:1.5px solid #bae6fd;border-radius:9px;padding:10px 12px;background:#f0f9ff;margin-top:10px;">
+    <div style="font-size:.78rem;font-weight:800;color:#0c4a6e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">💰 Available Price Tiers — ${cabinType}</div>
+    ${rows}
+    <div style="font-size:.73rem;color:#64748b;margin-top:6px;line-height:1.4;">⚠️ Prices are pending admin verification. Final cost is confirmed upon cabin assignment.</div>
+  </div>`;
+}
 
 // Loads live inventory into the registration wizard cabin-type dropdown.
 // Uses get_public_cabin_availability() RPC (SECURITY DEFINER) so unauthenticated
@@ -3754,6 +3795,7 @@ async function loadRegInventory(){
       sb.rpc('get_public_cabin_availability'),
       sb.from('cabin_price_tiers').select('*').order('price_per_person',{ascending:true})
     ]);
+    if(tierData)gCabinTierData=tierData;
     const sel=document.getElementById('reg-cabin-type');
     if(!sel)return;
     // Convert availability rows to a map
@@ -3796,6 +3838,7 @@ async function loadInventoryForSetup(){
     sb.from('cabin_assignments').select('cabin_type'),
     sb.from('cabin_price_tiers').select('*').order('price_per_person',{ascending:true})
   ]);
+  if(tierData)gCabinTierData=tierData;
   if(!invData)return;
   // Compute actual booked counts from cabin_assignments (source of truth)
   const actualBooked={};
@@ -3870,6 +3913,8 @@ async function onPsetupCabinTypeChange(){
   // Refresh availability display
   if(Object.keys(gInventory).length===0)await loadInventoryForSetup();
   else updatePsetupCabinAvail();
+  // Show price tiers for selected cabin type
+  renderCabinTierPanel(val,'psetup-tier-panel');
   // Populate occupancy picker based on cabin type
   const maxGuests=CABIN_MAX[val]||4;
   const occEl=document.getElementById('psetup-occupancy-section');
@@ -7867,6 +7912,16 @@ function markTravelerNotGoing(userId,name,cabinType,pricePP){
 }
 
 // ── SECOND CABIN — TRAVELER REQUEST ───────────────────────────
+async function onReq2CabinTypeChange(){
+  const val=document.getElementById('req2-cabin-type')?.value||'';
+  // If tiers not yet cached, fetch them now
+  if(!gCabinTierData.length){
+    const{data}=await sb.from('cabin_price_tiers').select('*').order('price_per_person',{ascending:true});
+    if(data)gCabinTierData=data;
+  }
+  renderCabinTierPanel(val,'req2-tier-panel');
+}
+
 function openRequestSecondCabin(){
   const el=document.getElementById('request-second-cabin-modal');
   if(!el)return;
