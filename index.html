@@ -4296,7 +4296,10 @@ async function loadDashboard(){
   const cabinCost=allCabins.reduce((s,c)=>s+(c.cabin_cost?parseFloat(c.cabin_cost):0),0)||null;
   // Cache globally so tile-click modals can read them without re-fetching
   gMilestones=milestones;gPayments=payments;gCabinCost=cabinCost;
-  window.gNumGuests=allCabins.reduce((s,c)=>s+(c.num_guests||1),0)||1;
+  // gNumGuests = primary cabin only (first row, ordered by assigned_at ASC)
+  // Used for payment schedule scaling and gratuity calc — reflects THIS cabin's party size.
+  // Total cost across ALL cabins is already handled by gCabinCost (summed above).
+  window.gNumGuests=cabin?.num_guests||1;
 
   // ── Cabin card: error / no-cabin / has-cabin ─────────────────
   if(cabinLoadErr && !cabin){
@@ -7483,7 +7486,24 @@ async function loadTravelers(){
   });
 
   // Store fetched data globally so search/sort can re-render without re-fetching
-  const cabinMap={};(allCabins||[]).forEach(c=>{cabinMap[c.user_id]=c;});
+  // cabinMap: first-row-wins so primary (earliest assigned_at) cabin is always shown.
+  // If status column is present (after Statement 91), also prefer 'confirmed' over 'pending_admin'.
+  const cabinMap={};
+  const pending2ndCabinMap={}; // user_id → pending_admin rows (2nd cabin requests)
+  (allCabins||[]).forEach(c=>{
+    const st=c.status||'confirmed';
+    if(st==='pending_admin'){
+      if(!pending2ndCabinMap[c.user_id])pending2ndCabinMap[c.user_id]=[];
+      pending2ndCabinMap[c.user_id].push(c);
+    } else {
+      // confirmed/primary cabin — first row wins (primary cabin inserted first)
+      if(!cabinMap[c.user_id])cabinMap[c.user_id]=c;
+    }
+  });
+  // Fallback: if a user only has pending rows (no confirmed), use first pending as display cabin
+  Object.keys(pending2ndCabinMap).forEach(uid=>{
+    if(!cabinMap[uid])cabinMap[uid]=pending2ndCabinMap[uid][0];
+  });
   const payMap={};(allPayments||[]).forEach(p=>{
     if(!payMap[p.user_id])payMap[p.user_id]={due:0,paid:0};
     payMap[p.user_id].due+=parseFloat(p.amount_due||0);
@@ -7495,7 +7515,7 @@ async function loadTravelers(){
   });
   window.gOccupantMap=occupantMap;
   window.gTravelerData={};
-  window._travRaw={profiles:profiles||[],cabinMap,payMap,occupantMap,emailMap};
+  window._travRaw={profiles:profiles||[],cabinMap,pending2ndCabinMap,payMap,occupantMap,emailMap};
   renderTravelersView();
 }
 
@@ -7510,7 +7530,7 @@ function renderTravelersView(){
   if(!el)return;
   const raw=window._travRaw;
   if(!raw){el.innerHTML='<div class="loading"><div class="spinner"></div></div>';return;}
-  const{profiles,cabinMap,payMap,occupantMap,emailMap}=raw;
+  const{profiles,cabinMap,pending2ndCabinMap={},payMap,occupantMap,emailMap}=raw;
   if(!profiles||profiles.length===0){el.innerHTML='<div class="empty"><div class="ei">&#x1F465;</div><p>No travelers yet.</p></div>';return;}
   window.gOccupantMap=occupantMap;
   window.gTravelerData={};
@@ -7592,6 +7612,8 @@ function renderTravelersView(){
     const docB=p.needs_doc_info?'<span class="badge needs-info">Needs Doc</span> ':'';
     const suiteB=ca?.suite_pending?'<span class="badge badge-warn">Suite&#x2B50;</span> ':'';
     const noCabinB=!ca?'<span class="badge badge-gray">No Cabin</span> ':'';
+    const pending2nd=pending2ndCabinMap[p.id]||[];
+    const pending2ndB=pending2nd.length>0?`<span class="badge badge-warn" style="font-size:.72rem;" title="Traveler has a pending 2nd cabin request (${pending2nd.map(c=>c.cabin_type).join(', ')}) awaiting admin confirmation">🛏️ +${pending2nd.length} Cabin Req.</span> `:'';
     const needsCCLB=(ca&&paid>0&&!ca.payment_link)
       ?'<span class="badge badge-warn" style="font-size:.72rem;" title="Traveler has paid but no personal CCL payment link has been assigned yet">&#x26A0;&#xFE0F; Needs CCL Link</span> ':'';
     const safeN=(p.name||'').replace(/'/g,"\\'");
@@ -7682,7 +7704,7 @@ function renderTravelersView(){
           '</div>'+
         '</div></td>';
     return'<tr>'+
-      '<td><a href="#" onclick="openManageTravelers(\''+p.id+'\',\''+safeN+'\','+( ca?.num_guests||1)+');return false;" style="font-weight:800;color:var(--primary);text-decoration:none;">'+(p.name||'<em style="color:var(--muted)">No name</em>')+'</a> '+docB+suiteB+noCabinB+needsCCLB+'<br><small style="color:var(--muted)">'+(p.email||'')+'</small></td>'+
+      '<td><a href="#" onclick="openManageTravelers(\''+p.id+'\',\''+safeN+'\','+( ca?.num_guests||1)+');return false;" style="font-weight:800;color:var(--primary);text-decoration:none;">'+(p.name||'<em style="color:var(--muted)">No name</em>')+'</a> '+docB+suiteB+noCabinB+pending2ndB+needsCCLB+'<br><small style="color:var(--muted)">'+(p.email||'')+'</small></td>'+
       '<td><span class="badge badge-purple">'+cabinStr+'</span>'+
         (()=>{const _uid=p.id;const _ng=ca?.num_guests||1;const _effG=_ng===1?2:_ng;const _pp=ca?.price_per_person?parseFloat(ca.price_per_person):null;const _cc=ca?.cabin_cost?parseFloat(ca.cabin_cost):null;const _tot=_pp?fmt(_pp*_effG):'';const _totColor=(_pp&&_cc&&Math.abs(_pp*_effG-_cc)<0.01)?'#166534':'#1a4a7c';return`<br><div style="margin-top:3px;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:.74rem;font-weight:700;color:#1a4a7c;"><input type="checkbox" id="tv-chk-${_uid}" ${_pp?'checked':''} onchange="toggleInlineTierInput('${_uid}')"><span>${_pp?'&#x2705; Price Verified':'Price Verified'}</span></label><div id="tv-form-${_uid}" style="display:none;align-items:center;gap:3px;flex-wrap:wrap;margin-top:3px;"><input type="number" id="tv-pp-${_uid}" value="${_pp||''}" placeholder="$/pp" step="0.01" min="0" style="width:72px;padding:2px 5px;font-size:.74rem;border:1.5px solid #cbd5e1;border-radius:4px;color:#1a4a7c;font-weight:700;" oninput="updateInlineTierTotal('${_uid}',${_effG},${_cc||0})"><span id="tv-tot-${_uid}" style="font-size:.71rem;color:${_totColor};font-weight:700;">${_tot?'= '+_tot:''}</span><button onclick="saveInlineTier('${_uid}',${_effG})" style="background:#1a4a7c;color:#fff;border:none;border-radius:4px;padding:2px 7px;font-size:.72rem;font-weight:700;cursor:pointer;">Save</button></div></div>`})()+(()=>{const _ti=ca?.travel_insurance||'';const _opts='<option value="">— Select —</option><option value="yes"'+(_ti==='yes'?' selected':'')+'>Travel Insurance-Yes</option><option value="no"'+(_ti==='no'?' selected':'')+'>Travel Insurance-No</option>';const _badge=_ti?('<span style="font-size:.71rem;font-weight:700;margin-left:4px;color:'+(_ti==='yes'?'#0f766e':'#dc2626')+';">'+(_ti==='yes'?'&#x2705; Travel Insurance-Yes':'&#x274C; Travel Insurance-No')+'</span>'):'';return'<br><div style="margin-top:4px;"><label style="font-size:.74rem;font-weight:700;color:#0f766e;display:block;margin-bottom:2px;">&#x1F6E1;&#xFE0F; Travel Insurance</label><select onchange="saveAdminTravelInsurance(\''+p.id+'\',this.value)" style="font-size:.74rem;padding:2px 5px;border:1.5px solid #99f6e4;border-radius:4px;color:#0f766e;font-weight:700;background:#f0fdfa;width:100%;max-width:160px;">'+_opts+'</select>'+_badge+'</div>';})()+''+
         (ca?.backup_cabin_type&&!ca?.suite_pending&&!ca?.cabin_number?'<br><span style="font-size:.74rem;color:var(--muted);">&#x1F504; Backup: '+ca.backup_cabin_type+'</span>':'')+
