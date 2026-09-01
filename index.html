@@ -4231,7 +4231,7 @@ async function loadDashboard(){
   const[msRes,pyRes,caRes]=await Promise.all([
     sb.from('payment_milestones').select('*').order('due_date',{ascending:true}),
     sb.from('user_payments').select('*').eq('user_id',gUser.id),
-    sb.from('cabin_assignments').select('*').eq('user_id',gUser.id).order('created_at',{ascending:true})
+    sb.from('cabin_assignments').select('*').eq('user_id',gUser.id).order('assigned_at',{ascending:true})
   ]);
 
   if(msRes.error){
