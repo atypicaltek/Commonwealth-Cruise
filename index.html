@@ -10337,15 +10337,16 @@ This email was sent by the ${TRIP_NAME} portal.`
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
           <div>
             <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Milestone / Payment Label</label>
-            <select id="eg-pc-milestone" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+            <select id="eg-pc-milestone" onchange="onPcMilestoneChange()" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
               <option value="Initial Deposit">Initial Deposit</option>
               <option value="2nd Payment">2nd Payment</option>
               <option value="3rd Payment">3rd Payment</option>
               <option value="Final Payment">Final Payment</option>
               <option value="Partial Payment">Partial Payment</option>
               <option value="Deposit Payment">Deposit Payment</option>
-              <option value="Other">Other</option>
+              <option value="Other">Other (type below)</option>
             </select>
+            <input id="eg-pc-milestone-other" type="text" placeholder="Describe this payment…" style="display:none;width:100%;padding:8px 11px;border:1.5px solid #f6c440;border-radius:7px;font-size:.88rem;box-sizing:border-box;margin-top:6px;background:#fffbeb;font-style:italic;">
           </div>
           <div>
             <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Amount Paid (This Payment $)</label>
@@ -10396,6 +10397,9 @@ PAYMENT DETAILS:
 
 Please log in to the Commonwealth Cruise Travel Portal to view your full payment schedule:
 https://atypicaltek.github.io/Commonwealth-Cruise/ (Commonwealth-Cruise-Portal)
+
+IMPORTANT — AUTHORIZATION FORM NOTICE:
+After your payment has been applied with the current authorization form, the form will be deleted for security purposes. Please do not submit an additional form unless you would like an additional payment processed. If this is what you desired, please add this to the memo section of the form.
 
 Thank you for your payment! We look forward to sailing with you.
 
@@ -11645,6 +11649,14 @@ function paymentConfirmationRecalc(){
   }
 }
 
+function onPcMilestoneChange(){
+  const sel=document.getElementById('eg-pc-milestone');
+  const other=document.getElementById('eg-pc-milestone-other');
+  if(!sel||!other)return;
+  other.style.display=sel.value==='Other'?'block':'none';
+  if(sel.value!=='Other')other.value='';
+}
+
 async function paymentConfirmationAutoFill(){
   const email=(document.getElementById('eg-to-email')||{}).value?.trim();
   if(!email){alert('Enter the traveler email first.');return;}
@@ -11697,7 +11709,9 @@ async function paymentConfirmationAutoFill(){
 async function sendPaymentConfirmationEmail(){
   const toEmail=(document.getElementById('eg-to-email')||{}).value?.trim();
   const toName=(document.getElementById('eg-to-name')||{}).value?.trim()||toEmail;
-  const milestone=(document.getElementById('eg-pc-milestone')?.value||'Payment').trim();
+  const milestoneRaw=(document.getElementById('eg-pc-milestone')?.value||'Payment').trim();
+  const milestoneOther=(document.getElementById('eg-pc-milestone-other')?.value||'').trim();
+  const milestone=milestoneRaw==='Other'?(milestoneOther||'Other Payment'):milestoneRaw;
   const amount=parseFloat(document.getElementById('eg-pc-amount')?.value||0)||0;
   const cabinType=(document.getElementById('eg-pc-cabin-type')?.value||'').trim()||'—';
   const numGuests=document.getElementById('eg-pc-num-guests')?.value||'—';
@@ -15427,9 +15441,11 @@ async function openTravelerCCAuthUpload(){
           </div>
         </div>
 
-        <div style="font-weight:700;color:#0f2744;font-size:.83rem;padding-bottom:4px;border-bottom:1.5px solid #e2e8f0;margin-bottom:9px;margin-top:13px;">Memo / Additional Notes</div>
-        <div style="font-size:.77rem;color:#64748b;margin-bottom:6px;line-height:1.5;">Optional — use this space for any special instructions or requests, e.g., <em>"Apply to reservation for another person"</em> or payment notes for your travel advisor.</div>
-        <textarea id="cca-memo" rows="3" placeholder="Enter any notes or special instructions here…" style="width:100%;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.86rem;resize:vertical;box-sizing:border-box;font-family:inherit;margin-bottom:13px;"></textarea>
+        <div style="background:#fefce8;border:2px solid #f6c440;border-radius:10px;padding:12px 14px;margin-top:14px;margin-bottom:13px;">
+          <div style="font-weight:800;color:#78460a;font-size:.88rem;margin-bottom:4px;">📝 Memo / Additional Notes</div>
+          <div style="font-size:.78rem;color:#92400e;margin-bottom:8px;line-height:1.5;"><strong>Important:</strong> If you would like to request a second payment be processed, please note that here. Once your current form is applied, it will be deleted for security purposes — add your request to this memo rather than submitting a new form.</div>
+          <textarea id="cca-memo" rows="3" placeholder="e.g. 'Please apply an additional payment of $XXX' or other special instructions…" style="width:100%;padding:8px 10px;border:1.5px solid #f6c440;border-radius:7px;font-size:.86rem;resize:vertical;box-sizing:border-box;font-family:inherit;background:#fffbeb;"></textarea>
+        </div>
 
         <div style="font-weight:700;color:#0f2744;font-size:.83rem;padding-bottom:4px;border-bottom:1.5px solid #e2e8f0;margin-bottom:8px;margin-top:13px;">Signature</div>
         <div style="font-size:.77rem;color:#64748b;margin-bottom:5px;">Sign below using your mouse or finger:</div>
