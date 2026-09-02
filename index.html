@@ -836,6 +836,17 @@
         </div>
         <div id="admin-cclentry-completed" style="display:none;padding:0 20px 16px;"></div>
       </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-header"><span class="card-title">🔗 Profiles Listed in Other Travelers' Cabins <span id="ccl-links-count" style="font-weight:400;font-size:.85rem;opacity:.8;"></span></span></div>
+        <div id="admin-ccl-links" style="padding:0 0 4px;"><div class="empty"><div class="ei">🔗</div><p>Click the CCL Entry tab to load.</p></div></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:14px 20px;" onclick="toggleCCLIgnored()">
+          <span style="font-weight:800;font-size:.97rem;color:var(--muted);">🚫 Ignored Profile Links</span>
+          <span id="ccl-ignored-chevron" style="color:var(--muted);font-size:1rem;transition:transform .2s;">▼</span>
+        </div>
+        <div id="admin-ccl-links-ignored" style="display:none;padding:0 20px 16px;"></div>
+      </div>
     </div>
 
     <!-- MINOR REQUESTS -->
@@ -3216,7 +3227,7 @@ async function completeRegistration(){
     if(!isSuiteReq&&!['Full Accessible','Ambulatory Accessible'].includes(cabinType)&&regCabinCheck){
       const[{data:_invRow},{count:_booked},{data:_tiers}]=await Promise.all([
         sb.from('cabin_inventory').select('total_cabins').eq('cabin_type',regCabinCheck).single(),
-        sb.from('cabin_assignments').select('id',{count:'exact',head:true}).eq('cabin_type',regCabinCheck),
+        sb.from('cabin_assignments').select('id',{count:'exact',head:true}).eq('cabin_type',regCabinCheck).neq('status','pending_admin'),
         sb.from('cabin_price_tiers').select('id').eq('cabin_type',regCabinCheck).gt('available_cabins',0).limit(1)
       ]);
       const _typeFull=_invRow&&_booked!=null&&_booked>=_invRow.total_cabins;
@@ -3835,14 +3846,14 @@ async function loadRegInventory(){
 async function loadInventoryForSetup(){
   const[{data:invData},{data:asgData},{data:tierData}]=await Promise.all([
     sb.from('cabin_inventory').select('*'),
-    sb.from('cabin_assignments').select('cabin_type'),
+    sb.from('cabin_assignments').select('cabin_type,status'),
     sb.from('cabin_price_tiers').select('*').order('price_per_person',{ascending:true})
   ]);
   if(tierData)gCabinTierData=tierData;
   if(!invData)return;
-  // Compute actual booked counts from cabin_assignments (source of truth)
+  // Compute actual booked counts — exclude pending_admin (unconfirmed 2nd cabin requests)
   const actualBooked={};
-  (asgData||[]).forEach(a=>{actualBooked[a.cabin_type]=(actualBooked[a.cabin_type]||0)+1;});
+  (asgData||[]).filter(a=>a.status!=='pending_admin').forEach(a=>{actualBooked[a.cabin_type]=(actualBooked[a.cabin_type]||0)+1;});
   gInventory={};
   invData.forEach(r=>{
     const booked=actualBooked[r.cabin_type]||0;
@@ -3983,7 +3994,7 @@ async function doProfileSetup(){
   // Also check price tier availability — if all tiers exhausted, route to waitlist
   const[{data:invRow},{count:actualBooked},{data:tierAvail}]=await Promise.all([
     sb.from('cabin_inventory').select('total_cabins').eq('cabin_type',checkCabin).single(),
-    sb.from('cabin_assignments').select('id',{count:'exact',head:true}).eq('cabin_type',checkCabin),
+    sb.from('cabin_assignments').select('id',{count:'exact',head:true}).eq('cabin_type',checkCabin).neq('status','pending_admin'),
     sb.from('cabin_price_tiers').select('id').eq('cabin_type',checkCabin).gt('available_cabins',0).limit(1)
   ]);
   const typeSoldOut=!invRow||(actualBooked!=null&&actualBooked>=invRow.total_cabins);
@@ -8950,7 +8961,10 @@ async function loadInventoryTab(){
     sb.from('cabin_price_tiers').select('*').order('cabin_type').order('price_per_person',{ascending:true})
   ]);
 
-  gInventoryAssignments=assignments||[];
+  // Exclude pending_admin rows (unconfirmed 2nd cabin requests) from all inventory counts.
+  // These haven't been confirmed by admin and haven't consumed a physical cabin slot.
+  const confirmedAssignments=(assignments||[]).filter(a=>a.status!=='pending_admin');
+  gInventoryAssignments=confirmedAssignments;
 
   // Store tiers by type globally so showInventoryDetail can use them for the assign dropdown
   gInventoryTiersByType={};
@@ -8962,7 +8976,7 @@ async function loadInventoryTab(){
   // Build a set of all user_ids in assignments so we can validate linked-partner references.
   // A row is only treated as a linked secondary if its linked_partner_user_id actually
   // points to another row in this assignments list (guards against stale/incorrect flags).
-  const allAssignmentUserIds=new Set((assignments||[]).map(a=>a.user_id));
+  const allAssignmentUserIds=new Set(confirmedAssignments.map(a=>a.user_id));
   const isValidLinkedSecondary=a=>
     a.is_cabin_shared===true &&
     a.linked_partner_user_id &&
@@ -8971,7 +8985,7 @@ async function loadInventoryTab(){
   // Derive reserved counts from actual cabin_assignments rows (source of truth).
   // Linked secondary partners share a slot with the primary and do NOT consume their own slot.
   const actualReserved={};
-  (assignments||[]).forEach(a=>{
+  confirmedAssignments.forEach(a=>{
     if(isValidLinkedSecondary(a)) return; // secondary — no slot consumed
     if(!actualReserved[a.cabin_type])actualReserved[a.cabin_type]=0;
     actualReserved[a.cabin_type]++;
@@ -8990,7 +9004,7 @@ async function loadInventoryTab(){
   const bookedPerTier={};
   const unpricedPerType={};
   const linkedPerType={};   // valid linked secondary partners (no slot consumed)
-  (assignments||[]).forEach(a=>{
+  confirmedAssignments.forEach(a=>{
     if(isValidLinkedSecondary(a)){
       linkedPerType[a.cabin_type]=(linkedPerType[a.cabin_type]||0)+1;
       return;
@@ -9950,6 +9964,113 @@ async function loadCCLEntry(){
       ?`<p style="font-size:.87rem;color:var(--muted);margin-bottom:12px;">${compCount} completed — full profile and traveler details shown below.</p>`+completedCards.join('')
       :'<p style="font-size:.87rem;color:var(--muted);padding:8px 0;">No completed entries yet.</p>';
   }
+
+  // ── Profile-in-other-cabin link detection ──────────────────────────────────
+  // Build lookup: normalized full name → profile (non-admin, non-cancelled)
+  const profileByNormName={};
+  (profiles||[]).forEach(p=>{
+    const key=(p.name||'').toLowerCase().trim();
+    if(key)profileByNormName[key]=p;
+  });
+
+  // Find cabin_travelers whose name matches a profile that isn't the cabin owner
+  const linkMatchMap={};
+  (allTravelers||[]).forEach(t=>{
+    const tName=[t.first_name,t.last_name].filter(Boolean).join(' ').toLowerCase().trim();
+    if(!tName)return;
+    const matched=profileByNormName[tName];
+    if(!matched)return;
+    if(matched.id===t.account_owner_id)return; // their own record, skip
+    if(!linkMatchMap[matched.id])linkMatchMap[matched.id]={profile:matched,occurrences:[]};
+    const ownerProf=(profiles||[]).find(p=>p.id===t.account_owner_id)||null;
+    linkMatchMap[matched.id].occurrences.push({travelerRecord:t,ownerProfile:ownerProf});
+  });
+
+  // Separate into pending review vs ignored
+  const linkPending=[];const linkIgnored=[];
+  Object.values(linkMatchMap).forEach(item=>{
+    if(item.profile.ccl_link_ignored)linkIgnored.push(item);
+    else linkPending.push(item);
+  });
+
+  function buildLinkCard({profile,occurrences},isIgnored){
+    const ca=cabinMap[profile.id];
+    const ownCabinStr=ca?`${ca.cabin_type||''}${ca.cabin_number?' #'+ca.cabin_number:''}`:'No cabin assigned';
+    const rows=occurrences.map(({ownerProfile:op})=>{
+      const ownerCabin=op?cabinMap[op.id]:null;
+      const ownerCabStr=ownerCabin?`${ownerCabin.cabin_type||''}${ownerCabin.cabin_number?' #'+ownerCabin.cabin_number:''}`:op?'No cabin':'Unknown cabin';
+      return`<tr style="background:#fff;">
+        <td style="padding:7px 10px;font-size:.82rem;font-weight:600;">${op?op.name:'Unknown'}</td>
+        <td style="padding:7px 10px;font-size:.8rem;color:#1a4a7c;">${op?op.email:'—'}</td>
+        <td style="padding:7px 10px;font-size:.8rem;">${ownerCabStr}</td>
+      </tr>`;
+    }).join('');
+    const hdrBg=isIgnored?'#f1f5f9':'linear-gradient(135deg,#5b21b6,#7c3aed)';
+    const hdrColor=isIgnored?'#475569':'#fff';
+    const hdrMuted=isIgnored?'#94a3b8':'rgba(255,255,255,.75)';
+    const cabBadgeBg=isIgnored?'#e2e8f0':'rgba(255,255,255,.18)';
+    const cabBadgeColor=isIgnored?'#475569':'#fff';
+    const btn=isIgnored
+      ?`<button onclick="toggleCCLLinkIgnore('${profile.id}',false)" style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:.78rem;font-weight:700;cursor:pointer;">↩️ Restore</button>`
+      :`<button onclick="toggleCCLLinkIgnore('${profile.id}',true)" style="background:rgba(0,0,0,.25);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:5px 12px;font-size:.78rem;font-weight:700;cursor:pointer;">🚫 Ignore</button>`;
+    return`<div style="margin-bottom:12px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05);">
+      <div style="background:${hdrBg};padding:10px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div>
+          <span style="color:${hdrColor};font-weight:800;font-size:.95rem;">${profile.name}</span>
+          <span style="color:${hdrMuted};font-size:.8rem;margin-left:8px;">${profile.email}</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <span style="background:${cabBadgeBg};color:${cabBadgeColor};border-radius:6px;padding:3px 10px;font-size:.78rem;font-weight:700;">${ownCabinStr}</span>
+          ${btn}
+        </div>
+      </div>
+      <p style="padding:8px 16px;font-size:.82rem;color:#64748b;margin:0;background:#fafafa;border-bottom:1px solid #e2e8f0;">Listed as a traveler in <strong>${occurrences.length}</strong> other cabin${occurrences.length!==1?'s':''}:</p>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;min-width:420px;">
+          <thead><tr style="background:#f1f5f9;">
+            <th style="padding:6px 10px;text-align:left;font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px;">Cabin Owner</th>
+            <th style="padding:6px 10px;text-align:left;font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px;">Owner Email</th>
+            <th style="padding:6px 10px;text-align:left;font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px;">Cabin</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }
+
+  // Render link section
+  const linksEl=document.getElementById('admin-ccl-links');
+  const linksIgnEl=document.getElementById('admin-ccl-links-ignored');
+  const linksCntEl=document.getElementById('ccl-links-count');
+  if(linksEl){
+    if(linkPending.length===0){
+      linksEl.innerHTML='<div class="empty" style="padding:24px;"><div class="ei">✅</div><p>No profiles found listed in other travelers\' cabins.</p></div>';
+    } else {
+      linksEl.innerHTML=`<p style="font-size:.87rem;color:var(--muted);padding:12px 16px 4px;">${linkPending.length} profile${linkPending.length!==1?'s':''} found listed as a traveler in another person\'s cabin. Review and ignore when no action is needed.</p>`
+        +linkPending.map(item=>buildLinkCard(item,false)).join('');
+    }
+    if(linksCntEl)linksCntEl.textContent=linkPending.length>0?`(${linkPending.length})`:'';
+  }
+  if(linksIgnEl){
+    linksIgnEl.innerHTML=linkIgnored.length>0
+      ?`<p style="font-size:.87rem;color:var(--muted);margin-bottom:12px;">${linkIgnored.length} ignored — click Restore to move back to the review list.</p>`+linkIgnored.map(item=>buildLinkCard(item,true)).join('')
+      :'<p style="font-size:.87rem;color:var(--muted);padding:8px 0;">No ignored entries.</p>';
+  }
+}
+
+function toggleCCLIgnored(){
+  const body=document.getElementById('admin-ccl-links-ignored');
+  const chev=document.getElementById('ccl-ignored-chevron');
+  if(!body)return;
+  const open=body.style.display==='block';
+  body.style.display=open?'none':'block';
+  if(chev)chev.style.transform=open?'':'rotate(180deg)';
+}
+
+async function toggleCCLLinkIgnore(profileId,ignore){
+  const{error}=await sb.from('profiles').update({ccl_link_ignored:ignore}).eq('id',profileId);
+  if(error){alert('Error updating ignore status: '+error.message);return;}
+  loadCCLEntry();
 }
 
 // ── MINOR REQUESTS ────────────────────────────────────────────
