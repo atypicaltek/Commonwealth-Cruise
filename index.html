@@ -8159,8 +8159,14 @@ async function adminApprove2ndCabin(){
   if(!cabinType){showMsg('Please select a cabin type.',false);return;}
   if(!gReview2ndCabinRows.length){showMsg('No pending request found.',false);return;}
 
-  const pendingId=gReview2ndCabinRows[0].id;
-  if(!pendingId){showMsg('Pending row has no ID — cannot update. Run Statement 91 to add UUID PK.',false);return;}
+  // Try id from RPC; if missing (Statement 91 not yet run), fetch directly
+  let pendingId=gReview2ndCabinRows[0].id;
+  if(!pendingId){
+    const{data:directRows,error:fetchErr}=await sb.from('cabin_assignments')
+      .select('id').eq('user_id',gReview2ndCabinUserId).eq('status','pending_admin').limit(1);
+    if(fetchErr||!directRows?.length){showMsg('Cannot find the pending cabin row ID. Please run Statement 94 in Supabase SQL Editor and reload the Travelers tab.',false);return;}
+    pendingId=directRows[0].id;
+  }
 
   // Update the pending row → confirmed
   const update={status:'confirmed',cabin_type:cabinType,num_guests:numGuests,admin_assigned:true};
@@ -8211,8 +8217,13 @@ async function adminDecline2ndCabin(){
   if(!gReview2ndCabinRows.length)return;
   const tName=(window._travRaw?.profiles||[]).find(p=>p.id===gReview2ndCabinUserId)?.name||'this traveler';
   if(!confirm(`Decline and remove the pending 2nd cabin request for ${tName}?\n\nThis will delete the pending cabin row. The traveler will need to submit a new request if they still want a 2nd cabin.`))return;
-  const pendingId=gReview2ndCabinRows[0].id;
-  if(!pendingId){alert('Row has no ID — cannot delete. Please contact support.');return;}
+  let pendingId=gReview2ndCabinRows[0].id;
+  if(!pendingId){
+    const{data:directRows,error:fetchErr}=await sb.from('cabin_assignments')
+      .select('id').eq('user_id',gReview2ndCabinUserId).eq('status','pending_admin').limit(1);
+    if(fetchErr||!directRows?.length){alert('Cannot find the pending cabin row ID. Please run Statement 94 in Supabase SQL Editor and reload.');return;}
+    pendingId=directRows[0].id;
+  }
   const{error}=await sb.from('cabin_assignments').delete().eq('id',pendingId);
   if(error){alert('Error declining request: '+error.message);return;}
   document.getElementById('admin-review-2nd-cabin-modal').classList.remove('open');
