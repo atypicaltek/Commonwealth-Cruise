@@ -686,6 +686,7 @@
       <button class="tab-btn tb-missinginfo" style="background:#b45309;" onclick="switchTab('missinginfo',this);loadMissingInfoTab()">⚠️ Missing Info</button>
       <button class="tab-btn" style="background:#b91c1c;" onclick="switchTab('depoverdue',this);loadDepositOverdueTab()">🚨 Deposit Overdue</button>
       <button class="tab-btn" style="background:#0f766e;" onclick="switchTab('travelinsurance',this);loadTravelInsuranceTab()">🛡️ Travel Insurance</button>
+      <button class="tab-btn" style="background:#7c2d12;" onclick="switchTab('overduepay',this);loadOverduePaymentsTab()">💳 Overdue Payments</button>
     </div>
 
     <!-- TRAVELERS -->
@@ -1044,6 +1045,18 @@
         </div>
         <p style="font-size:.84rem;color:var(--muted);margin:0 0 12px;">Travelers who have selected <strong>Travel Insurance — Yes</strong>. Enter the quoted cost per traveler and update the status. Use <strong>📧 Send Quote</strong> to email the traveler their insurance cost.</p>
         <div id="travel-insurance-tab-content"><div class="empty"><div class="ei">🛡️</div><p>Click Refresh to load travel insurance list.</p></div></div>
+      </div>
+    </div>
+
+    <!-- OVERDUE PAYMENTS -->
+    <div id="tab-overduepay" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">💳 Overdue Payments</span>
+          <button class="btn btn-primary btn-sm" onclick="loadOverduePaymentsTab()" style="font-size:.79rem;">↻ Refresh</button>
+        </div>
+        <p style="font-size:.84rem;color:var(--muted);margin:0 0 12px;">Travelers whose total payments fall short of any past-due milestone. <strong>📧 Notice</strong> queues an overdue email (held — release from Email Queue). <strong>✅ Restore</strong> removes the waitlist flag when payment is received. <strong>🗑 Remove</strong> deletes the cabin assignment and returns inventory — use only for confirmed non-payment.</p>
+        <div id="overduepay-tab-content"><div class="empty"><div class="ei">💳</div><p>Click Refresh to load overdue payments.</p></div></div>
       </div>
     </div>
 
@@ -7157,6 +7170,192 @@ async function sendDepositOverdueEmail(toEmail,toName,numGuests){
     flash('admin-alert',`📧 Deposit overdue email queued for ${toName}.`,'success');
   }catch(e){
     flash('admin-alert',`❌ Failed to queue email for ${toName}: ${e.message}`,'error');
+  }
+}
+
+
+// ── OVERDUE PAYMENTS ──────────────────────────────────────────
+async function loadOverduePaymentsTab(){
+  const el=document.getElementById('overduepay-tab-content');
+  if(!el)return;
+  el.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+
+  try{
+    const now=new Date();
+    const[{data:milestones},{data:pays,error:paysErr},{data:cas,error:casErr},{data:profiles}]=await Promise.all([
+      sb.from('payment_milestones').select('*').order('due_date',{ascending:true}),
+      sb.from('user_payments').select('user_id,amount_paid,is_refunded'),
+      sb.rpc('admin_get_all_cabin_assignments'),
+      sb.from('profiles').select('id,name,email,status').eq('is_admin',false)
+    ]);
+    if(casErr)throw casErr;
+
+    // Past-due milestones only
+    const pastMs=(milestones||[]).filter(m=>m.due_date&&new Date(m.due_date)<now);
+    if(pastMs.length===0){
+      el.innerHTML='<div style="padding:20px;color:#64748b;text-align:center;font-size:.88rem;">No payment milestones have passed yet. This list will populate as milestone due dates are reached.</div>';
+      return;
+    }
+
+    // Sum non-refunded payments per user
+    const paidTotals={};
+    (pays||[]).forEach(p=>{
+      if(!p.is_refunded)paidTotals[p.user_id]=(paidTotals[p.user_id]||0)+parseFloat(p.amount_paid||0);
+    });
+
+    const profMap={};(profiles||[]).forEach(p=>{profMap[p.id]=p;});
+
+    // Deduplicate cabin assignments to primary (first confirmed row) per user
+    const primaryCaMap={};
+    (cas||[]).forEach(ca=>{
+      if(ca.status==='pending_admin')return; // skip 2nd-cabin pending rows
+      if(!primaryCaMap[ca.user_id])primaryCaMap[ca.user_id]=ca;
+    });
+
+    const overdue=[];
+    for(const ca of Object.values(primaryCaMap)){
+      const prof=profMap[ca.user_id];
+      if(!prof||prof.status==='cancelled')continue;
+
+      const ng=parseInt(ca.num_guests||1);
+      const effectiveGuests=ng<=1?2:ng; // solo: double-occupancy rate applies
+      const totalPaid=paidTotals[ca.user_id]||0;
+
+      // Applicable past milestones for this cabin type
+      const applicable=pastMs.filter(m=>!m.cabin_type||m.cabin_type===ca.cabin_type);
+      if(applicable.length===0)continue;
+
+      // Cumulative required = sum of minimum_amount × effectiveGuests for all past milestones
+      let cumRequired=0;
+      applicable.forEach(m=>{if(m.minimum_amount!=null)cumRequired+=parseFloat(m.minimum_amount)*effectiveGuests;});
+
+      if(totalPaid>=cumRequired)continue; // current — skip
+
+      const shortage=cumRequired-totalPaid;
+      const latestMs=applicable[applicable.length-1];
+      const daysOverdue=latestMs?.due_date?Math.floor((now-new Date(latestMs.due_date))/(1000*60*60*24)):0;
+      const msLabels=applicable.map(m=>m.label).join(', ');
+
+      overdue.push({
+        userId:ca.user_id,
+        name:prof.name||'—',
+        email:prof.email||'',
+        cabinType:ca.cabin_type||'—',
+        numGuests:ng,
+        pricePP:parseFloat(ca.price_per_person||0)||null,
+        totalPaid,
+        cumRequired,
+        shortage,
+        msLabel:latestMs?.label||'Payment',
+        msLabels,
+        daysOverdue
+      });
+    }
+
+    if(overdue.length===0){
+      el.innerHTML='<div style="padding:20px;text-align:center;color:#16a34a;font-weight:600;font-size:.9rem;">✅ All active travelers are current on their payment schedule.</div>';
+      return;
+    }
+
+    // Sort: most overdue first
+    overdue.sort((a,b)=>b.shortage-a.shortage);
+
+    let rows='';
+    overdue.forEach(r=>{
+      const safeName=(r.name||'').replace(/'/g,"\\'");
+      const safeEmail=(r.email||'').replace(/'/g,"\\'");
+      const safeCT=(r.cabinType||'').replace(/'/g,"\\'");
+      const safeMsLabel=(r.msLabel||'').replace(/'/g,"\\'");
+      rows+=`<tr>
+        <td style="font-weight:600;">${r.name}</td>
+        <td style="font-size:.81rem;">${r.email||'—'}</td>
+        <td>${r.cabinType}</td>
+        <td style="text-align:center;">${r.numGuests}</td>
+        <td style="text-align:right;">$${r.totalPaid.toFixed(2)}</td>
+        <td style="text-align:right;">$${r.cumRequired.toFixed(2)}</td>
+        <td style="text-align:right;color:#dc2626;font-weight:700;">$${r.shortage.toFixed(2)}</td>
+        <td style="font-size:.79rem;color:#92400e;">${r.msLabel}<br><span style="color:#b45309;font-style:italic;">${r.daysOverdue}d overdue</span></td>
+        <td>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;">
+            <button class="btn btn-sm" style="background:#dc2626;color:#fff;font-size:.71rem;white-space:nowrap;padding:4px 7px;" onclick="sendOverduePaymentNotice('${safeEmail}','${safeName}','${safeCT}','${safeMsLabel}',${r.numGuests},${r.shortage.toFixed(2)})">📧 Notice</button>
+            <button class="btn btn-sm" style="background:#16a34a;color:#fff;font-size:.71rem;white-space:nowrap;padding:4px 7px;" onclick="adminRestoreFromOverdue('${r.userId}',this)">✅ Restore</button>
+            <button class="btn btn-sm" style="background:#374151;color:#fff;font-size:.71rem;white-space:nowrap;padding:4px 7px;" onclick="adminRemoveForNonPayment('${r.userId}','${safeCT}',${r.pricePP||'null'},this)">🗑 Remove</button>
+          </div>
+        </td>
+      </tr>`;
+    });
+
+    el.innerHTML=`<div style="font-size:.84rem;color:#b91c1c;font-weight:600;margin-bottom:10px;">⚠️ ${overdue.length} traveler${overdue.length!==1?'s':''} behind on payment schedule. Overdue notices are held — release from Email Queue tab.</div>
+    <div class="table-wrap"><table class="data-table">
+      <thead><tr><th>Name</th><th>Email</th><th>Cabin</th><th>Guests</th><th>Paid</th><th>Required</th><th>Shortage</th><th>Milestone</th><th>Actions</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+  }catch(e){
+    el.innerHTML=`<div style="padding:20px;color:#dc2626;">Error loading overdue payments: ${e.message}</div>`;
+  }
+}
+
+async function sendOverduePaymentNotice(toEmail,toName,cabinType,milestoneLabel,numGuests,shortage){
+  if(!toEmail){alert('No email address on file for this traveler.');return;}
+  const shortageStr=parseFloat(shortage).toFixed(2);
+  const subject=`${TRIP_NAME} — Payment Overdue: Action Required`;
+  const plain=`Dear ${toName},\n\nThis is a notice that your payment for the ${TRIP_NAME} is overdue.\n\nMilestone: ${milestoneLabel}\nCabin Type: ${cabinType}\nOutstanding Balance: $${shortageStr}\n\nYour cabin is currently on the waitlist pending receipt of payment. Once payment is received, your reservation will be reviewed and processed if availability remains.\n\nPlease submit your payment as soon as possible to avoid loss of your reservation.\n\nTo submit payment, please complete the CC Authorization Form:\nhttps://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf\n\nIf you have already submitted payment, please reply to this email with your confirmation so we can update your account.\n\nThank you,\nYour Commonwealth Cruise Team`;
+  const bodyHtml=`<p>Dear <strong>${toName}</strong>,</p>
+<p>This is a notice that your payment for the <strong>${TRIP_NAME}</strong> is overdue.</p>
+<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;">
+  <strong>⚠️ Payment Overdue</strong><br>
+  <strong>Milestone:</strong> ${milestoneLabel}<br>
+  <strong>Cabin Type:</strong> ${cabinType}<br>
+  <strong>Outstanding Balance:</strong> <span style="color:#dc2626;font-weight:700;">$${shortageStr}</span>
+</div>
+<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:12px 16px;margin:16px 0;font-weight:700;color:#991b1b;">
+  🚨 Your cabin is currently on the waitlist pending receipt of payment. Once payment is received, your reservation will be reviewed and processed <strong>if availability remains</strong>.
+</div>
+<p>Please submit your payment as soon as possible to avoid loss of your reservation.</p>
+<p>To submit payment, please complete the CC Authorization Form:<br>
+<a href="https://atypicaltek.github.io/Commonwealth-Cruise/CC_authorization.pdf" style="color:#2563eb;">CC Authorization Form (PDF)</a></p>
+<p>If you have already submitted payment, please reply to this email with your confirmation so we can update your account promptly.</p>`;
+  const html=buildEmailHtml(toName,bodyHtml);
+  try{
+    await sendEmail(toEmail,toName,subject,plain,html,false,false);
+    flash('admin-alert',`📧 Overdue payment notice queued for ${toName}.`,'success');
+  }catch(e){
+    flash('admin-alert',`❌ Failed to send notice for ${toName}: ${e.message}`,'error');
+  }
+}
+
+async function adminRestoreFromOverdue(userId,btn){
+  if(!confirm('Confirm: Remove this traveler from the overdue waitlist?\n\nThis removes any waitlist flag. Use the Payments tab to record payment received.'))return;
+  btn.disabled=true;btn.textContent='…';
+  try{
+    await sb.from('cabin_waitlist').delete().eq('user_id',userId);
+    flash('admin-alert','✅ Waitlist entry removed — traveler restored.','success');
+    loadOverduePaymentsTab();
+  }catch(e){
+    btn.disabled=false;btn.textContent='✅ Restore';
+    flash('admin-alert','❌ Restore failed: '+e.message,'error');
+  }
+}
+
+async function adminRemoveForNonPayment(userId,cabinType,pricePP,btn){
+  if(!confirm(`⚠️ REMOVE TRAVELER FOR NON-PAYMENT\n\nThis will:\n• Delete the cabin assignment\n• Return the cabin slot to available inventory\n• Remove any waitlist entry\n\nCabin type: ${cabinType||'Unknown'}\nThis CANNOT be undone. Proceed?`))return;
+  btn.disabled=true;btn.textContent='…';
+  try{
+    // Remove from waitlist if present
+    await sb.from('cabin_waitlist').delete().eq('user_id',userId).then(()=>{});
+    // Delete ALL cabin assignments for this user (primary + any pending)
+    const{error:delErr}=await sb.from('cabin_assignments').delete().eq('user_id',userId);
+    if(delErr)throw delErr;
+    // Return inventory
+    if(cabinType&&cabinType!=='Suite'){
+      await sb.rpc('increment_cabin',{cabin:cabinType}).catch(e=>console.warn('[overdue-remove] increment_cabin:',e.message));
+      if(pricePP)await sb.rpc('increment_cabin_tier',{p_cabin_type:cabinType,p_price:pricePP}).catch(e=>console.warn('[overdue-remove] increment_cabin_tier:',e.message));
+    }
+    flash('admin-alert','✅ Traveler removed and cabin slot returned to inventory.','success');
+    loadOverduePaymentsTab();
+  }catch(e){
+    btn.disabled=false;btn.textContent='🗑 Remove';
+    flash('admin-alert','❌ Remove failed: '+e.message,'error');
   }
 }
 
