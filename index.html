@@ -1200,10 +1200,12 @@
 <!-- ADMIN: REVIEW & APPROVE PENDING 2ND CABIN REQUEST -->
 <div id="admin-review-2nd-cabin-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal-box" style="max-width:620px;max-height:90vh;overflow-y:auto;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-      <h3 style="color:#5b21b6;font-size:1rem;margin:0;">🛏️ Review 2nd Cabin Request</h3>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <h3 style="color:#5b21b6;font-size:1rem;margin:0;">🛏️ Review Cabin Request</h3>
       <button onclick="document.getElementById('admin-review-2nd-cabin-modal').classList.remove('open')" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px;">×</button>
     </div>
+    <!-- Multi-request navigation (hidden when only 1 pending) -->
+    <div id="rev2cab-nav" style="display:none;align-items:center;justify-content:center;gap:12px;margin-bottom:10px;"></div>
     <!-- Traveler info + what they requested -->
     <div id="rev2cab-info-bar" style="background:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:8px;padding:10px 14px;font-size:.85rem;margin-bottom:14px;"></div>
     <!-- Admin cabin assignment fields -->
@@ -2163,6 +2165,7 @@ function prevPin(el,all){const i=[...all].indexOf(el);return i>0?all[i-1]:null;}
 function getPin(p){return Array.from({length:6},(_,i)=>{const e=document.getElementById(p+i);return e?e.value:'';}).join('');}
 function clearPin(p){for(let i=0;i<6;i++){const e=document.getElementById(p+i);if(e)e.value='';}}
 function fmt(n){return '$'+parseFloat(n||0).toFixed(2);}
+function ordinalSuffix(n){return n+(n===1?'st':n===2?'nd':n===3?'rd':'th');}
 function fmtDate(d){return d?new Date(d+'T00:00:00').toLocaleDateString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric'}):'—';}
 // ── Eastern Time (ET) display helpers ─────────────────────────────────────
 // All dates visible to users are formatted in America/New_York (ET).
@@ -4658,6 +4661,7 @@ if(dsBadge){
 
   // ── Render extra cabin cards (2nd+ cabins) ────────────────────
   {
+    window._dashExtraCabins=extraCabins; // store for click handler
     const container=document.getElementById('dash-extra-cabins');
     if(container){
       if(extraCabins.length>0){
@@ -4666,9 +4670,14 @@ if(dsBadge){
           const ecNum=ec.cabin_number||'Pending';
           const ecGuests=ec.num_guests||'—';
           const ecCost=ec.cabin_cost?`<span style="font-size:.8rem;opacity:.85;">Total: ${fmt(parseFloat(ec.cabin_cost))}</span>`:'<span style="font-size:.8rem;opacity:.7;">Cost: Pending</span>';
-          const ecStatus=ec.cabin_number?'Confirmed':'Reservation Held';
-          return`<div style="background:linear-gradient(135deg,#134e4a,#0f766e);color:#fff;border-radius:14px;padding:14px 18px;margin-bottom:14px;box-shadow:0 4px 14px rgba(19,78,74,.3);">
-            <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;opacity:.72;margin-bottom:5px;">Additional Cabin ${idx+2}</div>
+          const isPending=ec.status==='pending_admin';
+          const ecStatus=isPending?'⏳ Pending Admin Approval':(ec.cabin_number?'Confirmed':'Reservation Held');
+          const cabinLabel=ordinalSuffix(idx+2)+' Cabin';
+          return`<div onclick="openExtraCabinDetail(${idx})" style="background:linear-gradient(135deg,#134e4a,#0f766e);color:#fff;border-radius:14px;padding:14px 18px;margin-bottom:14px;box-shadow:0 4px 14px rgba(19,78,74,.3);cursor:pointer;transition:opacity .15s;" onmouseenter="this.style.opacity='.85'" onmouseleave="this.style.opacity='1'">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+              <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;opacity:.72;">${cabinLabel}</div>
+              <div style="font-size:.7rem;opacity:.75;">Tap for details ›</div>
+            </div>
             <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
               <div>
                 <div style="font-size:1.15rem;font-weight:800;">${ecType}</div>
@@ -4689,9 +4698,18 @@ if(dsBadge){
         container.style.display='none';
       }
     }
-    // Show/hide the "Request Second Cabin" button
+    // Show/hide and label the "Request Additional Cabin" button
     const btn2=document.getElementById('dash-add-second-cabin-btn');
-    if(btn2) btn2.style.display=cabin?'inline-block':'none';
+    if(btn2){
+      if(cabin){
+        btn2.style.display='inline-block';
+        const totalAdditional=extraCabins.length; // confirmed + pending
+        const nextNum=totalAdditional+2; // next cabin ordinal (primary=1, so next is totalAdditional+2)
+        btn2.textContent='➕ Request '+ordinalSuffix(nextNum)+' Cabin';
+      } else {
+        btn2.style.display='none';
+      }
+    }
   }
 
   // ── Payment schedule calculations ────────────────────────────
@@ -8009,17 +8027,38 @@ function renderTravelersView(){
         '</select></td>'+
       '</tr>';
     }).join('');
-    // 2nd cabin sub-rows: one header row per confirmed 2nd cabin, then its travelers
+    // 2nd+ cabin sub-rows: one header row per confirmed extra cabin, then its travelers
     const cabin2List=confirmed2ndCabinMap[p.id]||[];
-    const cabin2Rows=cabin2List.map(c2=>{
+    const cabin2Rows=cabin2List.map((c2,c2Idx)=>{
       const c2Label=(c2.cabin_type||'—')+(c2.cabin_number?' #'+c2.cabin_number:'');
       const c2Travelers=secondCabinOccupantMap[c2.id]||[];
+      const c2OrdinalLabel=ordinalSuffix(c2Idx+2)+' Cabin';
+      // Store extra cabin data for action handler
+      if(!window.gExtra2CabData)window.gExtra2CabData={};
+      window.gExtra2CabData[c2.id]={
+        caId:c2.id,userId:p.id,name:p.name||'—',email:p.email||'',
+        cabinType:c2.cabin_type||'',cabinNumber:c2.cabin_number||'',
+        numGuests:c2.num_guests||1,pricePP:c2.price_per_person||null,
+        cabinCost:c2.cabin_cost||null,resNum:c2.guest_reservation_number||'',
+        payLink:c2.payment_link||''
+      };
+      const c2ActionSel='<select class="action-sel action-sel-sm" onchange="handleExtraCabinAction(this,\''+c2.id+'\')" style="font-size:.73rem;padding:2px 4px;max-width:140px;">'+
+        '<option value="">⚙ Manage...</option>'+
+        '<option value="cabin_num">&#x1F522; Cabin #</option>'+
+        '<option value="cabin_type_change">&#x1F504; Change Type</option>'+
+        '<option value="update_guests">&#x1F465; Guest Count</option>'+
+        '<option value="select_tier">&#x1F4B0; Price Tier</option>'+
+        '<option value="cost">&#x1F4B5; Set Cost</option>'+
+        '<option value="res_num">&#x1F4CB; Res. #</option>'+
+        '<option value="pay_link">&#x1F517; Pay Link</option>'+
+      '</select>';
       const c2Header='<tr style="background:var(--bg);border-top:2px solid var(--border);">'+
-        '<td colspan="8" style="padding:6px 10px;">'+
-          '<span style="font-size:.8rem;font-weight:700;color:#5b21b6;">&#x1F6CC; 2nd Cabin: '+c2Label+'</span>'+
+        '<td colspan="7" style="padding:6px 10px;">'+
+          '<span style="font-size:.8rem;font-weight:700;color:#5b21b6;">&#x1F6CC; '+c2OrdinalLabel+': '+c2Label+'</span>'+
           (c2.guest_reservation_number?'<span style="font-size:.74rem;color:var(--muted);margin-left:8px;">Res# '+c2.guest_reservation_number+'</span>':'')+
           (c2.num_guests?'<span style="font-size:.74rem;color:var(--muted);margin-left:8px;">'+c2.num_guests+' guest'+(c2.num_guests!==1?'s':'')+'</span>':'')+
         '</td>'+
+        '<td style="padding:4px 6px;">'+c2ActionSel+'</td>'+
       '</tr>';
       const c2TravRows=c2Travelers.map(t=>{
         const tName=[t.first_name,t.middle_name,t.last_name,t.name_suffix].filter(Boolean).join(' ')||'—';
@@ -8298,9 +8337,54 @@ async function onReq2CabinTypeChange(){
   renderCabinTierPanel(val,'req2-tier-panel');
 }
 
+function openExtraCabinDetail(idx){
+  const ec=(window._dashExtraCabins||[])[idx];
+  if(!ec)return;
+  const isPending=ec.status==='pending_admin';
+  const cabinLabel=ordinalSuffix(idx+2)+' Cabin';
+  const mid='extra-cabin-detail-modal';
+  let m=document.getElementById(mid);
+  if(!m){m=document.createElement('div');m.id=mid;m.className='modal-overlay';document.body.appendChild(m);}
+  m.innerHTML=`<div class="modal-box" style="max-width:420px;">
+    <button class="modal-close" onclick="document.getElementById('${mid}').classList.remove('open')">✕</button>
+    <h3 style="margin:0 0 4px;color:#0f766e;">&#x1F6CC; ${cabinLabel}</h3>
+    <p style="color:var(--muted);font-size:.82rem;margin:0 0 18px;">${isPending?'⏳ Pending Admin Approval':'✅ '+(ec.cabin_number?'Confirmed':'Reservation Held')}</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+      <div style="background:#f0fdf4;border-radius:8px;padding:10px 12px;">
+        <div style="font-size:.7rem;font-weight:700;color:#0f766e;text-transform:uppercase;margin-bottom:3px;">Cabin Type</div>
+        <div style="font-weight:800;font-size:.95rem;color:#134e4a;">${ec.cabin_type||'—'}</div>
+      </div>
+      <div style="background:#f0fdf4;border-radius:8px;padding:10px 12px;">
+        <div style="font-size:.7rem;font-weight:700;color:#0f766e;text-transform:uppercase;margin-bottom:3px;">Cabin #</div>
+        <div style="font-weight:800;font-size:.95rem;color:#134e4a;">${ec.cabin_number||'Pending'}</div>
+      </div>
+      <div style="background:#f0fdf4;border-radius:8px;padding:10px 12px;">
+        <div style="font-size:.7rem;font-weight:700;color:#0f766e;text-transform:uppercase;margin-bottom:3px;">Guests</div>
+        <div style="font-weight:800;font-size:.95rem;color:#134e4a;">${ec.num_guests||'—'}</div>
+      </div>
+      <div style="background:#f0fdf4;border-radius:8px;padding:10px 12px;">
+        <div style="font-size:.7rem;font-weight:700;color:#0f766e;text-transform:uppercase;margin-bottom:3px;">Total Cost</div>
+        <div style="font-weight:800;font-size:.95rem;color:#134e4a;">${ec.cabin_cost?fmt(parseFloat(ec.cabin_cost)):'Pending'}</div>
+      </div>
+    </div>
+    ${ec.guest_reservation_number?`<div style="background:#eff6ff;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:.85rem;color:#1a4a7c;"><strong>Reservation #:</strong> ${ec.guest_reservation_number}</div>`:''}
+    ${ec.payment_link?`<div style="margin-bottom:14px;text-align:center;"><a href="${ec.payment_link}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.9rem;padding:10px 26px;border-radius:9px;text-decoration:none;">💳 Make a Payment</a></div>`:''}
+    ${isPending?'<div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:10px 12px;font-size:.83rem;color:#713f12;">Your request is pending admin review. You\'ll be notified once your cabin is assigned.</div>':''}
+    <div style="text-align:center;margin-top:16px;">
+      <button onclick="document.getElementById('${mid}').classList.remove('open')" style="padding:9px 28px;border:1.5px solid #dbe4ee;border-radius:8px;background:var(--card);color:var(--text);font-size:.88rem;cursor:pointer;font-weight:700;">Close</button>
+    </div>
+  </div>`;
+  m.classList.add('open');
+}
+
 function openRequestSecondCabin(){
   const el=document.getElementById('request-second-cabin-modal');
   if(!el)return;
+  // Update modal title to show correct ordinal
+  const totalAdditional=(window._dashExtraCabins||[]).length;
+  const nextNum=totalAdditional+2;
+  const titleEl=el.querySelector('h3,h2');
+  if(titleEl)titleEl.textContent='➕ Request '+ordinalSuffix(nextNum)+' Cabin';
   document.getElementById('req2-cabin-type').value='';
   document.getElementById('req2-num-guests').value='2';
   const nEl=document.getElementById('req2-notes');
@@ -8336,17 +8420,32 @@ async function submitRequestSecondCabin(){
 }
 
 // ── SECOND CABIN — ADMIN REVIEW / APPROVE PENDING REQUEST ──────
-let gReview2ndCabinUserId='',gReview2ndCabinRows=[];
+let gReview2ndCabinUserId='',gReview2ndCabinRows=[],gReview2ndCabinIdx=0;
 
-function openAdminReview2ndCabin(userId){
+function openAdminReview2ndCabin(userId,rowIdx){
   const raw=window._travRaw;
   if(!raw){alert('Traveler data not loaded. Please refresh the Travelers tab.');return;}
   const pending=(raw.pending2ndCabinMap||{})[userId]||[];
-  if(!pending.length){alert('No pending 2nd cabin request found for this traveler.');return;}
+  if(!pending.length){alert('No pending cabin request found for this traveler.');return;}
   const profile=(raw.profiles||[]).find(p=>p.id===userId)||{};
   gReview2ndCabinUserId=userId;
   gReview2ndCabinRows=pending;
-  const row=pending[0]; // first pending row
+  gReview2ndCabinIdx=rowIdx||0;
+  const row=pending[gReview2ndCabinIdx];
+
+  // Update navigation indicator if multiple pending requests
+  const navEl=document.getElementById('rev2cab-nav');
+  if(navEl){
+    if(pending.length>1){
+      navEl.style.display='flex';
+      navEl.innerHTML=
+        '<button onclick="openAdminReview2ndCabin(\''+userId+'\','+(gReview2ndCabinIdx-1)+')" '+(gReview2ndCabinIdx===0?'disabled':'')+' style="padding:3px 10px;border:1.5px solid #a78bfa;border-radius:5px;background:#ede9fe;color:#5b21b6;font-weight:800;cursor:pointer;">◀</button>'+
+        '<span style="font-size:.82rem;font-weight:700;color:#5b21b6;">Request '+(gReview2ndCabinIdx+1)+' of '+pending.length+'</span>'+
+        '<button onclick="openAdminReview2ndCabin(\''+userId+'\','+(gReview2ndCabinIdx+1)+')" '+(gReview2ndCabinIdx===pending.length-1?'disabled':'')+' style="padding:3px 10px;border:1.5px solid #a78bfa;border-radius:5px;background:#ede9fe;color:#5b21b6;font-weight:800;cursor:pointer;">▶</button>';
+    } else {
+      navEl.style.display='none';
+    }
+  }
 
   // Info bar
   const infoEl=document.getElementById('rev2cab-info-bar');
@@ -8441,7 +8540,8 @@ async function adminApprove2ndCabin(){
   if(!gReview2ndCabinRows.length){showMsg('No pending request found.',false);return;}
 
   // Try id from RPC; if missing (Statement 91 not yet run), fetch directly
-  let pendingId=gReview2ndCabinRows[0].id;
+  const activeRow=gReview2ndCabinRows[gReview2ndCabinIdx||0];
+  let pendingId=activeRow?.id;
   if(!pendingId){
     const{data:directRows,error:fetchErr}=await sb.from('cabin_assignments')
       .select('id').eq('user_id',gReview2ndCabinUserId).eq('status','pending_admin').limit(1);
@@ -8498,8 +8598,10 @@ async function adminApprove2ndCabin(){
 async function adminDecline2ndCabin(){
   if(!gReview2ndCabinRows.length)return;
   const tName=(window._travRaw?.profiles||[]).find(p=>p.id===gReview2ndCabinUserId)?.name||'this traveler';
-  if(!confirm(`Decline and remove the pending 2nd cabin request for ${tName}?\n\nThis will delete the pending cabin row. The traveler will need to submit a new request if they still want a 2nd cabin.`))return;
-  let pendingId=gReview2ndCabinRows[0].id;
+  const activeRow=gReview2ndCabinRows[gReview2ndCabinIdx||0];
+  const reqLabel=gReview2ndCabinRows.length>1?` (Request ${(gReview2ndCabinIdx||0)+1} of ${gReview2ndCabinRows.length})`:'';
+  if(!confirm(`Decline and remove the pending cabin request${reqLabel} for ${tName}?\n\nThis will delete the pending cabin row.`))return;
+  let pendingId=activeRow?.id;
   if(!pendingId){
     const{data:directRows,error:fetchErr}=await sb.from('cabin_assignments')
       .select('id').eq('user_id',gReview2ndCabinUserId).eq('status','pending_admin').limit(1);
@@ -14981,6 +15083,20 @@ function handleTravelerAction(sel,userId){
   else if(v==='delete'){deleteTraveler(d.userId,d.name);}
   else if(v==='link_cabin_partner'){adminOpenLinkCabinModal(d.userId,d.name,d.email,d.cabinType,d.numGuests||1,'','travelers');}
   else if(v==='add_cabin_occupant'){adminOpenAdditionalOccupantModal(d.userId,d.name);}
+}
+
+// ── EXTRA CABIN ACTION HANDLER (2nd+ cabin rows in admin Travelers tab) ────
+function handleExtraCabinAction(sel,caId){
+  const d=(window.gExtra2CabData||{})[caId];
+  if(!d){sel.value='';alert('Extra cabin data not loaded. Please refresh the Travelers tab.');return;}
+  const v=sel.value;sel.value='';
+  if(v==='cabin_num')assignCabinNumber(d.userId,d.name,d.cabinType,d.cabinNumber);
+  else if(v==='cabin_type_change')changeCabinType(d.userId,d.name,d.cabinType,d.numGuests||1);
+  else if(v==='update_guests')adminUpdateGuestCount(d.userId,d.name,d.numGuests||1,d.cabinType,d.pricePP);
+  else if(v==='select_tier')adminOpenTierModal(d.userId,d.name,d.cabinType,d.numGuests||1,d.pricePP);
+  else if(v==='cost')setCabinCost(d.userId,d.name,d.cabinCost);
+  else if(v==='res_num')setReservationNumber(d.userId,d.name,d.resNum);
+  else if(v==='pay_link')setPaymentLink(d.userId,d.name,d.payLink);
 }
 
 // ── ADMIN UPDATE GUEST COUNT ──────────────────────────────────
