@@ -2294,7 +2294,7 @@ async function sendEmail(toEmail,toName,subject,message,htmlBody,skipAdminCopy=f
       fetch(APPS_SCRIPT_URL,{
         method:'POST',
         mode:'no-cors',
-        body:JSON.stringify({to_email:ADMIN_EMAIL,to_name:'Admin',subject:adminSubject,message:`[Admin Copy — sent to ${toName} at ${toEmail}]\n\n`+message,html:adminNote+(htmlBody||message)})
+        body:JSON.stringify({to_email:ADMIN_EMAIL,to_name:'Admin',subject:adminSubject,message:`[Admin Copy — sent to ${toName} at ${toEmail}]\n\n`+message,html:adminNote+(htmlBody||message),reply_to:toEmail})
       });
     }
     return{ok:true};
@@ -4510,10 +4510,36 @@ if(dsBadge){
         partnerBanner.style.display='none';
       }
     }
-    // ── Deposit overdue flash (shown after 9/1/26 if min deposit not met) ──
+    // ── Missed-deadline waitlist notice ───────────────────────
+    // If admin moved this traveler to waitlist for missing the deposit deadline,
+    // show a prominent notice on the cabin card even though cabin_assignments still exists.
+    try{
+      const{data:missedWlRow}=await sb.from('cabin_waitlist')
+        .select('reason,cabin_type,num_guests')
+        .eq('user_id',gUser.id)
+        .eq('reason','missed_deadline')
+        .maybeSingle();
+      let mdNotice=document.getElementById('dash-missed-deadline-notice');
+      if(!mdNotice){
+        mdNotice=document.createElement('div');
+        mdNotice.id='dash-missed-deadline-notice';
+        mdNotice.style.cssText='background:rgba(220,38,38,.22);border:1.5px solid rgba(220,38,38,.55);border-radius:8px;padding:10px 14px;margin-top:10px;font-size:.82rem;line-height:1.6;color:#fff;';
+        const flexRow=document.getElementById('dash-cabin-flex-row');
+        if(flexRow)flexRow.after(mdNotice);
+      }
+      if(missedWlRow){
+        mdNotice.style.display='block';
+        mdNotice.innerHTML='🚨 <strong>Your reservation has been waitlisted.</strong> The September 1st deposit deadline has passed without a confirmed deposit. Your space is not yet guaranteed — the organizer will verify availability. You may still submit payment to secure your spot.';
+        window.gIsOnMissedDeadlineWaitlist=true;
+      } else {
+        mdNotice.style.display='none';
+        window.gIsOnMissedDeadlineWaitlist=false;
+      }
+    }catch(e){window.gIsOnMissedDeadlineWaitlist=false;}
+    // ── Deposit overdue flash (shown after 9/1/26 if min deposit not met, and NOT already showing missed-deadline notice) ──
     const depOverdueEl=document.getElementById('dash-deposit-overdue-notice');
     if(depOverdueEl){
-      if(new Date()>=DEPOSIT_DEADLINE){
+      if(new Date()>=DEPOSIT_DEADLINE&&!window.gIsOnMissedDeadlineWaitlist){
         try{
           const{data:myPays}=await sb.from('user_payments').select('amount_paid').eq('user_id',gUser.id).gt('amount_paid',0);
           const totalPaid=(myPays||[]).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
@@ -6319,7 +6345,9 @@ async function submitCabinChangeRequest(){
   const btn=document.getElementById('ccr-submit-btn');
   btn.disabled=true;btn.textContent='Submitting...';alertEl.style.display='none';
   try{
-    const{error}=await sb.from('cabin_assignments').update({requested_cabin_type:newType,cabin_change_pending:true}).eq('user_id',gUser.id);
+    const cabinId=window.gCurrentCabin?.id;
+    if(!cabinId)throw new Error('Could not identify your cabin assignment. Please refresh and try again.');
+    const{error}=await sb.rpc('request_cabin_change',{p_assignment_id:cabinId,p_new_type:newType});
     if(error)throw new Error(error.message);
     const ownerName=gProfile?.name||'Traveler';
     const ownerEmail=gProfile?.email||gUser?.email||'';
@@ -6640,7 +6668,7 @@ async function loadWaitlist(){
         `<td style="text-align:center;font-weight:700;">${w.num_guests||'—'}</td>`+
         `<td style="font-size:.83rem;">${w.backup_cabin_type||'—'}</td>`+
         `<td style="font-size:.83rem;">${dt}</td>`+
-        `<td>${w.notified?'<span class="badge badge-success">Notified</span>':'<span class="badge badge-gray">Waiting</span>'}${w.profile_status==='cancelled'?' <span class="badge badge-danger" style="font-size:.7rem;margin-left:4px;">Re-Request (was cancelled)</span>':''}</td>`+
+        `<td>${w.notified?'<span class="badge badge-success">Notified</span>':'<span class="badge badge-gray">Waiting</span>'}${w.reason==='missed_deadline'?' <span class="badge badge-danger" style="font-size:.7rem;margin-left:4px;">🚨 Missed Deadline</span>':''}${w.profile_status==='cancelled'?' <span class="badge badge-danger" style="font-size:.7rem;margin-left:4px;">Re-Request (was cancelled)</span>':''}</td>`+
         `<td><button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 8px;color:#dc2626;border-color:#fca5a5;" onclick="adminRemoveFromWaitlist('${w.id}','${safeName}')">✕ Remove</button></td>`+
       '</tr>';
     });
@@ -7016,7 +7044,8 @@ async function checkDepositDeadline(){
           email:prof.email||'',
           cabin_type:ca.cabin_type||'Interior',
           num_guests:ca.num_guests||null,
-          backup_cabin_type:ca.backup_cabin_type||null
+          backup_cabin_type:ca.backup_cabin_type||null,
+          reason:'missed_deadline'
         });
         movedCount++;
       }catch(e){console.warn('Deposit deadline waitlist insert for '+prof.name+':',e.message);}
@@ -7559,9 +7588,11 @@ async function loadTravelers(){
   });
 
   // Store fetched data globally so search/sort can re-render without re-fetching
-  // cabinMap: first-row-wins so primary (earliest assigned_at) cabin is always shown.
-  // If status column is present (after Statement 91), also prefer 'confirmed' over 'pending_admin'.
+  // cabinMap: first confirmed row per user (primary cabin, earliest assigned_at).
+  // confirmed2ndCabinMap: additional confirmed rows beyond the first (keyed by user_id → array).
+  // pending2ndCabinMap: pending_admin rows (user_id → array).
   const cabinMap={};
+  const confirmed2ndCabinMap={}; // user_id → confirmed 2nd+ cabin rows
   const pending2ndCabinMap={}; // user_id → pending_admin rows (2nd cabin requests)
   (allCabins||[]).forEach(c=>{
     const st=c.status||'confirmed';
@@ -7569,8 +7600,14 @@ async function loadTravelers(){
       if(!pending2ndCabinMap[c.user_id])pending2ndCabinMap[c.user_id]=[];
       pending2ndCabinMap[c.user_id].push(c);
     } else {
-      // confirmed/primary cabin — first row wins (primary cabin inserted first)
-      if(!cabinMap[c.user_id])cabinMap[c.user_id]=c;
+      if(!cabinMap[c.user_id]){
+        // first confirmed row = primary cabin
+        cabinMap[c.user_id]=c;
+      } else {
+        // additional confirmed rows = 2nd+ cabin
+        if(!confirmed2ndCabinMap[c.user_id])confirmed2ndCabinMap[c.user_id]=[];
+        confirmed2ndCabinMap[c.user_id].push(c);
+      }
     }
   });
   // Fallback: if a user only has pending rows (no confirmed), use first pending as display cabin
@@ -7582,13 +7619,22 @@ async function loadTravelers(){
     payMap[p.user_id].due+=parseFloat(p.amount_due||0);
     payMap[p.user_id].paid+=parseFloat(p.amount_paid||0);
   });
-  const occupantMap={};(allCabinTravelers||[]).forEach(t=>{
-    if(!occupantMap[t.account_owner_id])occupantMap[t.account_owner_id]=[];
-    occupantMap[t.account_owner_id].push(t);
+  // occupantMap: travelers with no cabin_assignment_id (primary cabin occupants)
+  // secondCabinOccupantMap: travelers linked to a specific 2nd cabin assignment (keyed by cabin_assignment_id)
+  const occupantMap={};
+  const secondCabinOccupantMap={};
+  (allCabinTravelers||[]).forEach(t=>{
+    if(t.cabin_assignment_id){
+      if(!secondCabinOccupantMap[t.cabin_assignment_id])secondCabinOccupantMap[t.cabin_assignment_id]=[];
+      secondCabinOccupantMap[t.cabin_assignment_id].push(t);
+    } else {
+      if(!occupantMap[t.account_owner_id])occupantMap[t.account_owner_id]=[];
+      occupantMap[t.account_owner_id].push(t);
+    }
   });
   window.gOccupantMap=occupantMap;
   window.gTravelerData={};
-  window._travRaw={profiles:profiles||[],cabinMap,pending2ndCabinMap,payMap,occupantMap,emailMap};
+  window._travRaw={profiles:profiles||[],cabinMap,confirmed2ndCabinMap,pending2ndCabinMap,payMap,occupantMap,secondCabinOccupantMap,emailMap};
   renderTravelersView();
 }
 
@@ -7603,7 +7649,7 @@ function renderTravelersView(){
   if(!el)return;
   const raw=window._travRaw;
   if(!raw){el.innerHTML='<div class="loading"><div class="spinner"></div></div>';return;}
-  const{profiles,cabinMap,pending2ndCabinMap={},payMap,occupantMap,emailMap}=raw;
+  const{profiles,cabinMap,confirmed2ndCabinMap={},pending2ndCabinMap={},payMap,occupantMap,secondCabinOccupantMap={},emailMap}=raw;
   if(!profiles||profiles.length===0){el.innerHTML='<div class="empty"><div class="ei">&#x1F465;</div><p>No travelers yet.</p></div>';return;}
   window.gOccupantMap=occupantMap;
   window.gTravelerData={};
@@ -7757,6 +7803,35 @@ function renderTravelersView(){
         '</select></td>'+
       '</tr>';
     }).join('');
+    // 2nd cabin sub-rows: one header row per confirmed 2nd cabin, then its travelers
+    const cabin2List=confirmed2ndCabinMap[p.id]||[];
+    const cabin2Rows=cabin2List.map(c2=>{
+      const c2Label=(c2.cabin_type||'—')+(c2.cabin_number?' #'+c2.cabin_number:'');
+      const c2Travelers=secondCabinOccupantMap[c2.id]||[];
+      const c2Header='<tr style="background:var(--bg);border-top:2px solid var(--border);">'+
+        '<td colspan="8" style="padding:6px 10px;">'+
+          '<span style="font-size:.8rem;font-weight:700;color:#5b21b6;">&#x1F6CC; 2nd Cabin: '+c2Label+'</span>'+
+          (c2.guest_reservation_number?'<span style="font-size:.74rem;color:var(--muted);margin-left:8px;">Res# '+c2.guest_reservation_number+'</span>':'')+
+          (c2.num_guests?'<span style="font-size:.74rem;color:var(--muted);margin-left:8px;">'+c2.num_guests+' guest'+(c2.num_guests!==1?'s':'')+'</span>':'')+
+        '</td>'+
+      '</tr>';
+      const c2TravRows=c2Travelers.map(t=>{
+        const tName=[t.first_name,t.middle_name,t.last_name,t.name_suffix].filter(Boolean).join(' ')||'—';
+        const tid=t.id||'';
+        const tSafe=tName.replace(/'/g,"\\'");
+        return'<tr class="occ-row" style="background:#faf5ff;">'+
+          '<td colspan="5"><span style="color:#7c3aed;margin-right:6px;">&#x2514;</span><strong>'+tName+'</strong><span style="font-size:.76rem;color:var(--muted);margin-left:8px;">'+(t.country_of_citizenship||t.citizenship_type||'')+'</span></td>'+
+          '<td class="col-r" style="color:var(--muted);font-size:.79rem;">—</td>'+
+          '<td class="col-r" style="color:var(--muted);font-size:.79rem;">—</td>'+
+          '<td><select class="action-sel action-sel-sm" onchange="handleOccupantAction(this,\''+tid+'\',\''+tSafe+'\',\''+p.id+'\')">'+
+            '<option value="">Actions...</option>'+
+            '<option value="edit">&#x270F; Edit Info</option>'+
+            '<option value="remove">&#x1F5D1; Remove from Cabin</option>'+
+          '</select></td>'+
+        '</tr>';
+      }).join('');
+      return c2Header+c2TravRows;
+    }).join('');
     const tEmails=(emailMap[(p.email||'').toLowerCase()]||[]);
     const eCount=tEmails.length;
     const eHid='email-hist-'+p.id;
@@ -7790,7 +7865,7 @@ function renderTravelersView(){
       '<td><div class="pbar-row"><div class="mpbar-track"><div class="mpbar-fill" style="width:'+pct+'%"></div></div><small>'+pct+'%</small></div></td>'+
       emailCell+
       '<td>'+actionSel+'</td>'+
-    '</tr>'+occRows;
+    '</tr>'+occRows+cabin2Rows;
   }
 
   function makeCancelledRow(p){
@@ -8195,6 +8270,7 @@ async function adminApprove2ndCabin(){
     if(fn||ln){
       travelers.push({
         account_owner_id:gReview2ndCabinUserId,
+        cabin_assignment_id:pendingId,
         first_name:fn,last_name:ln,
         date_of_birth:dob,gender:gender,citizenship_type:cit
       });
@@ -10080,11 +10156,18 @@ async function loadCCLEntry(){
   const[{data:profiles},{data:allCabins},{data:allTravelers},{data:allPayments}]=await Promise.all([
     sb.from('profiles').select('*').eq('is_admin',false).neq('status','cancelled').order('name'),
     sb.rpc('admin_get_all_cabin_assignments'),
-    sb.from('cabin_travelers').select('id,account_owner_id,salutation,first_name,middle_name,last_name,name_suffix,date_of_birth,gender,citizenship_type,country_of_citizenship,phone').order('created_at',{ascending:true}),
+    sb.from('cabin_travelers').select('id,account_owner_id,cabin_assignment_id,salutation,first_name,middle_name,last_name,name_suffix,date_of_birth,gender,citizenship_type,country_of_citizenship,phone').order('created_at',{ascending:true}),
     sb.from('user_payments').select('user_id,amount_paid')
   ]);
-  const cabinMap={};(allCabins||[]).forEach(c=>{cabinMap[c.user_id]=c;});
+  // cabinMap: first confirmed cabin row per user (skip pending_admin 2nd cabin rows)
+  const cabinMap={};
+  (allCabins||[]).forEach(c=>{
+    if((c.status||'confirmed')==='pending_admin')return;
+    if(!cabinMap[c.user_id])cabinMap[c.user_id]=c;
+  });
+  // travelersByOwner: primary cabin travelers only (no cabin_assignment_id = primary cabin)
   const travelersByOwner={};(allTravelers||[]).forEach(t=>{
+    if(t.cabin_assignment_id)return;
     if(!travelersByOwner[t.account_owner_id])travelersByOwner[t.account_owner_id]=[];
     travelersByOwner[t.account_owner_id].push(t);
   });
@@ -10211,14 +10294,23 @@ async function loadCCLEntry(){
     if(key)profileByNormName[key]=p;
   });
 
-  // Find cabin_travelers whose name matches a profile that isn't the cabin owner
+  // Find cabin_travelers whose name matches a profile that isn't the cabin owner.
+  // Only look at primary cabin travelers (cabin_assignment_id IS NULL) to avoid
+  // false positives from 2nd-cabin travelers and from profiles that have multiple
+  // guests but haven't yet filled all names.
   const linkMatchMap={};
   (allTravelers||[]).forEach(t=>{
+    if(t.cabin_assignment_id)return; // 2nd-cabin traveler — skip for link detection
     const tName=[t.first_name,t.last_name].filter(Boolean).join(' ').toLowerCase().trim();
     if(!tName)return;
     const matched=profileByNormName[tName];
     if(!matched)return;
     if(matched.id===t.account_owner_id)return; // their own record, skip
+    // Only flag if the OTHER account has actually filled all their traveler slots
+    // (prevents spurious matches from accounts with unfilled guest slots)
+    const ownerCabin=cabinMap[t.account_owner_id];
+    const ownerTravelerCount=(travelersByOwner[t.account_owner_id]||[]).length;
+    if(ownerCabin&&ownerCabin.num_guests&&ownerTravelerCount<ownerCabin.num_guests)return;
     if(!linkMatchMap[matched.id])linkMatchMap[matched.id]={profile:matched,occurrences:[]};
     const ownerProf=(profiles||[]).find(p=>p.id===t.account_owner_id)||null;
     linkMatchMap[matched.id].occurrences.push({travelerRecord:t,ownerProfile:ownerProf});
@@ -11935,6 +12027,64 @@ Your Commonwealth Cruise Team`
     }),
     useCustomSend:true,
     customSend:()=>sendDeclinedPaymentEmail()
+  },
+  {
+    id:'carnival_profile_setup',label:'Carnival Profile Setup',icon:'🚢',
+    toMode:'traveler',
+    buildPreview:()=>{
+      return{
+        subject:`${TRIP_NAME} — Create Your Carnival Customer Profile`,
+        toLabel:'Traveler email',
+        toPlaceholder:'traveler@email.com',
+        toName:'',
+        extraFields:`
+<div style="margin-bottom:10px;">
+  <button type="button" onclick="carnivalProfileAutoFill()" style="background:#e0f2fe;color:#0c4a6e;border:1.5px solid #bae6fd;border-radius:7px;padding:6px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">🔍 Auto-fill from Profile</button>
+  <span id="eg-cp-status" style="font-size:.75rem;color:#94a3b8;margin-left:8px;">Enter traveler email above, then click to auto-fill.</span>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+  <div>
+    <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Reservation #</label>
+    <input id="eg-cp-reservation" type="text" placeholder="e.g. 1234567" oninput="carnivalProfileUpdateBody()" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+  </div>
+  <div>
+    <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Cabin #</label>
+    <input id="eg-cp-cabin" type="text" placeholder="e.g. 8245" oninput="carnivalProfileUpdateBody()" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+  </div>
+</div>`,
+        body:`Hello [Traveler Name],
+
+Great news! Now that your full deposit of $250.00 per person in your cabin has been received, you are able to create your customer profile on Carnival's website.
+
+Visit: www.carnival.com
+
+With account creation, you will be able to:
+• See your cabin details
+• Enter your travel documents
+• Make all future payments directly through Carnival
+
+WHILE YOU ARE THERE — please verify that all of your information is correct, such as:
+• Name spelling (must match your government-issued ID exactly)
+• Date of Birth
+• Any other personal details on file
+
+If anything is incorrect, please correct it now to avoid issues at check-in.
+
+HOW TO CREATE YOUR ACCOUNT:
+1. Go to www.carnival.com
+2. Select "Log In", then choose "Create Account"
+3. You will need the following information:
+
+   Reservation #: [RESERVATION_NUM]
+   Cabin #:       [CABIN_NUM]
+
+If you have any questions or need assistance, please don't hesitate to reach out.
+
+Thank you,
+Your Commonwealth Cruise Team
+Questions? ${ADMIN_EMAIL}`
+      };
+    }
   }
 ];
 
@@ -13563,6 +13713,63 @@ function selectEmailTemplate(idx){
     </div>`;
   // Auto-add first attachment slot
   egAddAttachSlot();
+}
+
+function carnivalProfileUpdateBody(){
+  const bodyEl=document.getElementById('eg-body');
+  if(!bodyEl)return;
+  const res=(document.getElementById('eg-cp-reservation')?.value||'').trim()||'[RESERVATION_NUM]';
+  const cab=(document.getElementById('eg-cp-cabin')?.value||'').trim()||'[CABIN_NUM]';
+  bodyEl.value=bodyEl.value
+    .replace(/\[RESERVATION_NUM\]/g,res)
+    .replace(/\[CABIN_NUM\]/g,cab);
+}
+
+async function carnivalProfileAutoFill(){
+  const statusEl=document.getElementById('eg-cp-status');
+  const email=(document.getElementById('eg-to-email')?.value||'').trim().toLowerCase();
+  if(!email){if(statusEl){statusEl.textContent='Enter a traveler email address first.';statusEl.style.color='#dc2626';}return;}
+  if(statusEl){statusEl.innerHTML='<span style="color:#475569;">🔍 Looking up…</span>';}
+  try{
+    // Fetch profile
+    const{data:prof,error:profErr}=await sb.from('profiles')
+      .select('id,name,email').ilike('email',email).limit(1).maybeSingle();
+    if(profErr||!prof){
+      if(statusEl){statusEl.innerHTML='<span style="color:#dc2626;">❌ No traveler found with that email.</span>';}
+      return;
+    }
+    // Fetch cabin assignment (first confirmed row)
+    const{data:ca}=await sb.from('cabin_assignments')
+      .select('cabin_number,guest_reservation_number')
+      .eq('user_id',prof.id)
+      .order('assigned_at',{ascending:true})
+      .limit(1).maybeSingle();
+    // Populate name
+    const nameEl=document.getElementById('eg-to-name');
+    if(nameEl&&prof.name)nameEl.value=prof.name;
+    // Populate Reservation # and Cabin #
+    const resEl=document.getElementById('eg-cp-reservation');
+    const cabEl=document.getElementById('eg-cp-cabin');
+    if(resEl)resEl.value=ca?.guest_reservation_number||'';
+    if(cabEl)cabEl.value=ca?.cabin_number||'';
+    // Update body with the filled values
+    carnivalProfileUpdateBody();
+    // Also update subject with traveler name
+    const subjectEl=document.getElementById('eg-subject');
+    if(subjectEl&&prof.name)subjectEl.value=subjectEl.value.replace('Create Your Carnival Customer Profile',`Create Your Carnival Customer Profile — ${prof.name}`);
+    const missing=[];
+    if(!ca?.guest_reservation_number)missing.push('Reservation #');
+    if(!ca?.cabin_number)missing.push('Cabin #');
+    if(statusEl){
+      if(missing.length){
+        statusEl.innerHTML=`<span style="color:#d97706;">⚠️ Auto-filled name. Not yet assigned: ${missing.join(', ')} — enter manually.</span>`;
+      } else {
+        statusEl.innerHTML='<span style="color:#16a34a;">✅ Auto-filled successfully.</span>';
+      }
+    }
+  }catch(e){
+    if(statusEl){statusEl.innerHTML='<span style="color:#dc2626;">❌ Error: '+e.message+'</span>';}
+  }
 }
 
 function copyEmailBody(){
@@ -15753,6 +15960,43 @@ async function adminRemoveCCAuth(userId, storagePath, btn){
 // Traveler: complete CC Auth form online or upload signed copy
 async function openTravelerCCAuthUpload(){
   if(!gUser||!gProfile)return;
+
+  // ── Missed-deadline waitlist availability check ───────────
+  // If this traveler missed the deposit deadline, verify their cabin type
+  // still has availability before allowing them to submit payment.
+  if(window.gIsOnMissedDeadlineWaitlist){
+    const cabinType=window.gDashCabinData?.cabin_type||'';
+    let isAvailable=true;
+    let availMsg='';
+    try{
+      const{data:tiers}=await sb.from('cabin_price_tiers')
+        .select('available_cabins,price_per_person')
+        .ilike('cabin_type',cabinType)
+        .gt('available_cabins',0);
+      if(!tiers||tiers.length===0){
+        isAvailable=false;
+        availMsg=`No ${cabinType||'cabin'} availability remains at this time.`;
+      }
+    }catch(e){
+      // If check fails, allow through rather than blocking on a network error
+      isAvailable=true;
+    }
+    if(!isAvailable){
+      const msgEl=document.createElement('div');
+      msgEl.style.cssText='position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:16px;';
+      msgEl.innerHTML=`<div style="background:#fff;border-radius:14px;padding:28px 24px;max-width:440px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.3);">
+        <div style="font-size:2rem;margin-bottom:10px;">🚨</div>
+        <div style="font-weight:800;font-size:1.05rem;color:#991b1b;margin-bottom:10px;">No Availability</div>
+        <div style="font-size:.88rem;color:#374151;line-height:1.6;margin-bottom:18px;">${availMsg}<br><br>Your reservation remains on the waitlist. Please contact the trip organizer at <a href="mailto:${ADMIN_EMAIL}" style="color:#1a4a7c;">${ADMIN_EMAIL}</a> to discuss your options.</div>
+        <button onclick="this.closest('[style*=fixed]').remove()" style="background:#0f2744;color:#fff;border:none;border-radius:8px;padding:10px 28px;font-size:.9rem;font-weight:700;cursor:pointer;">Close</button>
+      </div>`;
+      document.body.appendChild(msgEl);
+      return;
+    }
+    // Available — note in form that submission is pending admin confirmation
+    // (handled via the notice visible on the cabin card; proceed normally)
+  }
+
   const nameParts=(gProfile.name||'').trim().split(/\s+/);
   const lastName=nameParts[nameParts.length-1]||'Traveler';
   const{data:prof}=await sb.from('profiles').select('cc_auth_url,cc_auth_filename').eq('id',gUser.id).single();
