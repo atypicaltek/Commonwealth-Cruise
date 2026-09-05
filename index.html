@@ -7322,8 +7322,7 @@ async function sendOverduePaymentNotice(toEmail,toName,cabinType,milestoneLabel,
   const shortageStr=parseFloat(shortage).toFixed(2);
   const subject=`${TRIP_NAME} — Payment Overdue: Action Required`;
   const plain=`Dear ${toName},\n\nThis is a notice that your payment for the ${TRIP_NAME} is overdue.\n\nMilestone: ${milestoneLabel}\nCabin Type: ${cabinType}\nOutstanding Balance: $${shortageStr}\n\nYour cabin is currently on the waitlist pending receipt of payment. Once payment is received, your reservation will be reviewed and processed if availability remains.\n\nPlease submit your payment as soon as possible to avoid loss of your reservation.\n\nWatch how to make a payment: ${PAYMENT_HOW_TO_VIDEO_URL}\n\nIf you have already submitted payment, please reply to this email with your confirmation so we can update your account.\n\nThank you,\nYour Commonwealth Cruise Team`;
-  const bodyHtml=`<p>Dear <strong>${toName}</strong>,</p>
-<p>This is a notice that your payment for the <strong>${TRIP_NAME}</strong> is overdue.</p>
+  const bodyHtml=`<p>This is a notice that your payment for the <strong>${TRIP_NAME}</strong> is overdue.</p>
 <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;">
   <strong>⚠️ Payment Overdue</strong><br>
   <strong>Milestone:</strong> ${milestoneLabel}<br>
