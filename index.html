@@ -2128,7 +2128,7 @@ let gUser=null,gProfile=null,gInventory={},gProfileSetupComplete=false,gInventor
 let gMilestones=[],gPayments=[],gCabinCost=null,gDupConfirmed=false,gPendingSetup=null;
 let gEditingTravelerId=null,gEditingTravelerOld=null,gGratLinkOpened=false,gCitLinkOpened={};
 let gActiveTravelerSlot=-1,gWaitlistData=[];
-let gMtOwnerId='',gMtExisting=[];
+let gMtOwnerId='',gMtExisting=[],gMtCabinAssignmentId=null;
 
 // ── ROUTER ─────────────────────────────────────────────────
 function showPage(name){
@@ -8039,17 +8039,24 @@ function renderTravelersView(){
         cabinType:c2.cabin_type||'',cabinNumber:c2.cabin_number||'',
         numGuests:c2.num_guests||1,pricePP:c2.price_per_person||null,
         cabinCost:c2.cabin_cost||null,resNum:c2.guest_reservation_number||'',
-        payLink:c2.payment_link||''
+        payLink:c2.payment_link||'',ccAuthUrl:null,ccAuthFilename:'',
+        ordinalLabel:c2OrdinalLabel
       };
-      const c2ActionSel='<select class="action-sel action-sel-sm" onchange="handleExtraCabinAction(this,\''+c2.id+'\')" style="font-size:.73rem;padding:2px 4px;max-width:140px;">'+
-        '<option value="">⚙ Manage...</option>'+
+      const c2ActionSel='<select class="action-sel action-sel-sm" onchange="handleExtraCabinAction(this,\''+c2.id+'\')" style="font-size:.73rem;padding:2px 4px;max-width:150px;">'+
+        '<option value="">⚙ Manage Cabin...</option>'+
+        '<option value="manage_travelers">&#x1F465; Manage Travelers</option>'+
         '<option value="cabin_num">&#x1F522; Cabin #</option>'+
         '<option value="cabin_type_change">&#x1F504; Change Type</option>'+
-        '<option value="update_guests">&#x1F465; Guest Count</option>'+
+        '<option value="update_guests">&#x1F46A; Guest Count</option>'+
         '<option value="select_tier">&#x1F4B0; Price Tier</option>'+
         '<option value="cost">&#x1F4B5; Set Cost</option>'+
         '<option value="res_num">&#x1F4CB; Res. #</option>'+
         '<option value="pay_link">&#x1F517; Pay Link</option>'+
+        '<option value="send_cc_auth">&#x1F4E7; Send CC Auth</option>'+
+        '<option value="view_cc_auth">&#x1F4C2; View CC Auth</option>'+
+        '<option value="send_pay_link">&#x1F4B3; Send Pay Link</option>'+
+        '<option value="send_portal_link">&#x1F517; Send Portal Link</option>'+
+        '<option value="view_profile">&#x1F464; View Profile</option>'+
       '</select>';
       const c2Header='<tr style="background:var(--bg);border-top:2px solid var(--border);">'+
         '<td colspan="7" style="padding:6px 10px;">'+
@@ -14513,9 +14520,10 @@ async function adminRemoveMtTraveler(existingId, slotIdx){
   if(alertEl){alertEl.className='alert alert-success';alertEl.textContent=`✅ ${tName} removed from cabin.`;alertEl.style.display='block';setTimeout(()=>{if(alertEl)alertEl.style.display='none';},3000);}
 }
 
-async function openManageTravelers(ownerId, ownerName, numGuests){
+async function openManageTravelers(ownerId, ownerName, numGuests, caId){
   try{
   gMtOwnerId = ownerId;
+  gMtCabinAssignmentId = caId || null; // null = primary cabin; set = extra cabin
   const ng=parseInt(numGuests)||1;
   const alertEl=document.getElementById('mt-alert');
   const slotsEl=document.getElementById('mt-slots');
@@ -14527,19 +14535,36 @@ async function openManageTravelers(ownerId, ownerName, numGuests){
   if(slotsEl)slotsEl.innerHTML='<div class="loading"><div class="spinner"></div></div>';
   document.getElementById('admin-mt-modal').classList.add('open');
   try{
-    // Use cached occupant data from loadTravelers (avoids RLS blocking admin's direct query)
-    let existing=window.gOccupantMap?window.gOccupantMap[ownerId]||[]:null;
-    if(existing===null){
-      // Fallback: direct query (only if cache not available yet)
-      const{data:fetched,error:fetchErr}=await sb.from('cabin_travelers')
-        .select('id,salutation,first_name,middle_name,last_name,name_suffix,date_of_birth,gender,citizenship_type,country_of_citizenship,phone,email,account_owner_id')
-        .eq('account_owner_id',ownerId)
-        .order('created_at',{ascending:true});
-      if(fetchErr){
-        const alertEl=document.getElementById('mt-alert');
-        if(alertEl){alertEl.className='alert alert-error';alertEl.textContent='Could not load traveler records: '+fetchErr.message+'. Try refreshing the Travelers tab.';alertEl.style.display='block';}
+    let existing;
+    if(gMtCabinAssignmentId){
+      // Extra cabin: load travelers linked to this specific cabin_assignment_id
+      const cached=(window._travRaw?.secondCabinOccupantMap||{})[gMtCabinAssignmentId];
+      if(cached){
+        existing=cached;
+      } else {
+        const{data:fetched,error:fetchErr}=await sb.from('cabin_travelers')
+          .select('id,salutation,first_name,middle_name,last_name,name_suffix,date_of_birth,gender,citizenship_type,country_of_citizenship,phone,email,account_owner_id,cabin_assignment_id')
+          .eq('cabin_assignment_id',gMtCabinAssignmentId)
+          .order('created_at',{ascending:true});
+        if(fetchErr){const a=document.getElementById('mt-alert');if(a){a.className='alert alert-error';a.textContent='Could not load cabin traveler records: '+fetchErr.message;a.style.display='block';}}
+        existing=fetched||[];
       }
-      existing=fetched||[];
+    } else {
+      // Primary cabin: use cached occupant data (avoids RLS blocking admin's direct query)
+      existing=window.gOccupantMap?window.gOccupantMap[ownerId]||[]:null;
+      if(existing===null){
+        // Fallback: direct query (only if cache not available yet)
+        const{data:fetched,error:fetchErr}=await sb.from('cabin_travelers')
+          .select('id,salutation,first_name,middle_name,last_name,name_suffix,date_of_birth,gender,citizenship_type,country_of_citizenship,phone,email,account_owner_id')
+          .eq('account_owner_id',ownerId)
+          .is('cabin_assignment_id',null)
+          .order('created_at',{ascending:true});
+        if(fetchErr){
+          const alertEl=document.getElementById('mt-alert');
+          if(alertEl){alertEl.className='alert alert-error';alertEl.textContent='Could not load traveler records: '+fetchErr.message+'. Try refreshing the Travelers tab.';alertEl.style.display='block';}
+        }
+        existing=fetched||[];
+      }
     }
     gMtExisting=existing;
     // Fetch owner email for slot 0
@@ -14612,6 +14637,8 @@ async function saveManageTravelers(){
         citizenship_type:cit||null, country_of_citizenship:cty||null,
         phone:ph||null, email:em||null
       };
+      // Link to extra cabin when managing travelers for a specific cabin_assignment
+      if(gMtCabinAssignmentId) payload.cabin_assignment_id=gMtCabinAssignmentId;
 
       if(existingId){
         const{error}=await sb.from('cabin_travelers').update(payload).eq('id',existingId);
@@ -14621,8 +14648,8 @@ async function saveManageTravelers(){
         if(error)throw new Error(`Traveler ${i+1} insert failed: `+error.message);
       }
 
-      // If primary traveler (slot 0), also update profiles.name and email
-      if(i===0){
+      // Only update profiles.name/email for primary cabin slot 0 (not extra cabin travelers)
+      if(i===0 && !gMtCabinAssignmentId){
         const fullName=[fn,ln].filter(Boolean).join(' ');
         const profileUpdate={name:fullName};
         if(em)profileUpdate.email=em;
@@ -15089,13 +15116,23 @@ function handleExtraCabinAction(sel,caId){
   const d=(window.gExtra2CabData||{})[caId];
   if(!d){sel.value='';alert('Extra cabin data not loaded. Please refresh the Travelers tab.');return;}
   const v=sel.value;sel.value='';
-  if(v==='cabin_num')assignCabinNumber(d.userId,d.name,d.cabinType,d.cabinNumber);
+  if(v==='manage_travelers'){
+    // Open Manage Travelers modal scoped to this extra cabin's cabin_assignment_id
+    const cabinOrdinalLabel=(window.gExtra2CabData[caId]?.ordinalLabel)||'Extra Cabin';
+    openManageTravelers(d.userId, d.name+' – '+cabinOrdinalLabel, d.numGuests||1, caId);
+  }
+  else if(v==='cabin_num')assignCabinNumber(d.userId,d.name,d.cabinType,d.cabinNumber);
   else if(v==='cabin_type_change')changeCabinType(d.userId,d.name,d.cabinType,d.numGuests||1);
   else if(v==='update_guests')adminUpdateGuestCount(d.userId,d.name,d.numGuests||1,d.cabinType,d.pricePP);
   else if(v==='select_tier')adminOpenTierModal(d.userId,d.name,d.cabinType,d.numGuests||1,d.pricePP);
   else if(v==='cost')setCabinCost(d.userId,d.name,d.cabinCost);
   else if(v==='res_num')setReservationNumber(d.userId,d.name,d.resNum);
   else if(v==='pay_link')setPaymentLink(d.userId,d.name,d.payLink);
+  else if(v==='send_cc_auth')sendCCAuthForm(d.name,d.email,d.cabinType,d.numGuests);
+  else if(v==='view_cc_auth')openAdminCCAuthModal(d.userId,d.name,d.ccAuthUrl,d.ccAuthFilename);
+  else if(v==='send_pay_link')emailPaymentLinkToTraveler(d.name,d.email,d.payLink);
+  else if(v==='send_portal_link')emailPortalLinkToTraveler(d.name,d.email);
+  else if(v==='view_profile')openTravelerProfileView(d.userId,d.name,d.email);
 }
 
 // ── ADMIN UPDATE GUEST COUNT ──────────────────────────────────
