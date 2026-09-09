@@ -2129,6 +2129,7 @@ let gMilestones=[],gPayments=[],gCabinCost=null,gDupConfirmed=false,gPendingSetu
 let gEditingTravelerId=null,gEditingTravelerOld=null,gGratLinkOpened=false,gCitLinkOpened={};
 let gActiveTravelerSlot=-1,gWaitlistData=[];
 let gMtOwnerId='',gMtExisting=[],gMtCabinAssignmentId=null;
+let gAdminActionCaId=null; // set before calling admin cabin-action functions for extra cabin rows
 
 // ── ROUTER ─────────────────────────────────────────────────
 function showPage(name){
@@ -8719,8 +8720,14 @@ async function restoreTraveler(userId,name){
 async function assignCabinNumber(userId,name,cabinType,currentNum){
   const num=prompt(`Assign cabin number for ${name} (${cabinType}):\nCurrent: ${currentNum||'Not assigned'}`,currentNum||'');
   if(num===null)return;
-  const{error}=await sb.rpc('admin_set_cabin_number',{p_user_id:userId,p_val:num.trim()||null});
-  if(error){alert('Error saving cabin number: '+error.message+'\n\nMake sure you have run the latest new-columns.sql in Supabase SQL Editor.');return;}
+  const caId=gAdminActionCaId;gAdminActionCaId=null;
+  let error;
+  if(caId){
+    ({error}=await sb.rpc('admin_set_cabin_number_by_id',{p_cabin_assignment_id:caId,p_val:num.trim()||null}));
+  } else {
+    ({error}=await sb.rpc('admin_set_cabin_number',{p_user_id:userId,p_val:num.trim()||null}));
+  }
+  if(error){alert('Error saving cabin number: '+error.message+'\n\nMake sure Statement 98 in urgent-fixes.sql has been run in Supabase.');return;}
   loadTravelers();loadInventoryTab();
 }
 
@@ -8735,16 +8742,28 @@ async function setCabinCost(userId,name,currentCost){
     if(isNaN(parsed)||parsed<=0){alert('Please enter a valid dollar amount (e.g. 2400 or 2400.50), or leave blank to clear.');return;}
     newVal=parsed;
   }
-  const{error}=await sb.rpc('admin_set_cabin_cost_v2',{p_user_id:userId,p_val:newVal});
-  if(error){alert('Error saving cabin cost: '+error.message+'\n\nMake sure Statements 59–62 in urgent-fixes.sql have been run in Supabase.');return;}
+  const caId=gAdminActionCaId;gAdminActionCaId=null;
+  let error;
+  if(caId){
+    ({error}=await sb.rpc('admin_set_cabin_cost_by_id',{p_cabin_assignment_id:caId,p_val:newVal}));
+  } else {
+    ({error}=await sb.rpc('admin_set_cabin_cost_v2',{p_user_id:userId,p_val:newVal}));
+  }
+  if(error){alert('Error saving cabin cost: '+error.message+'\n\nMake sure Statement 98 in urgent-fixes.sql has been run in Supabase.');return;}
   loadTravelers();
 }
 
 async function setReservationNumber(userId,name,current){
   const input=prompt(`Guest reservation number for ${name}:\nCurrent: ${current||'Not set'}\n\nEnter Carnival reservation number:`,current||'');
   if(input===null)return;
-  const{error}=await sb.rpc('admin_set_reservation_number',{p_user_id:userId,p_val:input.trim()||null});
-  if(error){alert('Error saving reservation number: '+error.message+'\n\nMake sure you have run the latest new-columns.sql in Supabase SQL Editor.');return;}
+  const caId=gAdminActionCaId;gAdminActionCaId=null;
+  let error;
+  if(caId){
+    ({error}=await sb.rpc('admin_set_res_number_by_id',{p_cabin_assignment_id:caId,p_val:input.trim()||null}));
+  } else {
+    ({error}=await sb.rpc('admin_set_reservation_number',{p_user_id:userId,p_val:input.trim()||null}));
+  }
+  if(error){alert('Error saving reservation number: '+error.message+'\n\nMake sure Statement 98 in urgent-fixes.sql has been run in Supabase.');return;}
   loadTravelers();
 }
 
@@ -8753,8 +8772,14 @@ async function setPaymentLink(userId,name,current){
   if(input===null)return;
   const trimmed=input.trim();
   if(trimmed&&!trimmed.startsWith('http')){alert('Please enter a full URL starting with https://');return;}
-  const{error}=await sb.rpc('admin_set_payment_link',{p_user_id:userId,p_val:trimmed||null});
-  if(error){alert('Error saving payment link: '+error.message+'\n\nMake sure you have run the latest new-columns.sql in Supabase SQL Editor.');return;}
+  const caId=gAdminActionCaId;gAdminActionCaId=null;
+  let error;
+  if(caId){
+    ({error}=await sb.rpc('admin_set_pay_link_by_id',{p_cabin_assignment_id:caId,p_val:trimmed||null}));
+  } else {
+    ({error}=await sb.rpc('admin_set_payment_link',{p_user_id:userId,p_val:trimmed||null}));
+  }
+  if(error){alert('Error saving payment link: '+error.message+'\n\nMake sure Statement 98 in urgent-fixes.sql has been run in Supabase.');return;}
   loadTravelers();
 }
 
@@ -9917,6 +9942,7 @@ function adminTierSelChange(selId, inputId){
 // ── TIER MODAL (from Travelers tab) ───────────────────────────
 async function adminOpenTierModal(userId, name, cabinType, numGuests, curPP){
   const existing=document.getElementById('atm-modal');if(existing)existing.remove();
+  const atmCaId=gAdminActionCaId||'';gAdminActionCaId=null;
   // Fetch tiers fresh — gInventoryTiersByType may not be populated if Inventory tab wasn't opened
   let tiers=gInventoryTiersByType[cabinType]||[];
   if(tiers.length===0&&cabinType&&cabinType!=='Suite'){
@@ -9954,14 +9980,14 @@ async function adminOpenTierModal(userId, name, cabinType, numGuests, curPP){
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button onclick="document.getElementById('atm-modal').remove()" style="background:var(--border);color:var(--text);border:none;border-radius:8px;padding:8px 18px;font-size:.85rem;font-weight:700;cursor:pointer;">Cancel</button>
-        <button id="atm-assign-btn" onclick="adminAssignTierFromModal('${userId}','${cabinType}',${curPPVal||0},${numGuests})" style="background:#1a4a7c;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:.85rem;font-weight:700;cursor:pointer;">Assign Tier</button>
+        <button id="atm-assign-btn" onclick="adminAssignTierFromModal('${userId}','${cabinType}',${curPPVal||0},${numGuests},'${atmCaId}')" style="background:#1a4a7c;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:.85rem;font-weight:700;cursor:pointer;">Assign Tier</button>
       </div>`}
     </div>
   </div>`;
   document.body.appendChild(modal);
 }
 
-async function adminAssignTierFromModal(userId, cabinType, oldPricePP, numGuests){
+async function adminAssignTierFromModal(userId, cabinType, oldPricePP, numGuests, caId){
   const sel=document.getElementById('atm-sel');
   let rawPrice=sel?sel.value:'';
   if(rawPrice==='__custom__'){
@@ -9979,10 +10005,16 @@ async function adminAssignTierFromModal(userId, cabinType, oldPricePP, numGuests
     const ng=parseInt(numGuests)||1;
     const effGuests=ng===1?2:ng;
     const newCost=newPrice*effGuests;
-    console.log('[adminAssignTierFromModal] calling admin_set_price_tier',{userId,newPrice});
-    const{data:rowsUpdated,error}=await sb.rpc('admin_set_price_tier',{p_user_id:userId,p_price_per_person:newPrice});
+    let rowsUpdated,error;
+    if(caId){
+      console.log('[adminAssignTierFromModal] extra cabin — calling admin_set_price_tier_by_id',{caId,newPrice});
+      ({data:rowsUpdated,error}=await sb.rpc('admin_set_price_tier_by_id',{p_cabin_assignment_id:caId,p_price_per_person:newPrice,p_num_guests:ng}));
+    } else {
+      console.log('[adminAssignTierFromModal] calling admin_set_price_tier',{userId,newPrice});
+      ({data:rowsUpdated,error}=await sb.rpc('admin_set_price_tier',{p_user_id:userId,p_price_per_person:newPrice}));
+    }
     console.log('[adminAssignTierFromModal] result',{rowsUpdated,error});
-    if(error)throw new Error(error.message||JSON.stringify(error)+'\n\nMake sure Statement 65 in urgent-fixes.sql has been run in Supabase.');
+    if(error)throw new Error(error.message||JSON.stringify(error)+'\n\nMake sure Statement 98 in urgent-fixes.sql has been run in Supabase.');
     if(rowsUpdated==null||rowsUpdated===0)throw new Error('No cabin record found for this traveler (0 rows updated). The cabin_assignments row may be missing — check Supabase.');
     if(btn){btn.textContent='✅ Saved!';btn.style.background='#dcfce7';btn.style.color='#166534';btn.style.borderColor='#86efac';}
     setTimeout(()=>{
@@ -14398,10 +14430,11 @@ function checkAndShowCabinPhotoBtn(cabinType){
 
 // ── TRAVELER ACTION HANDLERS ──────────────────────────────────
 async function changeCabinType(userId,name,currentType,currentNumGuests){
+  const cctCaId=gAdminActionCaId||'';gAdminActionCaId=null;
   const types=['Balcony','Ocean View','Interior','Suite'];
   const opts=types.map(t=>`<option value="${t}"${t===currentType?' selected':''}>${t}</option>`).join('');
   const guestOpts=[1,2,3,4,5,6].map(n=>`<option value="${n}"${n===(currentNumGuests||1)?' selected':''}>${n} Guest${n>1?'s':''}</option>`).join('');
-  const isNew=!currentType;
+  const isNew=!currentType&&!cctCaId;
   const existing=document.getElementById('change-cabin-type-modal');
   if(existing)existing.remove();
   const div=document.createElement('div');
@@ -14423,7 +14456,7 @@ async function changeCabinType(userId,name,currentType,currentNumGuests){
       <div id="cct-alert" class="alert" style="display:none;margin-bottom:12px;"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button class="btn btn-ghost" onclick="document.getElementById('change-cabin-type-modal').remove()">Cancel</button>
-        <button class="btn btn-primary" id="cct-confirm-btn" onclick="confirmChangeCabinType('${userId}','${name.replace(/'/g,"\\'").replace(/"/g,'&quot;')}','${currentType||''}')">
+        <button class="btn btn-primary" id="cct-confirm-btn" onclick="confirmChangeCabinType('${userId}','${name.replace(/'/g,"\\'").replace(/"/g,'&quot;')}','${currentType||''}','${cctCaId}')">
           ${isNew?'&#x2705; Assign Cabin':'&#x2713; Change Type'}
         </button>
       </div>
@@ -14803,17 +14836,29 @@ async function saveAdminEditProfile(){
   finally{btn.disabled=false;btn.textContent='Save Changes';}
 }
 
-async function confirmChangeCabinType(userId,name,oldType){
+async function confirmChangeCabinType(userId,name,oldType,caId){
   const newType=document.getElementById('cct-select')?.value;
   const numGuests=parseInt(document.getElementById('cct-guests')?.value||'1',10);
   if(!newType)return;
-  const isNew=!oldType;
+  const isNew=!oldType&&!caId;
   const noChange=(newType===oldType&&!isNew);
   if(noChange){document.getElementById('change-cabin-type-modal')?.remove();return;}
   const btn=document.getElementById('cct-confirm-btn');
   const alertEl=document.getElementById('cct-alert');
   btn.disabled=true;btn.textContent='Saving...';
   try{
+    if(caId){
+      // Extra cabin: update this specific row by ID only — no inventory adjustment
+      const{error:upErr}=await sb.rpc('admin_change_cabin_type_by_id',{
+        p_cabin_assignment_id:caId,
+        p_cabin_type:newType,
+        p_num_guests:numGuests
+      });
+      if(upErr)throw new Error(upErr.message);
+      document.getElementById('change-cabin-type-modal')?.remove();
+      await loadTravelers();
+      return;
+    }
     // admin_assign_cabin handles INSERT (new) or UPDATE (existing), sets admin_assigned=true
     // Returns old cabin_type or null if this was a new assignment
     const{data:returnedOld,error:upErr}=await sb.rpc('admin_assign_cabin',{
@@ -15059,6 +15104,7 @@ function emailPortalLinkToTraveler(name,email){
 function handleTravelerAction(sel,userId){
   const d=window.gTravelerData?.[userId];
   if(!d){sel.value='';alert('Traveler data not loaded for this row. Please refresh the Travelers tab and try again.');return;}
+  gAdminActionCaId=null; // primary cabin actions always use user_id-based RPCs
   const v=sel.value;sel.value='';
   if(v==='cabin_num')assignCabinNumber(d.userId,d.name,d.cabinType,d.cabinNumber);
   else if(v==='cabin_type_change')changeCabinType(d.userId,d.name,d.cabinType,d.numGuests||1);
@@ -15115,6 +15161,7 @@ function handleTravelerAction(sel,userId){
 function handleExtraCabinAction(sel,caId){
   const d=(window.gExtra2CabData||{})[caId];
   if(!d){sel.value='';alert('Extra cabin data not loaded. Please refresh the Travelers tab.');return;}
+  gAdminActionCaId=caId; // route all downstream cabin-action RPCs to this specific cabin_assignment row
   const v=sel.value;sel.value='';
   if(v==='manage_travelers'){
     // Open Manage Travelers modal scoped to this extra cabin's cabin_assignment_id
@@ -15137,6 +15184,7 @@ function handleExtraCabinAction(sel,caId){
 
 // ── ADMIN UPDATE GUEST COUNT ──────────────────────────────────
 function adminUpdateGuestCount(userId,name,currentGuests,cabinType,pricePP){
+  const agcCaId=gAdminActionCaId||'';gAdminActionCaId=null;
   const ng=parseInt(currentGuests)||1;
   const pp=pricePP?parseFloat(pricePP):null;
   const effG=(n)=>n===1?2:n;
@@ -15158,22 +15206,27 @@ function adminUpdateGuestCount(userId,name,currentGuests,cabinType,pricePP){
     </select>
     <div style="display:flex;gap:10px;margin-top:18px;">
       <button onclick="document.getElementById('${mid}').classList.remove('open')" style="flex:1;padding:9px;border:1.5px solid #dbe4ee;border-radius:7px;background:var(--card);color:var(--text);font-size:.88rem;cursor:pointer;">Cancel</button>
-      <button id="agc-save-btn" onclick="adminSaveGuestCount('${userId}','${name.replace(/'/g,"\\'")}','${cabinType}')" style="flex:2;padding:9px;background:#1a4a7c;color:#fff;border:none;border-radius:7px;font-size:.88rem;font-weight:700;cursor:pointer;">Save Guest Count</button>
+      <button id="agc-save-btn" onclick="adminSaveGuestCount('${userId}','${name.replace(/'/g,"\\'")}','${cabinType}','${agcCaId}')" style="flex:2;padding:9px;background:#1a4a7c;color:#fff;border:none;border-radius:7px;font-size:.88rem;font-weight:700;cursor:pointer;">Save Guest Count</button>
     </div>
   </div>`;
   m.classList.add('open');
 }
 
-async function adminSaveGuestCount(userId,name,cabinType){
+async function adminSaveGuestCount(userId,name,cabinType,caId){
   const sel=document.getElementById('agc-select');
   const btn=document.getElementById('agc-save-btn');
   const newGuests=parseInt(sel?.value);
   if(!newGuests||newGuests<1){alert('Please select a guest count.');return;}
   if(btn){btn.textContent='Saving…';btn.disabled=true;}
   try{
-    const{data:rowsUpdated,error}=await sb.rpc('admin_set_num_guests',{p_user_id:userId,p_num_guests:newGuests});
-    if(error)throw new Error(error.message||JSON.stringify(error)+'\n\nMake sure Statement 67 in urgent-fixes.sql has been run in Supabase.');
-    if(rowsUpdated==null||rowsUpdated===0)throw new Error('0 rows updated. Make sure Statement 67 in urgent-fixes.sql has been run.');
+    let rowsUpdated,error;
+    if(caId){
+      ({data:rowsUpdated,error}=await sb.rpc('admin_set_num_guests_by_id',{p_cabin_assignment_id:caId,p_num_guests:newGuests}));
+    } else {
+      ({data:rowsUpdated,error}=await sb.rpc('admin_set_num_guests',{p_user_id:userId,p_num_guests:newGuests}));
+    }
+    if(error)throw new Error(error.message||JSON.stringify(error)+'\n\nMake sure Statement 98 in urgent-fixes.sql has been run in Supabase.');
+    if(rowsUpdated==null||rowsUpdated===0)throw new Error('0 rows updated. Make sure Statement 98 in urgent-fixes.sql has been run.');
     document.getElementById('agc-modal')?.classList.remove('open');
     await loadTravelers();
   }catch(e){
