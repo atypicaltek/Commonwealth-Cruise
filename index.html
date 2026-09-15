@@ -4593,7 +4593,18 @@ if(dsBadge){
       const ng=cabin.num_guests||1;
       const isSingleOcc=(ng===1);
       const effectiveGuests=isSingleOcc?2:ng;
-      if(setCost){
+      const hasCabinType=!!(cabin.cabin_type);
+      if(!setCost&&hasCabinType){
+        // Cabin type held but no price assigned — show PENDING AVAILABILITY notice
+        cabinCostBreakdownEl.style.display='block';
+        cabinCostBreakdownEl.innerHTML=
+          '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;opacity:.7;margin-bottom:8px;">💰 Cost Summary</div>'+
+          '<div style="background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.35);border-radius:8px;padding:12px 14px;text-align:center;">'+
+            '<div style="font-size:1rem;font-weight:800;color:#fde68a;letter-spacing:.04em;">⏳ PENDING AVAILABILITY</div>'+
+            '<div style="font-size:.78rem;opacity:.85;margin-top:5px;">Your cabin type (<strong>'+(cabin.cabin_type||'—')+'</strong>) is held.</div>'+
+            '<div style="font-size:.76rem;opacity:.75;margin-top:4px;">Pricing and availability will be confirmed by the organizer once your deposit has been received.</div>'+
+          '</div>';
+      } else if(setCost){
         const isSuiteCabin=(cabin.cabin_type==='Suite');
         const gratRate=isSuiteCabin?GRAT_RATE_SUITE:GRAT_RATE_STANDARD;
         const gratPP=gratRate*CRUISE_DAYS; // total gratuity per person
@@ -7984,6 +7995,7 @@ function renderTravelersView(){
         (ca?.cabin_change_pending&&ca?.requested_cabin_type?'<option value="decline_cabin_change">&#x274C; Decline Change Request</option>':'')+
         '<option value="update_guests">&#x1F465; Update Guest Count'+(ca?.num_guests?' ('+ca.num_guests+')':'')+'</option>'+
         '<option value="select_tier">&#x1F4B2; Assign Price Tier'+(ca?.price_per_person?' ✓ ('+fmt(parseFloat(ca.price_per_person))+'/pp)':'')+'</option>'+
+        (ca?.price_per_person?'<option value="remove_tier">&#x274C; Remove from Price Tier → Pending</option>':'')+
         '<option value="reset_cost">&#x1F504; Reset Cost to Blank</option>'+
         '<option value="cost">&#x1F4B0; Cost'+costChk+'</option>'+
         '<option value="res_num">&#x1F4CB; Res. #'+resChk+'</option>'+
@@ -10040,6 +10052,33 @@ async function adminResetCabinCost(userId, name){
   }
 }
 
+async function adminRemoveFromPriceTier(userId, name, cabinType, pricePP, email){
+  const priceStr=pricePP?fmt(parseFloat(pricePP))+'/pp':'(unset)';
+  if(!confirm(
+    `Remove ${name} from their current price tier?\n\n`+
+    `Cabin Type: ${cabinType||'—'}\n`+
+    `Current Price: ${priceStr}\n\n`+
+    `This will:\n`+
+    `• Clear their cabin cost and price tier assignment\n`+
+    `• Restore 1 slot to the ${priceStr} tier in inventory\n`+
+    `• Show their cost as PENDING on their dashboard\n`+
+    `• NOT remove their cabin type hold\n\n`+
+    `You will need to re-assign a price tier afterward.`
+  ))return;
+  try{
+    const{error}=await sb.rpc('admin_remove_from_price_tier',{p_user_id:userId});
+    if(error)throw new Error(error.message);
+    flash('admin-alert',`✅ ${name} removed from price tier. Cost is now PENDING. Run Statement 100 in Supabase if this is the first use.`,'success');
+    loadTravelers();
+    // Open the Tier Released email template pre-filled for this traveler
+    if(email&&confirm(`Open "Cabin Released — Deposit Not Received" email template for ${name}?`)){
+      adminOpenTierReleasedEmail(userId,name,email,cabinType,pricePP);
+    }
+  }catch(e){
+    alert('Error removing from price tier: '+(e.message||e)+'\n\nMake sure Statement 100 in urgent-fixes.sql has been run in Supabase.');
+  }
+}
+
 async function adminAssignPriceTier(userId, cabinType, oldPricePP, rawNewPrice, numGuests, btn){
   // rawNewPrice may be '__custom__' — in that case read the sibling custom input
   let newPricePP=rawNewPrice;
@@ -11228,6 +11267,76 @@ This email was sent by the ${TRIP_NAME} portal.`
     }),
     useCustomSend:true,
     customSend:()=>sendPaymentConfirmationEmail()
+  },
+  {
+    id:'tier_released',label:'Cabin Released — Deposit Not Received',icon:'⚠️',
+    toMode:'traveler',
+    buildPreview:()=>({
+      subject:`${TRIP_NAME} — Action Required: Cabin Pricing Released`,
+      toLabel:'Traveler email',
+      toPlaceholder:'traveler@email.com',
+      toName:'',
+      extraFields:`
+        <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;">
+          <button type="button" onclick="tierReleasedAutoFill()" style="background:#fef3c7;color:#92400e;border:1.5px solid #fcd34d;border-radius:7px;padding:6px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">🔍 Auto-fill from Profile</button>
+          <span id="eg-tr-autofill-status" style="font-size:.75rem;color:#94a3b8;">Enter traveler email first, then click to auto-fill.</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Cabin Type</label>
+            <input id="eg-tr-cabin-type" type="text" placeholder="e.g. Balcony" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Guests in Cabin</label>
+            <input id="eg-tr-num-guests" type="number" min="1" max="6" placeholder="2" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Prior Price Per Person ($)</label>
+            <input id="eg-tr-price-pp" type="number" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;" title="The price tier that was assigned before release.">
+          </div>
+        </div>
+        <div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:8px;padding:10px 14px;font-size:.82rem;color:#9a3412;">
+          <strong>⚠️ Note:</strong> This email advises the traveler that their cabin pricing has been released to pending and they need to submit their deposit to re-confirm pricing.
+        </div>`,
+      body:`Dear [Traveler Name],
+
+We are reaching out regarding your reservation for the ${TRIP_NAME}.
+
+ACTION REQUIRED — DEPOSIT NOT RECEIVED
+
+Our records indicate that a deposit has not yet been received for your cabin reservation. As a result, your cabin pricing and tier assignment have been released back to PENDING status.
+
+Your reservation details at the time of release:
+
+• Name: [TRAVELER_NAME]
+• Cabin Type: [CABIN_TYPE]
+• Guests in Cabin: [NUM_GUESTS]
+• Prior Price Per Person: $[PRICE_PP]
+
+WHAT THIS MEANS FOR YOU:
+
+Your cabin type hold remains active; however, the specific price tier previously associated with your reservation is no longer reserved. Pricing and availability will need to be re-verified once your deposit is received.
+
+Please be aware that pricing tiers are assigned on a first-come, first-served basis and the price previously quoted may no longer be available at the time of re-confirmation.
+
+NEXT STEP — SUBMIT YOUR DEPOSIT:
+
+To re-confirm your pricing and reservation, please submit your initial deposit as soon as possible by completing the CC Authorization Form:
+
+${CC_AUTH_FORM_URL}
+
+Log in to your portal to view your reservation status:
+
+Commonwealth Cruise Travel Portal
+
+If you have any questions or believe this was sent in error, please contact us immediately at ${ADMIN_EMAIL}.
+
+Thank you,
+Your Commonwealth Cruise Team
+This email was sent by the ${TRIP_NAME} portal.`
+    }),
+    useCustomSend:true,
+    customSend:()=>sendTierReleasedEmail()
   },
   {
     id:'deposit_complete',label:'Deposit Complete',icon:'✅',
@@ -12626,6 +12735,114 @@ async function sendPaymentConfirmationEmail(){
     else if(result?.held){statusEl.textContent='📋 Queued in hold — check Email Queue tab.';statusEl.style.color='#d97706';}
     else if(result?.fallback){statusEl.textContent='📧 Email client opened.';statusEl.style.color='#d97706';}
     else{statusEl.textContent='✅ Payment confirmation sent!';statusEl.style.color='#16a34a';}
+  }
+}
+
+// ── TIER RELEASED EMAIL ───────────────────────────────────────────
+async function tierReleasedAutoFill(){
+  const email=(document.getElementById('eg-to-email')||{}).value?.trim();
+  const statusEl=document.getElementById('eg-tr-autofill-status');
+  if(!email){if(statusEl){statusEl.textContent='Enter traveler email above first.';statusEl.style.color='#d97706';}return;}
+  if(statusEl){statusEl.innerHTML='<span style="color:#475569;">🔍 Looking up…</span>';}
+  try{
+    let name='',cabinType='',numGuests=null,pricePP=null;
+    const{data:rpcData}=await sb.rpc('admin_get_all_cabin_assignments');
+    const found=(rpcData||[]).find(r=>(r.email||r.user_email||'').toLowerCase()===email.toLowerCase());
+    if(found){
+      name=found.full_name||found.name||'';
+      cabinType=found.cabin_type||'';
+      numGuests=found.num_guests||null;
+      pricePP=found.price_per_person||null;
+    } else {
+      const{data:prof}=await sb.from('profiles').select('id,name').ilike('email',email).limit(1).single();
+      if(prof){
+        name=prof.name||'';
+        const{data:ca}=await sb.from('cabin_assignments').select('cabin_type,num_guests,price_per_person').eq('user_id',prof.id).limit(1).single();
+        if(ca){cabinType=ca.cabin_type||'';numGuests=ca.num_guests||null;pricePP=ca.price_per_person||null;}
+      }
+    }
+    if(!name&&!cabinType){
+      if(statusEl){statusEl.textContent='No profile found for this email. Fill fields manually.';statusEl.style.color='#dc2626';}
+      return;
+    }
+    const nameEl=document.getElementById('eg-to-name');if(nameEl&&name)nameEl.value=name;
+    const ctEl=document.getElementById('eg-tr-cabin-type');if(ctEl&&cabinType)ctEl.value=cabinType;
+    const ngEl=document.getElementById('eg-tr-num-guests');if(ngEl&&numGuests)ngEl.value=numGuests;
+    const ppEl=document.getElementById('eg-tr-price-pp');if(ppEl&&pricePP)ppEl.value=parseFloat(pricePP).toFixed(2);
+    // Update body placeholders
+    const bodyEl=document.getElementById('eg-body');
+    if(bodyEl){
+      bodyEl.value=bodyEl.value
+        .replace(/\[TRAVELER_NAME\]/g,name)
+        .replace(/\[CABIN_TYPE\]/g,cabinType||'—')
+        .replace(/\[NUM_GUESTS\]/g,numGuests||'—')
+        .replace(/\[PRICE_PP\]/g,pricePP?parseFloat(pricePP).toFixed(2):'TBD');
+    }
+    if(statusEl){statusEl.textContent='✅ Auto-filled from profile.';statusEl.style.color='#16a34a';}
+  }catch(err){
+    if(statusEl){statusEl.textContent='⚠️ '+err.message;statusEl.style.color='#dc2626';}
+  }
+}
+
+async function sendTierReleasedEmail(){
+  const toEmail=(document.getElementById('eg-to-email')||{}).value?.trim();
+  const toName=(document.getElementById('eg-to-name')||{}).value?.trim()||toEmail;
+  const cabinType=(document.getElementById('eg-tr-cabin-type')?.value||'').trim()||'—';
+  const numGuests=(document.getElementById('eg-tr-num-guests')?.value||'').trim()||'—';
+  const pricePP=parseFloat(document.getElementById('eg-tr-price-pp')?.value||0)||null;
+  const statusEl=document.getElementById('eg-send-status');
+  if(!toEmail){if(statusEl){statusEl.textContent='⚠️ Traveler email is required.';statusEl.style.color='#d97706';}return;}
+  if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
+  const subject=`${TRIP_NAME} — Action Required: Cabin Pricing Released`;
+  const ppStr=pricePP?`$${pricePP.toFixed(2)}`:'TBD';
+  const htmlBody=buildEmailHtml(toName,
+    `<div style="background:#fff7ed;border:2px solid #fed7aa;border-radius:10px;padding:14px 18px;margin-bottom:18px;">
+       <div style="font-size:1rem;font-weight:800;color:#9a3412;margin-bottom:4px;">⚠️ ACTION REQUIRED — DEPOSIT NOT RECEIVED</div>
+       <div style="font-size:.88rem;color:#7c2d12;">Your cabin pricing has been released back to pending status.</div>
+     </div>`+
+    `<p>Our records indicate that a deposit has not yet been received for your cabin reservation on the <strong>${TRIP_NAME}</strong>. As a result, your cabin pricing and tier assignment have been released back to <strong>PENDING</strong> status.</p>`+
+    buildPayTable([
+      {label:'Traveler Name',value:toName},
+      {label:'Cabin Type',value:cabinType},
+      {label:'Guests in Cabin',value:numGuests},
+      ...(pricePP?[{label:'Prior Price Per Person',value:ppStr}]:[]),
+    ])+
+    `<div style="background:#fef3c7;border:1.5px solid #fcd34d;border-radius:8px;padding:13px 16px;margin:18px 0;">
+       <div style="font-weight:800;color:#92400e;margin-bottom:6px;">What this means for you:</div>
+       <ul style="margin:0;padding-left:18px;color:#78350f;font-size:.88rem;line-height:1.7;">
+         <li>Your <strong>${cabinType}</strong> cabin type hold remains active</li>
+         <li>Your previously quoted price is no longer reserved</li>
+         <li>Pricing tiers are first-come, first-served — the prior price may not be available at re-confirmation</li>
+       </ul>
+     </div>`+
+    `<p style="font-weight:700;color:#0f2744;">To re-confirm your pricing, please submit your deposit as soon as possible:</p>
+     <div style="text-align:center;margin:16px 0;">
+       <a href="${CC_AUTH_FORM_URL}" target="_blank" style="display:inline-block;background:#b45309;color:#fff;font-weight:800;font-size:.95rem;padding:13px 30px;border-radius:10px;text-decoration:none;">📋 Submit CC Authorization Form</a>
+     </div>
+     <p>Or log in to your portal to check your reservation status:</p>
+     <div style="text-align:center;margin:10px 0 18px;">
+       <a href="${PORTAL_URL}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.92rem;padding:11px 26px;border-radius:10px;text-decoration:none;">🛳️ Commonwealth Cruise Travel Portal</a>
+     </div>
+     <p style="font-size:.85rem;color:#64748b;">If you have any questions or believe this was sent in error, please contact us at <a href="mailto:${ADMIN_EMAIL}" style="color:#1a4a7c;">${ADMIN_EMAIL}</a>.</p>`
+  );
+  const plain=`Dear ${toName},\n\nACTION REQUIRED — DEPOSIT NOT RECEIVED\n\nOur records indicate that a deposit has not yet been received for your cabin reservation on the ${TRIP_NAME}. As a result, your cabin pricing and tier assignment have been released back to PENDING status.\n\nYour reservation details:\n• Traveler Name: ${toName}\n• Cabin Type: ${cabinType}\n• Guests in Cabin: ${numGuests}\n${pricePP?`• Prior Price Per Person: ${ppStr}\n`:''}\nWhat this means for you:\n• Your ${cabinType} cabin type hold remains active\n• Your previously quoted price is no longer reserved\n• Pricing tiers are first-come, first-served\n\nTo re-confirm your pricing, please submit your deposit:\n${CC_AUTH_FORM_URL}\n\nOr log in to your portal:\n${PORTAL_URL}\n\nIf you have questions, contact us at ${ADMIN_EMAIL}.\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the ${TRIP_NAME} portal.`;
+  const result=await sendEmail(toEmail,toName,subject,plain,htmlBody);
+  // Log to queue for tracking
+  if(!result?.held&&!result?.fallback&&!result?.holdFailed){
+    sb.from('email_queue').insert({
+      to_email:toEmail,to_name:toName,subject,
+      plain_body:plain,html_body:htmlBody,
+      status:result?.ok?'sent':'failed',
+      created_at:new Date().toISOString(),
+      meta:{source:'tier_released'}
+    }).catch(()=>{});
+  }
+  if(statusEl){
+    if(result?.holdFailed){statusEl.textContent='⚠️ Hold save failed.';statusEl.style.color='#dc2626';}
+    else if(result?.held){statusEl.textContent='📋 Queued in hold — check Email Queue tab.';statusEl.style.color='#d97706';if(document.getElementById('admin-heldemails'))loadEmailQueueTab();}
+    else if(result?.fallback){statusEl.textContent='📧 Email client opened.';statusEl.style.color='#d97706';}
+    else{statusEl.textContent='✅ Tier Released email sent!';statusEl.style.color='#16a34a';}
+    setTimeout(()=>{if(statusEl)statusEl.textContent='';},8000);
   }
 }
 
@@ -14317,6 +14534,16 @@ async function sendGeneratedEmail(){
   });
   const htmlBody=buildEmailHtml(toName,`<p style="line-height:1.85;font-size:.95rem;">${bodyHtmlLines.join('<br>')}</p>${attachmentHtml}`);
   const result=await sendEmail(toEmail,toName,subject,body,htmlBody);
+  // Log to email_queue for tracking even when sent directly (not held)
+  if(!result?.held&&!result?.fallback&&!result?.holdFailed){
+    sb.from('email_queue').insert({
+      to_email:toEmail,to_name:toName,subject,
+      plain_body:body,html_body:htmlBody,
+      status:result?.ok?'sent':'failed',
+      created_at:new Date().toISOString(),
+      meta:{source:'email_gen'}
+    }).catch(()=>{});
+  }
   if(statusEl){
     if(result?.holdFailed){
       statusEl.textContent='⚠️ Hold queue save failed — email was NOT queued or sent. Error: '+(result.holdErr||'unknown');
@@ -15111,6 +15338,7 @@ function handleTravelerAction(sel,userId){
   else if(v==='cabin_photo'){openAdminCabinPhotoUpload(d.cabinType||'');sel.value='';}
   else if(v==='update_guests'){adminUpdateGuestCount(d.userId,d.name,d.numGuests||1,d.cabinType,d.pricePP);sel.value='';}
   else if(v==='select_tier'){adminOpenTierModal(d.userId,d.name,d.cabinType,d.numGuests||1,d.pricePP);sel.value='';}
+  else if(v==='remove_tier'){adminRemoveFromPriceTier(d.userId,d.name,d.cabinType,d.pricePP,d.email);sel.value='';}
   else if(v==='reset_cost'){adminResetCabinCost(d.userId,d.name);sel.value='';}
   else if(v==='cost')setCabinCost(d.userId,d.name,d.cabinCost);
   else if(v==='res_num')setReservationNumber(d.userId,d.name,d.resNum);
@@ -15254,6 +15482,33 @@ function adminOpenInitialDepositEmail(name, email){
       if(email)initialDepositAutoFill();
     },60);
   },60);
+}
+
+// Open Email Generation tab pre-loaded with the Tier Released template for a specific traveler
+function adminOpenTierReleasedEmail(userId, name, email, cabinType, pricePP){
+  const tabBtn=document.querySelector('.tb-emailgen');
+  if(tabBtn)tabBtn.click();else loadEmailGenTab();
+  const idx=EMAIL_TEMPLATES.findIndex(t=>t.id==='tier_released');
+  if(idx<0){alert('Tier Released template not found.');return;}
+  setTimeout(()=>{
+    selectEmailTemplate(idx);
+    setTimeout(()=>{
+      const nameEl=document.getElementById('eg-to-name');
+      const emailEl=document.getElementById('eg-to-email');
+      if(nameEl)nameEl.value=name||'';
+      if(emailEl)emailEl.value=email||'';
+      const ctEl=document.getElementById('eg-tr-cabin-type');if(ctEl&&cabinType)ctEl.value=cabinType;
+      const ppEl=document.getElementById('eg-tr-price-pp');if(ppEl&&pricePP)ppEl.value=parseFloat(pricePP).toFixed(2);
+      // Pre-fill body placeholders
+      const bodyEl=document.getElementById('eg-body');
+      if(bodyEl&&name){
+        bodyEl.value=bodyEl.value
+          .replace(/\[TRAVELER_NAME\]/g,name)
+          .replace(/\[CABIN_TYPE\]/g,cabinType||'—')
+          .replace(/\[PRICE_PP\]/g,pricePP?parseFloat(pricePP).toFixed(2):'TBD');
+      }
+    },80);
+  },80);
 }
 
 // Open Email Generation tab pre-loaded with the Payment Confirmation template for a specific traveler
