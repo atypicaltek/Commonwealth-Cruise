@@ -7081,18 +7081,17 @@ async function checkDepositDeadline(){
       if(ca.deposit_status==='confirmed')continue; // deposit already confirmed
       if(paidSet.has(ca.user_id))continue;         // has made at least one payment
       if(alreadyOnWl.has(ca.user_id))continue;     // already on waitlist
-      try{
-        await sb.rpc('insert_waitlist_entry',{
-          user_id:ca.user_id,
-          name:prof.name||'',
-          email:prof.email||'',
-          cabin_type:ca.cabin_type||'Interior',
-          num_guests:ca.num_guests||null,
-          backup_cabin_type:ca.backup_cabin_type||null,
-          reason:'missed_deadline'
-        });
-        movedCount++;
-      }catch(e){console.warn('Deposit deadline waitlist insert for '+prof.name+':',e.message);}
+      const{error:wlErr}=await sb.rpc('insert_waitlist_entry',{
+        user_id:ca.user_id,
+        name:prof.name||'',
+        email:prof.email||'',
+        cabin_type:ca.cabin_type||'Interior',
+        num_guests:ca.num_guests||null,
+        backup_cabin_type:ca.backup_cabin_type||null,
+        reason:'missed_deadline'
+      });
+      if(wlErr){console.warn('Deposit deadline waitlist insert for '+prof.name+':',wlErr.message);}
+      else{movedCount++;}
     }
     if(movedCount>0){
       const banner=document.createElement('div');
