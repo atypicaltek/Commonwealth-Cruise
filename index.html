@@ -8069,6 +8069,8 @@ function renderTravelersView(){
         '<option value="send_pay_link">&#x1F4B3; Send Pay Link</option>'+
         '<option value="send_portal_link">&#x1F517; Send Portal Link</option>'+
         '<option value="view_profile">&#x1F464; View Profile</option>'+
+        '<option value="" disabled style="color:#cbd5e1;">──────────────</option>'+
+        '<option value="delete_cabin" style="color:#dc2626;font-weight:700;">&#x1F5D1;&#xFE0F; Remove This Cabin</option>'+
       '</select>';
       const c2Header='<tr style="background:var(--bg);border-top:2px solid var(--border);">'+
         '<td colspan="7" style="padding:6px 10px;">'+
@@ -15105,19 +15107,22 @@ async function confirmChangeCabinType(userId,name,oldType,caId){
     const prevType=returnedOld||oldType||null;
     if(prevType&&prevType!==newType){
       await sb.rpc('increment_cabin',{cabin:prevType});
-      // Restore price tier for the old type (fetch stored price first)
-      const{data:oldCa}=await sb.from('cabin_assignments').select('price_per_person').eq('user_id',userId).single();
+      // Restore price tier for old type — use limit(1)+order to safely handle multi-cabin users
+      const{data:primaryRows}=await sb.from('cabin_assignments')
+        .select('price_per_person')
+        .eq('user_id',userId)
+        .order('assigned_at',{ascending:true})
+        .limit(1);
+      const oldCa=primaryRows?.[0];
       await sb.rpc('increment_cabin_tier',{p_cabin_type:prevType,p_price:oldCa?.price_per_person||null});
     }
     await sb.rpc('decrement_cabin',{cabin:newType});
-    // Assign cheapest available price tier + auto-set cabin_cost
-    // Single occupancy: traveler pays full cabin at double rate
+    // Auto-assign cheapest available price tier to primary cabin row ONLY.
+    // Uses admin_set_price_tier which internally calls _admin_primary_cabin_id()
+    // so only the first confirmed row is updated — extra cabin rows are untouched.
     const{data:newTierPrice}=await sb.rpc('decrement_cabin_tier',{p_cabin_type:newType});
     if(newTierPrice){
-      const effGuests=numGuests===1?2:numGuests;
-      await sb.from('cabin_assignments')
-        .update({price_per_person:parseFloat(newTierPrice),cabin_cost:parseFloat(newTierPrice)*effGuests})
-        .eq('user_id',userId);
+      await sb.rpc('admin_set_price_tier',{p_user_id:userId,p_price_per_person:parseFloat(newTierPrice)});
     }
 
     document.getElementById('change-cabin-type-modal')?.remove();
@@ -15407,6 +15412,7 @@ function handleExtraCabinAction(sel,caId){
   else if(v==='send_pay_link')emailPaymentLinkToTraveler(d.name,d.email,d.payLink);
   else if(v==='send_portal_link')emailPortalLinkToTraveler(d.name,d.email);
   else if(v==='view_profile')openTravelerProfileView(d.userId,d.name,d.email);
+  else if(v==='delete_cabin'){gAdminActionCaId=null;adminDeleteExtraCabin(caId,d.cabinType,d.name,d.ordinalLabel);}
 }
 
 // ── ADMIN UPDATE GUEST COUNT ──────────────────────────────────
@@ -15461,6 +15467,31 @@ async function adminSaveGuestCount(userId,name,cabinType,caId){
     alert('Error updating guest count:\n'+(e.message||e));
     if(btn){btn.disabled=false;btn.textContent='Save Guest Count';}
   }
+}
+
+// Delete a specific extra cabin (non-primary) from a traveler's profile
+async function adminDeleteExtraCabin(caId, cabinType, travelerName, ordinalLabel){
+  if(!caId){alert('No cabin ID — cannot delete.');return;}
+  const label=ordinalLabel||'extra cabin';
+  const confirmed=confirm(
+    'Delete the '+label+' ('+cabinType+') for '+travelerName+'?\n\n'+
+    'This will:\n'+
+    '• Remove the cabin assignment row\n'+
+    '• Remove any cabin travelers linked to this cabin\n'+
+    '• Restore the cabin slot to inventory\n\n'+
+    'This cannot be undone. Proceed?'
+  );
+  if(!confirmed)return;
+  const{error}=await sb.rpc('admin_delete_extra_cabin',{p_cabin_assignment_id:caId});
+  if(error){
+    console.error('[adminDeleteExtraCabin]',error);
+    alert('Error deleting cabin:\n'+(error.message||JSON.stringify(error))+'\n\nMake sure Statement 103 in urgent-fixes.sql has been run in Supabase.');
+    return;
+  }
+  // Refresh cabin data
+  delete gExtra2CabData[caId];
+  await loadTravelers();
+  alert(label+' successfully removed for '+travelerName+'.');
 }
 
 // Open Email Generation tab pre-loaded with the Initial Deposit Due template for a specific traveler
