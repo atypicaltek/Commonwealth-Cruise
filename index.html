@@ -9239,6 +9239,7 @@ async function loadAdminPayments(){
     // Build extra cabin sub-sections
     let extraHtml='';
     extraCabins.forEach((c2,idx)=>{
+      if(!c2.id){console.warn('[Payments] extra cabin missing id — RPC may need Statement 102 re-run');return;}
       const c2Pays=u.payments.filter(p=>p.cabin_assignment_id===c2.id);
       const c2Paid=c2Pays.reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
       const occupant=cabinOccupantName[c2.id]||'';
@@ -9252,7 +9253,7 @@ async function loadAdminPayments(){
       const safeCabinLabel=c2Label.replace(/'/g,"\\'");
       const safeOccupant=occupant.replace(/'/g,"\\'");
       const addPayBtn=isCancRefund?'':
-        `<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 10px;margin-left:12px;color:#7c3aed;border-color:#ddd6fe;" onclick="openExtraCabinPayment('${safeUserId}','${safeUserName}','${safeCaId}','${safeCabinLabel}','${safeOccupant}')">➕ Add Payment</button>`;
+        `<button class="btn btn-ghost btn-sm" style="font-size:.74rem;padding:3px 10px;margin-left:12px;color:#7c3aed;border-color:#ddd6fe;" onclick="event.stopPropagation();openExtraCabinPayment('${safeUserId}','${safeUserName}','${safeCaId}','${safeCabinLabel}','${safeOccupant}')">➕ Add Payment</button>`;
       extraHtml+=`
         <tr style="cursor:pointer;background:#f5f3ff;border-top:2px solid #ddd6fe;" onclick="toggleTravelerPayRows('extra${c2.id}')">
           <td colspan="8" style="padding:7px 14px;">
