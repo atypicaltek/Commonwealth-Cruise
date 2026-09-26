@@ -3381,6 +3381,11 @@ async function completeRegistration(){
       emailAccessibleRequestReceived({name:_fullName,email:gRegEmail},cabinType,numGuests);
     }
 
+    // Suite request: email traveler + admin (RPC inserts into suite_requests; trigger syncs to waitlist)
+    if(isSuiteReq&&!_wasWaitlisted){
+      emailSuiteRequestReceived({name:_fullName,email:gRegEmail},backupCabin,suitePhone);
+    }
+
     // Auto-sign-in with the just-created PIN so user goes straight to dashboard
     let{data:siData,error:siErr}=await sb.auth.signInWithPassword({email:gRegEmail,password:pin});
     // Handle email-not-confirmed: auto-confirm and retry once
@@ -10485,6 +10490,9 @@ async function confirmSuite(reqId,userId,backupCabin,name,email){
   // 4. Mark suite request confirmed + auto-set cancel_at 48 hours from now
   const cancelAt=new Date();cancelAt.setHours(cancelAt.getHours()+48);
   await sb.from('suite_requests').update({status:'confirmed',confirmed_at:new Date().toISOString(),cancel_at:cancelAt.toISOString()}).eq('id',reqId);
+  // 4b. Remove from cabin_waitlist — they are confirmed, no longer pending
+  const{error:wlDelErr}=await sb.from('cabin_waitlist').delete().eq('user_id',userId);
+  if(wlDelErr)console.warn('[confirmSuite] waitlist remove non-fatal:',wlDelErr.message);
   // 5. Send confirmation email — admin can skip
   if(confirm(`📧 Send suite confirmation email to ${name} at ${email}?\n\nClick OK to send, or Cancel to skip.`)){
     emailSuiteConfirmed(name,email,cabinNum.trim()||null);
@@ -10501,14 +10509,13 @@ async function declineSuite(reqId,userId,backupCabin,name,email){
   // Mark request declined
   await sb.from('suite_requests').update({status:'declined'}).eq('id',reqId);
   // Auto-add to suite waitlist so admin can track and reassign when a suite opens up
-  try{
-    await sb.rpc('insert_waitlist_entry',{
-      user_id:userId,name,email,
-      cabin_type:'Suite',
-      num_guests:null,
-      backup_cabin_type:backupCabin
-    });
-  }catch(wlErr){console.warn('Suite waitlist insert (non-fatal):',wlErr.message);}
+  const{error:wlErr}=await sb.rpc('insert_waitlist_entry',{
+    user_id:userId,name,email,
+    cabin_type:'Suite',
+    num_guests:null,
+    backup_cabin_type:backupCabin
+  });
+  if(wlErr)console.warn('Suite waitlist insert (non-fatal):',wlErr.message);
   // Send decline email — admin can skip
   if(confirm(`📧 Send suite decline notification to ${name} at ${email}?\n\nClick OK to send, or Cancel to skip.`)){
     emailSuiteDeclined(name,email,backupCabin);
