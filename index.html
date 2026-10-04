@@ -3318,9 +3318,10 @@ async function completeRegistration(){
       if(_typeFull||_tierFull){
         // Show amber info notice — do NOT call showErr() which re-enables the button.
         // The RPC handles waitlist routing; account is still created normally.
+        // Do NOT say "sold out" — some reservations may be unconfirmed (no deposit paid).
         alertEl.className='alert';
         alertEl.style.cssText='display:block;background:#fef3c7;border:1.5px solid #fbbf24;color:#78350f;padding:10px 14px;border-radius:8px;font-size:.83rem;line-height:1.5;';
-        alertEl.textContent=`${regCabinCheck} cabins are currently sold out — your account will still be created and you'll be added to the waitlist. We'll contact you when a spot opens.`;
+        alertEl.textContent=`${regCabinCheck} cabin reservations are currently full — your account will still be created and your request will be added to the waitlist. An admin must approve your booking before it can be confirmed.`;
         busy.textContent='⏳ Creating your account & joining waitlist…';
         // Don't return — let the RPC handle waitlist routing
       }
@@ -3358,22 +3359,25 @@ async function completeRegistration(){
     // SMS alert to admin
     const _fullName=[document.getElementById('reg-firstname')?.value?.trim(),document.getElementById('reg-lastname')?.value?.trim()].filter(Boolean).join(' ');
     const _wasWaitlisted=result&&typeof result==='object'&&result.waitlisted===true;
-    sendAdminSms(`New CruisePortal account: ${_fullName||'Unknown'} (${gRegEmail}) — ${cabinType||'cabin TBD'} x${numGuests||'?'}${_wasWaitlisted?' [WAITLISTED — sold out]':''}`);
+    sendAdminSms(`New CruisePortal account: ${_fullName||'Unknown'} (${gRegEmail}) — ${cabinType||'cabin TBD'} x${numGuests||'?'}${_wasWaitlisted?' [WAITLISTED — approval required]':''}`);
 
-    // If routed to waitlist (sold out), send waitlist emails
+    // If routed to waitlist (all reservations full — some may be unconfirmed), send waitlist emails
     if(_wasWaitlisted){
       const _wlCabin=(result&&result.cabin_type)||cabinType;
       const _wlHtml=buildEmailHtml(_fullName,
         `<p>Thank you for registering for the ${TRIP_NAME}!</p>`+
-        `<p>Unfortunately, <strong>${_wlCabin} Cabins</strong> are currently sold out. You have been added to the waitlist.</p>`+
+        `<p>Your request for a <strong>${_wlCabin} Cabin</strong> has been received and added to the waitlist.</p>`+
         buildPayTable([{label:'Cabin Type Requested',value:_wlCabin},{label:'Number of Guests',value:numGuests||'—'}])+
-        `<p>We will contact you by email as soon as a spot becomes available. <strong>No payment is required at this time.</strong></p>`+
+        `<div style="background:#fef3c7;border:1.5px solid #fbbf24;border-radius:8px;padding:12px 14px;margin:12px 0;">`+
+        `<p style="margin:0;font-weight:700;color:#78350f;">⏳ Approval Required Before Confirmation</p>`+
+        `<p style="margin:6px 0 0;font-size:.88rem;color:#374151;">All current reservations for this cabin type are pending confirmation. Your request must be approved by the trip organizer before it can be confirmed. <strong>No payment is required at this time.</strong></p>`+
+        `</div>`+
         `<p>Your portal account has been created — you can log in to check your status at any time.</p>`
       );
-      const _wlPlain=`Thank you for registering for the ${TRIP_NAME}!\n\n${_wlCabin} Cabins are sold out. You've been added to the waitlist (${numGuests||'—'} guests).\n\nWe'll contact you when a spot opens up. No payment required now.\n\nYou can log in to the portal to check your status.`;
-      sendEmail(gRegEmail,_fullName,`${TRIP_NAME} — You're on the Waitlist: ${_wlCabin} Cabin`,_wlPlain,_wlHtml);
-      const _wlAdminHtml=buildEmailHtml('Admin',`<p>${_fullName} registered but was routed to the <strong>${_wlCabin} Cabin waitlist</strong> (sold out at booking time).</p>`+buildPayTable([{label:'Name',value:_fullName},{label:'Email',value:gRegEmail},{label:'Cabin Requested',value:_wlCabin},{label:'Guests',value:numGuests||'—'}]));
-      sendEmail(ADMIN_EMAIL,'Admin',`${TRIP_NAME} — New Waitlist (Registration): ${_fullName}`,`${_fullName} (${gRegEmail}) registered and was waitlisted for ${_wlCabin} x${numGuests||'?'}.`,_wlAdminHtml);
+      const _wlPlain=`Thank you for registering for the ${TRIP_NAME}!\n\nYour ${_wlCabin} Cabin request has been received and added to the waitlist (${numGuests||'—'} guests).\n\nAll current reservations for this cabin type are pending confirmation. Your request must be approved by the trip organizer before it can be confirmed. No payment required now.\n\nYou can log in to the portal to check your status.`;
+      sendEmail(gRegEmail,_fullName,`${TRIP_NAME} — Cabin Request Pending Approval: ${_wlCabin}`,_wlPlain,_wlHtml);
+      const _wlAdminHtml=buildEmailHtml('Admin',`<p>${_fullName} registered and was routed to the <strong>${_wlCabin} Cabin waitlist</strong> (all reservations full — approval required).</p>`+buildPayTable([{label:'Name',value:_fullName},{label:'Email',value:gRegEmail},{label:'Cabin Requested',value:_wlCabin},{label:'Guests',value:numGuests||'—'}]));
+      sendEmail(ADMIN_EMAIL,'Admin',`${TRIP_NAME} — New Waitlist (Approval Required): ${_fullName}`,`${_fullName} (${gRegEmail}) registered and was waitlisted for ${_wlCabin} x${numGuests||'?'} — all reservations full, approval required.`,_wlAdminHtml);
     }
 
     // Accessible cabin: email traveler + admin (bypass hold)
@@ -3917,8 +3921,8 @@ async function loadRegInventory(){
       const avail=row.available_cabins;
       const priceStr=minPrice[type]?` — From $${minPrice[type].toLocaleString()}/person`:'';
       if(avail<=0){
-        opt.textContent=`${type} Cabin${priceStr} — SOLD OUT`;
-        opt.disabled=true;
+        opt.textContent=`${type} Cabin${priceStr} — Pending Approval Required`;
+        opt.disabled=false;
       } else if(avail<=5){
         opt.textContent=`${type} Cabin${priceStr} (${avail} left — Almost Full!)`;
       } else {
@@ -3934,18 +3938,25 @@ async function loadRegInventory(){
 async function loadInventoryForSetup(){
   const[{data:invData},{data:asgData},{data:tierData}]=await Promise.all([
     sb.from('cabin_inventory').select('*'),
-    sb.from('cabin_assignments').select('cabin_type,status'),
+    sb.from('cabin_assignments').select('cabin_type,status,price_per_person'),
     sb.from('cabin_price_tiers').select('*').order('price_per_person',{ascending:true})
   ]);
   if(tierData)gCabinTierData=tierData;
   if(!invData)return;
   // Compute actual booked counts — exclude pending_admin (unconfirmed 2nd cabin requests)
-  const actualBooked={};
-  (asgData||[]).filter(a=>a.status!=='pending_admin').forEach(a=>{actualBooked[a.cabin_type]=(actualBooked[a.cabin_type]||0)+1;});
+  // confirmedBooked = has price_per_person assigned (deposit tier confirmed)
+  // totalBooked = all active assignments (including soft-hold / no deposit paid yet)
+  const totalBooked={};
+  const confirmedBooked={};
+  (asgData||[]).filter(a=>a.status!=='pending_admin').forEach(a=>{
+    totalBooked[a.cabin_type]=(totalBooked[a.cabin_type]||0)+1;
+    if(a.price_per_person!=null)confirmedBooked[a.cabin_type]=(confirmedBooked[a.cabin_type]||0)+1;
+  });
   gInventory={};
   invData.forEach(r=>{
-    const booked=actualBooked[r.cabin_type]||0;
-    gInventory[r.cabin_type]={...r,available_cabins:Math.max(0,r.total_cabins-booked)};
+    const booked=totalBooked[r.cabin_type]||0;
+    const confirmed=confirmedBooked[r.cabin_type]||0;
+    gInventory[r.cabin_type]={...r,available_cabins:Math.max(0,r.total_cabins-booked),confirmed_booked:confirmed,total_booked:booked};
   });
   // gCabinMinPrices intentionally not shown to travelers (stale tier data not reliable)
   gCabinMinPrices={};
@@ -3961,7 +3972,7 @@ function updatePsetupCabinAvail(){
     const inv=gInventory[t];
     if(!inv){opt.textContent=t+' Cabin';opt.disabled=false;return;}
     const avail=inv.available_cabins;
-    if(avail<=0){opt.textContent=`${t} Cabin — SOLD OUT`;opt.disabled=true;}
+    if(avail<=0){opt.textContent=`${t} Cabin — Pending Approval Required`;opt.disabled=false;}
     else if(avail<=5){opt.textContent=`${t} Cabin (${avail} remaining — Almost Full!)`;opt.disabled=false;}
     else{opt.textContent=`${t} Cabin (${avail} remaining)`;opt.disabled=false;}
   });
@@ -3991,18 +4002,15 @@ async function onPsetupCabinTypeChange(){
   }
   const isSuite=val==='Suite';
 
-  // Check sold-out for non-suite types (use actual count, not stored counter)
+  // Check inventory status for non-suite types
   if(!isSuite){
     const inv=gInventory[val];
     if(inv&&inv.available_cabins<=0){
-      const altList=Object.entries(gInventory)
-        .filter(([t,v])=>t!=='Suite'&&v.available_cabins>0)
-        .map(([t,v])=>`<strong>${t}</strong> (${v.available_cabins} remaining)`).join(', ');
+      // Slots are fully reserved (some may be soft-holds with no deposit paid yet).
+      // Do NOT block — allow the request to proceed and route to approval/waitlist flow.
       const avEl=document.getElementById('psetup-cabin-avail');
-      if(avEl)avEl.innerHTML=`<span style="color:var(--danger);font-weight:700;">❌ ${val} cabins are SOLD OUT.</span>${altList?'<br>Available options: '+altList:'<br>No cabin types currently available.'}`;
-      document.getElementById('psetup-suite-backup').style.display='none';
-      document.getElementById('psetup-submit-section').style.display='none';
-      return;
+      if(avEl)avEl.innerHTML=`<span style="color:#78350f;font-weight:700;">⏳ ${val} cabins are fully reserved — your request will be placed on the waitlist and must be approved before it can be confirmed.</span>`;
+      // Fall through — let submit section appear so user can proceed
     }
   }
 
@@ -4085,13 +4093,14 @@ async function doProfileSetup(){
     sb.from('cabin_assignments').select('id',{count:'exact',head:true}).eq('cabin_type',checkCabin).neq('status','pending_admin'),
     sb.from('cabin_price_tiers').select('id').eq('cabin_type',checkCabin).gt('available_cabins',0).limit(1)
   ]);
-  const typeSoldOut=!invRow||(actualBooked!=null&&actualBooked>=invRow.total_cabins);
+  // typeFull = all slots reserved (confirmed + soft-holds); does NOT mean sold out — some may be unconfirmed
+  const typeFull=!invRow||(actualBooked!=null&&actualBooked>=invRow.total_cabins);
   // Only apply tier check for regular cabin types that have price tiers
-  const tierSoldOut=!typeSoldOut&&(tierAvail!=null&&tierAvail.length===0);
-  const soldOut=typeSoldOut||tierSoldOut;
-  if(soldOut){
-    // ── SOLD OUT: Join waitlist ───────────────────────────────
-    flash('psetup-alert','That cabin type is currently sold out. Adding you to the waitlist…','info');
+  const tierFull=!typeFull&&(tierAvail!=null&&tierAvail.length===0);
+  const needsApproval=typeFull||tierFull;
+  if(needsApproval){
+    // ── ALL SLOTS RESERVED: Route to waitlist — requires admin approval ───────────────────────────
+    flash('psetup-alert','All reservations for this cabin type are currently pending or confirmed. Your request has been added to the waitlist and will require admin approval before confirmation.','info');
     const wlName=gProfile?.name||gUser?.user_metadata?.full_name||gUser?.user_metadata?.name||'Traveler';
     const wlEmail=gProfile?.email||gUser.email;
     const wlPayload={user_id:gUser.id,name:wlName,email:wlEmail,
@@ -4101,22 +4110,25 @@ async function doProfileSetup(){
     if(wlErr){flash('psetup-alert','Waitlist error: '+wlErr.message+'. Please try again or contact the trip organizer.');return;}
     // Email traveler
     const wlHtml=buildEmailHtml(wlName,
-      `<p>You've been added to the waitlist for a <strong>${checkCabin} Cabin</strong> on the ${TRIP_NAME}.</p>`+
+      `<p>Your request for a <strong>${checkCabin} Cabin</strong> on the ${TRIP_NAME} has been received and added to the waitlist.</p>`+
       buildPayTable([{label:'Cabin Type Requested',value:checkCabin},{label:'Number of Guests',value:numGuests||'—'}])+
-      `<p>We'll notify you by email as soon as a spot becomes available. <strong>No payment is required at this time.</strong></p>`+
-      `<p>If you have questions, please contact the trip organizer.</p>`
+      `<div style="background:#fef3c7;border:1.5px solid #fbbf24;border-radius:8px;padding:12px 14px;margin:12px 0;">`+
+      `<p style="margin:0;font-weight:700;color:#78350f;">⏳ Approval Required Before Confirmation</p>`+
+      `<p style="margin:6px 0 0;font-size:.88rem;color:#374151;">All current reservations for this cabin type are pending confirmation. Your request is on the waitlist and must be approved by the trip organizer before it can be confirmed. <strong>No payment is required at this time.</strong></p>`+
+      `</div>`+
+      `<p>We will contact you as soon as your request can be reviewed. If you have questions, please contact the trip organizer at <a href="mailto:${ADMIN_EMAIL}">${ADMIN_EMAIL}</a>.</p>`
     );
-    const wlPlain=`You've been added to the ${checkCabin} Cabin waitlist for the ${TRIP_NAME}.\n\nGuests: ${numGuests||'—'}\n\nWe'll notify you when a spot opens up. No payment is required at this time.\n\n${TRIP_NAME} Team`;
-    sendEmail(wlEmail,wlName,`${TRIP_NAME} — You're on the Waitlist: ${checkCabin} Cabin`,wlPlain,wlHtml);
-    const wlAdminHtml=buildEmailHtml('Admin',`<p>${wlName} has joined the <strong>${checkCabin} Cabin</strong> waitlist.</p>`+buildPayTable([{label:'Name',value:wlName},{label:'Email',value:wlEmail},{label:'Cabin Requested',value:checkCabin},{label:'Number of Guests',value:numGuests||'—'}]));
-    sendEmail(ADMIN_EMAIL,'Admin',`${TRIP_NAME} — New Waitlist Entry: ${checkCabin}`,
-      `${wlName} (${wlEmail}) has joined the ${checkCabin} waitlist.\n\nGuests: ${numGuests||'—'}`,wlAdminHtml);
+    const wlPlain=`Your ${checkCabin} Cabin request for the ${TRIP_NAME} has been received.\n\nAll current reservations for this cabin type are pending confirmation. Your request is on the waitlist and requires admin approval before it can be confirmed.\n\nGuests: ${numGuests||'—'}\n\nNo payment is required at this time. We will contact you once your request has been reviewed.\n\n${TRIP_NAME} Team`;
+    sendEmail(wlEmail,wlName,`${TRIP_NAME} — Cabin Request Pending Approval: ${checkCabin}`,wlPlain,wlHtml);
+    const wlAdminHtml=buildEmailHtml('Admin',`<p>${wlName} has joined the <strong>${checkCabin} Cabin</strong> waitlist (approval required — all slots reserved).</p>`+buildPayTable([{label:'Name',value:wlName},{label:'Email',value:wlEmail},{label:'Cabin Requested',value:checkCabin},{label:'Number of Guests',value:numGuests||'—'}]));
+    sendEmail(ADMIN_EMAIL,'Admin',`${TRIP_NAME} — New Waitlist Entry (Approval Required): ${checkCabin}`,
+      `${wlName} (${wlEmail}) joined the ${checkCabin} waitlist — all slots reserved, approval required.\n\nGuests: ${numGuests||'—'}`,wlAdminHtml);
     gProfileSetupComplete=true;
     document.getElementById('profile-setup-modal').classList.remove('open');
     loadDashboard();
     return;
   }
-  } // end if(!isAccessiblePsetup) sold-out check
+  } // end if(!isAccessiblePsetup) approval-required check
 
   flash('psetup-alert','Saving your profile…','info');
 
@@ -7814,13 +7826,15 @@ async function loadTravelers(){
     {data:allCabins},
     {data:allPayments},
     {data:allCabinTravelers},
-    {data:emailLogs}
+    {data:emailLogs},
+    {data:allRefunds}
   ]=await Promise.all([
     sb.from('profiles').select('id,name,email,status,needs_doc_info,cc_auth_url,cc_auth_filename').neq('is_admin',true).order('name'),
     sb.rpc('admin_get_all_cabin_assignments'),
     sb.from('user_payments').select('user_id,amount_due,amount_paid'),
     sb.rpc('admin_get_all_cabin_travelers'),
-    sb.from('email_queue').select('to_email,subject,created_at,status').order('created_at',{ascending:false})
+    sb.from('email_queue').select('to_email,subject,created_at,status').order('created_at',{ascending:false}),
+    sb.from('refund_entries').select('user_id,amount').catch(()=>({data:[]}))
   ]);
   // Build email map keyed by lowercased to_email
   const emailMap={};
@@ -7862,6 +7876,12 @@ async function loadTravelers(){
     payMap[p.user_id].due+=parseFloat(p.amount_due||0);
     payMap[p.user_id].paid+=parseFloat(p.amount_paid||0);
   });
+  // Build refund map: user_id → total admin-entered refund amounts
+  const refundMap={};
+  (allRefunds||[]).forEach(r=>{
+    refundMap[r.user_id]=(refundMap[r.user_id]||0)+parseFloat(r.amount||0);
+  });
+  window.gRefundMap=refundMap; // expose for row renders
   // occupantMap: travelers with no cabin_assignment_id (primary cabin occupants)
   // secondCabinOccupantMap: travelers linked to a specific 2nd cabin assignment (keyed by cabin_assignment_id)
   const occupantMap={};
@@ -8146,6 +8166,8 @@ function renderTravelersView(){
     const ca=cabinMap[p.id]||null;
     const pData=payMap[p.id]||{due:0,paid:0};
     const paid=pData.paid;
+    const refundAmt=(window.gRefundMap||{})[p.id]||0;
+    const netPaid=Math.max(0,paid-refundAmt);
     const cabinStr=ca?(ca.cabin_type+(ca.cabin_number?' #'+ca.cabin_number:'')):'&#x2014;';
     window.gTravelerData[p.id]={userId:p.id,name:p.name||'',email:p.email||'',
       cabinType:ca?.cabin_type||'',cabinNumber:ca?.cabin_number||'',
@@ -8155,18 +8177,24 @@ function renderTravelersView(){
       backupCabinType:'',highOccPending:false,
       cabinChangePending:false,requestedCabinType:'',
       ccAuthUrl:p.cc_auth_url||'',ccAuthFilename:p.cc_auth_filename||''};
+    const refundBadge=refundAmt>0?`<br><span style="color:#6b21a8;font-size:.75rem;font-weight:700;">↩ ${fmt(refundAmt)} refunded</span>`:'' ;
+    const paidDisplay=paid>0
+      ?(refundAmt>0?`<span style="color:#374151;">${fmt(paid)}</span>${refundBadge}<br><strong style="color:#166534;">${fmt(netPaid)} net</strong>`:fmt(paid))
+      :(refundAmt>0?refundBadge:'—');
     const cancelledActions='<select class="action-sel" onchange="handleTravelerAction(this,\''+p.id+'\')">'+
       '<option value="">&#x26A1; Actions...</option>'+
       '<option value="view_profile">&#x1F440; View Profile</option>'+
       '<option value="manage_travelers">&#x1F465; View Travelers</option>'+
+      '<option value="add_note">📝 Add Note</option>'+
+      '<option value="enter_refund">↩️ Enter Refund</option>'+
       '<option value="restore_traveler">&#x21A9;&#xFE0F; Restore to Active</option>'+
       '<option value="delete">&#x1F5D1; Delete Account</option>'+
       '</select>';
-    return'<tr style="opacity:.7;background:#fdf2f2;">'+
+    return'<tr style="opacity:.75;background:#fdf2f2;">'+
       '<td><span style="font-weight:700;">'+(p.name||'—')+'</span><br><small style="color:#6b7280;">'+(p.email||'')+'</small><br><span class="badge badge-danger" style="font-size:.72rem;margin-top:2px;">&#x1F6AB; Cancelled / Not Going</span></td>'+
       '<td style="color:#9ca3af;">'+(cabinStr||'—')+'</td>'+
       '<td style="color:#9ca3af;">—</td>'+
-      '<td class="col-r" style="color:#9ca3af;">'+(paid>0?fmt(paid):'—')+'</td>'+
+      '<td class="col-r" style="color:#6b7280;">'+paidDisplay+'</td>'+
       '<td class="col-r" style="color:#9ca3af;">—</td>'+
       '<td style="color:#9ca3af;">—</td>'+
       '<td>'+cancelledActions+'</td>'+
@@ -12590,6 +12618,30 @@ Your Commonwealth Cruise Team`
     customSend:()=>sendDeclinedPaymentEmail()
   },
   {
+    id:'refund_initiated',label:'Refund Initiated',icon:'↩️',
+    toMode:'traveler',
+    buildPreview:()=>({
+      subject:`${TRIP_NAME} — Refund Initiated`,
+      toLabel:'Traveler email',toPlaceholder:'traveler@email.com',toName:'',
+      extraFields:`<div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;">
+  <button type="button" onclick="refundInitiatedAutoFill()" style="background:#e0f2fe;color:#0c4a6e;border:1.5px solid #bae6fd;border-radius:7px;padding:6px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">🔍 Auto-fill from Profile</button>
+  <span id="eg-ri-status" style="font-size:.75rem;color:#94a3b8;">Enter traveler email above, then click to auto-fill.</span>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+  <div><label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Refund Amount ($) <span style="color:#dc2626;">*</span></label>
+    <input id="eg-ri-amount" type="number" min="0.01" step="0.01" placeholder="0.00" oninput="refundInitiatedUpdateBody()" style="width:100%;padding:8px 11px;border:1.5px solid #86efac;border-radius:7px;font-size:.88rem;box-sizing:border-box;"></div>
+  <div><label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Date Initiated</label>
+    <input id="eg-ri-date" type="date" value="${new Date().toISOString().slice(0,10)}" oninput="refundInitiatedUpdateBody()" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.88rem;box-sizing:border-box;"></div>
+</div>
+<div style="margin-bottom:10px;"><label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Additional Notes (optional)</label>
+  <textarea id="eg-ri-notes" rows="2" placeholder="e.g. Partial refund per cancellation policy." oninput="refundInitiatedUpdateBody()" style="width:100%;padding:8px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:.83rem;resize:vertical;box-sizing:border-box;"></textarea>
+</div>`,
+      body:`Hello [TRAVELER_NAME],\n\nThis email is to confirm that a refund of $[REFUND_AMOUNT] has been initiated for your ${TRIP_NAME} reservation.\n\nREFUND DETAILS:\n• Amount: $[REFUND_AMOUNT]\n• Date Initiated: [REFUND_DATE]\n\nPlease allow 7–10 business days for the refund to appear in your account. Processing times may vary depending on your financial institution.\n\n[NOTES]\nIf you do not see the refund after 10 business days, please contact us at ${ADMIN_EMAIL} and we will be happy to assist you.\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the ${TRIP_NAME} portal.`
+    }),
+    useCustomSend:true,
+    customSend:()=>sendRefundInitiatedEmail()
+  },
+  {
     id:'carnival_profile_setup',label:'Carnival Profile Setup',icon:'🚢',
     toMode:'traveler',
     buildPreview:()=>{
@@ -13458,6 +13510,83 @@ async function sendDeclinedPaymentEmail(){
       localStorage.setItem('dp_declined_log',JSON.stringify(log));
     }catch(e){}
     if(statusEl){statusEl.textContent='✅ Declined Payment Notice sent!';statusEl.style.color='#16a34a';setTimeout(()=>{if(statusEl)statusEl.textContent='';},6000);}
+  }catch(e){
+    if(statusEl){statusEl.textContent='⚠️ Error: '+(e.message||e);statusEl.style.color='#dc2626';}
+  }
+}
+
+// ── REFUND INITIATED — Email Generation tab auto-fill + send ──
+async function refundInitiatedAutoFill(){
+  const email=(document.getElementById('eg-to-email')||{}).value?.trim();
+  const statusEl=document.getElementById('eg-ri-status');
+  if(!email){if(statusEl){statusEl.textContent='Enter traveler email above first.';statusEl.style.color='#d97706';}return;}
+  if(statusEl){statusEl.innerHTML='<span style="color:#475569;">🔍 Looking up…</span>';}
+  try{
+    let name='',userId=null,totalPaid=0;
+    const{data:prof}=await sb.from('profiles').select('id,name').ilike('email',email).limit(1).maybeSingle();
+    if(prof){name=prof.name||'';userId=prof.id;}
+    if(userId){
+      const{data:pays}=await sb.from('user_payments').select('amount_paid').eq('user_id',userId);
+      totalPaid=(pays||[]).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+      // Pre-fill refund amount with total paid (admin can adjust)
+      const amtEl=document.getElementById('eg-ri-amount');
+      if(amtEl&&totalPaid>0)amtEl.value=totalPaid.toFixed(2);
+    }
+    const nameEl=document.getElementById('eg-to-name');if(nameEl&&name)nameEl.value=name;
+    if(!name){if(statusEl){statusEl.textContent='No profile found — fill in manually.';statusEl.style.color='#dc2626';}return;}
+    refundInitiatedUpdateBody();
+    if(statusEl){statusEl.textContent='✅ Auto-filled.';statusEl.style.color='#16a34a';setTimeout(()=>{if(statusEl)statusEl.textContent='';},5000);}
+  }catch(e){if(statusEl){statusEl.textContent='Error: '+(e.message||e);statusEl.style.color='#dc2626';}}
+}
+
+function refundInitiatedUpdateBody(){
+  const bodyEl=document.getElementById('eg-body');
+  if(!bodyEl)return;
+  const toName=(document.getElementById('eg-to-name')||{}).value?.trim()||'[TRAVELER_NAME]';
+  const amtRaw=(document.getElementById('eg-ri-amount')||{}).value?.trim()||'';
+  const dateRaw=(document.getElementById('eg-ri-date')||{}).value?.trim()||'';
+  const notes=(document.getElementById('eg-ri-notes')||{}).value?.trim()||'';
+  const amtFmt=amtRaw?parseFloat(amtRaw).toFixed(2):'[REFUND_AMOUNT]';
+  let dateFmt=dateRaw||'[REFUND_DATE]';
+  if(dateRaw){try{dateFmt=new Date(dateRaw+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});}catch(e){}}
+  const notesLine=notes?`\nAdditional Notes:\n${notes}\n\n`:'';
+  bodyEl.value=`Hello ${toName},\n\nThis email is to confirm that a refund of $${amtFmt} has been initiated for your ${TRIP_NAME} reservation.\n\nREFUND DETAILS:\n• Amount: $${amtFmt}\n• Date Initiated: ${dateFmt}\n\nPlease allow 7–10 business days for the refund to appear in your account. Processing times may vary depending on your financial institution.\n\n${notesLine}If you do not see the refund after 10 business days, please contact us at ${ADMIN_EMAIL} and we will be happy to assist you.\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the ${TRIP_NAME} portal.`;
+}
+
+async function sendRefundInitiatedEmail(){
+  const toEmail=(document.getElementById('eg-to-email')||{}).value?.trim();
+  const toName=(document.getElementById('eg-to-name')||{}).value?.trim()||'Traveler';
+  const amtRaw=(document.getElementById('eg-ri-amount')||{}).value?.trim()||'';
+  const dateRaw=(document.getElementById('eg-ri-date')||{}).value?.trim()||'';
+  const notes=(document.getElementById('eg-ri-notes')||{}).value?.trim()||'';
+  const statusEl=document.getElementById('eg-send-status');
+  if(!toEmail){if(statusEl){statusEl.textContent='⚠️ Traveler email is required.';statusEl.style.color='#d97706';}return;}
+  if(!amtRaw||parseFloat(amtRaw)<=0){if(statusEl){statusEl.textContent='⚠️ Please enter a refund amount.';statusEl.style.color='#d97706';}return;}
+  if(statusEl){statusEl.textContent='Sending…';statusEl.style.color='#64748b';}
+  const amount=parseFloat(amtRaw);
+  const subject=`${TRIP_NAME} — Refund Initiated`;
+  const rawBody=(document.getElementById('eg-body')||{}).value||'';
+  const bodyParas=rawBody.split(/\n{2,}/).map(para=>{
+    const t=para.trim();if(!t)return'';
+    if(/^Hello\b/i.test(t)&&t.length<80)return'';
+    let dateFmt=dateRaw||'';
+    if(dateRaw){try{dateFmt=new Date(dateRaw+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});}catch(e){}}
+    if(t.includes('REFUND DETAILS')){
+      return`<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:16px 18px;margin:18px 0;">`+
+        `<strong style="display:block;font-size:.95rem;color:#14532d;margin-bottom:12px;">↩️ Refund Details</strong>`+
+        `<table style="width:100%;border-collapse:collapse;font-size:.9rem;">`+
+        `<tr style="border-bottom:1px solid #bbf7d0;"><td style="padding:8px 6px;color:#374151;">Amount</td><td style="padding:8px 6px;text-align:right;font-weight:800;color:#166534;font-size:1.05rem;">$${amount.toFixed(2)}</td></tr>`+
+        (dateFmt?`<tr><td style="padding:8px 6px;color:#374151;">Date Initiated</td><td style="padding:8px 6px;text-align:right;font-weight:600;">${dateFmt}</td></tr>`:'')+
+        `</table></div>`+
+        `<div style="background:#fef9c3;border:1.5px solid #fde047;border-radius:8px;padding:12px 16px;margin-top:8px;">⏱️ <strong>Allow 7–10 business days</strong> for the refund to appear in your account.</div>`;
+    }
+    if(t.startsWith('•')){const items=t.split('\n').filter(l=>l.trim());return`<ul style="line-height:2;padding-left:20px;">${items.map(l=>`<li>${l.replace(/^•\s*/,'')}</li>`).join('')}</ul>`;}
+    return`<p style="line-height:1.85;">${t.replace(/https?:\/\/\S+/g,u=>`<a href="${u}" style="color:#1a4a7c;">${u}</a>`)}</p>`;
+  }).join('');
+  const htmlBody=buildEmailHtml(toName,styleEmailDates(bodyParas));
+  try{
+    await sendEmail(toEmail,toName,subject,rawBody,htmlBody,false,false);
+    if(statusEl){statusEl.textContent='✅ Refund Initiated email sent!';statusEl.style.color='#16a34a';setTimeout(()=>{if(statusEl)statusEl.textContent='';},6000);}
   }catch(e){
     if(statusEl){statusEl.textContent='⚠️ Error: '+(e.message||e);statusEl.style.color='#dc2626';}
   }
@@ -15437,6 +15566,104 @@ function emailPortalLinkToTraveler(name,email){
   alert('✅ Portal link sent to '+email);
 }
 
+// ── REFUND ENTRY MODAL (cancelled travelers) ──────────────────
+function openRefundEntryModal(userId,name,email,totalPaid){
+  const existing=document.getElementById('refund-entry-modal');
+  if(existing)existing.remove();
+  const existingRefund=((window.gRefundMap||{})[userId]||0);
+  const today=new Date().toISOString().slice(0,10);
+  const m=document.createElement('div');
+  m.id='refund-entry-modal';
+  m.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px;';
+  m.innerHTML=`<div style="background:#fff;border-radius:14px;padding:24px;max-width:480px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.18);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <div style="font-weight:700;font-size:1.05rem;">↩️ Enter Refund — ${(name||'').replace(/</g,'&lt;')}</div>
+      <button onclick="document.getElementById('refund-entry-modal').remove()" style="background:none;border:none;font-size:1.5rem;color:#94a3b8;cursor:pointer;line-height:1;">&times;</button>
+    </div>
+    <p style="margin:0 0 14px;font-size:.83rem;color:#6b7280;">${email||''}</p>
+    ${totalPaid>0?`<div style="background:#f8faff;border:1px solid #dde3f0;border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:.84rem;color:#374151;">Total paid on file: <strong>${fmt(totalPaid)}</strong>${existingRefund>0?` | Previously refunded: <strong style="color:#6b21a8;">${fmt(existingRefund)}</strong>`:''}.</div>`:''}
+    <div style="margin-bottom:12px;">
+      <label style="font-size:.85rem;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Refund Amount ($) <span style="color:#dc2626;">*</span></label>
+      <input type="number" id="refund-amount" min="0.01" step="0.01" placeholder="0.00" style="width:100%;padding:9px 11px;border:1.5px solid #d1d5db;border-radius:7px;font-size:1rem;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:.85rem;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Date Refund Initiated</label>
+      <input type="date" id="refund-date" value="${today}" style="width:100%;padding:8px 11px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.95rem;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:.85rem;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Notes (optional)</label>
+      <textarea id="refund-notes" rows="3" placeholder="e.g. Partial refund per cancellation policy — full deposit retained." style="width:100%;padding:8px 11px;border:1.5px solid #d1d5db;border-radius:7px;font-size:.88rem;resize:vertical;box-sizing:border-box;"></textarea>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.88rem;color:#374151;">
+        <input type="checkbox" id="refund-send-email" checked style="width:16px;height:16px;">
+        <span>Send "Refund Initiated" email to traveler after saving</span>
+      </label>
+    </div>
+    <div id="refund-entry-alert" style="display:none;margin-bottom:10px;"></div>
+    <div style="display:flex;gap:10px;">
+      <button id="refund-save-btn" onclick="saveRefundEntry('${userId}','${(name||'').replace(/'/g,"\\'")}','${(email||'').replace(/'/g,"\\'")}',${totalPaid})" style="flex:2;padding:10px;background:#6b21a8;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:.95rem;">Save Refund</button>
+      <button onclick="document.getElementById('refund-entry-modal').remove()" style="flex:1;padding:10px;background:#e5e7eb;color:#374151;border:none;border-radius:8px;cursor:pointer;font-size:.88rem;">Cancel</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  setTimeout(()=>{const inp=document.getElementById('refund-amount');if(inp)inp.focus();},100);
+}
+
+async function saveRefundEntry(userId,name,email,totalPaid){
+  const amtEl=document.getElementById('refund-amount');
+  const dateEl=document.getElementById('refund-date');
+  const notesEl=document.getElementById('refund-notes');
+  const sendEmail=document.getElementById('refund-send-email')?.checked;
+  const btn=document.getElementById('refund-save-btn');
+  const alertEl=document.getElementById('refund-entry-alert');
+  const amount=parseFloat(amtEl?.value);
+  if(!amount||amount<=0){
+    if(alertEl){alertEl.style.display='block';alertEl.className='alert alert-error show';alertEl.textContent='Please enter a valid refund amount.';}
+    return;
+  }
+  if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  const{error}=await sb.from('refund_entries').insert({
+    user_id:userId,
+    amount,
+    refund_date:dateEl?.value||new Date().toISOString().slice(0,10),
+    notes:notesEl?.value?.trim()||null,
+    entered_by:'admin'
+  });
+  if(error){
+    if(btn){btn.disabled=false;btn.textContent='Save Refund';}
+    if(alertEl){alertEl.style.display='block';alertEl.className='alert alert-error show';alertEl.textContent='Error saving refund: '+error.message;}
+    return;
+  }
+  // Optionally send email
+  if(sendEmail&&email){
+    emailRefundInitiated(name,email,amount,dateEl?.value||new Date().toISOString().slice(0,10),notesEl?.value?.trim()||'');
+  }
+  document.getElementById('refund-entry-modal')?.remove();
+  await loadTravelers();
+}
+
+function emailRefundInitiated(name,email,amount,refundDate,notes){
+  const dateStr=refundDate?new Date(refundDate+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}):new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  const subject=`${TRIP_NAME} — Refund Initiated`;
+  const notesLine=notes?`\n\nAdditional Notes:\n${notes}`:'';
+  const plain=`Hello ${name},\n\nThis email is to confirm that a refund of $${amount.toFixed(2)} has been initiated for your ${TRIP_NAME} reservation.\n\nREFUND DETAILS:\n• Amount: $${amount.toFixed(2)}\n• Date Initiated: ${dateStr}\n\nPlease allow 7–10 business days for the refund to appear in your account. Processing times may vary depending on your financial institution.${notesLine}\n\nIf you do not see the refund after 10 business days, please contact us at ${ADMIN_EMAIL} and we will be happy to assist you.\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the ${TRIP_NAME} portal.`;
+  const html=buildEmailHtml(name,
+    `<p>This email is to confirm that a refund has been initiated for your <strong>${TRIP_NAME}</strong> reservation.</p>`+
+    buildPayTable([
+      {label:'Refund Amount',value:'$'+amount.toFixed(2),color:'#166534'},
+      {label:'Date Initiated',value:dateStr}
+    ])+
+    `<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:14px 16px;margin:14px 0;">
+      <p style="margin:0 0 6px;font-weight:700;color:#166534;font-size:.95rem;">⏱️ Processing Time: 7–10 Business Days</p>
+      <p style="margin:0;font-size:.88rem;color:#374151;">Please allow 7–10 business days for the refund to appear in your account. Processing times may vary depending on your financial institution.</p>
+    </div>`+
+    (notes?`<p style="font-size:.88rem;color:#374151;"><strong>Notes:</strong> ${notes.replace(/</g,'&lt;')}</p>`:'')+
+    `<p style="font-size:.88rem;color:#374151;">If you do not see the refund after 10 business days, please contact us at <a href="mailto:${ADMIN_EMAIL}" style="color:#1a4a7c;font-weight:600;">${ADMIN_EMAIL}</a> and we will be happy to assist you.</p>`
+  );
+  sendEmail(email,name,subject,plain,html);
+}
+
 function handleTravelerAction(sel,userId){
   const d=window.gTravelerData?.[userId];
   if(!d){sel.value='';alert('Traveler data not loaded for this row. Please refresh the Travelers tab and try again.');return;}
@@ -15488,6 +15715,7 @@ function handleTravelerAction(sel,userId){
   else if(v==='add_second_cabin'){openAdminAddSecondCabin(d.userId,d.name,d.email);}
   else if(v==='cancel_travel'){markTravelerNotGoing(d.userId,d.name,d.cabinType,d.pricePP);}
   else if(v==='cancel'){cancelTraveler(d.userId,d.name,d.email,d.cabinType,d.cabinNumber,d.citizenshipType,d.paid);}
+  else if(v==='enter_refund'){openRefundEntryModal(d.userId,d.name,d.email,d.paid);sel.value='';}
   else if(v==='restore_traveler'){restoreTraveler(d.userId,d.name);}
   else if(v==='delete'){deleteTraveler(d.userId,d.name);}
   else if(v==='link_cabin_partner'){adminOpenLinkCabinModal(d.userId,d.name,d.email,d.cabinType,d.numGuests||1,'','travelers');}
