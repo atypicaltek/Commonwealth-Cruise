@@ -7821,11 +7821,13 @@ let gTravSort=null;
 let gTravSearch='';
 
 async function loadTravelers(){
+  const el=document.getElementById('admin-travelers');
+  try{
   const[
-    {data:profiles},
-    {data:allCabins},
+    {data:profiles,error:e1},
+    {data:allCabins,error:e2},
     {data:allPayments},
-    {data:allCabinTravelers},
+    {data:allCabinTravelers,error:e4},
     {data:emailLogs},
     {data:allRefunds}
   ]=await Promise.all([
@@ -7834,8 +7836,11 @@ async function loadTravelers(){
     sb.from('user_payments').select('user_id,amount_due,amount_paid'),
     sb.rpc('admin_get_all_cabin_travelers'),
     sb.from('email_queue').select('to_email,subject,created_at,status').order('created_at',{ascending:false}),
-    sb.from('refund_entries').select('user_id,amount').catch(()=>({data:[]}))
+    sb.from('refund_entries').select('user_id,amount') // table may not exist yet — handled by (allRefunds||[]) below
   ]);
+  if(e1){console.warn('[loadTravelers] profiles error:',e1.message);}
+  if(e2){console.warn('[loadTravelers] cabin_assignments error:',e2.message);}
+  if(e4){console.warn('[loadTravelers] cabin_travelers error:',e4.message);}
   // Build email map keyed by lowercased to_email
   const emailMap={};
   (emailLogs||[]).forEach(e=>{
@@ -7899,6 +7904,10 @@ async function loadTravelers(){
   window.gTravelerData={};
   window._travRaw={profiles:profiles||[],cabinMap,confirmed2ndCabinMap,pending2ndCabinMap,payMap,occupantMap,secondCabinOccupantMap,emailMap};
   renderTravelersView();
+  }catch(err){
+    console.error('[loadTravelers] error:',err);
+    if(el)el.innerHTML='<div style="padding:20px;color:#dc2626;font-size:.9rem;">⚠️ Error loading Travelers tab: '+(err.message||err)+'<br><small style="color:#6b7280;">Check the browser console for details.</small></div>';
+  }
 }
 
 function setTravSort(key){
