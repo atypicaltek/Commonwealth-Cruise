@@ -1060,12 +1060,41 @@
           <span class="card-title">💳 Overdue Payments</span>
           <button class="btn btn-primary btn-sm" onclick="loadOverduePaymentsTab()" style="font-size:.79rem;">↻ Refresh</button>
           <button class="btn btn-sm" onclick="exportOverduePaymentsToExcel()" style="font-size:.79rem;background:#16a34a;color:#fff;margin-left:6px;">📥 Export Excel</button>
+          <button class="btn btn-sm" onclick="openDepositDeadlineMassEmail()" style="font-size:.79rem;background:#b91c1c;color:#fff;margin-left:6px;">📧 Deposit Deadline Notice</button>
         </div>
         <p style="font-size:.84rem;color:var(--muted);margin:0 0 12px;">Travelers whose total payments fall short of any past-due milestone. <strong>📧 Notice</strong> queues an overdue email (held — release from Email Queue). <strong>✅ Restore</strong> removes the waitlist flag when payment is received. <strong>🗑 Remove</strong> deletes the cabin assignment and returns inventory — use only for confirmed non-payment.</p>
         <div id="overduepay-tab-content"><div class="empty"><div class="ei">💳</div><p>Click Refresh to load overdue payments.</p></div></div>
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- DEPOSIT DEADLINE MASS EMAIL MODAL -->
+<div id="deposit-deadline-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box" style="max-width:620px;max-height:92vh;display:flex;flex-direction:column;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <h3 style="color:#b91c1c;font-size:1.05rem;font-weight:800;margin:0;">📧 Deposit Deadline Notice — Mass Email</h3>
+      <button onclick="document.getElementById('deposit-deadline-modal').classList.remove('open')" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px;">×</button>
+    </div>
+    <div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.84rem;color:#991b1b;">
+      <strong>⚠️ Cabin Release Warning Email</strong><br>
+      Each selected traveler will receive an email stating that their cabin will be <strong>released back into inventory</strong> if a full deposit of <strong>$250.00 per person</strong> is not received by <strong>midnight on October 15, 2026</strong>. Emails are queued as <em>held</em> — release them from the Email Queue tab when ready to send.
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span id="ddm-count-label" style="font-size:.84rem;color:var(--muted);font-weight:600;">0 travelers selected</span>
+      <div style="display:flex;gap:8px;">
+        <button onclick="ddmToggleAll(true)" style="background:none;border:none;cursor:pointer;font-size:.81rem;color:#1a4a7c;text-decoration:underline;padding:0;">Select All</button>
+        <span style="color:var(--muted);">|</span>
+        <button onclick="ddmToggleAll(false)" style="background:none;border:none;cursor:pointer;font-size:.81rem;color:#1a4a7c;text-decoration:underline;padding:0;">Deselect All</button>
+      </div>
+    </div>
+    <div id="ddm-list" style="flex:1;overflow-y:auto;border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;max-height:320px;min-height:80px;background:var(--surface);"></div>
+    <div id="ddm-progress" style="margin-top:10px;font-size:.82rem;color:var(--muted);min-height:1.2em;"></div>
+    <div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end;">
+      <button onclick="document.getElementById('deposit-deadline-modal').classList.remove('open')" class="btn btn-sm" style="background:var(--border);color:var(--text);">Cancel</button>
+      <button id="ddm-send-btn" onclick="sendDepositDeadlineNotices()" class="btn btn-sm" style="background:#b91c1c;color:#fff;font-weight:700;min-width:160px;">📧 Send to Selected (0)</button>
+    </div>
   </div>
 </div>
 
@@ -7463,6 +7492,117 @@ function exportOverduePaymentsToExcel(){
   XLSX.utils.book_append_sheet(wb, ws, 'Overdue Payments');
   const today = new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb, `Overdue_Payments_${today}.xlsx`);
+}
+
+// ── DEPOSIT DEADLINE MASS EMAIL ───────────────────────────────
+function openDepositDeadlineMassEmail(){
+  const data = window._overduePayData;
+  if(!data||!data.length){
+    alert('No overdue traveler data loaded. Click Refresh on the Overdue Payments tab first.');
+    return;
+  }
+  const listEl = document.getElementById('ddm-list');
+  const progressEl = document.getElementById('ddm-progress');
+  if(progressEl) progressEl.textContent = '';
+
+  // Build checklist rows — all checked by default
+  listEl.innerHTML = data.map((r,i)=>{
+    const noEmail = !r.email;
+    const depPP = (250 * r.numGuests).toFixed(2);
+    return `<label style="display:flex;align-items:flex-start;gap:10px;padding:7px 4px;border-bottom:1px solid var(--border);cursor:${noEmail?'default':'pointer'};opacity:${noEmail?'.45':'1'}">
+      <input type="checkbox" data-idx="${i}" onchange="ddmUpdateCount()" ${noEmail?'disabled':''} checked
+        style="margin-top:3px;flex-shrink:0;width:15px;height:15px;cursor:${noEmail?'default':'pointer'}">
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:.87rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.name||'—'}</div>
+        <div style="font-size:.79rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${noEmail?'<span style="color:#dc2626;">No email on file</span>':r.email} &nbsp;·&nbsp; ${r.cabinType||'—'} &nbsp;·&nbsp; ${r.numGuests} guest${r.numGuests!==1?'s':''} &nbsp;·&nbsp; Deposit due: $${depPP}</div>
+      </div>
+    </label>`;
+  }).join('');
+
+  ddmUpdateCount();
+  document.getElementById('deposit-deadline-modal').classList.add('open');
+}
+
+function ddmToggleAll(checked){
+  document.querySelectorAll('#ddm-list input[type="checkbox"]:not(:disabled)').forEach(cb=>cb.checked=checked);
+  ddmUpdateCount();
+}
+
+function ddmUpdateCount(){
+  const n = document.querySelectorAll('#ddm-list input[type="checkbox"]:checked').length;
+  const label = document.getElementById('ddm-count-label');
+  const btn = document.getElementById('ddm-send-btn');
+  if(label) label.textContent = `${n} traveler${n!==1?'s':''} selected`;
+  if(btn) btn.textContent = `📧 Send to Selected (${n})`;
+}
+
+async function sendDepositDeadlineNotices(){
+  const data = window._overduePayData;
+  if(!data||!data.length) return;
+
+  const checked = [...document.querySelectorAll('#ddm-list input[type="checkbox"]:checked')];
+  if(!checked.length){alert('No travelers selected.');return;}
+
+  const btn = document.getElementById('ddm-send-btn');
+  const progressEl = document.getElementById('ddm-progress');
+  btn.disabled = true;
+
+  let sent = 0, failed = 0, skipped = 0;
+  for(let i=0;i<checked.length;i++){
+    const idx = parseInt(checked[i].dataset.idx);
+    const r = data[idx];
+    if(!r||!r.email){skipped++;continue;}
+    progressEl.textContent = `Sending ${i+1} of ${checked.length}: ${r.name}…`;
+    try{
+      await sendDepositDeadlineEmail(r.email, r.name, r.cabinType, r.numGuests);
+      sent++;
+    }catch(e){
+      console.warn('[deposit-deadline] failed for',r.name,':',e.message);
+      failed++;
+    }
+    // Small delay to avoid hammering the DB
+    await new Promise(res=>setTimeout(res,120));
+  }
+
+  btn.disabled = false;
+  let summary = `✅ Done — ${sent} email${sent!==1?'s':''} queued (held).`;
+  if(failed) summary += ` ⚠️ ${failed} failed.`;
+  if(skipped) summary += ` ${skipped} skipped (no email).`;
+  progressEl.style.color = failed ? '#b91c1c' : '#16a34a';
+  progressEl.textContent = summary;
+  flash('admin-alert', summary, failed?'error':'success');
+}
+
+async function sendDepositDeadlineEmail(toEmail, toName, cabinType, numGuests){
+  const ng = parseInt(numGuests)||1;
+  const totalDeposit = (250 * ng).toFixed(2);
+  const subject = `${TRIP_NAME} — Urgent: Cabin Deposit Due by October 15, 2026`;
+  const deadline = 'midnight on October 15, 2026';
+  const plain = `Dear ${toName},\n\nThis is an urgent notice regarding your reservation on the ${TRIP_NAME}.\n\nOur records show that your full deposit of $${totalDeposit} ($250.00 per person × ${ng} guest${ng!==1?'s':''}) has not yet been received.\n\nCabin Type: ${cabinType||'Pending'}\n\nIMPORTANT: Your cabin will be released back into general inventory if the full deposit is not received by ${deadline}.\n\nTo secure your reservation, please submit payment immediately.\n\nWatch how to make a payment: ${PAYMENT_HOW_TO_VIDEO_URL}\n\nIf you have already submitted your payment, please reply to this email with your confirmation so we can update your account promptly.\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the ${TRIP_NAME} portal.`;
+  const bodyHtml = `<p>Dear <strong>${toName}</strong>,</p>
+<p>This is an <strong>urgent notice</strong> regarding your reservation on the <strong>${TRIP_NAME}</strong>.</p>
+<div style="background:#fef2f2;border:2px solid #dc2626;border-radius:10px;padding:16px 20px;margin:18px 0;">
+  <div style="font-size:1.05rem;font-weight:800;color:#991b1b;margin-bottom:10px;">🚨 Cabin Release Warning</div>
+  <p style="margin:0 0 8px;">Our records show that your full deposit has <strong>not yet been received</strong>.</p>
+  <table style="width:100%;border-collapse:collapse;font-size:.92rem;">
+    <tr><td style="padding:4px 0;color:#64748b;width:160px;">Cabin Type:</td><td style="font-weight:700;">${cabinType||'Pending Assignment'}</td></tr>
+    <tr><td style="padding:4px 0;color:#64748b;">Guests:</td><td style="font-weight:700;">${ng} guest${ng!==1?'s':''}</td></tr>
+    <tr><td style="padding:4px 0;color:#64748b;">Deposit Required:</td><td style="font-weight:800;color:#dc2626;font-size:1rem;">$${totalDeposit} ($250.00/person)</td></tr>
+    <tr><td style="padding:4px 0;color:#64748b;">Deadline:</td><td style="font-weight:800;color:#dc2626;">Midnight, October 15, 2026</td></tr>
+  </table>
+</div>
+<div style="background:#fff7ed;border-left:4px solid #f97316;padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0;font-weight:700;color:#9a3412;">
+  ⏰ <strong>If the full deposit is not received by midnight on October 15, 2026, your cabin will be released back into general inventory.</strong>
+</div>
+<p>To secure your reservation, please submit your payment <strong>immediately</strong>.</p>
+<div style="margin:22px 0;text-align:center;">
+  <p style="font-weight:700;color:#0f2744;font-size:.95rem;margin:0 0 12px;">📹 Watch: How to Make a Payment</p>
+  <a href="${PAYMENT_HOW_TO_VIDEO_URL}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.95rem;padding:13px 30px;border-radius:10px;text-decoration:none;">▶ Watch Payment Tutorial</a>
+  <p style="font-size:.78rem;color:#64748b;margin:10px 0 0;">Can't play? <a href="${PAYMENT_HOW_TO_VIDEO_URL}" target="_blank" style="color:#1a4a7c;font-weight:600;">Click here to watch</a></p>
+</div>
+<p>If you have already submitted your payment, please reply to this email with your confirmation so we can update your account promptly.</p>`;
+  const html = buildEmailHtml(toName, bodyHtml);
+  await sendEmail(toEmail, toName, subject, plain, html, false, false);
 }
 
 // ── TRAVEL INSURANCE ──────────────────────────────────────────
