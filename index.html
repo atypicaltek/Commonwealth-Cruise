@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Commonwealth Cruise 2027 — Payment Tracker</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     :root{--primary:#1a4f7a;--secondary:#2176ae;--accent:#e8a020;--success:#1f8c4e;--danger:#c0392b;--warn:#d68910;--bg:#eef2f7;--card:#fff;--text:#1c2940;--muted:#6b7c93;--border:#d5dce8;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.08);}
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -1033,6 +1034,7 @@
         <div class="card-header">
           <span class="card-title">🚨 Deposit Overdue</span>
           <button class="btn btn-primary btn-sm" onclick="loadDepositOverdueTab()" style="font-size:.79rem;">↻ Refresh</button>
+          <button class="btn btn-sm" onclick="exportDepositOverdueToExcel()" style="font-size:.79rem;background:#16a34a;color:#fff;margin-left:6px;">📥 Export Excel</button>
         </div>
         <p style="font-size:.84rem;color:var(--muted);margin:0 0 12px;">Travelers who have not met the minimum deposit of <strong>$100.00 per person</strong> by the September 1, 2026 deadline. Use <strong>📧 Send Email</strong> to queue a notice to the traveler.</p>
         <div id="deposit-overdue-tab-content"><div class="empty"><div class="ei">🚨</div><p>Click Refresh to load overdue deposits.</p></div></div>
@@ -1057,6 +1059,7 @@
         <div class="card-header">
           <span class="card-title">💳 Overdue Payments</span>
           <button class="btn btn-primary btn-sm" onclick="loadOverduePaymentsTab()" style="font-size:.79rem;">↻ Refresh</button>
+          <button class="btn btn-sm" onclick="exportOverduePaymentsToExcel()" style="font-size:.79rem;background:#16a34a;color:#fff;margin-left:6px;">📥 Export Excel</button>
         </div>
         <p style="font-size:.84rem;color:var(--muted);margin:0 0 12px;">Travelers whose total payments fall short of any past-due milestone. <strong>📧 Notice</strong> queues an overdue email (held — release from Email Queue). <strong>✅ Restore</strong> removes the waitlist flag when payment is received. <strong>🗑 Remove</strong> deletes the cabin assignment and returns inventory — use only for confirmed non-payment.</p>
         <div id="overduepay-tab-content"><div class="empty"><div class="ei">💳</div><p>Click Refresh to load overdue payments.</p></div></div>
@@ -7185,6 +7188,7 @@ async function loadDepositOverdueTab(){
       </tr>`;
     });
 
+    window._depositOverdueData = overdue;
     el.innerHTML=`<div style="font-size:.84rem;color:#b91c1c;font-weight:600;margin-bottom:10px;">⚠️ ${overdue.length} traveler${overdue.length!==1?'s':''} overdue — emails queued (held) and must be released from Email Queue tab.</div>
     <div class="table-wrap"><table class="data-table">
       <thead><tr><th>Name</th><th>Email</th><th>Cabin</th><th>Guests</th><th>Paid</th><th>Min Required</th><th>Shortage</th><th>Action</th></tr></thead>
@@ -7338,6 +7342,7 @@ async function loadOverduePaymentsTab(){
       </tr>`;
     });
 
+    window._overduePayData = overdue;
     el.innerHTML=`<div style="font-size:.84rem;color:#b91c1c;font-weight:600;margin-bottom:10px;">⚠️ ${overdue.length} traveler${overdue.length!==1?'s':''} behind on payment schedule. Overdue notices are held — release from Email Queue tab.</div>
     <div class="table-wrap"><table class="data-table">
       <thead><tr><th>Name</th><th>Email</th><th>Cabin</th><th>Guests</th><th>Paid</th><th>Required</th><th>Shortage</th><th>Milestone</th><th>Actions</th></tr></thead>
@@ -7414,6 +7419,51 @@ async function adminRemoveForNonPayment(userId,cabinType,pricePP,btn){
   }
 }
 
+
+// ── EXCEL EXPORT ──────────────────────────────────────────────
+function exportDepositOverdueToExcel(){
+  const data = window._depositOverdueData;
+  if(!data||!data.length){alert('No data to export. Click Refresh first.');return;}
+  if(typeof XLSX==='undefined'){alert('Excel library not loaded. Please reload the page.');return;}
+  const rows = data.map(r=>({
+    'Name': r.name||'',
+    'Email': r.email||'',
+    'Cabin Type': r.cabinType||'',
+    'Guests': r.numGuests||1,
+    'Total Paid ($)': parseFloat(r.totalPaid.toFixed(2)),
+    'Min Required ($)': parseFloat(r.minRequired.toFixed(2)),
+    'Shortage ($)': parseFloat(r.shortage.toFixed(2))
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [{wch:28},{wch:32},{wch:16},{wch:8},{wch:14},{wch:16},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Deposit Overdue');
+  const today = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `Deposit_Overdue_${today}.xlsx`);
+}
+
+function exportOverduePaymentsToExcel(){
+  const data = window._overduePayData;
+  if(!data||!data.length){alert('No data to export. Click Refresh first.');return;}
+  if(typeof XLSX==='undefined'){alert('Excel library not loaded. Please reload the page.');return;}
+  const rows = data.map(r=>({
+    'Name': r.name||'',
+    'Email': r.email||'',
+    'Cabin Type': r.cabinType||'',
+    'Guests': r.numGuests||1,
+    'Total Paid ($)': parseFloat(r.totalPaid.toFixed(2)),
+    'Required ($)': parseFloat(r.cumRequired.toFixed(2)),
+    'Shortage ($)': parseFloat(r.shortage.toFixed(2)),
+    'Milestone': r.msLabel||'',
+    'Days Overdue': r.daysOverdue||0
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [{wch:28},{wch:32},{wch:16},{wch:8},{wch:14},{wch:14},{wch:14},{wch:22},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Overdue Payments');
+  const today = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `Overdue_Payments_${today}.xlsx`);
+}
 
 // ── TRAVEL INSURANCE ──────────────────────────────────────────
 async function saveAdminTravelInsurance(userId, val){
