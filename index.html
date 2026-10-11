@@ -7508,7 +7508,7 @@ function openDepositDeadlineMassEmail(){
   // Build checklist rows — all checked by default
   listEl.innerHTML = data.map((r,i)=>{
     const noEmail = !r.email;
-    const depPP = (250 * r.numGuests).toFixed(2);
+    const depPP = (r.numGuests <= 1 ? 500 : 250 * r.numGuests).toFixed(2);
     return `<label style="display:flex;align-items:flex-start;gap:10px;padding:7px 4px;border-bottom:1px solid var(--border);cursor:${noEmail?'default':'pointer'};opacity:${noEmail?'.45':'1'}">
       <input type="checkbox" data-idx="${i}" onchange="ddmUpdateCount()" ${noEmail?'disabled':''} checked
         style="margin-top:3px;flex-shrink:0;width:15px;height:15px;cursor:${noEmail?'default':'pointer'}">
@@ -7575,10 +7575,17 @@ async function sendDepositDeadlineNotices(){
 
 async function sendDepositDeadlineEmail(toEmail, toName, cabinType, numGuests){
   const ng = parseInt(numGuests)||1;
-  const totalDeposit = (250 * ng).toFixed(2);
+  const isSolo = ng <= 1;
+  const totalDeposit = (isSolo ? 500 : 250 * ng).toFixed(2);
+  const depositBreakdown = isSolo
+    ? `$${totalDeposit} (solo traveler — double-occupancy rate applies)`
+    : `$${totalDeposit} ($250.00 per person × ${ng} guests)`;
+  const depositBreakdownHtml = isSolo
+    ? `$${totalDeposit} <span style="font-size:.85rem;font-weight:500;">(solo traveler — double-occupancy rate applies)</span>`
+    : `$${totalDeposit} <span style="font-size:.85rem;font-weight:500;">($250.00/person × ${ng} guests)</span>`;
   const subject = `${TRIP_NAME} — Urgent: Cabin Deposit Due by October 15, 2026`;
   const deadline = 'midnight on October 15, 2026';
-  const plain = `Dear ${toName},\n\nThis is an urgent notice regarding your reservation on the ${TRIP_NAME}.\n\nOur records show that your full deposit of $${totalDeposit} ($250.00 per person × ${ng} guest${ng!==1?'s':''}) has not yet been received.\n\nCabin Type: ${cabinType||'Pending'}\n\nIMPORTANT: Your cabin will be released back into general inventory if the full deposit is not received by ${deadline}.\n\nTo secure your reservation, please submit payment immediately.\n\nWatch how to make a payment: ${PAYMENT_HOW_TO_VIDEO_URL}\n\nIf you have already submitted your payment, please reply to this email with your confirmation so we can update your account promptly.\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the ${TRIP_NAME} portal.`;
+  const plain = `Dear ${toName},\n\nThis is an urgent notice regarding your reservation on the ${TRIP_NAME}.\n\nOur records show that your full deposit of ${depositBreakdown} has not yet been received.\n\nCabin Type: ${cabinType||'Pending'}\n\nIMPORTANT: Your cabin will be released back into general inventory if the full deposit is not received by ${deadline}.\n\nTo secure your reservation, please submit payment immediately.\n\nWatch how to make a payment: ${PAYMENT_HOW_TO_VIDEO_URL}\n\nIf you have already submitted your payment, please reply to this email with your confirmation so we can update your account promptly.\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the ${TRIP_NAME} portal.`;
   const bodyHtml = `<p>Dear <strong>${toName}</strong>,</p>
 <p>This is an <strong>urgent notice</strong> regarding your reservation on the <strong>${TRIP_NAME}</strong>.</p>
 <div style="background:#fef2f2;border:2px solid #dc2626;border-radius:10px;padding:16px 20px;margin:18px 0;">
@@ -7587,7 +7594,7 @@ async function sendDepositDeadlineEmail(toEmail, toName, cabinType, numGuests){
   <table style="width:100%;border-collapse:collapse;font-size:.92rem;">
     <tr><td style="padding:4px 0;color:#64748b;width:160px;">Cabin Type:</td><td style="font-weight:700;">${cabinType||'Pending Assignment'}</td></tr>
     <tr><td style="padding:4px 0;color:#64748b;">Guests:</td><td style="font-weight:700;">${ng} guest${ng!==1?'s':''}</td></tr>
-    <tr><td style="padding:4px 0;color:#64748b;">Deposit Required:</td><td style="font-weight:800;color:#dc2626;font-size:1rem;">$${totalDeposit} ($250.00/person)</td></tr>
+    <tr><td style="padding:4px 0;color:#64748b;">Deposit Required:</td><td style="font-weight:800;color:#dc2626;font-size:1rem;">${depositBreakdownHtml}</td></tr>
     <tr><td style="padding:4px 0;color:#64748b;">Deadline:</td><td style="font-weight:800;color:#dc2626;">Midnight, October 15, 2026</td></tr>
   </table>
 </div>
