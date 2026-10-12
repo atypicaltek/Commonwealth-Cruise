@@ -7496,44 +7496,108 @@ function exportOverduePaymentsToExcel(){
 
 // ── DEPOSIT DEADLINE MASS EMAIL ───────────────────────────────
 function openDepositDeadlineMassEmail(){
-  const data = window._overduePayData;
-  if(!data||!data.length){
-    alert('No overdue traveler data loaded. Click Refresh on the Overdue Payments tab first.');
-    return;
-  }
-  const listEl = document.getElementById('ddm-list');
-  const progressEl = document.getElementById('ddm-progress');
-  if(progressEl) progressEl.textContent = '';
-
-  // Build checklist rows — all checked by default
-  listEl.innerHTML = data.map((r,i)=>{
-    const noEmail = !r.email;
-    const ng = r.numGuests||1;
-    const isSolo = ng <= 1;
-    const required = isSolo ? 500 : 250 * ng;
-    const paid = parseFloat(r.totalPaid||0);
-    const remaining = Math.max(0, required - paid);
-    const reqStr = required.toFixed(2);
-    const paidStr = paid.toFixed(2);
-    const remStr = remaining.toFixed(2);
-    const paidNote = paid > 0 ? `<span style="color:#16a34a;font-weight:600;">$${paidStr} paid</span>` : `<span style="color:var(--muted);">$0.00 paid</span>`;
-    return `<label style="display:flex;align-items:flex-start;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:${noEmail?'default':'pointer'};opacity:${noEmail?'.45':'1'}">
-      <input type="checkbox" data-idx="${i}" onchange="ddmUpdateCount()" ${noEmail?'disabled':''} checked
-        style="margin-top:3px;flex-shrink:0;width:15px;height:15px;cursor:${noEmail?'default':'pointer'}">
-      <div style="flex:1;min-width:0;">
-        <div style="font-weight:600;font-size:.87rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.name||'—'}</div>
-        <div style="font-size:.79rem;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${noEmail?'<span style="color:#dc2626;">No email on file</span>':r.email} &nbsp;·&nbsp; ${r.cabinType||'—'} &nbsp;·&nbsp; ${ng} guest${ng!==1?'s':''}</div>
-        <div style="font-size:.79rem;margin-top:3px;display:flex;gap:12px;flex-wrap:wrap;">
-          <span>Required: <strong>$${reqStr}</strong></span>
-          ${paidNote}
-          <span style="color:#dc2626;font-weight:700;">Remaining: $${remStr}</span>
-        </div>
-      </div>
-    </label>`;
-  }).join('');
-
+  const modal=document.getElementById('deposit-deadline-modal');
+  const listEl=document.getElementById('ddm-list');
+  const progressEl=document.getElementById('ddm-progress');
+  if(progressEl) progressEl.textContent='';
+  listEl.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted);font-size:.88rem;"><div class="spinner" style="margin:0 auto 10px;"></div>Loading all active travelers…</div>';
   ddmUpdateCount();
-  document.getElementById('deposit-deadline-modal').classList.add('open');
+  modal.classList.add('open');
+  _ddmLoadAllTravelers();
+}
+
+async function _ddmLoadAllTravelers(){
+  const listEl=document.getElementById('ddm-list');
+  try{
+    const[{data:profiles},{data:allCas,error:casErr},{data:pays}]=await Promise.all([
+      sb.from('profiles').select('id,name,email,status').eq('is_admin',false),
+      sb.rpc('admin_get_all_cabin_assignments'),
+      sb.from('user_payments').select('user_id,amount_paid,is_refunded')
+    ]);
+    if(casErr) throw casErr;
+
+    // Sum non-refunded payments per user
+    const paidTotals={};
+    (pays||[]).forEach(p=>{
+      if(!p.is_refunded) paidTotals[p.user_id]=(paidTotals[p.user_id]||0)+parseFloat(p.amount_paid||0);
+    });
+
+    const profMap={};(profiles||[]).forEach(p=>{profMap[p.id]=p;});
+
+    // Primary and secondary cabin maps (skip pending_admin rows)
+    const primaryCaMap={};
+    const secondaryCaMap={};
+    (allCas||[]).forEach(ca=>{
+      if(ca.status==='pending_admin') return;
+      if(!primaryCaMap[ca.user_id]) primaryCaMap[ca.user_id]=ca;
+      else if(!secondaryCaMap[ca.user_id]) secondaryCaMap[ca.user_id]=ca;
+    });
+
+    const travelers=[];
+    Object.values(primaryCaMap).forEach(ca=>{
+      const prof=profMap[ca.user_id];
+      if(!prof||prof.status==='cancelled') return;
+      const ng=parseInt(ca.num_guests||1);
+      const deposit1=ng<=1?500:250*ng;
+      const ca2=secondaryCaMap[ca.user_id]||null;
+      const ng2=ca2?parseInt(ca2.num_guests||1):0;
+      const deposit2=ca2?(ng2<=1?500:250*ng2):0;
+      const totalRequired=deposit1+deposit2;
+      const totalPaid=paidTotals[ca.user_id]||0;
+      const remaining=Math.max(0,totalRequired-totalPaid);
+      travelers.push({
+        userId:ca.user_id,name:prof.name||'—',email:prof.email||'',
+        cabinType:ca.cabin_type||'—',numGuests:ng,deposit1,
+        cabin2Type:ca2?ca2.cabin_type||'—':null,numGuests2:ng2,deposit2,
+        totalRequired,totalPaid,remaining,isCurrent:remaining<=0
+      });
+    });
+
+    // Overdue first, then alphabetical
+    travelers.sort((a,b)=>{
+      if(a.isCurrent!==b.isCurrent) return a.isCurrent?1:-1;
+      return (a.name||'').localeCompare(b.name||'');
+    });
+    window._depositDeadlineAllData=travelers;
+
+    if(!travelers.length){
+      listEl.innerHTML='<div style="padding:16px;color:var(--muted);text-align:center;font-size:.88rem;">No active travelers with cabin assignments found.</div>';
+      ddmUpdateCount(); return;
+    }
+
+    listEl.innerHTML=travelers.map((r,i)=>{
+      const noEmail=!r.email;
+      const reqStr=r.totalRequired.toFixed(2);
+      const paidStr=r.totalPaid.toFixed(2);
+      const remStr=r.remaining.toFixed(2);
+      const badge=r.isCurrent
+        ?'<span style="background:#dcfce7;color:#16a34a;font-size:.71rem;font-weight:700;padding:1px 7px;border-radius:10px;white-space:nowrap;">✓ Current</span>'
+        :'<span style="background:#fef2f2;color:#dc2626;font-size:.71rem;font-weight:700;padding:1px 7px;border-radius:10px;white-space:nowrap;">⚠ Balance Due</span>';
+      const rateNote1=r.numGuests<=1?'solo — dbl occ rate':`$250/person × ${r.numGuests}`;
+      const cabin1Line=`${r.cabinType} · ${r.numGuests} guest${r.numGuests!==1?'s':''} · $${r.deposit1.toFixed(2)} (${rateNote1})`;
+      const cabin2Line=r.cabin2Type?`<div style="font-size:.78rem;color:#64748b;">Cabin 2: ${r.cabin2Type} · ${r.numGuests2} guest${r.numGuests2!==1?'s':''} · $${r.deposit2.toFixed(2)}</div>`:'';
+      const paidNote=r.totalPaid>0?`<span style="color:#16a34a;font-weight:600;">$${paidStr} paid</span>`:`<span style="color:var(--muted);">$0.00 paid</span>`;
+      const remNote=r.isCurrent?'<span style="color:#16a34a;font-weight:700;">Fully paid ✓</span>':`<span style="color:#dc2626;font-weight:700;">Remaining: $${remStr}</span>`;
+      return `<label style="display:flex;align-items:flex-start;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:${noEmail?'default':'pointer'};opacity:${noEmail?'.45':'1'}">
+        <input type="checkbox" data-idx="${i}" onchange="ddmUpdateCount()" ${noEmail?'disabled':''} checked
+          style="margin-top:3px;flex-shrink:0;width:15px;height:15px;cursor:${noEmail?'default':'pointer'}">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px;">
+            <span style="font-weight:600;font-size:.87rem;">${r.name}</span>${badge}
+          </div>
+          <div style="font-size:.79rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${noEmail?'<span style="color:#dc2626;">No email on file</span>':r.email}</div>
+          <div style="font-size:.79rem;color:var(--muted);margin-top:1px;">${cabin1Line}</div>
+          ${cabin2Line}
+          <div style="font-size:.79rem;margin-top:3px;display:flex;gap:12px;flex-wrap:wrap;">
+            <span>Required: <strong>$${reqStr}</strong></span>${paidNote}${remNote}
+          </div>
+        </div>
+      </label>`;
+    }).join('');
+    ddmUpdateCount();
+  }catch(e){
+    listEl.innerHTML=`<div style="padding:16px;color:#dc2626;font-size:.87rem;">Error loading travelers: ${e.message}</div>`;
+  }
 }
 
 function ddmToggleAll(checked){
@@ -7542,89 +7606,117 @@ function ddmToggleAll(checked){
 }
 
 function ddmUpdateCount(){
-  const n = document.querySelectorAll('#ddm-list input[type="checkbox"]:checked').length;
-  const label = document.getElementById('ddm-count-label');
-  const btn = document.getElementById('ddm-send-btn');
-  if(label) label.textContent = `${n} traveler${n!==1?'s':''} selected`;
-  if(btn) btn.textContent = `📧 Send to Selected (${n})`;
+  const n=document.querySelectorAll('#ddm-list input[type="checkbox"]:checked').length;
+  const label=document.getElementById('ddm-count-label');
+  const btn=document.getElementById('ddm-send-btn');
+  if(label) label.textContent=`${n} traveler${n!==1?'s':''} selected`;
+  if(btn) btn.textContent=`📧 Send to Selected (${n})`;
 }
 
 async function sendDepositDeadlineNotices(){
-  const data = window._overduePayData;
-  if(!data||!data.length) return;
-
-  const checked = [...document.querySelectorAll('#ddm-list input[type="checkbox"]:checked')];
+  const data=window._depositDeadlineAllData;
+  if(!data||!data.length){alert('Traveler list not loaded yet. Please wait for the list to finish loading.');return;}
+  const checked=[...document.querySelectorAll('#ddm-list input[type="checkbox"]:checked')];
   if(!checked.length){alert('No travelers selected.');return;}
-
-  const btn = document.getElementById('ddm-send-btn');
-  const progressEl = document.getElementById('ddm-progress');
-  btn.disabled = true;
-
-  let sent = 0, failed = 0, skipped = 0;
+  const btn=document.getElementById('ddm-send-btn');
+  const progressEl=document.getElementById('ddm-progress');
+  btn.disabled=true;
+  let sent=0,failed=0,skipped=0;
   for(let i=0;i<checked.length;i++){
-    const idx = parseInt(checked[i].dataset.idx);
-    const r = data[idx];
+    const idx=parseInt(checked[i].dataset.idx);
+    const r=data[idx];
     if(!r||!r.email){skipped++;continue;}
-    progressEl.textContent = `Sending ${i+1} of ${checked.length}: ${r.name}…`;
+    progressEl.textContent=`Sending ${i+1} of ${checked.length}: ${r.name}…`;
     try{
-      await sendDepositDeadlineEmail(r.email, r.name, r.cabinType, r.numGuests, r.totalPaid||0);
+      await sendDepositDeadlineEmail(r);
       sent++;
     }catch(e){
       console.warn('[deposit-deadline] failed for',r.name,':',e.message);
       failed++;
     }
-    // Small delay to avoid hammering the DB
     await new Promise(res=>setTimeout(res,120));
   }
-
-  btn.disabled = false;
-  let summary = `✅ Done — ${sent} email${sent!==1?'s':''} queued (held).`;
-  if(failed) summary += ` ⚠️ ${failed} failed.`;
-  if(skipped) summary += ` ${skipped} skipped (no email).`;
-  progressEl.style.color = failed ? '#b91c1c' : '#16a34a';
-  progressEl.textContent = summary;
-  flash('admin-alert', summary, failed?'error':'success');
+  btn.disabled=false;
+  let summary=`✅ Done — ${sent} email${sent!==1?'s':''} queued (held).`;
+  if(failed) summary+=` ⚠️ ${failed} failed.`;
+  if(skipped) summary+=` ${skipped} skipped (no email).`;
+  progressEl.style.color=failed?'#b91c1c':'#16a34a';
+  progressEl.textContent=summary;
+  flash('admin-alert',summary,failed?'error':'success');
 }
 
-async function sendDepositDeadlineEmail(toEmail, toName, cabinType, numGuests, totalPaid=0){
-  const ng = parseInt(numGuests)||1;
-  const isSolo = ng <= 1;
-  const required = isSolo ? 500 : 250 * ng;
-  const paid = parseFloat(totalPaid)||0;
-  const remaining = Math.max(0, required - paid);
-  const reqStr = required.toFixed(2);
-  const paidStr = paid.toFixed(2);
-  const remStr = remaining.toFixed(2);
-  const rateNote = isSolo ? '(solo traveler — double-occupancy rate applies)' : `($250.00/person × ${ng} guests)`;
-  const subject = `${TRIP_NAME} — Urgent: Cabin Deposit Due by October 15, 2026`;
-  const deadline = 'midnight on October 15, 2026';
-  const plain = `Dear ${toName},\n\nThis is an urgent notice regarding your reservation on the ${TRIP_NAME}.\n\nCABIN DEPOSIT SUMMARY\nCabin Type: ${cabinType||'Pending'}\nGuests: ${ng} guest${ng!==1?'s':''}\nDeposit Required: $${reqStr} ${rateNote}\nPayments Received: $${paidStr}\nRemaining Balance Due: $${remStr}\nDeadline: ${deadline}\n\nIMPORTANT: If the remaining balance of $${remStr} is not received by ${deadline}, your cabin will be released back into general inventory.\n\nTo secure your reservation, please submit your remaining payment immediately.\n\nWatch how to make a payment: ${PAYMENT_HOW_TO_VIDEO_URL}\n\nIf you have already submitted your payment, please reply to this email with your confirmation so we can update your account promptly.\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the ${TRIP_NAME} portal.`;
-  const bodyHtml = `<p>Dear <strong>${toName}</strong>,</p>
-<p>This is an <strong>urgent notice</strong> regarding your reservation on the <strong>${TRIP_NAME}</strong>.</p>
-<div style="background:#fef2f2;border:2px solid #dc2626;border-radius:10px;padding:16px 20px;margin:18px 0;">
-  <div style="font-size:1.05rem;font-weight:800;color:#991b1b;margin-bottom:10px;">🚨 Cabin Release Warning</div>
-  <p style="margin:0 0 12px;">Your cabin deposit account summary is shown below. The remaining balance must be received by the deadline to hold your reservation.</p>
+async function sendDepositDeadlineEmail(r){
+  const toName=r.name, toEmail=r.email;
+  const rateNote1=r.numGuests<=1?'solo traveler — double-occupancy rate':`$250.00/person × ${r.numGuests} guests`;
+  const has2=!!r.cabin2Type;
+  const rateNote2=has2?(r.numGuests2<=1?'solo traveler — double-occupancy rate':`$250.00/person × ${r.numGuests2} guests`):'';
+  const reqStr=r.totalRequired.toFixed(2);
+  const paidStr=r.totalPaid.toFixed(2);
+  const remStr=r.remaining.toFixed(2);
+  const dep1Str=r.deposit1.toFixed(2);
+  const dep2Str=has2?r.deposit2.toFixed(2):'0.00';
+
+  const subject=r.isCurrent
+    ?`${TRIP_NAME} — Deposit Deadline Reminder: October 15, 2026`
+    :`${TRIP_NAME} — Action Required: Deposit Balance Due by October 15, 2026`;
+
+  // Plain text
+  let cabinLines=`Cabin 1: ${r.cabinType} — ${r.numGuests} guest${r.numGuests!==1?'s':''} — Deposit: $${dep1Str} (${rateNote1})`;
+  if(has2) cabinLines+=`\nCabin 2: ${r.cabin2Type} — ${r.numGuests2} guest${r.numGuests2!==1?'s':''} — Deposit: $${dep2Str} (${rateNote2})`;
+  const actionLine=r.isCurrent
+    ?`Your account is currently on track — thank you! Please make your payment by October 15, 2026 to remain current and retain your cabin reservation. If your deposit is not received in full by that deadline, your cabin may be released back into general inventory.`
+    :`ACTION REQUIRED: You have a remaining balance of $${remStr} due by midnight on October 15, 2026.\nIf this balance is not received by that deadline, your cabin will be released back into general inventory.`;
+  const plain=`This is a reminder about the upcoming full deposit deadline for the ${TRIP_NAME}.\n\nDEPOSIT DEADLINE: Midnight, October 15, 2026\nDeposit Rate: $250.00 per person ($500.00 for solo travelers)\n\nYOUR CABIN DEPOSIT SUMMARY\n${cabinLines}\n\nTotal Deposit Required: $${reqStr}\nPayments Received:      $${paidStr}\nRemaining Balance:      $${remStr}\n\n${actionLine}\n\nWatch how to make a payment: ${PAYMENT_HOW_TO_VIDEO_URL}\n\nIf you have already submitted payment, please reply with your confirmation.\n\nThank you,\nYour Commonwealth Cruise Team`;
+
+  // HTML cabin rows
+  const cabin1Row=`<tr><td style="padding:5px 0;color:#64748b;font-size:.88rem;width:190px;">Cabin 1 — ${r.cabinType}:</td><td style="font-weight:700;">$${dep1Str} <span style="font-size:.81rem;color:#64748b;font-weight:400;">(${rateNote1})</span></td></tr>`;
+  const cabin2Row=has2?`<tr><td style="padding:5px 0;color:#64748b;font-size:.88rem;">Cabin 2 — ${r.cabin2Type}:</td><td style="font-weight:700;">$${dep2Str} <span style="font-size:.81rem;color:#64748b;font-weight:400;">(${rateNote2})</span></td></tr>`:'';
+
+  const statusBox=r.isCurrent
+    ?`<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:12px 16px;margin:16px 0;">
+  <div style="font-weight:800;color:#15803d;margin-bottom:6px;">✅ Your Account Is Currently On Track</div>
+  <p style="margin:0;font-size:.95rem;color:#166534;">Thank you for staying current with your payments! Please make your payment by <strong>October 15, 2026</strong> to remain current and retain your cabin reservation. If the full deposit is not received by that deadline, your cabin may be released back into general inventory.</p>
+</div>`
+    :`<div style="background:#fef2f2;border:2px solid #dc2626;border-radius:8px;padding:12px 16px;margin:16px 0;">
+  <div style="font-weight:800;color:#991b1b;margin-bottom:6px;">⚠️ Action Required — Balance Due</div>
+  <p style="margin:0;font-size:.95rem;color:#7f1d1d;">Your remaining balance of <strong>$${remStr}</strong> must be received by <strong>midnight on October 15, 2026</strong>. If payment is not received by this deadline, your cabin will be released back into general inventory.</p>
+</div>`;
+
+  const ctaLine=r.isCurrent
+    ?`<p>Please make your payment by <strong>October 15, 2026</strong> to remain current and retain your cabin reservation. We look forward to seeing you on the trip!</p>`
+    :`<p>To secure your reservation, please submit your remaining payment of <strong>$${remStr}</strong> as soon as possible.</p>`;
+
+  const bodyHtml=`<p>This is a reminder about the upcoming <strong>full deposit deadline</strong> for the <strong>${TRIP_NAME}</strong>.</p>
+<div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:10px;padding:16px 20px;margin:18px 0;">
+  <div style="font-size:1rem;font-weight:800;color:#0f2744;margin-bottom:12px;">💳 Your Cabin Deposit Summary</div>
   <table style="width:100%;border-collapse:collapse;font-size:.92rem;">
-    <tr><td style="padding:5px 0;color:#64748b;width:180px;">Cabin Type:</td><td style="font-weight:700;">${cabinType||'Pending Assignment'}</td></tr>
-    <tr><td style="padding:5px 0;color:#64748b;">Guests:</td><td style="font-weight:700;">${ng} guest${ng!==1?'s':''}</td></tr>
-    <tr style="border-top:1px solid #fca5a5;"><td style="padding:6px 0 2px;color:#64748b;">Deposit Required:</td><td style="font-weight:700;">$${reqStr} <span style="font-size:.83rem;font-weight:500;color:#64748b;">${rateNote}</span></td></tr>
-    <tr><td style="padding:2px 0;color:#64748b;">Payments Received:</td><td style="font-weight:700;color:${paid>0?'#16a34a':'#64748b'};">${paid>0?`− $${paidStr}`:'$0.00'}</td></tr>
-    <tr style="border-top:2px solid #dc2626;"><td style="padding:6px 0 2px;color:#991b1b;font-weight:700;">Remaining Balance Due:</td><td style="font-weight:900;color:#dc2626;font-size:1.05rem;">$${remStr}</td></tr>
+    ${cabin1Row}
+    ${cabin2Row}
+    <tr style="border-top:1px solid #e2e8f0;">
+      <td style="padding:6px 0 2px;color:#64748b;">Total Deposit Required:</td>
+      <td style="font-weight:800;">$${reqStr}</td>
+    </tr>
+    <tr>
+      <td style="padding:2px 0;color:#64748b;">Payments Received:</td>
+      <td style="font-weight:700;color:${r.totalPaid>0?'#16a34a':'#64748b'};">${r.totalPaid>0?`− $${paidStr}`:'$0.00'}</td>
+    </tr>
+    <tr style="border-top:2px solid ${r.isCurrent?'#86efac':'#dc2626'};">
+      <td style="padding:6px 0 2px;font-weight:700;color:${r.isCurrent?'#15803d':'#991b1b'};">${r.isCurrent?'Balance Remaining:':'Remaining Balance Due:'}</td>
+      <td style="font-weight:900;color:${r.isCurrent?'#16a34a':'#dc2626'};font-size:1.05rem;">${r.isCurrent?'$0.00 ✓':`$${remStr}`}</td>
+    </tr>
     <tr><td style="padding:2px 0;color:#64748b;">Deadline:</td><td style="font-weight:800;color:#dc2626;">Midnight, October 15, 2026</td></tr>
   </table>
 </div>
-<div style="background:#fff7ed;border-left:4px solid #f97316;padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0;font-weight:700;color:#9a3412;">
-  ⏰ <strong>If the remaining balance of $${remStr} is not received by midnight on October 15, 2026, your cabin will be released back into general inventory.</strong>
-</div>
-<p>To secure your reservation, please submit your remaining payment of <strong>$${remStr}</strong> <strong>immediately</strong>.</p>
+${statusBox}
+${ctaLine}
 <div style="margin:22px 0;text-align:center;">
   <p style="font-weight:700;color:#0f2744;font-size:.95rem;margin:0 0 12px;">📹 Watch: How to Make a Payment</p>
   <a href="${PAYMENT_HOW_TO_VIDEO_URL}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.95rem;padding:13px 30px;border-radius:10px;text-decoration:none;">▶ Watch Payment Tutorial</a>
   <p style="font-size:.78rem;color:#64748b;margin:10px 0 0;">Can't play? <a href="${PAYMENT_HOW_TO_VIDEO_URL}" target="_blank" style="color:#1a4a7c;font-weight:600;">Click here to watch</a></p>
 </div>
 <p>If you have already submitted your payment, please reply to this email with your confirmation so we can update your account promptly.</p>`;
-  const html = buildEmailHtml(toName, bodyHtml);
-  await sendEmail(toEmail, toName, subject, plain, html, false, false);
+  const html=buildEmailHtml(toName,bodyHtml);
+  await sendEmail(toEmail,toName,subject,plain,html,false,false);
 }
 
 // ── TRAVEL INSURANCE ──────────────────────────────────────────
