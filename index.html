@@ -8137,7 +8137,7 @@ async function loadTravelers(){
   ]=await Promise.all([
     sb.from('profiles').select('id,name,email,status,needs_doc_info,cc_auth_url,cc_auth_filename').neq('is_admin',true).order('name'),
     sb.rpc('admin_get_all_cabin_assignments'),
-    sb.from('user_payments').select('user_id,amount_due,amount_paid'),
+    sb.from('user_payments').select('user_id,amount_due,amount_paid,is_refunded'),
     sb.rpc('admin_get_all_cabin_travelers'),
     sb.from('email_queue').select('to_email,subject,created_at,status').order('created_at',{ascending:false}),
     sb.from('refund_entries').select('user_id,amount') // table may not exist yet — handled by (allRefunds||[]) below
@@ -8183,7 +8183,7 @@ async function loadTravelers(){
   const payMap={};(allPayments||[]).forEach(p=>{
     if(!payMap[p.user_id])payMap[p.user_id]={due:0,paid:0};
     payMap[p.user_id].due+=parseFloat(p.amount_due||0);
-    payMap[p.user_id].paid+=parseFloat(p.amount_paid||0);
+    if(!p.is_refunded) payMap[p.user_id].paid+=parseFloat(p.amount_paid||0);
   });
   // Build refund map: user_id → total admin-entered refund amounts
   const refundMap={};
@@ -9567,7 +9567,7 @@ async function loadAdminPayments(){
   function buildTravelerSection(uid,isCancRefund){
     const u=byUser[uid];
     const safeUid=uid.replace(/-/g,'');
-    const totalPaid=u.payments.reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+    const totalPaid=u.payments.filter(p=>!p.is_refunded).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
     const rcptCount=u.payments.filter(p=>p.receipt_url).length;
     const sentCount=u.payments.filter(p=>p.receipt_sent).length;
     const rcptInfo=rcptCount>0?` · ${sentCount}/${rcptCount} receipt${rcptCount>1?'s':''} sent`:'';
@@ -16901,12 +16901,13 @@ async function runQuickReport(type){
     }else if(type==='payments'){
       // Payment summary per traveler
       const{data:profiles}=await sb.from('profiles').select('id,name,email,status').eq('is_admin',false);
-      const{data:pays}=await sb.from('user_payments').select('user_id,amount_due,amount_paid,label,paid_at');
+      const{data:pays}=await sb.from('user_payments').select('user_id,amount_due,amount_paid,is_refunded,label,paid_at');
       const{data:cas}=await sb.rpc('admin_get_all_cabin_assignments');
       const caMap={};(cas||[]).forEach(c=>caMap[c.user_id]=c);
       const payMap={};
       (pays||[]).forEach(pay=>{
         if(!payMap[pay.user_id])payMap[pay.user_id]={due:0,paid:0,lastDate:null};
+        if(pay.is_refunded)return;
         payMap[pay.user_id].due+=parseFloat(pay.amount_due||0);
         payMap[pay.user_id].paid+=parseFloat(pay.amount_paid||0);
         if(pay.paid_at&&(!payMap[pay.user_id].lastDate||pay.paid_at>payMap[pay.user_id].lastDate))
