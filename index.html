@@ -8291,9 +8291,11 @@ function renderTravelersView(){
     const ca=cabinMap[p.id]||null;
     const pData=payMap[p.id]||{due:0,paid:0};
     const paid=pData.paid;
+    const refundAmt=(window.gRefundMap||{})[p.id]||0;
+    const netPaid=Math.max(0,paid-refundAmt);
     const cabinCost=ca?.cabin_cost?parseFloat(ca.cabin_cost):null;
-    const bal=cabinCost?Math.max(0,cabinCost-paid):null;
-    const pct=cabinCost?Math.min(100,Math.round((paid/cabinCost)*100)):(pData.due>0?Math.round((paid/pData.due)*100):0);
+    const bal=cabinCost?Math.max(0,cabinCost-netPaid):null;
+    const pct=cabinCost?Math.min(100,Math.round((netPaid/cabinCost)*100)):(pData.due>0?Math.round((netPaid/pData.due)*100):0);
     const cabinStr=ca?(ca.cabin_type+(ca.cabin_number?' #'+ca.cabin_number:'')):'No Cabin';
     const pricePP=ca?.price_per_person?parseFloat(ca.price_per_person):null;
     const tierBadge=pricePP?`<span style="font-size:.72rem;color:#1a4a7c;font-weight:700;background:#e8f0fb;border-radius:5px;padding:1px 5px;margin-left:4px;" title="Price per person">${fmt(pricePP)}/pp</span>`:'';
@@ -8309,7 +8311,7 @@ function renderTravelersView(){
     const noCabinB=!ca?'<span class="badge badge-gray">No Cabin</span> ':'';
     const pending2nd=pending2ndCabinMap[p.id]||[];
     const pending2ndB=pending2nd.length>0?`<span class="badge badge-warn" style="font-size:.72rem;cursor:pointer;" onclick="openAdminReview2ndCabin('${p.id}')" title="Click to review pending 2nd cabin request — ${pending2nd.map(c=>c.cabin_type).join(', ')}">🛏️ +${pending2nd.length} Cabin Req. →</span> `:'';
-    const needsCCLB=(ca&&paid>0&&!ca.payment_link)
+    const needsCCLB=(ca&&netPaid>0&&!ca.payment_link)
       ?'<span class="badge badge-warn" style="font-size:.72rem;" title="Traveler has paid but no personal CCL payment link has been assigned yet">&#x26A0;&#xFE0F; Needs CCL Link</span> ':'';
     const safeN=(p.name||'').replace(/'/g,"\\'");
     window.gTravelerData[p.id]={userId:p.id,name:p.name||'',email:p.email||'',
@@ -8467,7 +8469,7 @@ function renderTravelersView(){
         (ca?.cabin_change_pending&&ca?.requested_cabin_type?'<br><span class="badge badge-warn" style="font-size:.72rem;">&#x1F504; Change Req: '+ca.requested_cabin_type+'</span>':'')+
       '</td>'+
       '<td style="font-size:.82rem;min-width:100px;">'+reservNum+'<br>'+payLink+'</td>'+
-      '<td class="col-r" style="color:var(--success)"><strong>'+fmt(paid)+'</strong></td>'+
+      '<td class="col-r" style="color:var(--success)"><strong>'+fmt(netPaid)+'</strong>'+(refundAmt>0?'<br><span style="color:#6b21a8;font-size:.73rem;font-weight:700;">↩ '+fmt(refundAmt)+' refunded</span>':'')+'</td>'+
       '<td class="col-r" style="color:'+(cabinCost?'var(--danger)':'var(--muted)')+'">'+((bal!=null)?fmt(bal):'—')+'</td>'+
       '<td><div class="pbar-row"><div class="mpbar-track"><div class="mpbar-fill" style="width:'+pct+'%"></div></div><small>'+pct+'%</small></div></td>'+
       emailCell+
@@ -9430,13 +9432,17 @@ function toggleTravelerPayRows(uid){
 }
 
 async function loadAdminPayments(){
-  const[{data},{data:allCabins},{data:cancelledProfs},{data:cancelRecs},{data:allCabinTravelers}]=await Promise.all([
+  const[{data},{data:allCabins},{data:cancelledProfs},{data:cancelRecs},{data:allCabinTravelers},{data:allRefunds}]=await Promise.all([
     sb.from('user_payments').select('*, profiles(name,email,status), payment_milestones(label,due_date)').order('created_at',{ascending:true}),
     sb.rpc('admin_get_all_cabin_assignments'),
     sb.from('profiles').select('id,status').eq('status','cancelled'),
     sb.from('cancellations').select('original_user_id,refund_processed'),
-    sb.rpc('admin_get_all_cabin_travelers')
+    sb.rpc('admin_get_all_cabin_travelers'),
+    sb.from('refund_entries').select('user_id,amount')
   ]);
+  // Build refund_entries map: user_id → total admin-entered refund amounts
+  const payRefundMap={};
+  (allRefunds||[]).forEach(r=>{payRefundMap[r.user_id]=(payRefundMap[r.user_id]||0)+parseFloat(r.amount||0);});
   const el=document.getElementById('admin-payments');
   if(!data||data.length===0){el.innerHTML='<div class="empty"><div class="ei">💳</div><p>No payments recorded yet.</p></div>';return;}
 
@@ -9567,7 +9573,9 @@ async function loadAdminPayments(){
   function buildTravelerSection(uid,isCancRefund){
     const u=byUser[uid];
     const safeUid=uid.replace(/-/g,'');
-    const totalPaid=u.payments.filter(p=>!p.is_refunded).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+    const totalPaidGross=u.payments.filter(p=>!p.is_refunded).reduce((s,p)=>s+parseFloat(p.amount_paid||0),0);
+    const entryRefund=payRefundMap[uid]||0;
+    const totalPaid=Math.max(0,totalPaidGross-entryRefund);
     const rcptCount=u.payments.filter(p=>p.receipt_url).length;
     const sentCount=u.payments.filter(p=>p.receipt_sent).length;
     const rcptInfo=rcptCount>0?` · ${sentCount}/${rcptCount} receipt${rcptCount>1?'s':''} sent`:'';
