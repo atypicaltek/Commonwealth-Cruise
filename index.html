@@ -17803,11 +17803,13 @@ async function adminRefreshCCAuthFileList(userId, name){
     const en=f.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     const label=ccFiles.length>1?`Form #${i+1}`:'Form on File';
     const removeBtn=`<button onclick="adminRemoveSingleCCAuth('${userId}','${ep}','${en}',this)" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;border-radius:7px;padding:5px 12px;font-size:.79rem;font-weight:700;cursor:pointer;">🗑️ Remove</button>`;
+    const submittedAt=f.created_at?new Date(f.created_at).toLocaleString('en-US',{timeZone:'America/New_York',month:'2-digit',day:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true})+' ET':'—';
     return `<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:9px;padding:11px 14px;margin-bottom:8px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
         <div>
           <div style="font-weight:700;color:#166534;font-size:.84rem;">✅ ${label}</div>
           <div style="font-size:.78rem;color:#166534;word-break:break-all;margin-top:2px;">${f.name}</div>
+          <div style="font-size:.75rem;color:#64748b;margin-top:3px;">📅 Submitted: <strong>${submittedAt}</strong></div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
           <button onclick="viewCCAuthForm('${ep}',this)" style="background:#166534;color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:.79rem;font-weight:700;cursor:pointer;">🔍 View</button>
