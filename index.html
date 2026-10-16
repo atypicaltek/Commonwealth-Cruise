@@ -7173,14 +7173,14 @@ async function loadDepositOverdueTab(){
   try{
     const[{data:cas,error:caErr},{data:pays},{data:profiles}]=await Promise.all([
       sb.rpc('admin_get_all_cabin_assignments'),
-      sb.from('user_payments').select('user_id,amount_paid').gt('amount_paid',0),
+      sb.from('user_payments').select('user_id,amount_paid,is_refunded').gt('amount_paid',0),
       sb.from('profiles').select('id,name,email,status').neq('is_admin',true)
     ]);
     if(caErr)throw caErr;
 
-    // Sum payments per user
+    // Sum non-refunded payments per user
     const paidTotals={};
-    (pays||[]).forEach(p=>{paidTotals[p.user_id]=(paidTotals[p.user_id]||0)+parseFloat(p.amount_paid||0);});
+    (pays||[]).forEach(p=>{if(!p.is_refunded)paidTotals[p.user_id]=(paidTotals[p.user_id]||0)+parseFloat(p.amount_paid||0);});
     const profMap={};(profiles||[]).forEach(p=>{profMap[p.id]=p;});
 
     const overdue=[];
@@ -7213,7 +7213,7 @@ async function loadDepositOverdueTab(){
         <td style="text-align:right;">$${r.totalPaid.toFixed(2)}</td>
         <td style="text-align:right;">$${r.minRequired.toFixed(2)}</td>
         <td style="text-align:right;color:#dc2626;font-weight:700;">$${r.shortage.toFixed(2)}</td>
-        <td><button class="btn btn-sm" style="background:#dc2626;color:#fff;font-size:.75rem;white-space:nowrap;" onclick="sendDepositOverdueEmail('${safeEmail}','${safeName}',${r.numGuests})">📧 Send Email</button></td>
+        <td><button class="btn btn-sm" style="background:#dc2626;color:#fff;font-size:.75rem;white-space:nowrap;" onclick="sendDepositOverdueEmail('${safeEmail}','${safeName}',${r.numGuests},${r.totalPaid.toFixed(2)},${r.shortage.toFixed(2)})">📧 Send Email</button></td>
       </tr>`;
     });
 
@@ -7228,31 +7228,58 @@ async function loadDepositOverdueTab(){
   }
 }
 
-async function sendDepositOverdueEmail(toEmail,toName,numGuests){
+async function sendDepositOverdueEmail(toEmail,toName,numGuests,totalPaidAmt,shortageAmt){
   if(!toEmail){alert('No email address on file for this traveler.');return;}
   const ng=parseInt(numGuests)||1;
   const isSolo=ng<=1;
-  const minDep=calcMinDeposit(ng).toFixed(2);
-  const depDesc=isSolo
-    ?`$${minDep} (solo traveler — double-occupancy rate applies)`
-    :`$${minDep} (${ng} guests × $${MIN_DEPOSIT_PP}.00/person)`;
-  const subject=`${TRIP_NAME} — Action Required: Minimum Deposit Not Received`;
-  const plain=`Thank you for your reservation on the ${TRIP_NAME}.\n\nOur records indicate that the minimum deposit of ${depDesc} has not been received by the September 1, 2026 deadline.\n\nYour cabin request is currently on hold.\n\nAvailability will be rechecked beginning September 2, 2026. At that time, your request will be reviewed and we will contact you regarding next steps.\n\nIf you believe this is an error or have already submitted payment, please reply to this email immediately.\n\nWatch how to make a payment: ${PAYMENT_HOW_TO_VIDEO_URL}\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the ${TRIP_NAME} portal.`;
-  const bodyHtml=`<p>Thank you for your reservation on the <strong>${TRIP_NAME}</strong>.</p>
-<p>Our records indicate that the minimum deposit of <strong>${depDesc}</strong> has not been received by the <strong>September 1, 2026 deadline</strong>.</p>
-<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;">
-  <strong>⚠️ Your cabin request is currently on hold.</strong><br>
-  Availability will be rechecked beginning <strong>September 2, 2026</strong>. At that time, your request will be reviewed and we will contact you regarding next steps.
+
+  // Full deposit = initial deposit ($250/pp, solo=$500) + 2nd payment (same amount)
+  const depositPerPayment=isSolo?500:250*ng;
+  const fullDeposit=depositPerPayment*2; // initial + 2nd payment
+  const totalPaid=parseFloat(totalPaidAmt)||0;
+  // pastDue is what the button passed, but recalculate vs full deposit
+  const pastDue=Math.max(0,fullDeposit-totalPaid);
+
+  const rateDesc=isSolo
+    ?`$500.00/payment (solo traveler — double-occupancy rate applies)`
+    :`$${depositPerPayment.toFixed(2)}/payment ($250.00/person × ${ng} guests)`;
+  const rateDescShort=isSolo?'Solo (double-occ. rate)':`$250/person × ${ng} guests`;
+
+  const subject=`${TRIP_NAME} — URGENT: Full Deposit Past Due — Last Day is October 15, 2026`;
+
+  const plain=`IMPORTANT NOTICE — ${toName.toUpperCase()}\n\nToday, October 15, 2026 is the LAST DAY to pay your full deposit for the ${TRIP_NAME}.\n\nFULL DEPOSIT SUMMARY\n${'─'.repeat(40)}\nDeposit Rate:           ${rateDescShort}\nInitial Deposit:        $${depositPerPayment.toFixed(2)}\n2nd Payment:            $${depositPerPayment.toFixed(2)}\nFull Deposit Required:  $${fullDeposit.toFixed(2)}\nPayments Received:      $${totalPaid.toFixed(2)}\nPast-Due Balance:       $${pastDue.toFixed(2)}\n${'─'.repeat(40)}\n\nYour full deposit of $${fullDeposit.toFixed(2)} must be received by MIDNIGHT TONIGHT, October 15, 2026.\n\nIMPORTANT — REGARDING YOUR CABIN RESERVATION:\nAs of October 15, 2026, Carnival Cruise Line will release all non-deposited cabins back into general inventory. If you are still interested in traveling with us, please contact us immediately. At the time your deposit is received, cabin availability will be confirmed with Carnival on a case-by-case basis.\n\nWatch how to make a payment: ${PAYMENT_HOW_TO_VIDEO_URL}\n\nIf you believe this is an error or have already submitted payment, please reply to this email immediately with your confirmation number.\n\nThank you,\nYour Commonwealth Cruise Team\nThis email was sent by the ${TRIP_NAME} portal.`;
+
+  const bodyHtml=`
+<div style="background:#7f1d1d;color:#fff;border-radius:8px;padding:13px 18px;margin:0 0 18px;text-align:center;">
+  <div style="font-size:1.05rem;font-weight:900;">🚨 TODAY IS THE LAST DAY — October 15, 2026</div>
+  <div style="font-size:.88rem;margin-top:4px;opacity:.92;">Full deposit must be received by midnight tonight to retain your cabin reservation.</div>
 </div>
-<p>If you believe this is an error or have already submitted payment, please reply to this email immediately so we can resolve this promptly.</p>
+<p>Our records indicate that your full deposit for the <strong>${TRIP_NAME}</strong> has not been received by today's deadline.</p>
+<div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:10px;padding:16px 20px;margin:16px 0;">
+  <div style="font-size:.95rem;font-weight:800;color:#0f2744;margin-bottom:12px;">💳 Your Full Deposit Summary</div>
+  <table style="width:100%;border-collapse:collapse;font-size:.90rem;">
+    <tr><td style="padding:4px 0;color:#64748b;width:200px;">Deposit Rate:</td><td style="font-weight:600;">${rateDescShort}</td></tr>
+    <tr><td style="padding:4px 0;color:#64748b;">Initial Deposit:</td><td style="font-weight:700;">$${depositPerPayment.toFixed(2)}</td></tr>
+    <tr><td style="padding:4px 0;color:#64748b;">2nd Payment:</td><td style="font-weight:700;">$${depositPerPayment.toFixed(2)}</td></tr>
+    <tr style="border-top:1px solid #e2e8f0;"><td style="padding:6px 0 3px;font-weight:700;color:#0f2744;">Full Deposit Required:</td><td style="font-weight:800;color:#0f2744;">$${fullDeposit.toFixed(2)}</td></tr>
+    <tr><td style="padding:3px 0;color:#64748b;">Payments Received:</td><td style="font-weight:700;color:${totalPaid>0?'#16a34a':'#64748b'};">${totalPaid>0?`$${totalPaid.toFixed(2)}`:'$0.00'}</td></tr>
+    <tr style="border-top:2px solid #dc2626;"><td style="padding:6px 0 2px;font-weight:800;color:#991b1b;">Past-Due Balance:</td><td style="font-weight:900;color:#dc2626;font-size:1.05rem;">$${pastDue.toFixed(2)}</td></tr>
+  </table>
+</div>
+<div style="background:#fef2f2;border:2px solid #dc2626;border-radius:8px;padding:13px 16px;margin:16px 0;">
+  <div style="font-weight:800;color:#991b1b;margin-bottom:8px;">⚠️ Your Cabin Reservation — Important Notice</div>
+  <p style="margin:0 0 8px;font-size:.93rem;color:#7f1d1d;">As of <strong>October 15, 2026</strong>, Carnival Cruise Line will release all non-deposited cabins back into general inventory.</p>
+  <p style="margin:0;font-size:.93rem;color:#7f1d1d;">If you are still interested in traveling with us, please contact us immediately. At the time your deposit is received, <strong>cabin availability will be confirmed with Carnival on a case-by-case basis.</strong></p>
+</div>
 <div style="margin:22px 0;text-align:center;">
   <p style="font-weight:700;color:#0f2744;font-size:.95rem;margin:0 0 12px;">📹 Watch: How to Make a Payment</p>
   <a href="${PAYMENT_HOW_TO_VIDEO_URL}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.95rem;padding:13px 30px;border-radius:10px;text-decoration:none;">▶ Watch Payment Tutorial</a>
   <p style="font-size:.78rem;color:#64748b;margin:10px 0 0;">Can't play? <a href="${PAYMENT_HOW_TO_VIDEO_URL}" target="_blank" style="color:#1a4a7c;font-weight:600;">Click here to watch</a></p>
-</div>`;
+</div>
+<p>If you have already submitted payment, please reply to this email immediately with your confirmation number so we can update your account.</p>`;
   const html=buildEmailHtml(toName,bodyHtml);
   try{
-    await sendEmail(toEmail,toName,subject,plain,html,false,false); // bypassHold=false → held in queue
+    await sendEmail(toEmail,toName,subject,plain,html,false,false);
     flash('admin-alert',`📧 Deposit overdue email queued for ${toName}.`,'success');
   }catch(e){
     flash('admin-alert',`❌ Failed to queue email for ${toName}: ${e.message}`,'error');
@@ -7647,64 +7674,88 @@ async function sendDepositDeadlineNotices(){
 
 async function sendDepositDeadlineEmail(r){
   const toName=r.name, toEmail=r.email;
-  const rateNote1=r.numGuests<=1?'solo traveler — double-occupancy rate':`$250.00/person × ${r.numGuests} guests`;
   const has2=!!r.cabin2Type;
-  const rateNote2=has2?(r.numGuests2<=1?'solo traveler — double-occupancy rate':`$250.00/person × ${r.numGuests2} guests`):'';
-  const reqStr=r.totalRequired.toFixed(2);
-  const paidStr=r.totalPaid.toFixed(2);
-  const remStr=r.remaining.toFixed(2);
-  const dep1Str=r.deposit1.toFixed(2);
-  const dep2Str=has2?r.deposit2.toFixed(2):'0.00';
 
-  const subject=r.isCurrent
-    ?`${TRIP_NAME} — Deposit Deadline Reminder: October 15, 2026`
-    :`${TRIP_NAME} — Action Required: Deposit Balance Due by October 15, 2026`;
+  // Full deposit = initial deposit + 2nd payment (same rate each)
+  // Solo traveler (numGuests <= 1) pays double-occupancy rate: $500 per payment
+  const fullDep1=r.deposit1*2;  // initial + 2nd payment for cabin 1
+  const fullDep2=has2?r.deposit2*2:0; // initial + 2nd payment for cabin 2
+  const totalFullRequired=fullDep1+fullDep2;
+  const pastDue=Math.max(0,totalFullRequired-r.totalPaid);
+  const isCurrent=pastDue<=0;
+
+  const rateNote1=r.numGuests<=1?'solo traveler — double-occupancy rate':`$250.00/person × ${r.numGuests} guests`;
+  const rateNote2=has2?(r.numGuests2<=1?'solo traveler — double-occupancy rate':`$250.00/person × ${r.numGuests2} guests`):'';
+
+  const fullDep1Str=fullDep1.toFixed(2);
+  const fullDep2Str=has2?fullDep2.toFixed(2):'0.00';
+  const totalFullStr=totalFullRequired.toFixed(2);
+  const paidStr=r.totalPaid.toFixed(2);
+  const pastDueStr=pastDue.toFixed(2);
+  const dep1EachStr=r.deposit1.toFixed(2); // per-payment amount (each of 2)
+  const dep2EachStr=has2?r.deposit2.toFixed(2):'0.00';
+
+  const subject=isCurrent
+    ?`${TRIP_NAME} — Full Deposit Reminder: Today, October 15, 2026 is the Last Day`
+    :`${TRIP_NAME} — URGENT: Past-Due Balance of $${pastDueStr} — Last Day to Pay is Today, October 15, 2026`;
 
   // Plain text
-  let cabinLines=`Cabin 1: ${r.cabinType} — ${r.numGuests} guest${r.numGuests!==1?'s':''} — Deposit: $${dep1Str} (${rateNote1})`;
-  if(has2) cabinLines+=`\nCabin 2: ${r.cabin2Type} — ${r.numGuests2} guest${r.numGuests2!==1?'s':''} — Deposit: $${dep2Str} (${rateNote2})`;
-  const actionLine=r.isCurrent
-    ?`Your account is currently on track — thank you! Please make your payment by October 15, 2026 to remain current and retain your cabin reservation. If your deposit is not received in full by that deadline, your cabin may be released back into general inventory.`
-    :`ACTION REQUIRED: You have a remaining balance of $${remStr} due by midnight on October 15, 2026.\nIf this balance is not received by that deadline, your cabin will be released back into general inventory.`;
-  const plain=`This is a reminder about the upcoming full deposit deadline for the ${TRIP_NAME}.\n\nDEPOSIT DEADLINE: Midnight, October 15, 2026\nDeposit Rate: $250.00 per person ($500.00 for solo travelers)\n\nYOUR CABIN DEPOSIT SUMMARY\n${cabinLines}\n\nTotal Deposit Required: $${reqStr}\nPayments Received:      $${paidStr}\nRemaining Balance:      $${remStr}\n\n${actionLine}\n\nWatch how to make a payment: ${PAYMENT_HOW_TO_VIDEO_URL}\n\nIf you have already submitted payment, please reply with your confirmation.\n\nThank you,\nYour Commonwealth Cruise Team`;
+  let cabinLines=`Cabin 1: ${r.cabinType} — ${r.numGuests} guest${r.numGuests!==1?'s':''}\n  Initial Deposit:  $${dep1EachStr} (${rateNote1})\n  2nd Payment:      $${dep1EachStr} (${rateNote1})\n  Cabin 1 Total:    $${fullDep1Str}`;
+  if(has2) cabinLines+=`\n\nCabin 2: ${r.cabin2Type} — ${r.numGuests2} guest${r.numGuests2!==1?'s':''}\n  Initial Deposit:  $${dep2EachStr} (${rateNote2})\n  2nd Payment:      $${dep2EachStr} (${rateNote2})\n  Cabin 2 Total:    $${fullDep2Str}`;
+  const actionLine=isCurrent
+    ?`Your full deposit of $${totalFullStr} has been received — thank you! To retain your cabin reservation, please ensure any remaining balance is paid by midnight tonight, October 15, 2026.`
+    :`ACTION REQUIRED — PAST DUE AMOUNT: $${pastDueStr}\n\nToday, October 15, 2026 is the LAST DAY to pay your full deposit. Your past-due balance of $${pastDueStr} must be received by midnight tonight.\n\nIf payment is not received by midnight, your cabin will be released back into general inventory.`;
+  const plain=`TODAY — OCTOBER 15, 2026 — IS THE LAST DAY TO PAY YOUR FULL DEPOSIT FOR THE ${TRIP_NAME.toUpperCase()}.\n\nFULL DEPOSIT = Initial Deposit + 2nd Payment\nDeposit Rate: $250.00/person per payment ($500.00/payment for solo travelers)\n\nYOUR FULL DEPOSIT SUMMARY\n${cabinLines}\n\nTotal Full Deposit Required:  $${totalFullStr}\nTotal Payments Received:      $${paidStr}\nPast-Due Balance:             $${pastDueStr}\n\n${actionLine}\n\nWatch how to make a payment: ${PAYMENT_HOW_TO_VIDEO_URL}\n\nIf you have already submitted payment, please reply with your confirmation number so we can update your account.\n\nThank you,\nYour Commonwealth Cruise Team`;
 
-  // HTML cabin rows
-  const cabin1Row=`<tr><td style="padding:5px 0;color:#64748b;font-size:.88rem;width:190px;">Cabin 1 — ${r.cabinType}:</td><td style="font-weight:700;">$${dep1Str} <span style="font-size:.81rem;color:#64748b;font-weight:400;">(${rateNote1})</span></td></tr>`;
-  const cabin2Row=has2?`<tr><td style="padding:5px 0;color:#64748b;font-size:.88rem;">Cabin 2 — ${r.cabin2Type}:</td><td style="font-weight:700;">$${dep2Str} <span style="font-size:.81rem;color:#64748b;font-weight:400;">(${rateNote2})</span></td></tr>`:'';
+  // HTML cabin rows — show each milestone separately
+  const cabin1Rows=`
+    <tr><td style="padding:5px 0 2px;color:#64748b;font-size:.86rem;width:200px;">Cabin 1 — ${r.cabinType}${r.numGuests<=1?' (Solo)':' ('+r.numGuests+' guests)'}:</td><td></td></tr>
+    <tr><td style="padding:1px 0 1px 14px;color:#64748b;font-size:.84rem;">Initial Deposit <span style="font-size:.78rem;">(${rateNote1})</span>:</td><td style="font-weight:700;">$${dep1EachStr}</td></tr>
+    <tr><td style="padding:1px 0 4px 14px;color:#64748b;font-size:.84rem;">2nd Payment <span style="font-size:.78rem;">(${rateNote1})</span>:</td><td style="font-weight:700;">$${dep1EachStr}</td></tr>
+    <tr style="border-top:1px dashed #e2e8f0;"><td style="padding:3px 0 5px 14px;font-weight:700;font-size:.86rem;">Cabin 1 Subtotal:</td><td style="font-weight:800;color:#0f2744;">$${fullDep1Str}</td></tr>`;
+  const cabin2Rows=has2?`
+    <tr style="border-top:1px solid #e2e8f0;"><td style="padding:6px 0 2px;color:#64748b;font-size:.86rem;">Cabin 2 — ${r.cabin2Type}${r.numGuests2<=1?' (Solo)':' ('+r.numGuests2+' guests)'}:</td><td></td></tr>
+    <tr><td style="padding:1px 0 1px 14px;color:#64748b;font-size:.84rem;">Initial Deposit <span style="font-size:.78rem;">(${rateNote2})</span>:</td><td style="font-weight:700;">$${dep2EachStr}</td></tr>
+    <tr><td style="padding:1px 0 4px 14px;color:#64748b;font-size:.84rem;">2nd Payment <span style="font-size:.78rem;">(${rateNote2})</span>:</td><td style="font-weight:700;">$${dep2EachStr}</td></tr>
+    <tr style="border-top:1px dashed #e2e8f0;"><td style="padding:3px 0 5px 14px;font-weight:700;font-size:.86rem;">Cabin 2 Subtotal:</td><td style="font-weight:800;color:#0f2744;">$${fullDep2Str}</td></tr>`:'';
 
-  const statusBox=r.isCurrent
+  const statusBox=isCurrent
     ?`<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:12px 16px;margin:16px 0;">
-  <div style="font-weight:800;color:#15803d;margin-bottom:6px;">✅ Your Account Is Currently On Track</div>
-  <p style="margin:0;font-size:.95rem;color:#166534;">Thank you for staying current with your payments! Please make your payment by <strong>October 15, 2026</strong> to remain current and retain your cabin reservation. If the full deposit is not received by that deadline, your cabin may be released back into general inventory.</p>
+  <div style="font-weight:800;color:#15803d;font-size:1rem;margin-bottom:6px;">✅ Full Deposit Received — Thank You!</div>
+  <p style="margin:0;font-size:.93rem;color:#166534;">Your full deposit of <strong>$${totalFullStr}</strong> has been received. To retain your cabin reservation, please ensure your account remains current. We look forward to seeing you on the trip!</p>
 </div>`
-    :`<div style="background:#fef2f2;border:2px solid #dc2626;border-radius:8px;padding:12px 16px;margin:16px 0;">
-  <div style="font-weight:800;color:#991b1b;margin-bottom:6px;">⚠️ Action Required — Balance Due</div>
-  <p style="margin:0;font-size:.95rem;color:#7f1d1d;">Your remaining balance of <strong>$${remStr}</strong> must be received by <strong>midnight on October 15, 2026</strong>. If payment is not received by this deadline, your cabin will be released back into general inventory.</p>
+    :`<div style="background:#fef2f2;border:2px solid #dc2626;border-radius:8px;padding:14px 16px;margin:16px 0;">
+  <div style="font-weight:800;color:#991b1b;font-size:1rem;margin-bottom:8px;">🚨 PAST-DUE BALANCE — ACTION REQUIRED TODAY</div>
+  <p style="margin:0 0 8px;font-size:.95rem;color:#7f1d1d;"><strong>Today, October 15, 2026 is the LAST DAY</strong> to pay your full deposit and retain your cabin reservation.</p>
+  <p style="margin:0;font-size:.95rem;color:#7f1d1d;">Your past-due balance of <strong style="font-size:1.05rem;">$${pastDueStr}</strong> must be received by <strong>midnight tonight</strong>. If payment is not received, your cabin will be released back into general inventory.</p>
 </div>`;
 
-  const ctaLine=r.isCurrent
-    ?`<p>Please make your payment by <strong>October 15, 2026</strong> to remain current and retain your cabin reservation. We look forward to seeing you on the trip!</p>`
-    :`<p>To secure your reservation, please submit your remaining payment of <strong>$${remStr}</strong> as soon as possible.</p>`;
+  const ctaLine=isCurrent
+    ?`<p style="color:#166534;">Thank you for staying current with your payments!</p>`
+    :`<p style="font-weight:700;color:#991b1b;">Please submit your payment of <strong>$${pastDueStr}</strong> immediately to secure your reservation before midnight tonight.</p>`;
 
-  const bodyHtml=`<p>This is a reminder about the upcoming <strong>full deposit deadline</strong> for the <strong>${TRIP_NAME}</strong>.</p>
-<div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:10px;padding:16px 20px;margin:18px 0;">
-  <div style="font-size:1rem;font-weight:800;color:#0f2744;margin-bottom:12px;">💳 Your Cabin Deposit Summary</div>
-  <table style="width:100%;border-collapse:collapse;font-size:.92rem;">
-    ${cabin1Row}
-    ${cabin2Row}
-    <tr style="border-top:1px solid #e2e8f0;">
-      <td style="padding:6px 0 2px;color:#64748b;">Total Deposit Required:</td>
-      <td style="font-weight:800;">$${reqStr}</td>
+  const bodyHtml=`
+<div style="background:#7f1d1d;color:#fff;border-radius:8px;padding:13px 18px;margin:0 0 18px;text-align:center;">
+  <div style="font-size:1.08rem;font-weight:900;letter-spacing:.01em;">📅 TODAY IS THE LAST DAY — October 15, 2026</div>
+  <div style="font-size:.88rem;margin-top:4px;opacity:.92;">Full deposit (Initial Deposit + 2nd Payment) must be received by midnight tonight.</div>
+</div>
+<div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:10px;padding:16px 20px;margin:0 0 18px;">
+  <div style="font-size:.97rem;font-weight:800;color:#0f2744;margin-bottom:12px;">💳 Your Full Deposit Breakdown</div>
+  <table style="width:100%;border-collapse:collapse;font-size:.90rem;">
+    ${cabin1Rows}
+    ${cabin2Rows}
+    <tr style="border-top:2px solid #0f2744;">
+      <td style="padding:7px 0 3px;font-weight:800;color:#0f2744;">Total Full Deposit Required:</td>
+      <td style="font-weight:900;color:#0f2744;font-size:1rem;">$${totalFullStr}</td>
     </tr>
     <tr>
       <td style="padding:2px 0;color:#64748b;">Payments Received:</td>
-      <td style="font-weight:700;color:${r.totalPaid>0?'#16a34a':'#64748b'};">${r.totalPaid>0?`− $${paidStr}`:'$0.00'}</td>
+      <td style="font-weight:700;color:${r.totalPaid>0?'#16a34a':'#64748b'};">${r.totalPaid>0?`$${paidStr}`:'$0.00'}</td>
     </tr>
-    <tr style="border-top:2px solid ${r.isCurrent?'#86efac':'#dc2626'};">
-      <td style="padding:6px 0 2px;font-weight:700;color:${r.isCurrent?'#15803d':'#991b1b'};">${r.isCurrent?'Balance Remaining:':'Remaining Balance Due:'}</td>
-      <td style="font-weight:900;color:${r.isCurrent?'#16a34a':'#dc2626'};font-size:1.05rem;">${r.isCurrent?'$0.00 ✓':`$${remStr}`}</td>
+    <tr style="border-top:2px solid ${isCurrent?'#86efac':'#dc2626'};">
+      <td style="padding:6px 0 2px;font-weight:800;color:${isCurrent?'#15803d':'#991b1b'};font-size:.95rem;">${isCurrent?'Balance:':'Past-Due Amount:'}</td>
+      <td style="font-weight:900;color:${isCurrent?'#16a34a':'#dc2626'};font-size:1.1rem;">${isCurrent?`$0.00 ✓`:`$${pastDueStr}`}</td>
     </tr>
-    <tr><td style="padding:2px 0;color:#64748b;">Deadline:</td><td style="font-weight:800;color:#dc2626;">Midnight, October 15, 2026</td></tr>
   </table>
 </div>
 ${statusBox}
@@ -7714,7 +7765,7 @@ ${ctaLine}
   <a href="${PAYMENT_HOW_TO_VIDEO_URL}" target="_blank" style="display:inline-block;background:#1a4a7c;color:#fff;font-weight:800;font-size:.95rem;padding:13px 30px;border-radius:10px;text-decoration:none;">▶ Watch Payment Tutorial</a>
   <p style="font-size:.78rem;color:#64748b;margin:10px 0 0;">Can't play? <a href="${PAYMENT_HOW_TO_VIDEO_URL}" target="_blank" style="color:#1a4a7c;font-weight:600;">Click here to watch</a></p>
 </div>
-<p>If you have already submitted your payment, please reply to this email with your confirmation so we can update your account promptly.</p>`;
+<p>If you have already submitted your payment, please reply to this email with your confirmation number so we can update your account promptly.</p>`;
   const html=buildEmailHtml(toName,bodyHtml);
   await sendEmail(toEmail,toName,subject,plain,html,false,false);
 }
