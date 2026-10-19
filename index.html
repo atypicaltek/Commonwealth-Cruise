@@ -959,6 +959,7 @@
               <option value="payments">💵 Payments</option>
               <option value="suite_requests">🛁 Suite Requests</option>
               <option value="cabin_type">🏠 Cabin Type</option>
+              <option value="unpaid_travelers">📵 Unpaid Travelers</option>
             </select>
           </div>
           <div style="display:flex;gap:8px;padding-bottom:1px;">
@@ -14997,6 +14998,44 @@ async function egSendEmail(){
   }
 }
 
+function openSmsComposeModal(phone, name, defaultMessage){
+  const existing=document.getElementById('sms-compose-modal');
+  if(existing)existing.remove();
+  const rawPhone=phone.replace(/\D/g,'');
+  const dispPhone=phone.replace(/(\d{3})(\d{3})(\d{4})/,'($1) $2-$3')||phone;
+  const modal=document.createElement('div');
+  modal.id='sms-compose-modal';
+  modal.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML=`<div style="background:#fff;border-radius:14px;padding:24px;max-width:480px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.2);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div>
+        <div style="font-weight:800;font-size:1rem;color:#0f2744;">📱 Compose Text Message</div>
+        <div style="font-size:.8rem;color:#64748b;margin-top:2px;">To: <strong>${name}</strong> &nbsp;·&nbsp; ${dispPhone}</div>
+      </div>
+      <button onclick="document.getElementById('sms-compose-modal').remove()" style="background:none;border:none;font-size:1.4rem;color:#94a3b8;cursor:pointer;line-height:1;">&times;</button>
+    </div>
+    <div style="margin-bottom:8px;">
+      <label style="font-size:.84rem;font-weight:600;color:#374151;">Message</label>
+      <div style="font-size:.75rem;color:#94a3b8;margin-bottom:4px;">Edit before sending — character count shown below</div>
+      <textarea id="sms-compose-body" rows="6" style="width:100%;padding:10px;border:1.5px solid #d1d5db;border-radius:8px;font-size:.92rem;line-height:1.5;box-sizing:border-box;resize:vertical;" oninput="document.getElementById('sms-char-count').textContent=this.value.length+' chars'">${defaultMessage}</textarea>
+      <div id="sms-char-count" style="font-size:.75rem;color:#94a3b8;text-align:right;margin-top:2px;">${defaultMessage.length} chars</div>
+    </div>
+    <div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:8px;padding:9px 12px;font-size:.78rem;color:#0369a1;margin-bottom:16px;">
+      💡 Clicking <strong>Open SMS App</strong> will open your device's messaging app with this message pre-filled. You can still edit it before hitting send.
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="launchSms('${rawPhone}')" style="flex:1;padding:10px;background:#0f2744;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">📱 Open SMS App</button>
+      <button onclick="document.getElementById('sms-compose-modal').remove()" style="flex:1;padding:10px;background:#e5e7eb;color:#374151;border:none;border-radius:8px;cursor:pointer;">Cancel</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+}
+function launchSms(rawPhone){
+  const body=document.getElementById('sms-compose-body')?.value||'';
+  window.open(`sms:${rawPhone}?body=${encodeURIComponent(body)}`,'_self');
+  document.getElementById('sms-compose-modal')?.remove();
+}
+
 async function showAdminNoteModal(userId, userName){
   const existing = document.getElementById('admin-note-modal');
   if(existing) existing.remove();
@@ -16940,7 +16979,7 @@ async function runQuickReport(type){
       const dpMap={};
       dpLog.forEach(entry=>{const k=(entry.email||'').toLowerCase();if(!dpMap[k])dpMap[k]=[];dpMap[k].push(entry);});
       const rows=(profiles||[]).filter(p=>p.cc_auth_url||dpMap[(p.email||'').toLowerCase()]?.length).map(p=>({
-        name:p.name||'—',email:p.email||'—',status:p.status||'active',
+        id:p.id,name:p.name||'—',email:p.email||'—',status:p.status||'active',
         authUrl:p.cc_auth_url||'',
         declined:dpMap[(p.email||'').toLowerCase()]||[]
       }));
@@ -16948,14 +16987,79 @@ async function runQuickReport(type){
       statusEl.textContent=`${rows.length} traveler${rows.length!==1?'s':''} — ${rows.filter(r=>r.authUrl).length} CC auth submitted, ${rows.filter(r=>r.declined.length).length} declined notices sent`;
       if(!rows.length){el.innerHTML='<div class="empty"><div class="ei">📋</div><p>No CC auth submissions or declined payment notices on file.</p></div>';return;}
       el.innerHTML=`<table>
-        <thead><tr><th>Traveler</th><th>Email</th><th>Status</th><th>Declined Payments</th><th>CC Auth</th></tr></thead>
-        <tbody>${rows.map(r=>`<tr>
-          <td><strong>${r.name}</strong></td>
-          <td style="font-size:.82rem;">${r.email}</td>
-          <td><span class="badge ${r.status==='cancelled'?'badge-danger':'badge-success'}">${r.status}</span></td>
-          <td>${r.declined.length?r.declined.map(d=>`<div style="line-height:1.4;margin-bottom:4px;"><span style="font-size:.78rem;font-weight:700;color:#dc2626;">${d.paymentType||'Payment'}${d.amount?` — $${d.amount}`:''}</span><br><span style="font-size:.72rem;color:#94a3b8;">${new Date(d.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span></div>`).join(''):'<span style="color:#94a3b8;font-size:.8rem;">—</span>'}</td>
-          <td>${r.authUrl?`<a href="${r.authUrl}" target="_blank" style="color:var(--secondary);font-size:.82rem;">View Form ↗</a>`:'<span style="color:#94a3b8;font-size:.8rem;">—</span>'}</td>
-        </tr>`).join('')}</tbody></table>`;
+        <thead><tr><th>Traveler</th><th>Email</th><th>Status</th><th>Declined Payments</th><th>CC Auth</th><th>Notes</th></tr></thead>
+        <tbody>${rows.map(r=>{
+          const safeId=(r.id||'').replace(/'/g,"\\'");
+          const safeName=(r.name||'').replace(/'/g,"\\'");
+          return`<tr>
+            <td><strong>${r.name}</strong></td>
+            <td style="font-size:.82rem;">${r.email}</td>
+            <td><span class="badge ${r.status==='cancelled'?'badge-danger':'badge-success'}">${r.status}</span></td>
+            <td>${r.declined.length?r.declined.map(d=>`<div style="line-height:1.4;margin-bottom:4px;"><span style="font-size:.78rem;font-weight:700;color:#dc2626;">${d.paymentType||'Payment'}${d.amount?` — $${d.amount}`:''}</span><br><span style="font-size:.72rem;color:#94a3b8;">${new Date(d.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span></div>`).join(''):'<span style="color:#94a3b8;font-size:.8rem;">—</span>'}</td>
+            <td>${r.authUrl?`<a href="${r.authUrl}" target="_blank" style="color:var(--secondary);font-size:.82rem;">View Form ↗</a>`:'<span style="color:#94a3b8;font-size:.8rem;">—</span>'}</td>
+            <td><button onclick="showAdminNoteModal('${safeId}','${safeName}')" style="background:#f0f9ff;color:#1a4a7c;border:1.5px solid #bae6fd;border-radius:7px;padding:4px 10px;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap;">📝 Add Note</button></td>
+          </tr>`;
+        }).join('')}</tbody></table>`;
+
+    }else if(type==='unpaid_travelers'){
+      // Travelers with $0 paid toward the trip (active/pending only)
+      const[{data:profiles},{data:pays},{data:cas},{data:ctRows}]=await Promise.all([
+        sb.from('profiles').select('id,name,email,status,phone').eq('is_admin',false).neq('status','cancelled'),
+        sb.from('user_payments').select('user_id,amount_paid,is_refunded').gt('amount_paid',0),
+        sb.rpc('admin_get_all_cabin_assignments'),
+        sb.from('cabin_travelers').select('account_owner_id,phone').order('created_at',{ascending:true})
+      ]);
+      // Build set of user_ids that have at least one non-refunded payment
+      const paidSet=new Set();
+      (pays||[]).forEach(p=>{if(!p.is_refunded)paidSet.add(p.user_id);});
+      // caMap for cabin type
+      const caMap={};(cas||[]).forEach(c=>{if(!caMap[c.user_id])caMap[c.user_id]=c;});
+      // Phone map: first cabin_traveler phone per account_owner
+      const phoneMap={};
+      (ctRows||[]).forEach(ct=>{if(!phoneMap[ct.account_owner_id]&&ct.phone)phoneMap[ct.account_owner_id]=ct.phone;});
+      const rows=(profiles||[])
+        .filter(p=>!paidSet.has(p.id))
+        .map(p=>{
+          const ca=caMap[p.id];
+          const phone=phoneMap[p.id]||p.phone||'';
+          return{id:p.id,name:p.name||'—',email:p.email||'—',phone,
+            cabinType:ca?.cabin_type||'—',numGuests:ca?.num_guests||'—',status:p.status||'active'};
+        });
+      rows.sort((a,b)=>a.name.localeCompare(b.name));
+      gQuickReportData=rows;
+      statusEl.textContent=`${rows.length} active traveler${rows.length!==1?'s':''} with $0 paid`;
+      if(!rows.length){el.innerHTML='<div class="empty"><div class="ei">✅</div><p>All active travelers have made at least one payment.</p></div>';return;}
+      const smsMsg=encodeURIComponent(`Hi [Name], this is a message from the ${TRIP_NAME} team. Our records show we have not received a payment toward your trip reservation. Please reply to confirm your cancellation or let us know when you plan to submit your deposit. Questions? Email ${ADMIN_EMAIL}`);
+      el.innerHTML=`
+        <div style="background:#fef3c7;border:1.5px solid #fcd34d;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:.84rem;color:#92400e;">
+          <strong>📱 About the Text button:</strong> Clicking it opens your device's default SMS app with a pre-filled message. Works best on mobile. You can edit the message before sending. If a traveler has no phone on file, the button will be disabled.
+        </div>
+        <table>
+          <thead><tr><th>Traveler</th><th>Email</th><th>Phone</th><th>Cabin</th><th>Guests</th><th>Contact</th></tr></thead>
+          <tbody>${rows.map(r=>{
+            const safeId=(r.id||'').replace(/'/g,"\\'");
+            const safeName=(r.name||'').replace(/'/g,"\\'");
+            const safeEmail=(r.email||'').replace(/'/g,"\\'");
+            const rawPhone=(r.phone||'').replace(/\D/g,'');
+            const dispPhone=r.phone||'—';
+            const defaultSmsMsg=`Hi ${r.name}, this is a message from the ${TRIP_NAME} team. Our records show we have not received a payment toward your trip reservation. Please reply to confirm your cancellation or let us know when you plan to submit your deposit. Questions? Email ${ADMIN_EMAIL}`;
+            const safeDefaultMsg=defaultSmsMsg.replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$/g,'\\$');
+            const textBtn=rawPhone
+              ?`<button onclick="openSmsComposeModal('${rawPhone}','${safeName}',\`${safeDefaultMsg}\`)" style="background:#0f2744;color:#fff;border:none;border-radius:7px;padding:4px 10px;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap;">📱 Text</button>`
+              :`<button disabled style="background:#e5e7eb;color:#9ca3af;border:none;border-radius:7px;padding:4px 10px;font-size:.78rem;cursor:not-allowed;white-space:nowrap;" title="No phone on file">📱 No Phone</button>`;
+            return`<tr>
+              <td><strong>${r.name}</strong></td>
+              <td style="font-size:.82rem;">${r.email}</td>
+              <td style="font-size:.82rem;">${dispPhone}</td>
+              <td><span class="badge badge-purple">${r.cabinType}</span></td>
+              <td style="font-weight:700;">${r.numGuests}</td>
+              <td style="display:flex;gap:6px;flex-wrap:wrap;">
+                ${textBtn}
+                <button onclick="sendDepositOverdueEmail('${safeEmail}','${safeName}',${parseInt(r.numGuests)||1},0,0)" style="background:#f0f9ff;color:#1a4a7c;border:1.5px solid #bae6fd;border-radius:7px;padding:4px 10px;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap;">📧 Email</button>
+                <button onclick="showAdminNoteModal('${safeId}','${safeName}')" style="background:#f0fdf4;color:#166534;border:1.5px solid #86efac;border-radius:7px;padding:4px 10px;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap;">📝 Note</button>
+              </td>
+            </tr>`;
+          }).join('')}</tbody></table>`;
 
     }else if(type==='payments'){
       // Payment summary per traveler
